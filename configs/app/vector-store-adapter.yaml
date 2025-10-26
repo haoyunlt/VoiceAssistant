@@ -1,0 +1,33 @@
+# Vector Store Adapter Service 配置
+
+service:
+  name: vector-store-adapter
+  version: 1.0.0
+  port: 8003
+
+# Milvus 配置
+milvus:
+  host: ${MILVUS_HOST:localhost}
+  port: ${MILVUS_PORT:19530}
+  user: ${MILVUS_USER:}
+  password: ${MILVUS_PASSWORD:}
+
+# pgvector (PostgreSQL) 配置
+pgvector:
+  host: ${PGVECTOR_HOST:localhost}
+  port: ${PGVECTOR_PORT:5432}
+  database: ${PGVECTOR_DATABASE:voicehelper}
+  user: ${PGVECTOR_USER:postgres}
+  password: ${PGVECTOR_PASSWORD:}
+
+# 默认配置
+defaults:
+  backend: milvus # milvus | pgvector
+  collection_name: document_chunks
+  vector_dimension: 1024
+  timeout: 30.0
+
+# 日志配置
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

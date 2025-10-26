@@ -3,9 +3,10 @@ package biz
 import (
 	"context"
 
+	"voiceassistant/cmd/identity-service/internal/domain"
+	pkgErrors "voiceassistant/pkg/errors"
+
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/voicehelper/voiceassistant/cmd/identity-service/internal/domain"
-	pkgErrors "github.com/voicehelper/voiceassistant/pkg/errors"
 )
 
 // TenantUsecase 租户用例

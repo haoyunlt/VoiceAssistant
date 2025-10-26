@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  multimodal-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicehelper/multimodal-engine:latest
+    container_name: multimodal-engine
+    ports:
+      - "8016:8016"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=info
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+    depends_on:
+      - redis
+      - minio
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8016/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+      - multimodal-cache:/app/cache
+
+  redis:
+    image: redis:7-alpine
+    container_name: multimodal-engine-redis
+    ports:
+      - "6395:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  minio:
+    image: minio/minio:latest
+    container_name: multimodal-engine-minio
+    ports:
+      - "9006:9000"
+      - "9007:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+
+volumes:
+  redis-data:
+  minio-data:
+  multimodal-cache:
+
+networks:
+  voicehelper-network:
+    driver: bridge

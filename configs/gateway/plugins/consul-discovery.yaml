@@ -1,0 +1,461 @@
+#
+# Consul 服务发现配置
+# 版本: v2.0
+# 最后更新: 2025-10-26
+#
+
+# ========================================
+# 1. Consul 连接配置
+# ========================================
+
+consul:
+  # Consul 服务器地址
+  servers:
+    - "consul-server-1.voicehelper.svc.cluster.local:8500"
+    - "consul-server-2.voicehelper.svc.cluster.local:8500"
+    - "consul-server-3.voicehelper.svc.cluster.local:8500"
+
+  # 数据中心
+  datacenter: "dc1"
+
+  # 命名空间 (Consul Enterprise)
+  namespace: "voicehelper"
+
+  # Token (ACL 认证)
+  token: ${VAULT:secret/consul#token}
+
+  # 连接超时
+  connect_timeout: 5000
+
+  # 读取超时
+  read_timeout: 5000
+
+  # 重试次数
+  max_retries: 3
+
+# ========================================
+# 2. 服务注册配置
+# ========================================
+
+service_registration:
+  # 自动注册 APISIX 网关
+  apisix_gateway:
+    service_name: "apisix-gateway"
+    service_id: "apisix-gateway-${HOSTNAME}"
+
+    # 服务地址
+    address: "${HOST_IP}"
+    port: 9080
+
+    # 服务标签
+    tags:
+      - "gateway"
+      - "http"
+      - "grpc"
+
+    # 服务元数据
+    meta:
+      version: "v2.0"
+      environment: "production"
+
+    # 健康检查
+    check:
+      http: "http://${HOST_IP}:9080/health"
+      interval: "10s"
+      timeout: "1s"
+      deregister_critical_service_after: "30s"
+
+# ========================================
+# 3. 服务发现配置
+# ========================================
+
+service_discovery:
+  # 启用服务发现
+  enabled: true
+
+  # 发现策略
+  strategy: "roundrobin" # roundrobin, random, least_conn
+
+  # 缓存配置
+  cache:
+    # 启用缓存
+    enabled: true
+
+    # 缓存 TTL
+    ttl: 30
+
+    # 缓存大小
+    size: 1000
+
+  # 健康检查配置
+  health_check:
+    # 启用健康检查
+    enabled: true
+
+    # 主动健康检查
+    active:
+      type: "http" # http, https, tcp, grpc
+      timeout: 1
+      http_path: "/health"
+      interval: 2
+      healthy:
+        successes: 2
+        http_statuses: [200, 201]
+      unhealthy:
+        timeouts: 3
+        http_failures: 2
+        http_statuses: [429, 500, 502, 503, 504]
+
+    # 被动健康检查
+    passive:
+      enabled: true
+      healthy:
+        successes: 3
+        http_statuses: [200, 201, 202, 301, 302]
+      unhealthy:
+        timeouts: 5
+        http_failures: 5
+        http_statuses: [500, 502, 503, 504]
+
+  # 服务过滤
+  filters:
+    # 按标签过滤
+    tags:
+      - "production"
+
+    # 按元数据过滤
+    meta:
+      environment: "production"
+
+# ========================================
+# 4. 服务定义 (Go 微服务)
+# ========================================
+
+go_services:
+  # Identity Service
+  - service_name: "identity-service"
+    service_id: "identity-service-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "auth"
+      - "user"
+      - "tenant"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+  # Conversation Service
+  - service_name: "conversation-service"
+    service_id: "conversation-service-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "conversation"
+      - "message"
+      - "session"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+  # Knowledge Service
+  - service_name: "knowledge-service"
+    service_id: "knowledge-service-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "document"
+      - "knowledge"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+  # AI Orchestrator
+  - service_name: "ai-orchestrator"
+    service_id: "ai-orchestrator-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "ai"
+      - "orchestration"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+  # Model Router
+  - service_name: "model-router"
+    service_id: "model-router-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "model"
+      - "llm"
+      - "routing"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+  # Notification Service
+  - service_name: "notification-service"
+    service_id: "notification-service-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "notification"
+      - "email"
+      - "sms"
+      - "push"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+  # Analytics Service
+  - service_name: "analytics-service"
+    service_id: "analytics-service-${INSTANCE_ID}"
+    port: 9000
+    protocol: "grpc"
+    tags:
+      - "analytics"
+      - "metrics"
+      - "reporting"
+    check:
+      grpc: "${HOST_IP}:9000/grpc.health.v1.Health/Check"
+      interval: "10s"
+      timeout: "1s"
+
+# ========================================
+# 5. 服务定义 (Python 算法服务)
+# ========================================
+
+python_services:
+  # Agent Engine
+  - service_name: "agent-engine"
+    service_id: "agent-engine-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "agent"
+      - "langgraph"
+      - "tools"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+  # RAG Engine
+  - service_name: "rag-engine"
+    service_id: "rag-engine-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "rag"
+      - "retrieval"
+      - "generation"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+  # Indexing Service
+  - service_name: "indexing-service"
+    service_id: "indexing-service-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "indexing"
+      - "embedding"
+      - "graph"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+  # Retrieval Service
+  - service_name: "retrieval-service"
+    service_id: "retrieval-service-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "retrieval"
+      - "search"
+      - "rerank"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+  # Voice Engine
+  - service_name: "voice-engine"
+    service_id: "voice-engine-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "voice"
+      - "asr"
+      - "tts"
+      - "vad"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+  # Multimodal Engine
+  - service_name: "multimodal-engine"
+    service_id: "multimodal-engine-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "multimodal"
+      - "ocr"
+      - "vision"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+  # Model Adapter
+  - service_name: "model-adapter"
+    service_id: "model-adapter-${INSTANCE_ID}"
+    port: 8000
+    protocol: "http"
+    tags:
+      - "adapter"
+      - "openai"
+      - "claude"
+      - "zhipu"
+    check:
+      http: "http://${HOST_IP}:8000/health"
+      interval: "10s"
+      timeout: "2s"
+
+# ========================================
+# 6. 负载均衡配置
+# ========================================
+
+load_balancing:
+  # 策略
+  strategy: "roundrobin"
+
+  # 权重配置
+  weights:
+    # 按实例类型分配权重
+    standard: 1
+    high_performance: 2
+
+  # 会话保持
+  session_affinity:
+    enabled: false
+    cookie_name: "X-Service-Session"
+    ttl: 3600
+
+# ========================================
+# 7. 故障转移配置
+# ========================================
+
+failover:
+  # 启用故障转移
+  enabled: true
+
+  # 最大重试次数
+  max_retries: 3
+
+  # 重试策略
+  retry_strategy:
+    - "next" # 重试下一个实例
+    - "fallback" # 降级服务
+
+  # 熔断器
+  circuit_breaker:
+    enabled: true
+    error_threshold: 5
+    timeout: 30
+
+# ========================================
+# 8. 灰度发布配置
+# ========================================
+
+canary_deployment:
+  # 启用灰度发布
+  enabled: false
+
+  # 灰度流量比例
+  traffic_weight:
+    stable: 90
+    canary: 10
+
+  # 灰度规则
+  rules:
+    # 按 Header 路由
+    - match:
+        header:
+          name: "X-Canary"
+          value: "true"
+      destination: "canary"
+
+    # 按用户 ID 路由 (10% 用户)
+    - match:
+        user_id_mod: 10
+      destination: "canary"
+
+# ========================================
+# 9. 监控与日志
+# ========================================
+
+observability:
+  # Prometheus 指标
+  prometheus:
+    enabled: true
+    port: 9091
+    path: "/metrics"
+    metrics:
+      - "consul_services_total"
+      - "consul_service_health"
+      - "consul_discovery_latency"
+
+  # 日志
+  logging:
+    level: "info"
+    format: "json"
+    targets:
+      - "stdout"
+      - "file"
+    file:
+      path: "/var/log/apisix/consul-discovery.log"
+      max_size: 100 # MB
+      max_backups: 10
+      max_age: 30 # 天
+
+# ========================================
+# 10. 高级特性
+# ========================================
+
+advanced:
+  # Consul Connect (服务网格)
+  connect:
+    enabled: false
+    intentions:
+      - source: "apisix-gateway"
+        destination: "*"
+        action: "allow"
+
+  # Consul Prepared Queries
+  prepared_queries:
+    enabled: false
+    queries:
+      - name: "nearest-identity-service"
+        service: "identity-service"
+        near: "_agent"
+
+  # 多数据中心支持
+  multi_datacenter:
+    enabled: false
+    datacenters:
+      - "dc1"
+      - "dc2"
+    failover: true

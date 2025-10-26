@@ -1,0 +1,101 @@
+#
+# JWT 认证插件配置
+# 版本: v2.0
+#
+
+jwt-auth:
+  # JWT 密钥 (从 Vault 读取)
+  secret: ${VAULT:secret/jwt#secret}
+
+  # 算法
+  algorithm: HS256
+
+  # 过期时间 (秒)
+  exp: 86400  # 24小时
+
+  # 是否 Base64 编码
+  base64_secret: false
+
+  # 公钥 (RS256/RS512 时使用)
+  # public_key: ${VAULT:secret/jwt#public_key}
+
+  # 私钥 (RS256/RS512 时使用)
+  # private_key: ${VAULT:secret/jwt#private_key}
+
+  # Header 名称
+  header: Authorization
+
+  # Query 参数名称 (可选)
+  query: jwt
+
+  # Cookie 名称 (可选)
+  cookie: jwt
+
+  # 隐藏凭据 (不传递给上游)
+  hide_credentials: true
+
+#
+# 刷新 Token 配置
+#
+refresh_token:
+  secret: ${VAULT:secret/jwt#refresh_secret}
+  exp: 604800  # 7天
+
+#
+# 租户隔离
+#
+tenant_isolation:
+  enabled: true
+  claim_name: tenant_id
+  header_name: X-Tenant-ID
+
+#
+# 用户上下文
+#
+user_context:
+  enabled: true
+  claims:
+    - user_id
+    - email
+    - roles
+    - permissions
+  headers:
+    user_id: X-User-ID
+    email: X-User-Email
+    roles: X-User-Roles
+
+#
+# 黑名单 (已撤销的 Token)
+#
+blacklist:
+  enabled: true
+  storage: redis
+  redis:
+    host: redis.voicehelper.svc.cluster.local
+    port: 6379
+    database: 1
+    password: ${VAULT:secret/redis#password}
+    prefix: jwt_blacklist:
+    ttl: 86400
+
+#
+# 时钟偏移容忍 (秒)
+#
+clock_skew: 60
+
+#
+# 签发者验证
+#
+issuer:
+  enabled: true
+  value: voicehelper.ai
+
+#
+# 受众验证
+#
+audience:
+  enabled: true
+  values:
+    - api.voicehelper.ai
+    - web.voicehelper.ai
+    - mobile.voicehelper.ai

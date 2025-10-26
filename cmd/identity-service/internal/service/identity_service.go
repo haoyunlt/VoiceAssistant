@@ -3,10 +3,11 @@ package service
 import (
 	"context"
 
+	pb "voiceassistant/api/proto/identity/v1"
+	"voiceassistant/cmd/identity-service/internal/biz"
+	"voiceassistant/cmd/identity-service/internal/domain"
+
 	"github.com/go-kratos/kratos/v2/log"
-	pb "github.com/voicehelper/voiceassistant/api/proto/identity/v1"
-	"github.com/voicehelper/voiceassistant/cmd/identity-service/internal/biz"
-	"github.com/voicehelper/voiceassistant/cmd/identity-service/internal/domain"
 )
 
 // IdentityService is the identity service implementation.

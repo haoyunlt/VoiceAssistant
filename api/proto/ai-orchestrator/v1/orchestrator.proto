@@ -1,210 +1,449 @@
 syntax = "proto3";
 
-package ai_orchestrator.v1;
+package ai.orchestrator.v1;
 
-option go_package = "ai-orchestrator/api/proto/orchestrator/v1;v1";
+option go_package = "github.com/voicehelper/voiceassistant/api/proto/ai-orchestrator/v1;v1";
 
-// AI Orchestrator Service - AI 任务编排与流程控制
-service AIOrchestrator {
-  // 创建 AI 任务
-  rpc CreateTask(CreateTaskRequest) returns (Task);
-  
-  // 获取任务状态
-  rpc GetTask(GetTaskRequest) returns (Task);
-  
-  // 执行对话任务
-  rpc ExecuteChat(ExecuteChatRequest) returns (stream ChatResponse);
-  
-  // 执行 RAG 任务
-  rpc ExecuteRAG(ExecuteRAGRequest) returns (stream RAGResponse);
-  
-  // 执行 Agent 任务
-  rpc ExecuteAgent(ExecuteAgentRequest) returns (stream AgentResponse);
-  
+import "google/protobuf/timestamp.proto";
+
+// AI Orchestrator Service
+// 负责编排和协调各个 AI 引擎（Agent、RAG、Voice、Multimodal）
+service Orchestrator {
+  // 处理消息（非流式）
+  rpc ProcessMessage(ProcessMessageRequest) returns (ProcessMessageResponse);
+
+  // 处理消息（流式）
+  rpc ProcessMessageStream(ProcessMessageRequest) returns (stream ProcessMessageStreamResponse);
+
+  // 执行工作流
+  rpc ExecuteWorkflow(ExecuteWorkflowRequest) returns (ExecuteWorkflowResponse);
+
   // 取消任务
-  rpc CancelTask(CancelTaskRequest) returns (Empty);
-  
-  // 获取任务历史
-  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+
+  // 获取任务状态
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (GetTaskStatusResponse);
 }
 
-message CreateTaskRequest {
-  string user_id = 1;
-  string tenant_id = 2;
-  string conversation_id = 3;
-  TaskType task_type = 4;
-  string input = 5;
-  map<string, string> params = 6;
+// ========================================
+// 消息处理
+// ========================================
+
+// 处理消息请求
+message ProcessMessageRequest {
+  // 会话 ID
+  string conversation_id = 1;
+
+  // 消息内容
+  string message = 2;
+
+  // 用户 ID
+  string user_id = 3;
+
+  // 租户 ID
+  string tenant_id = 4;
+
+  // 消息上下文
+  MessageContext context = 5;
+
+  // 处理模式
+  ProcessMode mode = 6;
+
+  // 配置
+  ProcessConfig config = 7;
 }
 
-message Task {
+// 消息上下文
+message MessageContext {
+  // 历史消息
+  repeated HistoryMessage history = 1;
+
+  // 系统提示
+  string system_prompt = 2;
+
+  // 用户偏好
+  map<string, string> user_preferences = 3;
+
+  // 会话元数据
+  map<string, string> metadata = 4;
+}
+
+// 历史消息
+message HistoryMessage {
+  // 角色 (user/assistant/system)
+  string role = 1;
+
+  // 内容
+  string content = 2;
+
+  // 时间戳
+  google.protobuf.Timestamp timestamp = 3;
+}
+
+// 处理模式
+enum ProcessMode {
+  // 自动模式（自动选择最佳引擎）
+  MODE_AUTO = 0;
+
+  // RAG 模式（检索增强生成）
+  MODE_RAG = 1;
+
+  // Agent 模式（工具调用）
+  MODE_AGENT = 2;
+
+  // 对话模式（纯对话）
+  MODE_CHAT = 3;
+
+  // 语音模式
+  MODE_VOICE = 4;
+
+  // 多模态模式
+  MODE_MULTIMODAL = 5;
+}
+
+// 处理配置
+message ProcessConfig {
+  // 模型名称
+  string model = 1;
+
+  // 温度
+  float temperature = 2;
+
+  // 最大 Token 数
+  int32 max_tokens = 3;
+
+  // Top P
+  float top_p = 4;
+
+  // 流式输出
+  bool stream = 5;
+
+  // 启用 RAG
+  bool enable_rag = 6;
+
+  // RAG 配置
+  RAGConfig rag_config = 7;
+
+  // Agent 配置
+  AgentConfig agent_config = 8;
+}
+
+// RAG 配置
+message RAGConfig {
+  // 知识库 ID
+  repeated string knowledge_base_ids = 1;
+
+  // 检索数量
+  int32 top_k = 2;
+
+  // 相似度阈值
+  float similarity_threshold = 3;
+
+  // 检索模式 (vector/bm25/hybrid)
+  string retrieval_mode = 4;
+
+  // 是否重排序
+  bool enable_rerank = 5;
+}
+
+// Agent 配置
+message AgentConfig {
+  // 允许的工具
+  repeated string allowed_tools = 1;
+
+  // 最大迭代次数
+  int32 max_iterations = 2;
+
+  // 超时时间（秒）
+  int32 timeout = 3;
+
+  // 启用长期记忆
+  bool enable_memory = 4;
+}
+
+// 处理消息响应（非流式）
+message ProcessMessageResponse {
+  // 任务 ID
   string task_id = 1;
-  string user_id = 2;
-  string tenant_id = 3;
-  string conversation_id = 4;
-  TaskType task_type = 5;
-  TaskStatus status = 6;
-  string input = 7;
-  string output = 8;
-  string error = 9;
-  int64 created_at = 10;
-  int64 updated_at = 11;
-  int64 completed_at = 12;
-  TaskMetrics metrics = 13;
+
+  // 回复内容
+  string reply = 2;
+
+  // 使用的引擎
+  string engine = 3;
+
+  // 引用来源
+  repeated Citation citations = 4;
+
+  // 工具调用记录
+  repeated ToolCall tool_calls = 5;
+
+  // 元数据
+  map<string, string> metadata = 6;
+
+  // Token 使用量
+  TokenUsage token_usage = 7;
+
+  // 处理时长（毫秒）
+  int64 duration_ms = 8;
 }
 
-message TaskMetrics {
-  int32 total_steps = 1;
-  int32 completed_steps = 2;
-  float duration_ms = 3;
-  int32 tokens_used = 4;
-  float cost_usd = 5;
-  string model_used = 6;
-}
-
-message GetTaskRequest {
+// 处理消息响应（流式）
+message ProcessMessageStreamResponse {
+  // 任务 ID
   string task_id = 1;
+
+  // 事件类型
+  StreamEventType event_type = 2;
+
+  // 内容增量
+  string delta = 3;
+
+  // 引用来源
+  repeated Citation citations = 4;
+
+  // 工具调用
+  ToolCall tool_call = 5;
+
+  // 元数据
+  map<string, string> metadata = 6;
+
+  // 是否结束
+  bool finished = 7;
+
+  // 最终统计
+  FinalStats final_stats = 8;
 }
 
-message ExecuteChatRequest {
-  string user_id = 1;
-  string tenant_id = 2;
-  string conversation_id = 3;
-  string message = 4;
-  ChatMode mode = 5;
-  map<string, string> params = 6;
+// 流式事件类型
+enum StreamEventType {
+  EVENT_UNKNOWN = 0;
+  EVENT_START = 1;           // 开始
+  EVENT_DELTA = 2;           // 内容增量
+  EVENT_CITATION = 3;        // 引用
+  EVENT_TOOL_CALL = 4;       // 工具调用
+  EVENT_TOOL_RESULT = 5;     // 工具结果
+  EVENT_THINKING = 6;        // 思考过程
+  EVENT_ERROR = 7;           // 错误
+  EVENT_FINISH = 8;          // 完成
 }
 
-message ChatResponse {
-  string task_id = 1;
-  ResponseType type = 2;  // text, thinking, tool_call, final
-  string content = 3;
-  ToolCall tool_call = 4;
-  bool done = 5;
-  TaskMetrics metrics = 6;
-}
+// 引用来源
+message Citation {
+  // 引用 ID
+  string id = 1;
 
-message ExecuteRAGRequest {
-  string user_id = 1;
-  string tenant_id = 2;
-  string conversation_id = 3;
-  string query = 4;
-  repeated string collection_ids = 5;
-  RAGMode mode = 6;
-  int32 top_k = 7;
-  map<string, string> params = 8;
-}
-
-message RAGResponse {
-  string task_id = 1;
-  ResponseType type = 2;
-  string content = 3;
-  repeated RetrievedChunk chunks = 4;
-  bool done = 5;
-  TaskMetrics metrics = 6;
-}
-
-message RetrievedChunk {
-  string chunk_id = 1;
+  // 文档 ID
   string document_id = 2;
-  string content = 3;
-  float score = 4;
-  string method = 5;  // vector, graph, hybrid
+
+  // 文档标题
+  string title = 3;
+
+  // 引用片段
+  string snippet = 4;
+
+  // 相似度分数
+  float score = 5;
+
+  // 元数据
+  map<string, string> metadata = 6;
 }
 
-message ExecuteAgentRequest {
-  string user_id = 1;
-  string tenant_id = 2;
-  string conversation_id = 3;
-  string task_description = 4;
-  repeated string available_tools = 5;
-  int32 max_iterations = 6;
-  map<string, string> params = 7;
-}
-
-message AgentResponse {
-  string task_id = 1;
-  ResponseType type = 2;
-  string content = 3;
-  AgentStep step = 4;
-  bool done = 5;
-  TaskMetrics metrics = 6;
-}
-
-message AgentStep {
-  int32 step_number = 1;
-  string action = 2;       // think, tool_call, finish
-  string thought = 3;
-  ToolCall tool_call = 4;
-  string observation = 5;
-}
-
+// 工具调用
 message ToolCall {
-  string tool_name = 1;
-  map<string, string> arguments = 2;
-  string result = 3;
+  // 调用 ID
+  string id = 1;
+
+  // 工具名称
+  string tool = 2;
+
+  // 参数
+  string arguments = 3;
+
+  // 结果
+  string result = 4;
+
+  // 状态 (pending/success/failed)
+  string status = 5;
+
+  // 错误信息
+  string error = 6;
+
+  // 执行时长（毫秒）
+  int64 duration_ms = 7;
 }
 
-message CancelTaskRequest {
+// Token 使用量
+message TokenUsage {
+  // 提示 Token
+  int32 prompt_tokens = 1;
+
+  // 完成 Token
+  int32 completion_tokens = 2;
+
+  // 总 Token
+  int32 total_tokens = 3;
+
+  // 成本（美元）
+  float cost_usd = 4;
+}
+
+// 最终统计
+message FinalStats {
+  // Token 使用量
+  TokenUsage token_usage = 1;
+
+  // 处理时长（毫秒）
+  int64 duration_ms = 2;
+
+  // 使用的引擎
+  string engine = 3;
+
+  // 工具调用次数
+  int32 tool_calls_count = 4;
+}
+
+// ========================================
+// 工作流执行
+// ========================================
+
+// 执行工作流请求
+message ExecuteWorkflowRequest {
+  // 工作流 ID
+  string workflow_id = 1;
+
+  // 工作流定义（JSON）
+  string workflow_definition = 2;
+
+  // 输入参数
+  map<string, string> inputs = 3;
+
+  // 用户 ID
+  string user_id = 4;
+
+  // 租户 ID
+  string tenant_id = 5;
+}
+
+// 执行工作流响应
+message ExecuteWorkflowResponse {
+  // 任务 ID
   string task_id = 1;
-  string reason = 2;
+
+  // 工作流实例 ID
+  string instance_id = 2;
+
+  // 状态
+  WorkflowStatus status = 3;
+
+  // 结果
+  map<string, string> outputs = 4;
+
+  // 执行步骤
+  repeated WorkflowStep steps = 5;
+
+  // 元数据
+  map<string, string> metadata = 6;
 }
 
-message ListTasksRequest {
-  string user_id = 1;
-  string tenant_id = 2;
-  string conversation_id = 3;
-  TaskType task_type = 4;
-  TaskStatus status = 5;
-  int32 page = 6;
-  int32 page_size = 7;
+// 工作流状态
+enum WorkflowStatus {
+  STATUS_UNKNOWN = 0;
+  STATUS_PENDING = 1;
+  STATUS_RUNNING = 2;
+  STATUS_COMPLETED = 3;
+  STATUS_FAILED = 4;
+  STATUS_CANCELLED = 5;
 }
 
-message ListTasksResponse {
-  repeated Task tasks = 1;
-  int64 total = 2;
+// 工作流步骤
+message WorkflowStep {
+  // 步骤 ID
+  string id = 1;
+
+  // 步骤名称
+  string name = 2;
+
+  // 状态
+  WorkflowStatus status = 3;
+
+  // 引擎
+  string engine = 4;
+
+  // 输入
+  map<string, string> inputs = 5;
+
+  // 输出
+  map<string, string> outputs = 6;
+
+  // 错误信息
+  string error = 7;
+
+  // 执行时长（毫秒）
+  int64 duration_ms = 8;
 }
 
-enum TaskType {
-  TASK_TYPE_UNSPECIFIED = 0;
-  TASK_TYPE_CHAT = 1;
-  TASK_TYPE_RAG = 2;
-  TASK_TYPE_AGENT = 3;
-  TASK_TYPE_VOICE = 4;
-  TASK_TYPE_MULTIMODAL = 5;
+// ========================================
+// 任务管理
+// ========================================
+
+// 取消任务请求
+message CancelTaskRequest {
+  // 任务 ID
+  string task_id = 1;
+
+  // 用户 ID
+  string user_id = 2;
 }
 
+// 取消任务响应
+message CancelTaskResponse {
+  // 是否成功
+  bool success = 1;
+
+  // 消息
+  string message = 2;
+}
+
+// 获取任务状态请求
+message GetTaskStatusRequest {
+  // 任务 ID
+  string task_id = 1;
+
+  // 用户 ID
+  string user_id = 2;
+}
+
+// 获取任务状态响应
+message GetTaskStatusResponse {
+  // 任务 ID
+  string task_id = 1;
+
+  // 状态
+  TaskStatus status = 2;
+
+  // 进度（0-100）
+  int32 progress = 3;
+
+  // 当前步骤
+  string current_step = 4;
+
+  // 元数据
+  map<string, string> metadata = 5;
+
+  // 创建时间
+  google.protobuf.Timestamp created_at = 6;
+
+  // 更新时间
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// 任务状态
 enum TaskStatus {
-  TASK_STATUS_UNSPECIFIED = 0;
-  TASK_STATUS_PENDING = 1;
-  TASK_STATUS_RUNNING = 2;
-  TASK_STATUS_COMPLETED = 3;
-  TASK_STATUS_FAILED = 4;
-  TASK_STATUS_CANCELLED = 5;
+  TASK_UNKNOWN = 0;
+  TASK_PENDING = 1;      // 等待中
+  TASK_RUNNING = 2;      // 运行中
+  TASK_COMPLETED = 3;    // 已完成
+  TASK_FAILED = 4;       // 失败
+  TASK_CANCELLED = 5;    // 已取消
 }
-
-enum ChatMode {
-  CHAT_MODE_UNSPECIFIED = 0;
-  CHAT_MODE_DIRECT = 1;      // 直接对话
-  CHAT_MODE_RAG = 2;          // RAG 增强
-  CHAT_MODE_AGENT = 3;        // Agent 模式
-}
-
-enum RAGMode {
-  RAG_MODE_UNSPECIFIED = 0;
-  RAG_MODE_VECTOR = 1;        // 向量检索
-  RAG_MODE_GRAPH = 2;         // 图检索
-  RAG_MODE_HYBRID = 3;        // 混合检索
-}
-
-enum ResponseType {
-  RESPONSE_TYPE_UNSPECIFIED = 0;
-  RESPONSE_TYPE_TEXT = 1;
-  RESPONSE_TYPE_THINKING = 2;
-  RESPONSE_TYPE_TOOL_CALL = 3;
-  RESPONSE_TYPE_RETRIEVED = 4;
-  RESPONSE_TYPE_FINAL = 5;
-}
-
-message Empty {}
-

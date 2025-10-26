@@ -6,7 +6,7 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/transport/http"
 
-	"github.com/voicehelper/voiceassistant/cmd/notification-service/internal/service"
+	"voiceassistant/cmd/notification-service/internal/service"
 )
 
 func NewHTTPServer(

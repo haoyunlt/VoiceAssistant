@@ -1,0 +1,354 @@
+#
+# OpenTelemetry 追踪插件配置
+# 版本: v2.0
+#
+
+opentelemetry:
+  # 启用
+  enabled: true
+
+  # Collector 地址
+  collector:
+    address: "otel-collector.voicehelper.svc.cluster.local:4317"
+    request_timeout: 3 # 秒
+    request_headers:
+      Authorization: "Bearer ${VAULT:secret/otel#token}"
+
+  # 资源属性
+  resource:
+    service.name: "apisix-gateway"
+    service.version: "v2.0.0"
+    service.namespace: "voicehelper"
+    deployment.environment: "${ENV:prod}"
+
+  # 采样器配置
+  sampler:
+    name: parent_base # always_on, always_off, trace_id_ratio, parent_base
+    options:
+      fraction: 0.1 # 10% 采样率
+      parent_sampled: true # 继承父采样决策
+
+  # Span 配置
+  span:
+    # Span 名称格式
+    name_format: "${http_method} ${uri}"
+
+    # Span 类型
+    kind: server # server, client, internal
+
+    # 最大属性数量
+    max_attributes: 64
+
+    # 最大事件数量
+    max_events: 128
+
+    # 最大链接数量
+    max_links: 32
+
+#
+# 追踪传播
+#
+propagation:
+  # 传播格式
+  formats:
+    - w3c_traceparent # W3C Trace Context
+    - w3c_tracestate # W3C Trace State
+    - b3 # Zipkin B3
+    - jaeger # Jaeger
+
+  # 传播 Header
+  headers:
+    - traceparent
+    - tracestate
+    - x-b3-traceid
+    - x-b3-spanid
+    - x-b3-sampled
+    - uber-trace-id
+
+#
+# Span 属性
+#
+attributes:
+  # HTTP 属性
+  http:
+    - http.method
+    - http.url
+    - http.target
+    - http.host
+    - http.scheme
+    - http.status_code
+    - http.request_content_length
+    - http.response_content_length
+    - http.user_agent
+    - http.client_ip
+
+  # 网络属性
+  network:
+    - net.peer.ip
+    - net.peer.port
+    - net.host.ip
+    - net.host.port
+
+  # 自定义属性
+  custom:
+    - tenant_id: $http_x_tenant_id
+    - user_id: $http_x_user_id
+    - request_id: $http_x_request_id
+    - api_version: v1
+    - route_name: $route_name
+    - service_name: $upstream_name
+
+#
+# Span 事件
+#
+events:
+  # 请求开始
+  - name: http.request.start
+    attributes:
+      - http.method
+      - http.url
+
+  # 请求结束
+  - name: http.request.end
+    attributes:
+      - http.status_code
+      - http.response_content_length
+
+  # 上游调用开始
+  - name: upstream.call.start
+    attributes:
+      - upstream.name
+      - upstream.uri
+
+  # 上游调用结束
+  - name: upstream.call.end
+    attributes:
+      - upstream.name
+      - upstream.status
+      - upstream.latency
+
+  # 错误事件
+  - name: error
+    attributes:
+      - error.type
+      - error.message
+      - error.stack_trace
+
+#
+# 批处理配置
+#
+batch:
+  # 启用批处理
+  enabled: true
+
+  # 最大队列大小
+  max_queue_size: 2048
+
+  # 批处理超时 (毫秒)
+  schedule_delay_millis: 5000
+
+  # 最大导出批次大小
+  max_export_batch_size: 256
+
+#
+# 采样策略
+#
+sampling_strategies:
+  # 始终采样的路径
+  always_sample_paths:
+    - /health
+    - /metrics
+    - /api/v1/identity/login
+
+  # 错误请求始终采样
+  always_sample_errors: true
+
+  # 慢请求始终采样 (> 1s)
+  always_sample_slow_requests:
+    enabled: true
+    threshold_ms: 1000
+
+  # 根据租户采样
+  tenant_based_sampling:
+    enabled: true
+    rules:
+      - tenant_id: "voicehelper-internal"
+        sample_rate: 1.0 # 内部租户全采样
+      - tenant_id: "premium-*"
+        sample_rate: 0.5 # 高级租户 50% 采样
+      - default: 0.1 # 其他租户 10% 采样
+
+#
+# 导出器配置
+#
+exporters:
+  # gRPC 导出器
+  otlp_grpc:
+    enabled: true
+    endpoint: "otel-collector.voicehelper.svc.cluster.local:4317"
+    compression: gzip
+    timeout: 10 # 秒
+    retry:
+      enabled: true
+      initial_interval: 5 # 秒
+      max_interval: 30
+      max_elapsed_time: 300
+
+  # HTTP 导出器
+  otlp_http:
+    enabled: false
+    endpoint: "http://otel-collector.voicehelper.svc.cluster.local:4318/v1/traces"
+    compression: gzip
+    timeout: 10
+
+  # Jaeger 导出器
+  jaeger:
+    enabled: false
+    agent_host: "jaeger-agent.voicehelper.svc.cluster.local"
+    agent_port: 6831
+
+  # Zipkin 导出器
+  zipkin:
+    enabled: false
+    endpoint: "http://zipkin.voicehelper.svc.cluster.local:9411/api/v2/spans"
+
+#
+# 处理器
+#
+processors:
+  # Batch 处理器
+  - type: batch
+    config:
+      timeout: 10s
+      send_batch_size: 512
+      send_batch_max_size: 1024
+
+  # 属性处理器
+  - type: attributes
+    config:
+      # 删除敏感属性
+      actions:
+        - key: http.request.header.authorization
+          action: delete
+        - key: http.request.header.cookie
+          action: delete
+        - key: password
+          action: delete
+
+  # 资源处理器
+  - type: resource
+    config:
+      attributes:
+        - key: cloud.provider
+          value: "kubernetes"
+          action: upsert
+        - key: k8s.cluster.name
+          value: "voicehelper-prod"
+          action: upsert
+
+#
+# 过滤器
+#
+filters:
+  # 排除健康检查
+  - type: exclude_paths
+    patterns:
+      - /health
+      - /metrics
+      - /favicon.ico
+
+  # 排除静态资源
+  - type: exclude_extensions
+    extensions:
+      - .css
+      - .js
+      - .png
+      - .jpg
+      - .gif
+
+  # 排除 200 状态码 (可选)
+  - type: exclude_status_codes
+    enabled: false
+    codes:
+      - 200
+
+#
+# 上下文传播
+#
+context_propagation:
+  # 传播到上游
+  propagate_to_upstream: true
+
+  # 从下游继承
+  inherit_from_downstream: true
+
+  # 传播格式优先级
+  priority:
+    - w3c
+    - b3
+    - jaeger
+
+#
+# 性能配置
+#
+performance:
+  # 启用异步发送
+  async_send: true
+
+  # 缓冲区大小
+  buffer_size: 4096
+
+  # 发送线程数
+  num_threads: 4
+
+  # 最大内存使用 (MB)
+  max_memory_mb: 512
+
+#
+# 调试
+#
+debug:
+  enabled: false
+  log_spans: false
+  log_attributes: false
+
+#
+# 日志
+#
+logging:
+  level: info # debug, info, warn, error
+  format: json
+  output: stdout
+
+#
+# 指标
+#
+metrics:
+  # 导出 OTel 指标
+  enabled: true
+
+  # 指标端点
+  endpoint: "http://otel-collector.voicehelper.svc.cluster.local:8888/metrics"
+
+  # 指标包括
+  include:
+    - otlp_exporter_spans_exported_total
+    - otlp_exporter_spans_dropped_total
+    - otlp_exporter_send_failed_spans_total
+    - otlp_exporter_send_duration_seconds
+
+#
+# 健康检查
+#
+health_check:
+  enabled: true
+  interval: 30 # 秒
+  timeout: 5 # 秒
+
+#
+# 可观测性仪表盘
+#
+dashboards:
+  jaeger_ui: "http://jaeger.voicehelper.svc.cluster.local:16686"
+  grafana_tempo: "http://grafana.voicehelper.svc.cluster.local:3000/explore"
+  zipkin_ui: "http://zipkin.voicehelper.svc.cluster.local:9411/zipkin"

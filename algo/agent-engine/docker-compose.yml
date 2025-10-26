@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  agent-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicehelper/agent-engine:latest
+    container_name: agent-engine
+    ports:
+      - "8010:8010"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=info
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_ADAPTER_URL=http://model-adapter:8013
+      - RETRIEVAL_SERVICE_URL=http://retrieval-service:8012
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - redis
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8010/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+
+  redis:
+    image: redis:7-alpine
+    container_name: agent-engine-redis
+    ports:
+      - "6390:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  redis-data:
+
+networks:
+  voicehelper-network:
+    driver: bridge

@@ -3,8 +3,9 @@ package biz
 import (
 	"context"
 
+	"voiceassistant/cmd/notification-service/internal/domain"
+
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/voicehelper/voiceassistant/cmd/notification-service/internal/domain"
 )
 
 // NotificationUsecase 通知用例

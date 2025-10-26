@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  model-adapter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicehelper/model-adapter:latest
+    container_name: model-adapter
+    ports:
+      - "8013:8013"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=info
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+    depends_on:
+      - redis
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8013/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+
+  redis:
+    image: redis:7-alpine
+    container_name: model-adapter-redis
+    ports:
+      - "6392:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  redis-data:
+
+networks:
+  voicehelper-network:
+    driver: bridge

@@ -1,205 +1,293 @@
-"""RAG服务 - 完整的RAG流程编排"""
-import json
+"""RAG服务 - 整合检索、生成、引用."""
+
 import logging
 import time
-from typing import AsyncIterator, Dict, List
+from typing import Any, AsyncIterator, Dict, List, Optional
 
-from app.core.config import settings
-from app.models.rag import RAGRequest, RAGResponse, RetrievedDocument
-from app.services.context_service import ContextService
-from app.services.generator_service import GeneratorService
-from app.services.query_service import QueryService
-from app.services.retrieval_client import RetrievalClient
+from openai import AsyncOpenAI
+
+from ..core.answer_generator import AnswerGenerator
+from ..core.citation_generator import CitationGenerator
+from ..core.context_builder import ContextBuilder
+from ..core.query_rewriter import QueryRewriter
+from ..infrastructure.retrieval_client import RetrievalClient
 
 logger = logging.getLogger(__name__)
 
 
 class RAGService:
-    """RAG服务"""
+    """RAG检索增强生成服务."""
 
-    def __init__(self):
-        self.query_service = QueryService()
-        self.retrieval_client = RetrievalClient()
-        self.context_service = ContextService()
-        self.generator_service = GeneratorService()
-
-    async def generate(self, request: RAGRequest) -> RAGResponse:
+    def __init__(
+        self,
+        retrieval_client: RetrievalClient,
+        llm_client: AsyncOpenAI,
+        model: str = "gpt-3.5-turbo",
+    ):
         """
-        完整RAG流程
+        初始化RAG服务.
 
         Args:
-            request: RAG请求
+            retrieval_client: 检索服务客户端
+            llm_client: LLM客户端
+            model: 使用的模型
+        """
+        self.retrieval_client = retrieval_client
+        self.query_rewriter = QueryRewriter(llm_client, model)
+        self.context_builder = ContextBuilder(model)
+        self.answer_generator = AnswerGenerator(llm_client, model)
+        self.citation_generator = CitationGenerator()
+
+    async def generate(
+        self,
+        query: str,
+        tenant_id: Optional[str] = None,
+        rewrite_method: str = "multi",
+        top_k: int = 10,
+        stream: bool = False,
+        include_citations: bool = True,
+        **kwargs,
+    ) -> Dict[str, Any]:
+        """
+        完整的RAG生成流程.
+
+        Args:
+            query: 用户查询
+            tenant_id: 租户ID
+            rewrite_method: 查询改写方法 (multi/hyde/none)
+            top_k: 检索结果数量
+            stream: 是否流式返回
+            include_citations: 是否包含引用
+            **kwargs: 其他参数
 
         Returns:
-            RAG响应
+            生成结果字典:
+            - answer: 答案文本
+            - citations: 引用列表 (如果include_citations=True)
+            - metadata: 元数据 (耗时、token使用等)
         """
         start_time = time.time()
 
         try:
-            logger.info(f"Starting RAG for query: {request.query[:100]}")
-
-            # 1. 查询理解和扩展（可选）
-            if settings.ENABLE_QUERY_EXPANSION:
-                expanded_result = await self.query_service.expand_query(request.query)
-                queries = [request.query] + expanded_result.expanded_queries[:2]
-                logger.info(f"Query expanded to {len(queries)} variants")
-            else:
-                queries = [request.query]
-
-            # 2. 检索相关文档
-            documents = await self.retrieval_client.retrieve(
-                queries=queries,
-                knowledge_base_id=request.knowledge_base_id,
-                tenant_id=request.tenant_id,
-                top_k=request.top_k * 2 if request.enable_rerank else request.top_k,
+            # 1. 查询改写
+            rewrite_start = time.time()
+            queries = await self.query_rewriter.rewrite_query(
+                query, method=rewrite_method
             )
-            logger.info(f"Retrieved {len(documents)} documents")
+            rewrite_time = time.time() - rewrite_start
 
-            # 3. 重排序（可选）
-            if request.enable_rerank and settings.ENABLE_RERANK:
-                documents = await self._rerank_documents(
-                    query=request.query,
-                    documents=documents,
-                    top_k=request.top_k,
+            logger.info(f"Query rewriting: {len(queries)} queries, {rewrite_time:.3f}s")
+
+            # 2. 多查询检索
+            retrieve_start = time.time()
+            all_chunks = []
+
+            for q in queries:
+                chunks = await self.retrieval_client.retrieve(
+                    query=q,
+                    top_k=top_k,
+                    tenant_id=tenant_id,
+                    rerank=True,
                 )
-                logger.info(f"Reranked to top {len(documents)} documents")
+                all_chunks.extend(chunks)
 
-            # 4. 组装上下文
-            context = await self.context_service.build_context(
-                documents=documents,
-                max_length=settings.MAX_CONTEXT_LENGTH,
-            )
-            logger.info(f"Built context with {len(context)} characters")
+            # 去重 (基于chunk_id)
+            unique_chunks = self._deduplicate_chunks(all_chunks)
+            retrieve_time = time.time() - retrieve_start
 
-            # 5. 生成答案
-            answer = await self.generator_service.generate(
-                query=request.query,
-                context=context,
-                history=request.history,
-                model=request.model or settings.DEFAULT_LLM_MODEL,
-                temperature=request.temperature,
-            )
-            logger.info("Answer generated")
-
-            # 6. 提取引用
-            sources = documents[: request.top_k]
-
-            processing_time = time.time() - start_time
-
-            return RAGResponse(
-                query=request.query,
-                answer=answer,
-                sources=sources,
-                metadata={
-                    "retrieved_count": len(documents),
-                    "context_length": len(context),
-                    "model": request.model or settings.DEFAULT_LLM_MODEL,
-                },
-                processing_time=processing_time,
+            logger.info(
+                f"Retrieval: {len(queries)} queries -> {len(unique_chunks)} unique chunks, {retrieve_time:.3f}s"
             )
 
-        except Exception as e:
-            logger.error(f"RAG failed: {e}", exc_info=True)
-            raise
+            if not unique_chunks:
+                return {
+                    "answer": "I couldn't find relevant information to answer your question.",
+                    "citations": [],
+                    "metadata": {
+                        "total_time": time.time() - start_time,
+                        "chunks_found": 0,
+                    },
+                }
 
-    async def generate_stream(self, request: RAGRequest) -> AsyncIterator[str]:
-        """
-        流式RAG
+            # 3. 构建上下文
+            context = self.context_builder.build_context(unique_chunks)
+            messages = self.context_builder.build_prompt(query, context)
 
-        Args:
-            request: RAG请求
-
-        Yields:
-            SSE格式的流式数据
-        """
-        try:
-            # 1. 检索阶段（非流式）
-            documents = await self.retrieve(request)
-
-            # 发送检索结果
-            yield f"data: {json.dumps({'type': 'sources', 'data': [d.dict() for d in documents[:request.top_k]]})}\n\n"
-
-            # 2. 组装上下文
-            context = await self.context_service.build_context(
-                documents=documents,
-                max_length=settings.MAX_CONTEXT_LENGTH,
-            )
-
-            # 3. 流式生成
-            async for chunk in self.generator_service.generate_stream(
-                query=request.query,
-                context=context,
-                history=request.history,
-                model=request.model or settings.DEFAULT_LLM_MODEL,
-                temperature=request.temperature,
-            ):
-                yield chunk
-
-            yield "data: [DONE]\n\n"
-
-        except Exception as e:
-            logger.error(f"Stream RAG failed: {e}", exc_info=True)
-            error_data = {"type": "error", "message": str(e)}
-            yield f"data: {json.dumps(error_data)}\n\n"
-
-    async def retrieve(self, request: RAGRequest) -> List[RetrievedDocument]:
-        """
-        仅检索（不生成）
-
-        Args:
-            request: RAG请求
-
-        Returns:
-            检索到的文档列表
-        """
-        try:
-            # 1. 查询扩展（可选）
-            if settings.ENABLE_QUERY_EXPANSION:
-                expanded_result = await self.query_service.expand_query(request.query)
-                queries = [request.query] + expanded_result.expanded_queries[:2]
+            # 4. 生成答案
+            if stream:
+                # 流式生成 - 返回生成器
+                return {
+                    "stream": self.answer_generator.generate_stream(messages),
+                    "chunks": unique_chunks,
+                }
             else:
-                queries = [request.query]
+                # 非流式生成
+                generate_start = time.time()
+                result = await self.answer_generator.generate(messages)
+                generate_time = time.time() - generate_start
 
-            # 2. 检索
-            documents = await self.retrieval_client.retrieve(
-                queries=queries,
-                knowledge_base_id=request.knowledge_base_id,
-                tenant_id=request.tenant_id,
-                top_k=request.top_k * 2 if request.enable_rerank else request.top_k,
-            )
+                answer = result["answer"]
 
-            # 3. 重排序（可选）
-            if request.enable_rerank and settings.ENABLE_RERANK:
-                documents = await self._rerank_documents(
-                    query=request.query,
-                    documents=documents,
-                    top_k=request.top_k,
-                )
+                # 5. 生成引用
+                citations = []
+                if include_citations:
+                    citation_result = self.citation_generator.generate_response_with_citations(
+                        answer, unique_chunks
+                    )
+                    answer = citation_result["answer"]
+                    citations = citation_result["citations"]
 
-            return documents
+                total_time = time.time() - start_time
+
+                return {
+                    "answer": answer,
+                    "citations": citations,
+                    "metadata": {
+                        "total_time": total_time,
+                        "rewrite_time": rewrite_time,
+                        "retrieve_time": retrieve_time,
+                        "generate_time": generate_time,
+                        "chunks_found": len(unique_chunks),
+                        "model": result["model"],
+                        "usage": result.get("usage", {}),
+                    },
+                }
 
         except Exception as e:
-            logger.error(f"Retrieval failed: {e}", exc_info=True)
-            raise
+            logger.error(f"RAG generation failed: {e}", exc_info=True)
+            raise RuntimeError(f"RAG generation failed: {e}")
 
-    async def _rerank_documents(
+    async def generate_stream(
         self,
         query: str,
-        documents: List[RetrievedDocument],
-        top_k: int,
-    ) -> List[RetrievedDocument]:
+        tenant_id: Optional[str] = None,
+        rewrite_method: str = "none",  # 流式模式通常不做复杂改写
+        top_k: int = 10,
+        **kwargs,
+    ) -> AsyncIterator[Dict[str, Any]]:
         """
-        重排序文档
+        流式RAG生成.
 
         Args:
-            query: 查询
-            documents: 文档列表
-            top_k: 返回top-k
+            query: 用户查询
+            tenant_id: 租户ID
+            rewrite_method: 查询改写方法
+            top_k: 检索结果数量
+            **kwargs: 其他参数
+
+        Yields:
+            流式事件:
+            - type: "context" - 上下文就绪
+            - type: "chunk" - 答案片段
+            - type: "citations" - 引用列表
+            - type: "done" - 完成
+        """
+        try:
+            # 1. 查询改写
+            queries = await self.query_rewriter.rewrite_query(
+                query, method=rewrite_method
+            )
+
+            # 2. 检索
+            all_chunks = []
+            for q in queries:
+                chunks = await self.retrieval_client.retrieve(
+                    query=q, top_k=top_k, tenant_id=tenant_id, rerank=True
+                )
+                all_chunks.extend(chunks)
+
+            unique_chunks = self._deduplicate_chunks(all_chunks)
+
+            # 发送上下文就绪事件
+            yield {"type": "context", "chunks_count": len(unique_chunks)}
+
+            if not unique_chunks:
+                yield {"type": "chunk", "content": "No relevant information found."}
+                yield {"type": "done"}
+                return
+
+            # 3. 构建上下文
+            context = self.context_builder.build_context(unique_chunks)
+            messages = self.context_builder.build_prompt(query, context)
+
+            # 4. 流式生成
+            async for chunk in self.answer_generator.generate_stream(messages):
+                yield {"type": "chunk", "content": chunk}
+
+            # 5. 发送引用
+            citations = self.citation_generator.generate_citations(
+                unique_chunks, "", include_all=True
+            )
+            yield {"type": "citations", "citations": citations}
+
+            # 6. 完成
+            yield {"type": "done"}
+
+        except Exception as e:
+            logger.error(f"Streaming RAG failed: {e}", exc_info=True)
+            yield {"type": "error", "message": str(e)}
+
+    def _deduplicate_chunks(
+        self, chunks: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        去重分块.
+
+        基于chunk_id去重，保留分数最高的。
+
+        Args:
+            chunks: 分块列表
 
         Returns:
-            重排序后的文档
+            去重后的分块列表
         """
-        # 实际应该使用Cross-Encoder或LLM Rerank
-        # 这里简化实现：保持原有顺序，只截取top-k
-        logger.info(f"Reranking {len(documents)} documents to top {top_k}")
-        return documents[:top_k]
+        seen = {}
+
+        for chunk in chunks:
+            chunk_id = chunk.get("chunk_id")
+            if not chunk_id:
+                continue
+
+            score = chunk.get("score", 0)
+
+            if chunk_id not in seen or score > seen[chunk_id].get("score", 0):
+                seen[chunk_id] = chunk
+
+        # 按分数排序
+        result = list(seen.values())
+        result.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+        return result
+
+    async def batch_generate(
+        self,
+        queries: List[str],
+        tenant_id: Optional[str] = None,
+        **kwargs,
+    ) -> List[Dict[str, Any]]:
+        """
+        批量生成答案.
+
+        Args:
+            queries: 查询列表
+            tenant_id: 租户ID
+            **kwargs: 其他参数
+
+        Returns:
+            答案列表
+        """
+        results = []
+
+        for query in queries:
+            try:
+                result = await self.generate(query, tenant_id=tenant_id, **kwargs)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Batch item failed: {e}")
+                results.append({"answer": None, "error": str(e)})
+
+        return results
+
+    async def close(self):
+        """关闭服务."""
+        await self.retrieval_client.close()

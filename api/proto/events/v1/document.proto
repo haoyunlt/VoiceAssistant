@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package events.v1;
+
+option go_package = "github.com/voicehelper/voiceassistant/api/proto/events/v1;eventsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// DocumentUploadedPayload 文档上传事件
+message DocumentUploadedPayload {
+  string document_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+  string filename = 4;
+  string content_type = 5;  // application/pdf, text/plain, etc.
+  int64 file_size = 6;
+  string storage_path = 7;  // MinIO path
+  string md5_hash = 8;
+  google.protobuf.Timestamp uploaded_at = 9;
+
+  // 元数据
+  DocumentMetadata metadata = 10;
+}
+
+// DocumentDeletedPayload 文档删除事件
+message DocumentDeletedPayload {
+  string document_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+  string reason = 4;
+  google.protobuf.Timestamp deleted_at = 5;
+}
+
+// DocumentUpdatedPayload 文档更新事件
+message DocumentUpdatedPayload {
+  string document_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+  string change_type = 4;  // metadata, content, status
+  map<string, string> changes = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// DocumentIndexedPayload 文档索引完成事件
+message DocumentIndexedPayload {
+  string document_id = 1;
+  string tenant_id = 2;
+  int32 chunk_count = 3;
+  int32 vector_count = 4;
+  int32 entity_count = 5;
+  int32 relation_count = 6;
+  int64 indexing_duration_ms = 7;
+  google.protobuf.Timestamp indexed_at = 8;
+
+  // 索引统计
+  IndexingStats stats = 9;
+}
+
+// DocumentIndexingFailedPayload 文档索引失败事件
+message DocumentIndexingFailedPayload {
+  string document_id = 1;
+  string tenant_id = 2;
+  string error_code = 3;
+  string error_message = 4;
+  string stage = 5;  // parsing, chunking, embedding, storing
+  int32 retry_count = 6;
+  google.protobuf.Timestamp failed_at = 7;
+}
+
+// DocumentScannedPayload 文档病毒扫描事件
+message DocumentScannedPayload {
+  string document_id = 1;
+  string tenant_id = 2;
+  bool is_clean = 3;
+  string scan_result = 4;
+  repeated string threats = 5;
+  google.protobuf.Timestamp scanned_at = 6;
+}
+
+// DocumentMetadata 文档元数据
+message DocumentMetadata {
+  // 文档信息
+  string title = 1;
+  string author = 2;
+  string language = 3;
+  int32 page_count = 4;
+  int32 word_count = 5;
+
+  // 分类标签
+  repeated string tags = 6;
+  repeated string categories = 7;
+
+  // 自定义字段
+  map<string, string> custom_fields = 8;
+}
+
+// IndexingStats 索引统计
+message IndexingStats {
+  // 分块统计
+  int32 total_chunks = 1;
+  int32 text_chunks = 2;
+  int32 table_chunks = 3;
+  int32 image_chunks = 4;
+
+  // 向量统计
+  int32 vector_dim = 5;
+  string embedding_model = 6;
+
+  // 图谱统计
+  int32 entities_extracted = 7;
+  int32 relations_extracted = 8;
+  repeated string entity_types = 9;
+  repeated string relation_types = 10;
+
+  // 性能指标
+  int64 parse_duration_ms = 11;
+  int64 chunk_duration_ms = 12;
+  int64 embed_duration_ms = 13;
+  int64 store_duration_ms = 14;
+}
+
+// ChunkCreatedPayload 分块创建事件
+message ChunkCreatedPayload {
+  string chunk_id = 1;
+  string document_id = 2;
+  string tenant_id = 3;
+  string content = 4;
+  int32 chunk_index = 5;
+  int32 start_offset = 6;
+  int32 end_offset = 7;
+  string chunk_type = 8;  // text, table, code, image
+  google.protobuf.Timestamp created_at = 9;
+}
+
+// VectorStoredPayload 向量存储事件
+message VectorStoredPayload {
+  string vector_id = 1;
+  string chunk_id = 2;
+  string document_id = 3;
+  string tenant_id = 4;
+  string collection_name = 5;
+  int32 vector_dim = 6;
+  google.protobuf.Timestamp stored_at = 7;
+}
+
+// GraphNodeCreatedPayload 图节点创建事件
+message GraphNodeCreatedPayload {
+  string node_id = 1;
+  string document_id = 2;
+  string tenant_id = 3;
+  string node_type = 4;  // entity, concept
+  string node_label = 5;
+  map<string, string> properties = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// GraphRelationCreatedPayload 图关系创建事件
+message GraphRelationCreatedPayload {
+  string relation_id = 1;
+  string document_id = 2;
+  string tenant_id = 3;
+  string source_node_id = 4;
+  string target_node_id = 5;
+  string relation_type = 6;
+  double confidence = 7;
+  map<string, string> properties = 8;
+  google.protobuf.Timestamp created_at = 9;
+}

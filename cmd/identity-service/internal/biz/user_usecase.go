@@ -2,11 +2,11 @@ package biz
 
 import (
 	"context"
-	"fmt"
+
+	"voiceassistant/cmd/identity-service/internal/domain"
+	pkgErrors "voiceassistant/pkg/errors"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/voicehelper/voiceassistant/cmd/identity-service/internal/domain"
-	pkgErrors "github.com/voicehelper/voiceassistant/pkg/errors"
 )
 
 // UserUsecase 用户用例

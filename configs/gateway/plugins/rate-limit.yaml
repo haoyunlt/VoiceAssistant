@@ -1,0 +1,228 @@
+#
+# 限流插件配置
+# 版本: v2.0
+#
+
+#
+# 全局限流
+#
+global:
+  rate: 10000        # 每秒 10k 请求
+  burst: 20000       # 突发 20k
+  key: $remote_addr  # 按 IP 限流
+  key_type: var
+  rejected_code: 429
+  rejected_msg: |
+    {
+      "error": "too_many_requests",
+      "message": "Rate limit exceeded. Please try again later.",
+      "retry_after": 60
+    }
+  allow_degradation: true  # 限流失败时允许请求通过
+
+#
+# 租户级限流
+#
+tenant:
+  rate: 1000
+  burst: 2000
+  key: $http_x_tenant_id
+  key_type: var
+  rejected_code: 429
+  rejected_msg: |
+    {
+      "error": "tenant_quota_exceeded",
+      "message": "Your organization's rate limit has been exceeded.",
+      "contact": "support@voicehelper.ai"
+    }
+
+#
+# 用户级限流
+#
+user:
+  rate: 100
+  burst: 200
+  key: $http_x_user_id
+  key_type: var
+  rejected_code: 429
+  rejected_msg: |
+    {
+      "error": "user_quota_exceeded",
+      "message": "You have exceeded your personal rate limit."
+    }
+
+#
+# API 路径级限流
+#
+api_paths:
+  # 对话接口
+  - path: /api/v1/conversation/*
+    rate: 200
+    burst: 400
+    key: $http_x_user_id
+
+  # 文档上传
+  - path: /api/v1/knowledge/upload
+    rate: 10
+    burst: 20
+    key: $http_x_tenant_id
+
+  # Agent 调用
+  - path: /api/v1/agent/*
+    rate: 30
+    burst: 60
+    key: $http_x_user_id
+
+  # 检索接口
+  - path: /api/v1/retrieval/*
+    rate: 100
+    burst: 200
+    key: $http_x_tenant_id
+
+#
+# 并发连接限制
+#
+connection:
+  # WebSocket 连接
+  websocket:
+    conn: 1000        # 最多 1000 个连接
+    burst: 100        # 突发 100
+    key: $remote_addr
+    default_conn_delay: 0.1
+
+  # HTTP/2 连接
+  http2:
+    conn: 5000
+    burst: 500
+    key: $remote_addr
+
+#
+# 请求次数限制 (每分钟/小时/天)
+#
+quota:
+  # 免费用户
+  free:
+    per_minute: 60
+    per_hour: 1000
+    per_day: 10000
+
+  # 基础套餐
+  basic:
+    per_minute: 300
+    per_hour: 10000
+    per_day: 100000
+
+  # 专业套餐
+  pro:
+    per_minute: 1000
+    per_hour: 50000
+    per_day: 1000000
+
+  # 企业套餐
+  enterprise:
+    per_minute: -1  # 无限制
+    per_hour: -1
+    per_day: -1
+
+#
+# Redis 配置 (用于分布式限流)
+#
+redis:
+  host: redis.voicehelper.svc.cluster.local
+  port: 6379
+  database: 2
+  password: ${VAULT:secret/redis#password}
+  timeout: 1000  # ms
+  pool_size: 100
+  prefix: rate_limit:
+
+#
+# 限流策略
+#
+policy:
+  # 固定窗口
+  fixed_window:
+    enabled: true
+    window_size: 1  # 秒
+
+  # 滑动窗口
+  sliding_window:
+    enabled: false
+    window_size: 60  # 秒
+    precision: 10    # 10 个子窗口
+
+  # 令牌桶
+  token_bucket:
+    enabled: false
+    capacity: 1000
+    refill_rate: 100  # 每秒补充 100 个令牌
+
+  # 漏桶
+  leaky_bucket:
+    enabled: false
+    capacity: 1000
+    leak_rate: 100  # 每秒漏出 100 个请求
+
+#
+# 响应头
+#
+response_headers:
+  enabled: true
+  headers:
+    - X-RateLimit-Limit
+    - X-RateLimit-Remaining
+    - X-RateLimit-Reset
+    - Retry-After
+
+#
+# 白名单 (不受限流影响)
+#
+whitelist:
+  ips:
+    - "10.0.0.0/8"      # 内部网络
+    - "172.16.0.0/12"   # Docker 网络
+    - "192.168.0.0/16"  # 本地网络
+
+  users:
+    - "admin@voicehelper.ai"
+    - "system@voicehelper.ai"
+
+  tenants:
+    - "voicehelper-internal"
+
+#
+# 黑名单 (直接拒绝)
+#
+blacklist:
+  ips:
+    - "192.168.1.100"  # 示例
+
+  user_agents:
+    - "curl"  # 禁止 curl
+    - "bot"   # 禁止爬虫
+
+  countries:
+    - "CN"  # 禁止特定国家 (示例)
+
+#
+# 自适应限流 (根据系统负载动态调整)
+#
+adaptive:
+  enabled: true
+  # 当系统 CPU > 80% 时降低限流阈值
+  cpu_threshold: 80
+  rate_reduction: 0.5  # 降低到 50%
+
+  # 当系统内存 > 85% 时降低限流阈值
+  memory_threshold: 85
+
+  # 当响应时间 > 1s 时降低限流阈值
+  latency_threshold: 1000  # ms
+
+#
+# 日志
+#
+logging:
+  enabled: true
+  log_level: warn  # 只记录被限流的请求
+  include_details: true

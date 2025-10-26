@@ -1,0 +1,111 @@
+version: "3.8"
+
+services:
+  retrieval-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicehelper/retrieval-service:latest
+    container_name: retrieval-service
+    ports:
+      - "8012:8012"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=info
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - milvus
+      - redis
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8012/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+
+  milvus:
+    image: milvusdb/milvus:latest
+    container_name: retrieval-milvus
+    ports:
+      - "19531:19530"
+      - "9092:9091"
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    depends_on:
+      - etcd
+      - minio
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    volumes:
+      - milvus-data:/var/lib/milvus
+
+  etcd:
+    image: quay.io/coreos/etcd:latest
+    container_name: retrieval-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+    ports:
+      - "2381:2379"
+      - "2382:2380"
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    volumes:
+      - etcd-data:/etcd
+
+  minio:
+    image: minio/minio:latest
+    container_name: retrieval-minio
+    ports:
+      - "9004:9000"
+      - "9005:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+
+  redis:
+    image: redis:7-alpine
+    container_name: retrieval-redis
+    ports:
+      - "6391:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  milvus-data:
+  etcd-data:
+  minio-data:
+  redis-data:
+
+networks:
+  voicehelper-network:
+    driver: bridge

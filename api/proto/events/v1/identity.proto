@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+package events.v1;
+
+option go_package = "github.com/voicehelper/voiceassistant/api/proto/events/v1;eventsv1";
+
+import "google/protobuf/timestamp.proto";
+
+// UserRegisteredPayload 用户注册事件
+message UserRegisteredPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string email = 3;
+  string username = 4;
+  string registration_source = 5;  // web, api, oauth
+  string oauth_provider = 6;       // google, github, etc.
+  google.protobuf.Timestamp registered_at = 7;
+}
+
+// UserLoginPayload 用户登录事件
+message UserLoginPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string login_method = 3;  // password, oauth, sso
+  string ip_address = 4;
+  string user_agent = 5;
+  string device_type = 6;   // web, mobile, desktop
+  bool mfa_enabled = 7;
+  bool success = 8;
+  string failure_reason = 9;
+  google.protobuf.Timestamp login_at = 10;
+}
+
+// UserLogoutPayload 用户登出事件
+message UserLogoutPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string session_id = 3;
+  int64 session_duration_ms = 4;
+  google.protobuf.Timestamp logout_at = 5;
+}
+
+// UserUpdatedPayload 用户更新事件
+message UserUpdatedPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string updated_by = 3;
+  repeated string changed_fields = 4;
+  map<string, string> old_values = 5;
+  map<string, string> new_values = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// UserDeletedPayload 用户删除事件
+message UserDeletedPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string deleted_by = 3;
+  string deletion_reason = 4;
+  bool soft_delete = 5;  // true: 软删除, false: 硬删除
+  google.protobuf.Timestamp deleted_at = 6;
+}
+
+// PasswordChangedPayload 密码修改事件
+message PasswordChangedPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string change_method = 3;  // user_initiated, admin_reset, forgot_password
+  string initiated_by = 4;
+  google.protobuf.Timestamp changed_at = 5;
+}
+
+// TenantCreatedPayload 租户创建事件
+message TenantCreatedPayload {
+  string tenant_id = 1;
+  string tenant_name = 2;
+  string plan = 3;  // free, basic, pro, enterprise
+  string created_by = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// TenantUpdatedPayload 租户更新事件
+message TenantUpdatedPayload {
+  string tenant_id = 1;
+  string updated_by = 2;
+  repeated string changed_fields = 3;
+  map<string, string> old_values = 4;
+  map<string, string> new_values = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+// TenantSuspendedPayload 租户暂停事件
+message TenantSuspendedPayload {
+  string tenant_id = 1;
+  string suspended_by = 2;
+  string suspension_reason = 3;  // payment_failed, abuse, admin_action
+  google.protobuf.Timestamp suspended_at = 4;
+  google.protobuf.Timestamp resume_at = 5;  // 预计恢复时间
+}
+
+// RoleAssignedPayload 角色分配事件
+message RoleAssignedPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string role_id = 3;
+  string role_name = 4;
+  string assigned_by = 5;
+  google.protobuf.Timestamp assigned_at = 6;
+}
+
+// RoleRevokedPayload 角色撤销事件
+message RoleRevokedPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string role_id = 3;
+  string role_name = 4;
+  string revoked_by = 5;
+  string revocation_reason = 6;
+  google.protobuf.Timestamp revoked_at = 7;
+}
+
+// PermissionChangedPayload 权限变更事件
+message PermissionChangedPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string resource = 3;
+  string action = 4;
+  bool granted = 5;  // true: 授予, false: 撤销
+  string changed_by = 6;
+  google.protobuf.Timestamp changed_at = 7;
+}
+
+// SessionCreatedPayload 会话创建事件
+message SessionCreatedPayload {
+  string session_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string ip_address = 4;
+  string user_agent = 5;
+  int64 ttl_seconds = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// SessionExpiredPayload 会话过期事件
+message SessionExpiredPayload {
+  string session_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string expiration_reason = 4;  // timeout, manual_logout, security_policy
+  google.protobuf.Timestamp expired_at = 5;
+}
+
+// TokenGeneratedPayload Token 生成事件
+message TokenGeneratedPayload {
+  string token_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string token_type = 4;  // access, refresh, api_key
+  int64 ttl_seconds = 5;
+  repeated string scopes = 6;
+  google.protobuf.Timestamp generated_at = 7;
+}
+
+// TokenRevokedPayload Token 撤销事件
+message TokenRevokedPayload {
+  string token_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string revocation_reason = 4;  // expired, user_logout, security_breach
+  google.protobuf.Timestamp revoked_at = 5;
+}
+
+// SecurityEventPayload 安全事件
+message SecurityEventPayload {
+  string user_id = 1;
+  string tenant_id = 2;
+  string event_type = 3;  // brute_force, suspicious_login, unauthorized_access
+  string severity = 4;    // low, medium, high, critical
+  string ip_address = 5;
+  string user_agent = 6;
+  string description = 7;
+  bool auto_blocked = 8;
+  google.protobuf.Timestamp occurred_at = 9;
+}

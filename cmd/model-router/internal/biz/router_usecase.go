@@ -7,8 +7,9 @@ import (
 	"sort"
 	"sync"
 
+	"voiceassistant/cmd/model-router/internal/domain"
+
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/voicehelper/voiceassistant/cmd/model-router/internal/domain"
 )
 
 // RouterUsecase 路由用例

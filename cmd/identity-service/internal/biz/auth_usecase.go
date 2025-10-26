@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
+	"voiceassistant/cmd/identity-service/internal/domain"
+	pkgErrors "voiceassistant/pkg/errors"
+
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/voicehelper/voiceassistant/cmd/identity-service/internal/domain"
-	pkgErrors "github.com/voicehelper/voiceassistant/pkg/errors"
 )
 
 // TokenPair Token 对

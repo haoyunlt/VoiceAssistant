@@ -7,7 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/go-kratos/kratos/v2/transport/http"
 
-	"github.com/voicehelper/voiceassistant/cmd/ai-orchestrator/internal/service"
+	"voiceassistant/cmd/ai-orchestrator/internal/service"
 )
 
 // NewHTTPServer 创建HTTP服务器

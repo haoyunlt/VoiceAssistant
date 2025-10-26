@@ -1,0 +1,46 @@
+# Git 属性配置 - 优化性能
+
+# ============================================
+# 1. 标记生成文件（减少 diff）
+# ============================================
+*.pb.go linguist-generated=true
+*_pb.go linguist-generated=true
+*.pb.gw.go linguist-generated=true
+*_grpc.pb.go linguist-generated=true
+wire_gen.go linguist-generated=true
+
+# ============================================
+# 2. 文本文件规范化
+# ============================================
+*.go text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+
+# ============================================
+# 3. 二进制文件
+# ============================================
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.mp3 binary
+*.gz binary
+*.zip binary
+*.tar binary
+*.ttf binary
+*.woff binary
+*.woff2 binary
+*.pyc binary
+*.pdf binary
+*.so binary
+*.dylib binary
+*.dll binary

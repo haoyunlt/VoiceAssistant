@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package events.v1;
+
+option go_package = "github.com/voicehelper/voiceassistant/api/proto/events/v1;eventsv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+// BaseEvent 基础事件
+message BaseEvent {
+  // 事件ID (UUID)
+  string event_id = 1;
+
+  // 事件类型 (e.g., "conversation.message.sent")
+  string event_type = 2;
+
+  // 事件版本 (e.g., "v1")
+  string event_version = 3;
+
+  // 聚合根ID
+  string aggregate_id = 4;
+
+  // 租户ID
+  string tenant_id = 5;
+
+  // 用户ID
+  string user_id = 6;
+
+  // 事件时间戳
+  google.protobuf.Timestamp timestamp = 7;
+
+  // 事件负载 (具体事件数据)
+  google.protobuf.Any payload = 8;
+
+  // 元数据
+  map<string, string> metadata = 9;
+
+  // 关联ID (用于追踪)
+  string correlation_id = 10;
+
+  // 因果ID (事件因果关系)
+  string causation_id = 11;
+}
+
+// EventMetadata 事件元数据
+message EventMetadata {
+  // 来源服务
+  string source_service = 1;
+
+  // 来源IP
+  string source_ip = 2;
+
+  // 用户代理
+  string user_agent = 3;
+
+  // 请求ID
+  string request_id = 4;
+
+  // 环境 (dev/staging/prod)
+  string environment = 5;
+}

@@ -6,14 +6,15 @@
 package main
 
 import (
+	"voiceassistant/cmd/ai-orchestrator/internal/biz"
+	"voiceassistant/cmd/ai-orchestrator/internal/data"
+	"voiceassistant/cmd/ai-orchestrator/internal/domain"
+	"voiceassistant/cmd/ai-orchestrator/internal/server"
+	"voiceassistant/cmd/ai-orchestrator/internal/service"
+
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-	"github.com/voicehelper/voiceassistant/cmd/ai-orchestrator/internal/biz"
-	"github.com/voicehelper/voiceassistant/cmd/ai-orchestrator/internal/data"
-	"github.com/voicehelper/voiceassistant/cmd/ai-orchestrator/internal/domain"
-	"github.com/voicehelper/voiceassistant/cmd/ai-orchestrator/internal/server"
-	"github.com/voicehelper/voiceassistant/cmd/ai-orchestrator/internal/service"
 )
 
 // wireApp init kratos application.

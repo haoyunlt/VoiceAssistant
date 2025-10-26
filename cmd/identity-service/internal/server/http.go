@@ -1,13 +1,14 @@
 package server
 
 import (
+	pb "voiceassistant/api/proto/identity/v1"
+	"voiceassistant/cmd/identity-service/internal/service"
+
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/logging"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/go-kratos/kratos/v2/transport/http"
-	pb "github.com/voicehelper/voiceassistant/api/proto/identity/v1"
-	"github.com/voicehelper/voiceassistant/cmd/identity-service/internal/service"
 )
 
 // NewHTTPServer creates a new HTTP server.

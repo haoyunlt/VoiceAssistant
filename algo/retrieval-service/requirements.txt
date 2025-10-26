@@ -1,27 +1,33 @@
-# FastAPI and dependencies
+# Retrieval Service Requirements
+
+# FastAPI
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
-pydantic==2.6.1
-pydantic-settings==2.1.0
 
-# Vector search
-pymilvus==2.3.6
-
-# BM25 search
-elasticsearch==8.12.0
-
-# Reranking
+# Embedding & Reranking
 sentence-transformers==2.3.1
 torch==2.2.0
 
-# HTTP client
-httpx==0.26.0
+# BM25
+rank-bm25==0.2.2
+jieba==0.42.1
 
-# Redis cache (optional)
+# 向量数据库
+# pymilvus==2.3.6  # 已迁移到 vector-store-adapter
+httpx==0.26.0  # 用于调用 vector-store-adapter
+
+# 图数据库
+neo4j==5.17.0
+
+# 缓存
 redis==5.0.1
 
-# Monitoring
+# 工具
+numpy==1.26.3
+pydantic==2.6.1
+
+# 监控
 prometheus-client==0.19.0
-opentelemetry-api==1.22.0
-opentelemetry-sdk==1.22.0
-opentelemetry-instrumentation-fastapi==0.43b0
+
+# 日志
+loguru==0.7.2

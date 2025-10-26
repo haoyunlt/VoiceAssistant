@@ -3,8 +3,9 @@ package biz
 import (
 	"context"
 
+	"voiceassistant/cmd/model-router/internal/domain"
+
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/voicehelper/voiceassistant/cmd/model-router/internal/domain"
 )
 
 // ModelUsecase 模型用例

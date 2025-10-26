@@ -1,37 +1,29 @@
-# FastAPI and dependencies
+# Voice Engine Requirements
+
+# FastAPI
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
-pydantic==2.6.1
-pydantic-settings==2.1.0
+python-multipart==0.0.9
 
 # ASR - Whisper
-faster-whisper==1.0.0
-torch==2.2.0
+openai-whisper==20231117
+# 或使用 faster-whisper（更快）
+# faster-whisper==1.0.0
 
-# TTS - Edge TTS
-edge-tts==6.1.10
+# TTS - Edge-TTS
+edge-tts==6.1.9
 
-# VAD - Silero VAD
-# torch already included above
+# VAD - Silero-VAD
+# torch==2.1.2  # Silero-VAD 依赖
+# torchaudio==2.1.2
 
-# Audio processing
-pydub==0.25.1
+# 音频处理
+soundfile==0.12.1
 numpy==1.26.3
+scipy==1.11.4
 
-# HTTP client
-httpx==0.26.0
-
-# Object storage (MinIO)
-minio==7.2.3
-
-# Redis cache
-redis==5.0.1
-
-# Monitoring
+# 监控
 prometheus-client==0.19.0
-opentelemetry-api==1.22.0
-opentelemetry-sdk==1.22.0
-opentelemetry-instrumentation-fastapi==0.43b0
 
-# Optional: Azure Speech SDK (uncomment if using Azure)
-# azure-cognitiveservices-speech==1.34.0
+# 日志
+loguru==0.7.2

@@ -1,47 +1,51 @@
-# FastAPI核心
+# Indexing Service Requirements
+
+# FastAPI
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
-pydantic==2.6.1
-pydantic-settings==2.1.0
 
-# HTTP客户端
-httpx==0.26.0
+# Kafka
+confluent-kafka==2.3.0
+kafka-python==2.0.2  # 用于 Kafka Consumer
 
-# 文件处理
-python-multipart==0.0.9
+# Protobuf
+protobuf==4.25.2
+googleapis-common-protos==1.62.0
 
 # 文档解析
 PyPDF2==3.0.1
+pdfplumber==0.10.3
 python-docx==1.1.0
+openpyxl==3.1.2
+python-pptx==0.6.23
 beautifulsoup4==4.12.3
 lxml==5.1.0
 
-# 向量化
-sentence-transformers==2.3.1  # BGE模型
-openai==1.12.0  # OpenAI Embeddings
+# 文本处理
+langchain==0.1.7
+langchain-text-splitters==0.0.1
+
+# Embedding
+sentence-transformers==2.3.1
+torch==2.2.0
 
 # 向量数据库
-pymilvus==2.3.6
-
-# 知识图谱
-neo4j==5.16.0
+# pymilvus==2.3.6  # 已迁移到 vector-store-adapter
+httpx==0.26.0  # 用于调用 vector-store-adapter
 
 # 对象存储
 minio==7.2.3
 
+# 图数据库
+neo4j==5.17.0
+
+# 监控
+prometheus-client==0.19.0
+
+# 工具
+numpy==1.26.3
+pydantic==2.6.1
+python-multipart==0.0.9
+
 # 日志
-python-json-logger==2.0.7
-
-# 工具库
-python-dotenv==1.0.1
-
-# 数据库
-sqlalchemy==2.0.27
-psycopg2-binary==2.9.9
-
-# Redis
-redis==5.0.1
-
-# 测试
-pytest==8.0.0
-pytest-asyncio==0.23.4
+loguru==0.7.2

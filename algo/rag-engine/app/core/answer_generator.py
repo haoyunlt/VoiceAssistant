@@ -1,0 +1,271 @@
+"""答案生成器 - 流式和非流式生成."""
+
+import json
+import logging
+from typing import Any, AsyncIterator, Dict, List, Optional
+
+from openai import AsyncOpenAI
+
+logger = logging.getLogger(__name__)
+
+
+class AnswerGenerator:
+    """答案生成器."""
+
+    def __init__(
+        self,
+        llm_client: AsyncOpenAI,
+        model: str = "gpt-3.5-turbo",
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+    ):
+        """
+        初始化答案生成器.
+
+        Args:
+            llm_client: OpenAI客户端
+            model: 使用的模型
+            temperature: 温度参数
+            max_tokens: 最大生成token数
+        """
+        self.llm_client = llm_client
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+    async def generate(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        生成答案 (非流式).
+
+        Args:
+            messages: OpenAI消息列表
+            temperature: 温度参数 (覆盖默认值)
+            max_tokens: 最大token数 (覆盖默认值)
+
+        Returns:
+            生成结果字典:
+            - answer: 答案文本
+            - model: 使用的模型
+            - usage: Token使用情况
+            - finish_reason: 完成原因
+        """
+        try:
+            response = await self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature or self.temperature,
+                max_tokens=max_tokens or self.max_tokens,
+            )
+
+            choice = response.choices[0]
+            usage = response.usage
+
+            return {
+                "answer": choice.message.content,
+                "model": response.model,
+                "usage": {
+                    "prompt_tokens": usage.prompt_tokens,
+                    "completion_tokens": usage.completion_tokens,
+                    "total_tokens": usage.total_tokens,
+                },
+                "finish_reason": choice.finish_reason,
+            }
+
+        except Exception as e:
+            logger.error(f"Answer generation failed: {e}")
+            raise RuntimeError(f"Failed to generate answer: {e}")
+
+    async def generate_stream(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> AsyncIterator[str]:
+        """
+        生成答案 (流式).
+
+        Args:
+            messages: OpenAI消息列表
+            temperature: 温度参数
+            max_tokens: 最大token数
+
+        Yields:
+            答案文本片段
+        """
+        try:
+            stream = await self.llm_client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=temperature or self.temperature,
+                max_tokens=max_tokens or self.max_tokens,
+                stream=True,
+            )
+
+            async for chunk in stream:
+                if chunk.choices:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        yield delta.content
+
+        except Exception as e:
+            logger.error(f"Streaming generation failed: {e}")
+            yield f"\n\n[Error: {str(e)}]"
+
+    async def generate_with_functions(
+        self,
+        messages: List[Dict[str, str]],
+        functions: List[Dict[str, Any]],
+        function_call: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        使用函数调用生成答案.
+
+        Args:
+            messages: OpenAI消息列表
+            functions: 函数定义列表
+            function_call: 强制调用的函数名 (可选)
+
+        Returns:
+            生成结果 (可能包含function_call)
+        """
+        try:
+            kwargs = {
+                "model": self.model,
+                "messages": messages,
+                "functions": functions,
+                "temperature": self.temperature,
+            }
+
+            if function_call:
+                kwargs["function_call"] = {"name": function_call}
+
+            response = await self.llm_client.chat.completions.create(**kwargs)
+
+            choice = response.choices[0]
+            result = {
+                "model": response.model,
+                "finish_reason": choice.finish_reason,
+            }
+
+            # 检查是否有函数调用
+            if choice.message.function_call:
+                result["function_call"] = {
+                    "name": choice.message.function_call.name,
+                    "arguments": json.loads(choice.message.function_call.arguments),
+                }
+            else:
+                result["answer"] = choice.message.content
+
+            if response.usage:
+                result["usage"] = {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                }
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Function calling generation failed: {e}")
+            raise RuntimeError(f"Failed to generate with functions: {e}")
+
+    async def batch_generate(
+        self,
+        messages_list: List[List[Dict[str, str]]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        批量生成答案.
+
+        Args:
+            messages_list: 多个消息列表
+            temperature: 温度参数
+            max_tokens: 最大token数
+
+        Returns:
+            生成结果列表
+        """
+        results = []
+
+        for messages in messages_list:
+            try:
+                result = await self.generate(messages, temperature, max_tokens)
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Batch generation item failed: {e}")
+                results.append({
+                    "answer": None,
+                    "error": str(e),
+                })
+
+        return results
+
+
+class MockAnswerGenerator:
+    """Mock答案生成器 (用于测试)."""
+
+    async def generate(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Mock生成答案."""
+        # 提取用户查询
+        user_message = next(
+            (msg["content"] for msg in messages if msg["role"] == "user"),
+            "Unknown query",
+        )
+
+        return {
+            "answer": f"Mock answer for: {user_message[:50]}...",
+            "model": "mock-model",
+            "usage": {
+                "prompt_tokens": 100,
+                "completion_tokens": 50,
+                "total_tokens": 150,
+            },
+            "finish_reason": "stop",
+        }
+
+    async def generate_stream(
+        self,
+        messages: List[Dict[str, str]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> AsyncIterator[str]:
+        """Mock流式生成."""
+        words = ["Mock", "streaming", "answer", "for", "testing"]
+        for word in words:
+            yield word + " "
+
+    async def generate_with_functions(
+        self,
+        messages: List[Dict[str, str]],
+        functions: List[Dict[str, Any]],
+        function_call: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Mock函数调用生成."""
+        return {
+            "answer": "Mock answer with functions",
+            "model": "mock-model",
+            "finish_reason": "stop",
+        }
+
+    async def batch_generate(
+        self,
+        messages_list: List[List[Dict[str, str]]],
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Mock批量生成."""
+        return [
+            await self.generate(messages, temperature, max_tokens)
+            for messages in messages_list
+        ]

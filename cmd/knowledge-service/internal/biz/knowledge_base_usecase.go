@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"voiceassistant/cmd/knowledge-service/internal/domain"
+
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/voicehelper/voiceassistant/cmd/knowledge-service/internal/domain"
 )
 
 // KnowledgeBaseUsecase 知识库用例

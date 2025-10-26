@@ -1,262 +1,284 @@
 # Analytics Service
 
-分析服务 - 提供实时统计和报表生成功能。
+分析服务 - 实时统计、数据分析、报表生成
 
-## 🎯 核心功能
+## 功能特性
 
-- **实时统计**: 使用统计、模型统计、用户行为、成本分解
-- **报表生成**: 异步生成各类报表（使用报表、成本报表、模型报表、用户报表）
-- **ClickHouse 集成**: 高性能 OLAP 查询
-- **多租户支持**: 租户级别数据隔离
+### 1. 实时统计
 
-## 📋 技术栈
+- 活跃用户数
+- 当前对话数
+- 每分钟消息数
+- AI 请求速率
+- 平均响应时间
 
-- **框架**: Kratos + Gin
-- **OLAP**: ClickHouse
-- **OLTP**: PostgreSQL
-- **依赖注入**: Wire
+### 2. 用户分析
 
-## 🚀 快速开始
+- 用户活跃度
+- 用户留存率
+- 用户参与度
+- 功能使用统计
+- Cohort 分析
 
-### 本地开发
+### 3. 对话分析
 
-```bash
-# 安装依赖
-go mod download
+- 对话统计（按模式）
+- 对话趋势
+- 平均消息数
+- 平均时长
+- 成功率
 
-# 生成 Wire 代码
-make wire
+### 4. 文档分析
 
-# 构建
-make build
+- 上传统计
+- 索引状态
+- 格式分布
+- 检索频率
+- 热门文档
 
-# 运行
-make run
-```
+### 5. AI 使用分析
 
-### 配置环境变量
+- 请求统计（按类型）
+- Token 使用量
+- 成本分析
+- 性能指标
+- 模型对比
 
-```bash
-export DB_HOST=localhost
-export DB_PORT=5432
-export DB_USER=postgres
-export DB_PASSWORD=postgres
-export DB_NAME=voicehelper
+### 6. 租户分析
 
-export CLICKHOUSE_ADDR=localhost:9000
-export CLICKHOUSE_DB=voicehelper
-export CLICKHOUSE_USER=default
-export CLICKHOUSE_PASSWORD=
+- 租户排名
+- 配额使用
+- 成本分配
+- 活跃度对比
 
-export PORT=8080
-```
+### 7. 报表生成
 
-## 📡 API 端点
+- 周报 / 月报
+- 自定义报表
+- PDF / Excel 导出
+- 定时生成
+- 邮件发送
 
-### 1. 使用统计
+## API 接口
 
-```bash
-GET /api/v1/stats/usage?tenant_id=xxx&period=day&start=2025-01-01T00:00:00Z&end=2025-01-31T23:59:59Z
-```
+### GET /api/v1/stats/realtime
 
-**响应示例**:
+获取实时统计
 
-```json
-{
-  "tenant_id": "tenant_123",
-  "total_conversations": 1000,
-  "total_messages": 5000,
-  "total_tokens": 100000,
-  "total_cost": 50.5,
-  "active_users": 100,
-  "period": "day",
-  "start_time": "2025-01-01T00:00:00Z",
-  "end_time": "2025-01-31T23:59:59Z"
-}
-```
-
-### 2. 模型统计
-
-```bash
-GET /api/v1/stats/model?tenant_id=xxx&period=day&start=2025-01-01T00:00:00Z&end=2025-01-31T23:59:59Z
-```
-
-### 3. 用户行为统计
-
-```bash
-GET /api/v1/stats/user/:user_id?tenant_id=xxx&period=day&start=2025-01-01T00:00:00Z&end=2025-01-31T23:59:59Z
-```
-
-### 4. 实时统计
-
-```bash
-GET /api/v1/stats/realtime?tenant_id=xxx
-```
-
-**响应示例**:
+**响应**:
 
 ```json
 {
-  "tenant_id": "tenant_123",
-  "current_qps": 15.5,
-  "current_active_users": 50,
-  "current_latency": 250.5,
-  "timestamp": "2025-10-26T10:30:00Z"
+  "timestamp": "2025-10-26T10:30:00Z",
+  "active_users": 125,
+  "active_conversations": 45,
+  "messages_per_minute": 230,
+  "ai_requests_per_minute": 85,
+  "avg_response_time_ms": 450
 }
 ```
 
-### 5. 成本分解
+### GET /api/v1/stats/summary?period=today
 
-```bash
-GET /api/v1/stats/cost?tenant_id=xxx&period=day&start=2025-01-01T00:00:00Z&end=2025-01-31T23:59:59Z
-```
+获取统计摘要
 
-**响应示例**:
+**响应**:
 
 ```json
 {
-  "tenant_id": "tenant_123",
-  "model_cost": 40.0,
-  "embedding_cost": 8.0,
-  "rerank_cost": 2.5,
-  "total_cost": 50.5,
-  "period": "day",
-  "start_time": "2025-01-01T00:00:00Z",
-  "end_time": "2025-01-31T23:59:59Z"
+  "period": "today",
+  "users": {
+    "total_active": 1250,
+    "new_users": 45,
+    "returning_users": 1205
+  },
+  "conversations": {
+    "total": 3500,
+    "avg_messages": 12.5,
+    "avg_duration_minutes": 8.2
+  },
+  "documents": {
+    "total_uploaded": 280,
+    "total_indexed": 275,
+    "total_retrieved": 8500
+  },
+  "ai": {
+    "total_requests": 12000,
+    "total_tokens": 4500000,
+    "total_cost_usd": 125.5
+  }
 }
 ```
 
-### 6. 创建报表
+### GET /api/v1/users/activity
 
-```bash
-POST /api/v1/reports
-```
+获取用户活跃度
 
-**请求示例**:
+### GET /api/v1/ai/cost
+
+获取 AI 成本分析
+
+**响应**:
 
 ```json
 {
-  "tenant_id": "tenant_123",
-  "type": "usage",
-  "name": "January Usage Report",
-  "created_by": "user_456"
+  "total_cost_usd": 125.5,
+  "total_tokens": 4500000,
+  "by_model": [
+    {
+      "model": "gpt-4-turbo-preview",
+      "tokens": 2000000,
+      "cost_usd": 80.0
+    },
+    {
+      "model": "gpt-3.5-turbo",
+      "tokens": 2500000,
+      "cost_usd": 45.5
+    }
+  ],
+  "avg_cost_per_request_usd": 0.0105
 }
 ```
 
-**响应示例**:
+### POST /api/v1/reports/generate
+
+生成报表
+
+**请求**:
 
 ```json
 {
-  "id": "report_20250126103000",
+  "type": "monthly_summary",
   "tenant_id": "tenant_123",
-  "type": "usage",
-  "name": "January Usage Report",
-  "status": "pending",
-  "created_by": "user_456",
-  "created_at": "2025-01-26T10:30:00Z"
+  "start_date": "2025-10-01",
+  "end_date": "2025-10-31",
+  "format": "pdf",
+  "email_to": "admin@example.com"
 }
 ```
 
-### 7. 获取报表
+## 数据源
+
+### ClickHouse 表
+
+```sql
+-- 消息统计表（来自 Flink）
+message_stats_minute
+message_stats_hourly
+message_stats_daily
+
+-- 用户活跃度表
+user_activity_hourly
+user_activity_daily
+
+-- AI 使用统计
+ai_usage_hourly
+ai_cost_daily
+
+-- 文档统计
+document_stats_daily
+document_retrieval_stats
+```
+
+### 实时数据
+
+- Redis 缓存（最近 5 分钟数据）
+- 直接查询 PostgreSQL（当前状态）
+
+## 配置
+
+```yaml
+analytics:
+  clickhouse:
+    host: clickhouse:9000
+    database: voicehelper
+    username: default
+    password: ${CLICKHOUSE_PASSWORD}
+    connection_pool_size: 10
+
+  cache:
+    redis_url: redis://redis:6379/5
+    ttl: 5m
+
+  realtime:
+    update_interval: 10s
+    aggregation_window: 5m
+
+  reports:
+    storage_path: /app/reports
+    retention_days: 90
+    max_concurrent_jobs: 3
+
+    templates:
+      - type: daily_summary
+        schedule: '0 0 * * *' # 每天 00:00
+      - type: weekly_summary
+        schedule: '0 0 * * 0' # 每周日 00:00
+      - type: monthly_summary
+        schedule: '0 0 1 * *' # 每月 1 号 00:00
+```
+
+## 性能优化
+
+### 1. 数据聚合
+
+- 使用 ClickHouse 物化视图
+- 预聚合常用指标
+- 分级聚合（分钟 → 小时 → 天）
+
+### 2. 缓存策略
+
+- Redis 缓存实时数据
+- 本地缓存静态配置
+- CDN 缓存报表文件
+
+### 3. 查询优化
+
+- 索引优化
+- 分区裁剪
+- 并行查询
+- 结果缓存
+
+## 部署
+
+### Docker
 
 ```bash
-GET /api/v1/reports/:id
+docker build -t analytics-service:latest .
+docker run -p 9006:9006 analytics-service:latest
 ```
 
-### 8. 列出报表
+### Kubernetes
 
 ```bash
-GET /api/v1/reports?tenant_id=xxx&limit=20&offset=0
+kubectl apply -f deployments/k8s/analytics-service.yaml
 ```
 
-### 9. 删除报表
+## 监控
+
+Prometheus 指标暴露在 `/metrics`：
+
+- `analytics_queries_total` - 总查询数
+- `analytics_query_duration_seconds` - 查询延迟
+- `analytics_cache_hit_rate` - 缓存命中率
+- `analytics_report_generation_duration_seconds` - 报表生成时间
+
+## 开发
+
+### 编译
 
 ```bash
-DELETE /api/v1/reports/:id
+go build -o analytics-service ./cmd/analytics-service
 ```
 
-## 配置说明
+### 运行
 
-| 配置项            | 说明              | 默认值         |
-| ----------------- | ----------------- | -------------- |
-| `DB_HOST`         | PostgreSQL 主机   | localhost      |
-| `DB_PORT`         | PostgreSQL 端口   | 5432           |
-| `CLICKHOUSE_ADDR` | ClickHouse 地址   | localhost:9000 |
-| `CLICKHOUSE_DB`   | ClickHouse 数据库 | voicehelper    |
-| `PORT`            | 服务端口          | 8080           |
-
-## 架构设计
-
-### DDD 分层架构
-
-```
-┌─────────────────────────────────────┐
-│          HTTP Server (Gin)          │
-├─────────────────────────────────────┤
-│       Service Layer (实现接口)      │
-├─────────────────────────────────────┤
-│     Biz Layer (业务逻辑用例)        │
-├─────────────────────────────────────┤
-│    Domain Layer (领域模型+接口)     │
-├─────────────────────────────────────┤
-│    Data Layer (仓储实现)            │
-│  ┌──────────────┬─────────────────┐ │
-│  │  PostgreSQL  │   ClickHouse    │ │
-│  │  (Reports)   │   (Metrics)     │ │
-│  └──────────────┴─────────────────┘ │
-└─────────────────────────────────────┘
+```bash
+./analytics-service
 ```
 
-### 数据流
+### 测试
 
+```bash
+go test ./...
 ```
-HTTP Request
-    |
-    v
-Service Layer
-    |
-    v
-Biz Layer (Usecase)
-    |
-    v
-Domain Repository Interface
-    |
-    v
-Data Layer Implementation
-    |
-    ├─> PostgreSQL (报表元数据)
-    └─> ClickHouse (指标数据)
-```
-
-## 监控指标
-
-- `analytics_query_duration_seconds`: 查询延迟
-- `analytics_report_generation_duration_seconds`: 报表生成延迟
-- `analytics_active_queries`: 活跃查询数
-- `clickhouse_connection_pool_size`: ClickHouse 连接池大小
-
-## 开发指南
-
-### 添加新的统计类型
-
-1. 在 `internal/domain/metric.go` 定义新的统计结构
-2. 在 `MetricRepository` 接口添加查询方法
-3. 在 `internal/data/metric_repo.go` 实现查询逻辑
-4. 在 `MetricUsecase` 添加业务逻辑
-5. 在 HTTP Server 添加 API 端点
-
-### 添加新的报表类型
-
-1. 在 `internal/domain/report.go` 添加报表类型常量
-2. 在 `ReportUsecase.generateReportAsync` 添加生成逻辑
-3. 实现对应的生成方法
-
-## 📚 相关文档
-
-- [ClickHouse](https://clickhouse.com/docs)
-- [Kratos](https://go-kratos.dev/)
-- [Wire](https://github.com/google/wire)
-
-## 📝 License
-
-MIT License

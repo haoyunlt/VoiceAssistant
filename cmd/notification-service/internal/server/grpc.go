@@ -7,7 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 
-	"github.com/voicehelper/voiceassistant/cmd/notification-service/internal/service"
+	"voiceassistant/cmd/notification-service/internal/service"
 )
 
 func NewGRPCServer(

@@ -1,0 +1,586 @@
+#
+# APISIX 路由配置
+# 版本: v2.0
+# 最后更新: 2025-10-26
+#
+# 说明:
+# - 所有服务路由前缀: /api/v1/{service}
+# - 上游地址: {service}.voicehelper.svc.cluster.local:9000 (gRPC)
+# - WebSocket: /ws/*
+# - 健康检查: /health
+#
+
+routes:
+  #
+  # 1. Identity Service - 用户认证与授权
+  #
+  - id: identity-service
+    name: "Identity Service API"
+    uri: /api/v1/identity/*
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    upstream:
+      type: roundrobin
+      nodes:
+        identity-service.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: identity-service
+      keepalive_pool:
+        size: 320
+        idle_timeout: 60
+        requests: 1000
+    plugins:
+      # gRPC 转码 (HTTP -> gRPC)
+      grpc-transcode:
+        proto_id: identity-v1
+        service: identity.v1.Identity
+        method: "*"
+      # 限流 (按租户)
+      limit-req:
+        rate: 100
+        burst: 50
+        key: $http_x_tenant_id
+        key_type: var
+        rejected_code: 429
+        rejected_msg: "Too many requests"
+      # Prometheus 指标
+      prometheus:
+        prefer_name: true
+      # OpenTelemetry 追踪
+      opentelemetry:
+        sampler:
+          name: always_on
+    enable_websocket: false
+
+  #
+  # 2. Conversation Service - 会话管理
+  #
+  - id: conversation-service
+    name: "Conversation Service API"
+    uri: /api/v1/conversation/*
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    upstream:
+      type: roundrobin
+      nodes:
+        conversation-service.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: conversation-service
+    plugins:
+      jwt-auth: {}
+      grpc-transcode:
+        proto_id: conversation-v1
+        service: conversation.v1.Conversation
+        method: "*"
+      limit-req:
+        rate: 200
+        burst: 100
+        key: $http_x_user_id
+        key_type: var
+      prometheus: {}
+      opentelemetry: {}
+    enable_websocket: false
+
+  #
+  # 3. WebSocket - 实时对话流
+  #
+  - id: conversation-websocket
+    name: "Conversation WebSocket"
+    uri: /ws/conversation/*
+    methods:
+      - GET
+    upstream:
+      type: roundrobin
+      nodes:
+        conversation-service.voicehelper.svc.cluster.local:8080: 1
+      scheme: http
+    plugins:
+      jwt-auth: {}
+      limit-conn:
+        conn: 100
+        burst: 10
+        key: $http_x_user_id
+        rejected_code: 503
+      prometheus: {}
+    enable_websocket: true
+
+  #
+  # 4. Knowledge Service - 文档管理
+  #
+  - id: knowledge-service
+    name: "Knowledge Service API"
+    uri: /api/v1/knowledge/*
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+    upstream:
+      type: roundrobin
+      nodes:
+        knowledge-service.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: knowledge-service
+    plugins:
+      jwt-auth: {}
+      grpc-transcode:
+        proto_id: knowledge-v1
+        service: knowledge.v1.Knowledge
+        method: "*"
+      limit-req:
+        rate: 50
+        burst: 20
+        key: $http_x_tenant_id
+      # 文件上传限制
+      limit-req:
+        rate: 10
+        burst: 5
+        key: $http_x_user_id
+        key_type: var
+        rejected_msg: "Upload rate limit exceeded"
+      prometheus: {}
+      opentelemetry: {}
+
+  #
+  # 5. AI Orchestrator - AI任务编排
+  #
+  - id: ai-orchestrator
+    name: "AI Orchestrator API"
+    uri: /api/v1/ai/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        ai-orchestrator.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: ai-orchestrator
+    plugins:
+      jwt-auth: {}
+      grpc-transcode:
+        proto_id: ai-orchestrator-v1
+        service: ai.v1.Orchestrator
+        method: "*"
+      limit-req:
+        rate: 50
+        burst: 25
+        key: $http_x_user_id
+      # 成本追踪
+      serverless-post-function:
+        phase: log
+        functions:
+          - "return function(conf, ctx)
+              local core = require('apisix.core')
+              core.log.info('AI request: ', ctx.var.request_uri, ' user: ', ctx.var.http_x_user_id)
+            end"
+      prometheus: {}
+      opentelemetry: {}
+
+  #
+  # 6. Model Router - 模型路由
+  #
+  - id: model-router
+    name: "Model Router API"
+    uri: /api/v1/models/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        model-router.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: model-router
+    plugins:
+      jwt-auth: {}
+      grpc-transcode:
+        proto_id: model-router-v1
+        service: model.v1.Router
+        method: "*"
+      limit-req:
+        rate: 100
+        burst: 50
+      prometheus: {}
+      opentelemetry: {}
+
+  #
+  # 7. Notification Service - 通知服务
+  #
+  - id: notification-service
+    name: "Notification Service API"
+    uri: /api/v1/notification/*
+    methods:
+      - GET
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        notification-service.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: notification-service
+    plugins:
+      jwt-auth: {}
+      grpc-transcode:
+        proto_id: notification-v1
+        service: notification.v1.Notification
+        method: "*"
+      limit-req:
+        rate: 50
+        burst: 25
+      prometheus: {}
+
+  #
+  # 8. Analytics Service - 分析统计
+  #
+  - id: analytics-service
+    name: "Analytics Service API"
+    uri: /api/v1/analytics/*
+    methods:
+      - GET
+    upstream:
+      type: roundrobin
+      nodes:
+        analytics-service.voicehelper.svc.cluster.local:9000: 1
+      scheme: grpc
+      discovery_type: consul
+      service_name: analytics-service
+    plugins:
+      jwt-auth: {}
+      grpc-transcode:
+        proto_id: analytics-v1
+        service: analytics.v1.Analytics
+        method: "*"
+      limit-req:
+        rate: 30
+        burst: 15
+      prometheus: {}
+
+  #
+  # Python 算法服务 (FastAPI)
+  #
+
+  #
+  # 9. Agent Engine - Agent 执行引擎
+  #
+  - id: agent-engine
+    name: "Agent Engine API"
+    uri: /api/v1/agent/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        agent-engine.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      jwt-auth: {}
+      limit-req:
+        rate: 30
+        burst: 15
+        key: $http_x_user_id
+      # 超时控制 (Agent 可能较慢)
+      proxy-rewrite:
+        headers:
+          set:
+            X-Request-Timeout: "60"
+      prometheus: {}
+      opentelemetry: {}
+
+  #
+  # 10. RAG Engine - RAG 引擎
+  #
+  - id: rag-engine
+    name: "RAG Engine API"
+    uri: /api/v1/rag/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        rag-engine.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      jwt-auth: {}
+      limit-req:
+        rate: 50
+        burst: 25
+      prometheus: {}
+      opentelemetry: {}
+
+  #
+  # 11. Indexing Service - 索引构建 (内部服务，不对外暴露)
+  #
+  - id: indexing-service-internal
+    name: "Indexing Service Internal API"
+    uri: /internal/indexing/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        indexing-service.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      # 内部服务，使用 API Key 认证
+      key-auth:
+        key: internal-service-key
+      limit-req:
+        rate: 10
+        burst: 5
+      prometheus: {}
+
+  #
+  # 12. Retrieval Service - 检索服务
+  #
+  - id: retrieval-service
+    name: "Retrieval Service API"
+    uri: /api/v1/retrieval/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        retrieval-service.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      jwt-auth: {}
+      limit-req:
+        rate: 100
+        burst: 50
+      # 语义缓存 (基于请求体的哈希)
+      proxy-cache:
+        cache_zone: "semantic_cache"
+        cache_key:
+          - $request_body
+        cache_bypass:
+          - $arg_nocache
+        cache_method:
+          - POST
+        cache_http_status:
+          - 200
+        cache_ttl: 3600
+      prometheus: {}
+      opentelemetry: {}
+
+  #
+  # 13. Voice Engine - 语音处理
+  #
+  - id: voice-engine
+    name: "Voice Engine API"
+    uri: /api/v1/voice/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        voice-engine.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      jwt-auth: {}
+      limit-req:
+        rate: 20
+        burst: 10
+      # 文件上传大小限制 (50MB)
+      limit-req:
+        rate: 5
+        burst: 2
+        key: $http_x_user_id
+        rejected_msg: "Voice upload rate limit"
+      prometheus: {}
+
+  #
+  # 14. Multimodal Engine - 多模态处理
+  #
+  - id: multimodal-engine
+    name: "Multimodal Engine API"
+    uri: /api/v1/multimodal/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        multimodal-engine.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      jwt-auth: {}
+      limit-req:
+        rate: 20
+        burst: 10
+      prometheus: {}
+
+  #
+  # 15. Model Adapter - 模型适配器 (内部服务)
+  #
+  - id: model-adapter-internal
+    name: "Model Adapter Internal API"
+    uri: /internal/model-adapter/*
+    methods:
+      - POST
+    upstream:
+      type: roundrobin
+      nodes:
+        model-adapter.voicehelper.svc.cluster.local:8000: 1
+      scheme: http
+    plugins:
+      key-auth:
+        key: internal-service-key
+      limit-req:
+        rate: 200
+        burst: 100
+      prometheus: {}
+
+  #
+  # 健康检查路由 (所有服务)
+  #
+  - id: health-check
+    name: "Health Check"
+    uri: /health
+    methods:
+      - GET
+    upstream:
+      type: roundrobin
+      nodes:
+        identity-service.voicehelper.svc.cluster.local:8080: 1
+    plugins:
+      # 不需要认证
+      limit-req:
+        rate: 1000
+        burst: 500
+
+#
+# 全局规则
+#
+global_rules:
+  - id: global-cors
+    plugins:
+      cors:
+        allow_origins: "*"
+        allow_methods: "GET,POST,PUT,DELETE,OPTIONS"
+        allow_headers: "Authorization,Content-Type,X-Tenant-ID,X-User-ID,X-Request-ID"
+        allow_credential: true
+        max_age: 3600
+
+  - id: global-security
+    plugins:
+      # IP 黑名单
+      ip-restriction:
+        blacklist:
+          - "192.168.1.100"
+      # 请求大小限制 (100MB)
+      limit-req:
+        rate: 1000
+        burst: 2000
+        key: $remote_addr
+
+  - id: global-observability
+    plugins:
+      prometheus:
+        prefer_name: true
+        export_addr:
+          ip: "0.0.0.0"
+          port: 9091
+      opentelemetry:
+        sampler:
+          name: parent_base
+          options:
+            fraction: 0.1
+        collector:
+          address: "otel-collector:4317"
+          request_timeout: 3
+
+#
+# 上游服务 (Upstreams)
+#
+upstreams:
+  - id: identity-service-upstream
+    name: identity-service
+    type: roundrobin
+    scheme: grpc
+    discovery_type: consul
+    service_name: identity-service
+    keepalive_pool:
+      size: 320
+      idle_timeout: 60
+      requests: 1000
+    checks:
+      active:
+        type: grpc
+        timeout: 1
+        http_path: /health
+        healthy:
+          interval: 2
+          successes: 2
+        unhealthy:
+          interval: 1
+          http_failures: 2
+
+  - id: conversation-service-upstream
+    name: conversation-service
+    type: roundrobin
+    scheme: grpc
+    discovery_type: consul
+    service_name: conversation-service
+    checks:
+      active:
+        type: grpc
+        timeout: 1
+        healthy:
+          interval: 2
+          successes: 2
+        unhealthy:
+          interval: 1
+          http_failures: 2
+
+#
+# 插件元数据
+#
+plugin_metadata:
+  - id: jwt-auth-metadata
+    jwt-auth:
+      secret: ${VAULT:secret/jwt#secret}
+      algorithm: HS256
+      exp: 86400
+      base64_secret: false
+
+  - id: prometheus-metadata
+    prometheus:
+      export_uri: /apisix/prometheus/metrics
+      metric_prefix: apisix_
+
+#
+# 消费者 (Consumers)
+#
+consumers:
+  - username: internal-service
+    plugins:
+      key-auth:
+        key: internal-service-key
+
+  - username: admin-user
+    plugins:
+      jwt-auth:
+        key: admin
+        secret: ${VAULT:secret/jwt#admin-secret}
+        algorithm: HS256
+
+#
+# SSL 证书
+#
+ssl:
+  - id: voicehelper-ssl
+    cert: ${FILE:/etc/apisix/ssl/voicehelper.crt}
+    key: ${FILE:/etc/apisix/ssl/voicehelper.key}
+    snis:
+      - "*.voicehelper.ai"
+      - "voicehelper.ai"

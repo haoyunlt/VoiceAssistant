@@ -4,13 +4,14 @@
 package main
 
 import (
+	"voiceassistant/cmd/model-router/internal/biz"
+	"voiceassistant/cmd/model-router/internal/data"
+	"voiceassistant/cmd/model-router/internal/server"
+	"voiceassistant/cmd/model-router/internal/service"
+
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-	"github.com/voicehelper/voiceassistant/cmd/model-router/internal/biz"
-	"github.com/voicehelper/voiceassistant/cmd/model-router/internal/data"
-	"github.com/voicehelper/voiceassistant/cmd/model-router/internal/server"
-	"github.com/voicehelper/voiceassistant/cmd/model-router/internal/service"
 )
 
 func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {

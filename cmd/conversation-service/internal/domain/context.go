@@ -1,87 +1,122 @@
 package domain
 
-import (
-	"time"
-)
+import "time"
 
-// Context 对话上下文领域模型
-type Context struct {
-	ConversationID string
-	Messages       []ContextMessage
-	MaxTokens      int // 最大 Token 数
-	CurrentTokens  int // 当前 Token 数
-	UpdatedAt      time.Time
+// ConversationContext 会话上下文
+type ConversationContext struct {
+	// 会话 ID
+	ConversationID string `json:"conversation_id"`
+
+	// 用户 ID
+	UserID string `json:"user_id"`
+
+	// 租户 ID
+	TenantID string `json:"tenant_id"`
+
+	// 系统提示
+	SystemPrompt string `json:"system_prompt"`
+
+	// 消息列表
+	Messages []ContextMessage `json:"messages"`
+
+	// 消息数量
+	MessageCount int `json:"message_count"`
+
+	// 总 Token 数
+	TotalTokens int `json:"total_tokens"`
+
+	// 元数据
+	Metadata map[string]string `json:"metadata"`
+
+	// 创建时间
+	CreatedAt time.Time `json:"created_at"`
+
+	// 更新时间
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // ContextMessage 上下文消息
 type ContextMessage struct {
-	Role    MessageRole
-	Content string
+	// 消息 ID
+	ID string `json:"id"`
+
+	// 角色 (user/assistant/system/function)
+	Role string `json:"role"`
+
+	// 内容
+	Content string `json:"content"`
+
+	// Token 数
+	Tokens int `json:"tokens"`
+
+	// 函数调用（可选）
+	FunctionCall *FunctionCall `json:"function_call,omitempty"`
+
+	// 时间戳
+	Timestamp time.Time `json:"timestamp"`
 }
 
-// AddMessage 添加消息到上下文
-func (c *Context) AddMessage(role MessageRole, content string, tokens int) {
-	c.Messages = append(c.Messages, ContextMessage{
-		Role:    role,
-		Content: content,
-	})
-	c.CurrentTokens += tokens
-	c.UpdatedAt = time.Now()
+// FunctionCall 函数调用
+type FunctionCall struct {
+	// 函数名称
+	Name string `json:"name"`
 
-	// 如果超过最大 Token 数，移除最早的消息
-	c.TruncateIfNeeded()
+	// 参数（JSON 字符串）
+	Arguments string `json:"arguments"`
 }
 
-// TruncateIfNeeded 如果超过最大 Token 数，截断上下文
-func (c *Context) TruncateIfNeeded() {
-	// 保留系统消息和最新的消息
-	if c.CurrentTokens > c.MaxTokens && len(c.Messages) > 2 {
-		// 简单策略：移除最早的非系统消息
-		for i := 0; i < len(c.Messages); i++ {
-			if c.Messages[i].Role != MessageRoleSystem {
-				// 移除这条消息
-				c.Messages = append(c.Messages[:i], c.Messages[i+1:]...)
-				// 重新计算 Token（简化处理）
-				c.CurrentTokens = c.EstimateTokens()
-				break
-			}
-		}
-	}
+// ContextSummary 上下文摘要
+type ContextSummary struct {
+	// 会话 ID
+	ConversationID string `json:"conversation_id"`
+
+	// 用户 ID
+	UserID string `json:"user_id"`
+
+	// 租户 ID
+	TenantID string `json:"tenant_id"`
+
+	// 消息数量
+	MessageCount int `json:"message_count"`
+
+	// 总 Token 数
+	TotalTokens int `json:"total_tokens"`
+
+	// 创建时间
+	CreatedAt time.Time `json:"created_at"`
+
+	// 更新时间
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
-// EstimateTokens 估算 Token 数量（简化实现）
-func (c *Context) EstimateTokens() int {
-	// 简化估算：每个字符约 0.25 个 token
-	totalChars := 0
-	for _, msg := range c.Messages {
-		totalChars += len(msg.Content)
-	}
-	return totalChars / 4
-}
+// ContextTruncateStrategy 上下文截断策略
+type ContextTruncateStrategy string
 
-// Clear 清空上下文
-func (c *Context) Clear() {
-	c.Messages = []ContextMessage{}
-	c.CurrentTokens = 0
-	c.UpdatedAt = time.Now()
-}
+const (
+	// 保留最近的消息
+	StrategyKeepRecent ContextTruncateStrategy = "keep_recent"
 
-// ToMessages 转换为消息列表
-func (c *Context) ToMessages() []ContextMessage {
-	return c.Messages
-}
+	// 保留重要消息（基于相似度）
+	StrategyKeepImportant ContextTruncateStrategy = "keep_important"
 
-// ContextRepository 上下文仓储接口（使用 Redis）
-type ContextRepository interface {
-	// Get 获取上下文
-	Get(conversationID string) (*Context, error)
+	// 摘要压缩
+	StrategySummarize ContextTruncateStrategy = "summarize"
+)
 
-	// Set 设置上下文
-	Set(context *Context) error
+// ContextManager 上下文管理器接口
+type ContextManager interface {
+	// 获取上下文
+	GetContext(conversationID string) (*ConversationContext, error)
 
-	// Delete 删除上下文
-	Delete(conversationID string) error
+	// 设置上下文
+	SetContext(context *ConversationContext) error
 
-	// Exists 检查上下文是否存在
-	Exists(conversationID string) (bool, error)
+	// 追加消息
+	AppendMessage(conversationID string, message ContextMessage) error
+
+	// 截断上下文
+	TruncateContext(context *ConversationContext, maxTokens int) *ConversationContext
+
+	// 清空上下文
+	ClearContext(conversationID string) error
 }

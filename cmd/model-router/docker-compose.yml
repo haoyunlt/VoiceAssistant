@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  model-router:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicehelper/model-router:latest
+    container_name: model-router
+    ports:
+      - "9004:9004"  # gRPC port
+      - "8004:8004"  # HTTP port
+    environment:
+      - ENV=development
+      - LOG_LEVEL=info
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=voicehelper
+      - POSTGRES_PASSWORD=voicehelper123
+      - POSTGRES_DB=voicehelper
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: model-router-postgres
+    environment:
+      - POSTGRES_USER=voicehelper
+      - POSTGRES_PASSWORD=voicehelper123
+      - POSTGRES_DB=voicehelper
+    ports:
+      - "5436:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../migrations/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: model-router-redis
+    ports:
+      - "6383:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  voicehelper-network:
+    driver: bridge

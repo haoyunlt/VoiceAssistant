@@ -1,0 +1,59 @@
+version: "3.8"
+
+services:
+  voice-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: voicehelper/voice-engine:latest
+    container_name: voice-engine
+    ports:
+      - "8015:8015"
+    environment:
+      - ENV=development
+      - LOG_LEVEL=info
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_SPEECH_KEY=${AZURE_SPEECH_KEY}
+      - AZURE_SPEECH_REGION=${AZURE_SPEECH_REGION}
+    depends_on:
+      - redis
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8015/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - ./logs:/app/logs
+      - voice-cache:/app/cache
+
+  redis:
+    image: redis:7-alpine
+    container_name: voice-engine-redis
+    ports:
+      - "6394:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - voicehelper-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  redis-data:
+  voice-cache:
+
+networks:
+  voicehelper-network:
+    driver: bridge

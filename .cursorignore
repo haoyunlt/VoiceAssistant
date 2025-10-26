@@ -1,0 +1,137 @@
+# Cursor Performance Optimization
+# 排除不需要索引的文件，提升性能
+
+# ============================================
+# 1. 依赖与第三方库
+# ============================================
+node_modules/
+**/node_modules/
+vendor/
+**/vendor/
+.venv/
+**/.venv/
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ============================================
+# 2. 构建产物与生成文件
+# ============================================
+dist/
+build/
+**/dist/
+**/build/
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+*.test
+coverage.out
+*.coverprofile
+
+# Go 生成文件
+*.pb.go
+*_pb.go
+*.pb.gw.go
+*_grpc.pb.go
+wire_gen.go
+
+# ============================================
+# 3. 大型日志与数据文件
+# ============================================
+*.log
+logs/
+**/logs/
+*.sqlite
+*.db
+*.rdb
+dump.rdb
+
+# ============================================
+# 4. IDE 与编辑器配置（保留 .cursorrules）
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================================
+# 5. 临时文件与缓存
+# ============================================
+tmp/
+temp/
+.cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.tmp
+*.temp
+
+# ============================================
+# 6. 大型报告文档（影响索引速度）
+# ============================================
+# 这些是项目进度报告，不需要频繁索引
+P0_IMPLEMENTATION_COMPLETE.md
+CODE_REVIEW_AND_ITERATION_PLAN.md
+CODE_REVIEW_INDEX.md
+CODE_REVIEW_SUMMARY.md
+CODE_REVIEW.md
+EXECUTION_PROGRESS.md
+EXECUTION_SUMMARY.md
+EXECUTIVE_SUMMARY.md
+FINAL_EXECUTION_REPORT.md
+FINAL_PROJECT_SUMMARY.md
+INCOMPLETE_FEATURES_SUMMARY.md
+INCOMPLETE_FEATURES.md
+ITERATION_EXECUTION_CHECKLIST.md
+ITERATION_PLANNING_INDEX.md
+ITERATION_ROADMAP.md
+P0_P1_COMBINED_SUMMARY.md
+P0_PROGRESS_REPORT.md
+P1_PROGRESS_REPORT.md
+PLANNING_COMPLETION_SUMMARY.md
+PROJECT_COMPLETION_REPORT.md
+REVIEW_DOCUMENTS_INDEX.md
+REVIEW_SUMMARY.md
+SERVICE_COMPLETION_REVIEW.md
+SERVICE_COMPLETION_REPORT.md
+SERVICE_INDEPENDENCE_SUMMARY.md
+SERVICE_TODO_TRACKER.md
+WEEK1_2_COMPLETION_REPORT.md
+WEEK3_4_COMPLETION_REPORT.md
+WEEK3_4_FINAL_REPORT.md
+WEEK3_4_PROGRESS.md
+WEEKLY_PLAN_TRACKER.md
+VECTOR_STORE_ADAPTER_SUMMARY.md
+ALL_SERVICES_COMPLETED.md
+FEATURE_CHECKLIST.md
+
+# ============================================
+# 7. Docker 与 Kubernetes 运行时文件
+# ============================================
+*.tar
+*.gz
+*.zip
+
+# ============================================
+# 8. 测试覆盖率报告
+# ============================================
+htmlcov/
+.coverage
+coverage.xml
+*.cover
+
+# ============================================
+# 9. 如需临时包含某文件，用 !
+# ============================================
+# 示例：!important-file.md

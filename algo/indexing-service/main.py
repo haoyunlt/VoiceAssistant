@@ -1,93 +1,223 @@
 """
-Indexing Service - 文档索引与向量化服务
-负责文档解析、文本分块、向量化和知识图谱构建
+Indexing Service - 文档索引构建服务
+
+功能：
+1. 从 Kafka 接收文档事件
+2. 从 MinIO 下载文档
+3. 解析文档内容
+4. 分块处理
+5. 向量化（BGE-M3）
+6. 存储到 Milvus
+7. 构建 Neo4j 知识图谱
 """
+
 import asyncio
 import logging
+import os
+import signal
+import sys
 from contextlib import asynccontextmanager
 
-from app.core.config import settings
-from app.core.logging_config import setup_logging
-from app.routers import chunk, document, health
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from prometheus_client import Counter, Histogram, make_asgi_app
 
-# 设置日志
-setup_logging()
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
+
+# Prometheus 指标
+DOCUMENTS_PROCESSED = Counter(
+    "indexing_documents_processed_total",
+    "Total number of documents processed",
+    ["status"],
+)
+DOCUMENT_PROCESSING_TIME = Histogram(
+    "indexing_document_processing_seconds",
+    "Time spent processing documents",
+)
+CHUNKS_CREATED = Counter(
+    "indexing_chunks_created_total",
+    "Total number of chunks created",
+)
+VECTORS_STORED = Counter(
+    "indexing_vectors_stored_total",
+    "Total number of vectors stored in Milvus",
+)
+
+# 全局变量
+kafka_consumer = None
+document_processor = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    global kafka_consumer, document_processor
+
     logger.info("Starting Indexing Service...")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"Service: {settings.SERVICE_NAME} v{settings.VERSION}")
 
-    # 启动时初始化
-    # 例如：连接Milvus、Neo4j等
+    try:
+        # 初始化组件
+        from app.core.document_processor import DocumentProcessor
+        from app.infrastructure.kafka_consumer import DocumentEventConsumer
 
-    yield
+        kafka_consumer = DocumentEventConsumer()
+        document_processor = DocumentProcessor()
 
-    # 关闭时清理
-    logger.info("Shutting down Indexing Service...")
+        # 启动 Kafka 消费者
+        asyncio.create_task(kafka_consumer.start())
+
+        logger.info("Indexing Service started successfully")
+
+        yield
+
+    finally:
+        logger.info("Shutting down Indexing Service...")
+
+        # 停止 Kafka 消费者
+        if kafka_consumer:
+            await kafka_consumer.stop()
+
+        # 清理资源
+        if document_processor:
+            await document_processor.cleanup()
+
+        logger.info("Indexing Service shut down complete")
 
 
-# 创建FastAPI应用
+# 创建 FastAPI 应用
 app = FastAPI(
     title="Indexing Service",
-    description="文档索引与向量化服务 - 负责文档解析、分块、向量化和知识图谱构建",
-    version=settings.VERSION,
+    description="VoiceHelper 文档索引构建服务",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
-# CORS中间件
+# CORS 中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 注册路由
-app.include_router(health.router, prefix="/health", tags=["Health"])
-app.include_router(document.router, prefix="/api/v1/documents", tags=["Documents"])
-app.include_router(chunk.router, prefix="/api/v1/chunks", tags=["Chunks"])
+# Prometheus metrics endpoint
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
+
+# ========================================
+# 健康检查
+# ========================================
+
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    return {
+        "status": "healthy",
+        "service": "indexing-service",
+        "version": "2.0.0",
+    }
+
+
+@app.get("/readiness")
+async def readiness_check():
+    """就绪检查"""
+    global kafka_consumer, document_processor
+
+    checks = {
+        "kafka": kafka_consumer is not None and kafka_consumer.is_running(),
+        "processor": document_processor is not None,
+    }
+
+    all_ready = all(checks.values())
+
+    return {
+        "ready": all_ready,
+        "checks": checks,
+    }
+
+
+# ========================================
+# API 端点
+# ========================================
 
 @app.get("/")
 async def root():
     """根路径"""
     return {
-        "service": settings.SERVICE_NAME,
-        "version": settings.VERSION,
-        "status": "running",
-        "docs": "/docs",
+        "service": "indexing-service",
+        "version": "2.0.0",
+        "description": "VoiceHelper Document Indexing Service",
     }
 
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """全局异常处理"""
-    logger.error(f"Global exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc) if settings.DEBUG else "An error occurred",
-        },
-    )
+@app.get("/stats")
+async def get_stats():
+    """获取统计信息"""
+    global document_processor
 
+    if not document_processor:
+        raise HTTPException(status_code=503, detail="Processor not initialized")
+
+    return await document_processor.get_stats()
+
+
+@app.post("/trigger")
+async def trigger_processing(document_id: str):
+    """手动触发文档处理（用于测试）"""
+    global document_processor
+
+    if not document_processor:
+        raise HTTPException(status_code=503, detail="Processor not initialized")
+
+    try:
+        await document_processor.process_document(document_id)
+        return {"status": "success", "document_id": document_id}
+    except Exception as e:
+        logger.error(f"Error processing document {document_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========================================
+# 信号处理
+# ========================================
+
+def handle_shutdown(signum, frame):
+    """处理关闭信号"""
+    logger.info(f"Received signal {signum}, shutting down...")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
+
+
+# ========================================
+# 主程序入口
+# ========================================
 
 if __name__ == "__main__":
     import uvicorn
 
+    # 配置
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8000"))
+    workers = int(os.getenv("WORKERS", "1"))
+    reload = os.getenv("RELOAD", "false").lower() == "true"
+
+    logger.info(f"Starting server on {host}:{port} with {workers} workers")
+
     uvicorn.run(
         "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower(),
+        host=host,
+        port=port,
+        workers=workers,
+        reload=reload,
+        log_level="info",
     )

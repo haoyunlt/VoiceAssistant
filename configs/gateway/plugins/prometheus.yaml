@@ -1,0 +1,320 @@
+#
+# Prometheus 监控插件配置
+# 版本: v2.0
+#
+
+prometheus:
+  # 启用
+  enabled: true
+
+  # 导出地址
+  export_addr:
+    ip: "0.0.0.0"
+    port: 9091
+
+  # 导出路径
+  export_uri: /apisix/prometheus/metrics
+
+  # 指标前缀
+  metric_prefix: apisix_
+
+  # 使用路由名称而不是路由ID
+  prefer_name: true
+
+  # 默认桶 (延迟分布)
+  default_buckets:
+    - 0.001 # 1ms
+    - 0.005 # 5ms
+    - 0.01 # 10ms
+    - 0.05 # 50ms
+    - 0.1 # 100ms
+    - 0.5 # 500ms
+    - 1 # 1s
+    - 5 # 5s
+    - 10 # 10s
+
+#
+# 指标配置
+#
+
+# HTTP 请求总数
+http_requests_total:
+  enabled: true
+  help: "Total number of HTTP requests"
+  labels:
+    - service
+    - route
+    - method
+    - status
+    - tenant_id
+
+# HTTP 请求延迟
+http_request_duration_seconds:
+  enabled: true
+  help: "HTTP request latency in seconds"
+  labels:
+    - service
+    - route
+    - method
+    - status
+  buckets:
+    - 0.001
+    - 0.005
+    - 0.01
+    - 0.05
+    - 0.1
+    - 0.5
+    - 1
+    - 5
+
+# HTTP 请求大小
+http_request_size_bytes:
+  enabled: true
+  help: "HTTP request size in bytes"
+  labels:
+    - service
+    - route
+    - method
+  buckets:
+    - 100
+    - 1000
+    - 10000
+    - 100000
+    - 1000000
+    - 10000000
+
+# HTTP 响应大小
+http_response_size_bytes:
+  enabled: true
+  help: "HTTP response size in bytes"
+  labels:
+    - service
+    - route
+    - method
+    - status
+  buckets:
+    - 100
+    - 1000
+    - 10000
+    - 100000
+    - 1000000
+    - 10000000
+
+# 活跃连接数
+http_connections:
+  enabled: true
+  help: "Number of active HTTP connections"
+  labels:
+    - state # reading, writing, waiting
+
+# 带宽使用
+http_bandwidth_bytes:
+  enabled: true
+  help: "HTTP bandwidth usage in bytes"
+  labels:
+    - service
+    - direction # in, out
+
+#
+# 业务指标
+#
+
+# 对话成功率
+conversation_success_rate:
+  enabled: true
+  help: "Conversation success rate"
+  labels:
+    - tenant_id
+    - mode # text, voice, multimodal
+
+# Token 消耗
+llm_tokens_total:
+  enabled: true
+  help: "Total LLM tokens consumed"
+  labels:
+    - tenant_id
+    - model
+    - type # input, output
+
+# Token 成本
+llm_cost_dollars_total:
+  enabled: true
+  help: "Total LLM cost in dollars"
+  labels:
+    - tenant_id
+    - model
+    - provider
+
+# 向量检索延迟
+milvus_search_duration_seconds:
+  enabled: true
+  help: "Milvus search duration in seconds"
+  labels:
+    - collection
+    - tenant_id
+  buckets:
+    - 0.001
+    - 0.005
+    - 0.01
+    - 0.05
+    - 0.1
+
+# 文档索引数量
+document_indexed_total:
+  enabled: true
+  help: "Total documents indexed"
+  labels:
+    - tenant_id
+    - content_type
+
+# Agent 工具调用
+agent_tool_calls_total:
+  enabled: true
+  help: "Total agent tool calls"
+  labels:
+    - tenant_id
+    - tool_name
+    - success
+
+# 缓存命中率
+cache_hits_total:
+  enabled: true
+  help: "Total cache hits"
+  labels:
+    - cache_type # semantic, query, user
+    - tenant_id
+
+cache_misses_total:
+  enabled: true
+  help: "Total cache misses"
+  labels:
+    - cache_type
+    - tenant_id
+
+#
+# 错误跟踪
+#
+
+# HTTP 错误
+http_errors_total:
+  enabled: true
+  help: "Total HTTP errors"
+  labels:
+    - service
+    - route
+    - status
+    - error_code
+
+# 上游错误
+upstream_errors_total:
+  enabled: true
+  help: "Total upstream errors"
+  labels:
+    - upstream
+    - error_type # timeout, connection_refused, etc.
+
+# 限流事件
+rate_limit_exceeded_total:
+  enabled: true
+  help: "Total rate limit exceeded events"
+  labels:
+    - service
+    - limit_type # global, tenant, user
+
+#
+# 告警规则 (Prometheus AlertManager)
+#
+alerts:
+  - name: HighErrorRate
+    expr: |
+      rate(apisix_http_requests_total{status=~"5.."}[5m]) > 0.01
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: "High error rate detected"
+      description: "Error rate is {{ $value }} (threshold: 0.01)"
+
+  - name: HighLatency
+    expr: |
+      histogram_quantile(0.95,
+        rate(apisix_http_request_duration_seconds_bucket[5m])
+      ) > 0.5
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "High latency detected"
+      description: "P95 latency is {{ $value }}s (threshold: 0.5s)"
+
+  - name: LowCacheHitRate
+    expr: |
+      rate(apisix_cache_hits_total[5m]) /
+      (rate(apisix_cache_hits_total[5m]) + rate(apisix_cache_misses_total[5m])) < 0.3
+    for: 15m
+    labels:
+      severity: info
+    annotations:
+      summary: "Low cache hit rate"
+      description: "Cache hit rate is {{ $value }} (threshold: 0.3)"
+
+  - name: HighLLMCost
+    expr: |
+      increase(apisix_llm_cost_dollars_total[1d]) > 1000
+    labels:
+      severity: warning
+    annotations:
+      summary: "High daily LLM cost"
+      description: "Daily LLM cost is ${{ $value }} (threshold: $1000)"
+
+  - name: UpstreamDown
+    expr: |
+      up{job="apisix"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Upstream service is down"
+      description: "{{ $labels.upstream }} is not responding"
+
+#
+# 仪表盘配置
+#
+dashboards:
+  # Grafana 仪表盘ID
+  grafana:
+    - id: apisix-overview
+      url: http://grafana.voicehelper.svc.cluster.local:3000/d/apisix-overview
+
+    - id: apisix-service-performance
+      url: http://grafana.voicehelper.svc.cluster.local:3000/d/apisix-service
+
+    - id: apisix-business-metrics
+      url: http://grafana.voicehelper.svc.cluster.local:3000/d/apisix-business
+
+#
+# 采样配置
+#
+sampling:
+  enabled: true
+  # 对高流量路由进行采样
+  high_traffic_routes:
+    sample_rate: 0.1 # 10% 采样
+    threshold: 1000 # QPS > 1000 时启用
+
+  # 对低流量路由全量采集
+  low_traffic_routes:
+    sample_rate: 1.0
+    threshold: 100
+
+#
+# 数据保留
+#
+retention:
+  # Prometheus 保留时间
+  prometheus: 15d
+
+  # 长期存储 (Thanos/VictoriaMetrics)
+  long_term_storage:
+    enabled: true
+    retention: 180d

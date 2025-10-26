@@ -1,93 +1,289 @@
 """
-Agent Engine - AI Agent执行引擎
-负责Agent任务执行、工具调用、推理链等
+Agent Engine - 智能代理引擎
+
+核心功能：
+- LangGraph 工作流引擎
+- ReAct 模式（Reasoning + Acting）
+- Plan-Execute 模式
+- 工具注册表与调用
+- 记忆管理（短期 + 长期）
+- 多步骤任务编排
 """
-import asyncio
+
 import logging
+import os
 from contextlib import asynccontextmanager
 
-from app.core.config import settings
-from app.core.logging_config import setup_logging
-from app.routers import agent, health, tools
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import StreamingResponse
+from prometheus_client import make_asgi_app
 
-# 设置日志
-setup_logging()
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
+
+# 全局变量
+agent_engine = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
+    global agent_engine
+
     logger.info("Starting Agent Engine...")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"Service: {settings.SERVICE_NAME} v{settings.VERSION}")
 
-    # 启动时初始化
-    # 例如：加载模型、初始化连接等
+    try:
+        # 初始化 Agent 引擎
+        from app.core.agent_engine import AgentEngine
 
-    yield
+        agent_engine = AgentEngine()
+        await agent_engine.initialize()
 
-    # 关闭时清理
-    logger.info("Shutting down Agent Engine...")
+        logger.info("Agent Engine started successfully")
+
+        yield
+
+    finally:
+        logger.info("Shutting down Agent Engine...")
+
+        # 清理资源
+        if agent_engine:
+            await agent_engine.cleanup()
+
+        logger.info("Agent Engine shut down complete")
 
 
-# 创建FastAPI应用
+# 创建 FastAPI 应用
 app = FastAPI(
     title="Agent Engine",
-    description="AI Agent执行引擎 - 负责Agent任务执行、工具调用和推理链",
-    version=settings.VERSION,
+    description="智能代理引擎 - LangGraph 工作流、ReAct、工具调用、记忆管理",
+    version="1.0.0",
     lifespan=lifespan,
 )
 
-# CORS中间件
+# CORS 中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 注册路由
-app.include_router(health.router, prefix="/health", tags=["Health"])
-app.include_router(agent.router, prefix="/api/v1/agent", tags=["Agent"])
-app.include_router(tools.router, prefix="/api/v1/tools", tags=["Tools"])
+# Prometheus 指标
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 
-@app.get("/")
-async def root():
-    """根路径"""
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    return {"status": "healthy", "service": "agent-engine"}
+
+
+@app.get("/ready")
+async def readiness_check():
+    """就绪检查"""
+    global agent_engine
+
+    checks = {
+        "engine": agent_engine is not None,
+        "llm": agent_engine.llm_client is not None if agent_engine else False,
+        "tools": agent_engine.tool_registry is not None if agent_engine else False,
+        "memory": agent_engine.memory_manager is not None if agent_engine else False,
+    }
+
+    all_ready = all(checks.values())
+
     return {
-        "service": settings.SERVICE_NAME,
-        "version": settings.VERSION,
-        "status": "running",
-        "docs": "/docs",
+        "ready": all_ready,
+        "checks": checks,
     }
 
 
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """全局异常处理"""
-    logger.error(f"Global exception: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "detail": str(exc) if settings.DEBUG else "An error occurred",
-        },
-    )
+@app.post("/execute")
+async def execute_task(request: dict):
+    """
+    执行 Agent 任务（非流式）
+
+    Args:
+        task: 任务描述
+        mode: 执行模式 (react/plan_execute/simple)
+        max_steps: 最大步骤数
+        tools: 可用工具列表
+        conversation_id: 会话 ID（用于记忆）
+        tenant_id: 租户 ID
+    """
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    task = request.get("task")
+    if not task:
+        raise HTTPException(status_code=400, detail="Task is required")
+
+    try:
+        result = await agent_engine.execute(
+            task=task,
+            mode=request.get("mode", "react"),
+            max_steps=request.get("max_steps", 10),
+            tools=request.get("tools"),
+            conversation_id=request.get("conversation_id"),
+            tenant_id=request.get("tenant_id"),
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Error executing task: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/execute/stream")
+async def execute_task_stream(request: dict):
+    """
+    执行 Agent 任务（流式）
+
+    Args:
+        task: 任务描述
+        mode: 执行模式
+        max_steps: 最大步骤数
+        tools: 可用工具列表
+        conversation_id: 会话 ID
+        tenant_id: 租户 ID
+    """
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    task = request.get("task")
+    if not task:
+        raise HTTPException(status_code=400, detail="Task is required")
+
+    try:
+        # 创建流式生成器
+        async def event_generator():
+            async for chunk in agent_engine.execute_stream(
+                task=task,
+                mode=request.get("mode", "react"),
+                max_steps=request.get("max_steps", 10),
+                tools=request.get("tools"),
+                conversation_id=request.get("conversation_id"),
+                tenant_id=request.get("tenant_id"),
+            ):
+                yield f"data: {chunk}\n\n"
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+        )
+
+    except Exception as e:
+        logger.error(f"Error in streaming execution: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/tools")
+async def list_tools():
+    """列出所有可用工具"""
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    tools = agent_engine.tool_registry.list_tools()
+
+    return {
+        "tools": tools,
+        "count": len(tools),
+    }
+
+
+@app.post("/tools/register")
+async def register_tool(request: dict):
+    """
+    注册新工具
+
+    Args:
+        name: 工具名称
+        description: 工具描述
+        parameters: 参数 Schema
+        function: 工具函数（暂不支持动态注册）
+    """
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # TODO: 实现动态工具注册
+    raise HTTPException(status_code=501, detail="Dynamic tool registration not yet implemented")
+
+
+@app.get("/memory/{conversation_id}")
+async def get_memory(conversation_id: str):
+    """获取会话记忆"""
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    memory = await agent_engine.memory_manager.get_memory(conversation_id)
+
+    return {
+        "conversation_id": conversation_id,
+        "memory": memory,
+    }
+
+
+@app.delete("/memory/{conversation_id}")
+async def clear_memory(conversation_id: str):
+    """清除会话记忆"""
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    await agent_engine.memory_manager.clear_memory(conversation_id)
+
+    return {
+        "conversation_id": conversation_id,
+        "status": "cleared",
+    }
+
+
+@app.get("/stats")
+async def get_stats():
+    """获取统计信息"""
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    return await agent_engine.get_stats()
 
 
 if __name__ == "__main__":
     import uvicorn
 
+    # 配置
+    host = os.getenv("HOST", "0.0.0.0")
+    port = int(os.getenv("PORT", "8003"))
+    workers = int(os.getenv("WORKERS", "1"))
+    reload = os.getenv("RELOAD", "false").lower() == "true"
+
+    logger.info(f"Starting server on {host}:{port} with {workers} workers")
+
     uvicorn.run(
         "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower(),
+        host=host,
+        port=port,
+        workers=workers,
+        reload=reload,
     )

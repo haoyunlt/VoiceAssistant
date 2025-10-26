@@ -6,13 +6,14 @@
 package main
 
 import (
+	"voiceassistant/cmd/knowledge-service/internal/biz"
+	"voiceassistant/cmd/knowledge-service/internal/data"
+	"voiceassistant/cmd/knowledge-service/internal/server"
+	"voiceassistant/cmd/knowledge-service/internal/service"
+
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-	"github.com/voicehelper/voiceassistant/cmd/knowledge-service/internal/biz"
-	"github.com/voicehelper/voiceassistant/cmd/knowledge-service/internal/data"
-	"github.com/voicehelper/voiceassistant/cmd/knowledge-service/internal/server"
-	"github.com/voicehelper/voiceassistant/cmd/knowledge-service/internal/service"
 )
 
 // wireApp init kratos application.
