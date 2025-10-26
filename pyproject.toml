@@ -1,0 +1,60 @@
+[project]
+name = "voicehelper-algo"
+version = "2.0.0"
+description = "VoiceHelper AI Algorithm Services"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.6.0",
+    "python-multipart>=0.0.9",
+    "httpx>=0.26.0",
+    "opentelemetry-api>=1.21.0",
+    "opentelemetry-sdk>=1.21.0",
+    "opentelemetry-instrumentation-fastapi>=0.42b0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.21.0",
+    "prometheus-client>=0.19.0",
+    "pymilvus>=2.3.0",
+    "langchain>=0.1.0",
+    "langgraph>=0.0.20",
+    "openai>=1.10.0",
+    "redis>=5.0.0",
+    "pyflink>=1.18.0",
+    "clickhouse-connect>=0.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "A", "C4", "ICN", "PIE", "PYI", "RSE", "RET", "SIM", "TID", "ARG", "PLE", "PLR", "PLW"]
+ignore = ["E501", "B008", "PLR0913", "PLR0912", "PLR0915"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=algo --cov-report=html --cov-report=term-missing"
+
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+

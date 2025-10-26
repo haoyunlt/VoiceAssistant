@@ -1,0 +1,232 @@
+syntax = "proto3";
+
+package identity.v1;
+
+option go_package = "voicehelper/api/identity/v1;v1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// IdentityService 身份认证与用户管理服务
+service IdentityService {
+  // 认证相关
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
+  rpc RefreshToken(RefreshTokenRequest) returns (TokenResponse);
+  rpc VerifyToken(VerifyTokenRequest) returns (TokenClaims);
+  
+  // 用户管理
+  rpc CreateUser(CreateUserRequest) returns (User);
+  rpc GetUser(GetUserRequest) returns (User);
+  rpc UpdateUser(UpdateUserRequest) returns (User);
+  rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  
+  // 租户管理
+  rpc CreateTenant(CreateTenantRequest) returns (Tenant);
+  rpc GetTenant(GetTenantRequest) returns (Tenant);
+  rpc UpdateTenant(UpdateTenantRequest) returns (Tenant);
+  rpc DeleteTenant(DeleteTenantRequest) returns (google.protobuf.Empty);
+  rpc UpdateTenantQuota(UpdateTenantQuotaRequest) returns (Tenant);
+  
+  // 权限管理
+  rpc CheckPermission(CheckPermissionRequest) returns (PermissionResult);
+  rpc AssignRole(AssignRoleRequest) returns (google.protobuf.Empty);
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+}
+
+// ============ 认证相关 ============
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string tenant_id = 3; // 可选，多租户场景
+}
+
+message LoginResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3; // 秒
+  User user = 4;
+}
+
+message LogoutRequest {
+  string user_id = 1;
+  string token = 2;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message TokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+}
+
+message VerifyTokenRequest {
+  string token = 1;
+}
+
+message TokenClaims {
+  string user_id = 1;
+  string tenant_id = 2;
+  repeated string roles = 3;
+  repeated string permissions = 4;
+  google.protobuf.Timestamp issued_at = 5;
+  google.protobuf.Timestamp expires_at = 6;
+}
+
+// ============ 用户相关 ============
+
+message User {
+  string id = 1;
+  string email = 2;
+  string username = 3;
+  string display_name = 4;
+  string avatar_url = 5;
+  string tenant_id = 6;
+  repeated string roles = 7;
+  UserStatus status = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp last_login_at = 11;
+}
+
+enum UserStatus {
+  USER_STATUS_UNSPECIFIED = 0;
+  USER_STATUS_ACTIVE = 1;
+  USER_STATUS_INACTIVE = 2;
+  USER_STATUS_SUSPENDED = 3;
+  USER_STATUS_DELETED = 4;
+}
+
+message CreateUserRequest {
+  string email = 1;
+  string password = 2;
+  string username = 3;
+  string display_name = 4;
+  string tenant_id = 5; // 可选，管理员创建用户时指定
+}
+
+message GetUserRequest {
+  string id = 1; // user_id
+}
+
+message UpdateUserRequest {
+  string id = 1;
+  optional string display_name = 2;
+  optional string avatar_url = 3;
+  optional string password = 4; // 修改密码
+}
+
+message DeleteUserRequest {
+  string id = 1;
+}
+
+message ListUsersRequest {
+  string tenant_id = 1; // 可选，按租户过滤
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  int32 total = 2;
+}
+
+// ============ 租户相关 ============
+
+message Tenant {
+  string id = 1;
+  string name = 2;
+  string display_name = 3;
+  TenantStatus status = 4;
+  TenantQuota quota = 5;
+  TenantUsage usage = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+enum TenantStatus {
+  TENANT_STATUS_UNSPECIFIED = 0;
+  TENANT_STATUS_TRIAL = 1;      // 试用
+  TENANT_STATUS_ACTIVE = 2;     // 正式
+  TENANT_STATUS_SUSPENDED = 3;  // 暂停
+  TENANT_STATUS_EXPIRED = 4;    // 过期
+}
+
+message TenantQuota {
+  int64 max_users = 1;              // 最大用户数
+  int64 max_documents = 2;          // 最大文档数
+  int64 max_storage_bytes = 3;      // 最大存储（字节）
+  int64 max_api_calls_per_day = 4;  // 每日API调用限额
+  int64 max_tokens_per_month = 5;   // 每月Token限额
+}
+
+message TenantUsage {
+  int64 user_count = 1;
+  int64 document_count = 2;
+  int64 storage_bytes = 3;
+  int64 api_calls_today = 4;
+  int64 tokens_this_month = 5;
+}
+
+message CreateTenantRequest {
+  string name = 1;        // 租户标识（唯一）
+  string display_name = 2;
+  TenantQuota quota = 3;
+}
+
+message GetTenantRequest {
+  string id = 1; // tenant_id
+}
+
+message UpdateTenantRequest {
+  string id = 1;
+  optional string display_name = 2;
+  optional TenantStatus status = 3;
+}
+
+message DeleteTenantRequest {
+  string id = 1;
+}
+
+message UpdateTenantQuotaRequest {
+  string id = 1;
+  TenantQuota quota = 2;
+}
+
+// ============ 权限相关 ============
+
+message CheckPermissionRequest {
+  string user_id = 1;
+  string resource = 2;  // 资源类型，如 "document", "conversation"
+  string action = 3;    // 操作，如 "read", "write", "delete"
+}
+
+message PermissionResult {
+  bool allowed = 1;
+  string reason = 2; // 拒绝原因（如果不允许）
+}
+
+message AssignRoleRequest {
+  string user_id = 1;
+  repeated string roles = 2; // 角色列表，如 "admin", "user", "guest"
+}
+
+message ListRolesRequest {
+  string tenant_id = 1; // 可选，按租户过滤
+}
+
+message ListRolesResponse {
+  repeated Role roles = 1;
+}
+
+message Role {
+  string id = 1;
+  string name = 2;
+  string display_name = 3;
+  repeated string permissions = 4;
+}

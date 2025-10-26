@@ -1,0 +1,20 @@
+# Identity Service - User Authentication & Authorization
+
+This service handles user identity management, authentication, and authorization.
+
+## Structure
+
+- `main.go` - Entry point
+- `wire.go` - Dependency injection
+- `internal/biz/` - Business logic layer
+- `internal/service/` - Service implementation (gRPC)
+- `internal/data/` - Data access layer
+- `internal/server/` - Server configuration
+
+## Running
+
+```bash
+cd cmd/identity-service
+go run .
+```
+

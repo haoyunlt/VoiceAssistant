@@ -1,0 +1,312 @@
+{
+  // ========================
+  // VoiceHelper AI Platform
+  // VSCode Workspace Settings
+  // ========================
+
+  // ==================
+  // Editor
+  // ==================
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "editor.rulers": [80, 120],
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": true,
+  "editor.trimAutoWhitespace": true,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+
+  // ==================
+  // File Associations
+  // ==================
+  "files.associations": {
+    "*.proto": "proto3",
+    "*.yaml": "yaml",
+    "*.yml": "yaml",
+    "Dockerfile*": "dockerfile",
+    ".cursorrules": "markdown"
+  },
+
+  // ==================
+  // Files to Exclude
+  // ==================
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/vendor": true
+  },
+
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.hg/store/**": true,
+    "**/vendor/**": true,
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/milvus_data/**": true,
+    "**/kafka_data/**": true,
+    "**/clickhouse_data/**": true
+  },
+
+  // ==================
+  // Search
+  // ==================
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/vendor": true,
+    "**/.next": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/*.pb.go": true,
+    "**/*_pb2.py": true,
+    "**/*_pb2_grpc.py": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true
+  },
+
+  // ==================
+  // Go
+  // ==================
+  "go.useLanguageServer": true,
+  "go.lintTool": "golangci-lint",
+  "go.lintOnSave": "workspace",
+  "go.formatTool": "goimports",
+  "go.testFlags": ["-v", "-race"],
+  "go.coverOnSave": false,
+  "go.coverageDecorator": {
+    "type": "gutter"
+  },
+  "go.toolsManagement.autoUpdate": true,
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.tabSize": 4,
+    "editor.insertSpaces": false
+  },
+  "[go.mod]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+
+  // ==================
+  // Python
+  // ==================
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.linting.mypyEnabled": true,
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": ["--line-length", "100"],
+  "python.sortImports.args": ["--profile", "black"],
+  "[python]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.rulers": [100]
+  },
+
+  // ==================
+  // TypeScript / JavaScript / React
+  // ==================
+  "typescript.tsdk": "platforms/web/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "javascript.suggest.autoImports": true,
+  "typescript.suggest.autoImports": true,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "[typescript]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[typescriptreact]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  },
+  "[javascript]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[javascriptreact]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[json]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+  "[jsonc]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2
+  },
+
+  // ==================
+  // YAML
+  // ==================
+  "[yaml]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+  "yaml.schemas": {
+    "kubernetes": ["deployments/k8s/**/*.yaml", "deployments/helm/**/templates/*.yaml"]
+  },
+  "yaml.customTags": [
+    "!And",
+    "!Base64",
+    "!Cidr",
+    "!Equals",
+    "!FindInMap",
+    "!GetAtt",
+    "!GetAZs",
+    "!If",
+    "!ImportValue",
+    "!Join",
+    "!Not",
+    "!Or",
+    "!Ref",
+    "!Select",
+    "!Split",
+    "!Sub"
+  ],
+
+  // ==================
+  // Markdown
+  // ==================
+  "[markdown]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.wordWrap": "on",
+    "editor.quickSuggestions": {
+      "comments": "on",
+      "strings": "on",
+      "other": "on"
+    }
+  },
+
+  // ==================
+  // Protobuf
+  // ==================
+  "[proto3]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  // ==================
+  // Docker
+  // ==================
+  "[dockerfile]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+
+  // ==================
+  // Shell Scripts
+  // ==================
+  "[shellscript]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+
+  // ==================
+  // SQL
+  // ==================
+  "[sql]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+
+  // ==================
+  // Makefile
+  // ==================
+  "[makefile]": {
+    "editor.insertSpaces": false,
+    "editor.tabSize": 4
+  },
+
+  // ==================
+  // Git
+  // ==================
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.autofetch": true,
+
+  // ==================
+  // Terminal
+  // ==================
+  "terminal.integrated.scrollback": 10000,
+  "terminal.integrated.defaultProfile.osx": "zsh",
+
+  // ==================
+  // Extensions
+  // ==================
+  // ESLint
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+
+  // Prettier
+  "prettier.singleQuote": true,
+  "prettier.trailingComma": "es5",
+  "prettier.arrowParens": "always",
+  "prettier.printWidth": 100,
+
+  // ==================
+  // Testing
+  // ==================
+  "go.testEnvVars": {
+    "GO_ENV": "test"
+  },
+
+  // ==================
+  // Misc
+  // ==================
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false,
+  "workbench.startupEditor": "none",
+  "diffEditor.ignoreTrimWhitespace": false,
+
+  // ==================
+  // Telemetry (Optional)
+  // ==================
+  "telemetry.telemetryLevel": "off"
+}

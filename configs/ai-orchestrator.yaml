@@ -1,0 +1,40 @@
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 60s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 60s
+
+service:
+  name: ai-orchestrator
+  version: v2.0.0
+
+engines:
+  agent:
+    endpoint: agent-engine:9000
+    timeout: 60s
+  rag:
+    endpoint: rag-engine:9000
+    timeout: 30s
+  voice:
+    endpoint: voice-engine:9000
+    timeout: 30s
+  multimodal:
+    endpoint: multimodal-engine:9000
+    timeout: 45s
+
+model_router:
+  endpoint: model-router:9000
+  timeout: 30s
+
+observability:
+  tracing:
+    enabled: true
+    endpoint: otel-collector:4317
+  metrics:
+    enabled: true
+  logging:
+    level: info
+    format: json
+

@@ -1,0 +1,481 @@
+openapi: 3.0.3
+info:
+  title: VoiceHelper AI API
+  description: |
+    VoiceHelper AI 客服语音助手平台 API
+    
+    基于 GraphRAG + Multi-Agent 的云原生语音客服平台。
+  version: v2.0.0
+  contact:
+    name: VoiceHelper Team
+    email: dev@voicehelper.ai
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0.html
+
+servers:
+  - url: http://localhost:9080
+    description: Local development
+  - url: https://api.voicehelper.ai
+    description: Production
+
+tags:
+  - name: Identity
+    description: User authentication and authorization
+  - name: Conversation
+    description: Chat conversations
+  - name: Knowledge
+    description: Document management
+  - name: AI
+    description: AI orchestration and agent execution
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Bad request"
+        details:
+          type: object
+
+    User:
+      type: object
+      required:
+        - id
+        - email
+        - username
+        - tenant_id
+      properties:
+        id:
+          type: string
+          example: "usr_123"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        username:
+          type: string
+          example: "john_doe"
+        tenant_id:
+          type: string
+          example: "tenant_123"
+        created_at:
+          type: integer
+          format: int64
+          example: 1698307200
+        updated_at:
+          type: integer
+          format: int64
+          example: 1698307200
+
+    Conversation:
+      type: object
+      required:
+        - id
+        - user_id
+        - tenant_id
+        - mode
+        - status
+      properties:
+        id:
+          type: string
+          example: "conv_123"
+        user_id:
+          type: string
+          example: "usr_123"
+        tenant_id:
+          type: string
+          example: "tenant_123"
+        mode:
+          type: string
+          enum: [voice, text, multimodal]
+          example: "text"
+        status:
+          type: string
+          enum: [active, closed]
+          example: "active"
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+    Message:
+      type: object
+      required:
+        - id
+        - conversation_id
+        - role
+        - content
+      properties:
+        id:
+          type: string
+          example: "msg_123"
+        conversation_id:
+          type: string
+          example: "conv_123"
+        role:
+          type: string
+          enum: [user, assistant, system]
+          example: "user"
+        content:
+          type: string
+          example: "Hello, how can I help you?"
+        metadata:
+          type: object
+        created_at:
+          type: integer
+          format: int64
+
+    Document:
+      type: object
+      required:
+        - id
+        - title
+        - tenant_id
+        - status
+      properties:
+        id:
+          type: string
+          example: "doc_123"
+        title:
+          type: string
+          example: "Product Manual"
+        tenant_id:
+          type: string
+          example: "tenant_123"
+        status:
+          type: string
+          enum: [pending, indexing, indexed, failed]
+          example: "indexed"
+        file_url:
+          type: string
+          format: uri
+          example: "https://storage.voicehelper.ai/doc_123.pdf"
+        metadata:
+          type: object
+        created_at:
+          type: integer
+          format: int64
+        updated_at:
+          type: integer
+          format: int64
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
+  /api/v1/identity/login:
+    post:
+      summary: User login
+      tags: [Identity]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/conversations:
+    post:
+      summary: Create conversation
+      tags: [Conversation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - tenant_id
+                - mode
+              properties:
+                user_id:
+                  type: string
+                tenant_id:
+                  type: string
+                mode:
+                  type: string
+                  enum: [voice, text, multimodal]
+      responses:
+        '201':
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/conversations/{id}:
+    get:
+      summary: Get conversation
+      tags: [Conversation]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conversation'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/v1/conversations/{conversation_id}/messages:
+    post:
+      summary: Send message
+      tags: [Conversation]
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+                - content
+              properties:
+                role:
+                  type: string
+                  enum: [user, assistant, system]
+                content:
+                  type: string
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+
+    get:
+      summary: Get messages
+      tags: [Conversation]
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Messages retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  total:
+                    type: integer
+
+  /api/v1/knowledge/documents:
+    post:
+      summary: Upload document
+      tags: [Knowledge]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - tenant_id
+                - file_url
+              properties:
+                title:
+                  type: string
+                tenant_id:
+                  type: string
+                file_url:
+                  type: string
+                  format: uri
+                metadata:
+                  type: object
+      responses:
+        '201':
+          description: Document uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+
+    get:
+      summary: List documents
+      tags: [Knowledge]
+      parameters:
+        - name: tenant_id
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Documents retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Document'
+                  total:
+                    type: integer
+
+  /api/v1/knowledge/documents/{id}:
+    get:
+      summary: Get document
+      tags: [Knowledge]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Document found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Document'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      summary: Delete document
+      tags: [Knowledge]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Document deleted
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+

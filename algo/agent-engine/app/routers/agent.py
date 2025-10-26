@@ -1,0 +1,115 @@
+"""Agent执行路由"""
+import logging
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
+
+from app.models.agent import AgentResult, AgentTask
+from app.services.agent_service import AgentService
+
+router = APIRouter()
+logger = logging.getLogger(__name__)
+
+# 创建服务实例
+agent_service = AgentService()
+
+
+class ExecuteAgentRequest(BaseModel):
+    """Agent执行请求"""
+    task: str = Field(..., description="任务描述")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="上下文信息")
+    tools: Optional[List[str]] = Field(default=None, description="可用工具列表")
+    max_iterations: Optional[int] = Field(default=10, description="最大迭代次数")
+    model: Optional[str] = Field(default=None, description="使用的模型")
+
+
+class ExecuteAgentResponse(BaseModel):
+    """Agent执行响应"""
+    task_id: str
+    result: str
+    steps: List[Dict[str, Any]]
+    status: str
+    iterations: int
+    execution_time: float
+    metadata: Dict[str, Any]
+
+
+@router.post("/execute", response_model=ExecuteAgentResponse)
+async def execute_agent(request: ExecuteAgentRequest):
+    """
+    执行Agent任务
+
+    Agent会根据任务描述，自主决策使用哪些工具，
+    进行多步推理，最终完成任务。
+    """
+    try:
+        logger.info(f"Executing agent task: {request.task[:100]}...")
+
+        # 创建Agent任务
+        task = AgentTask(
+            task=request.task,
+            context=request.context or {},
+            tools=request.tools or [],
+            max_iterations=request.max_iterations or 10,
+            model=request.model,
+        )
+
+        # 执行Agent
+        result = await agent_service.execute(task)
+
+        return ExecuteAgentResponse(
+            task_id=result.task_id,
+            result=result.result,
+            steps=result.steps,
+            status=result.status,
+            iterations=result.iterations,
+            execution_time=result.execution_time,
+            metadata=result.metadata,
+        )
+
+    except Exception as e:
+        logger.error(f"Failed to execute agent: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/execute-async")
+async def execute_agent_async(
+    request: ExecuteAgentRequest,
+    background_tasks: BackgroundTasks,
+):
+    """
+    异步执行Agent任务
+
+    立即返回task_id，任务在后台执行
+    """
+    task_id = agent_service.generate_task_id()
+
+    # 添加后台任务
+    task = AgentTask(
+        task_id=task_id,
+        task=request.task,
+        context=request.context or {},
+        tools=request.tools or [],
+        max_iterations=request.max_iterations or 10,
+        model=request.model,
+    )
+
+    background_tasks.add_task(agent_service.execute_async, task)
+
+    return {
+        "task_id": task_id,
+        "status": "pending",
+        "message": "Task submitted successfully",
+    }
+
+
+@router.get("/task/{task_id}")
+async def get_task_status(task_id: str):
+    """获取任务状态"""
+    result = await agent_service.get_task_result(task_id)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    return result

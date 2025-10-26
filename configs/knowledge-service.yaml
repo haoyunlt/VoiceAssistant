@@ -1,0 +1,42 @@
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 30s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 30s
+
+data:
+  database:
+    driver: postgres
+    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=knowledge
+  redis:
+    addr: redis:6379
+    db: 2
+  minio:
+    endpoint: minio:9000
+    access_key: minioadmin
+    secret_key: minioadmin
+    bucket: voicehelper-documents
+    use_ssl: false
+
+kafka:
+  brokers:
+    - kafka:9092
+  topics:
+    document_events: document.events
+
+service:
+  name: knowledge-service
+  version: v2.0.0
+
+observability:
+  tracing:
+    enabled: true
+    endpoint: otel-collector:4317
+  metrics:
+    enabled: true
+  logging:
+    level: info
+    format: json
+

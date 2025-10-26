@@ -1,0 +1,33 @@
+# FastAPI核心
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# HTTP客户端
+httpx==0.26.0
+
+# 日志和监控
+python-json-logger==2.0.7
+
+# OpenAI SDK（可选）
+openai==1.12.0
+
+# LangChain（可选，用于高级Agent功能）
+langchain==0.1.7
+langchain-openai==0.0.5
+
+# 工具库
+python-dotenv==1.0.1
+
+# 数据库（如需要）
+sqlalchemy==2.0.27
+psycopg2-binary==2.9.9
+
+# Redis（如需要）
+redis==5.0.1
+
+# 测试
+pytest==8.0.0
+pytest-asyncio==0.23.4
+httpx==0.26.0

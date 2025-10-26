@@ -1,0 +1,213 @@
+syntax = "proto3";
+
+package knowledge.v1;
+
+option go_package = "voicehelper/api/knowledge/v1;v1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// KnowledgeService 知识管理服务
+service KnowledgeService {
+  // 文档管理
+  rpc UploadDocument(UploadDocumentRequest) returns (Document);
+  rpc GetDocument(GetDocumentRequest) returns (Document);
+  rpc ListDocuments(ListDocumentsRequest) returns (ListDocumentsResponse);
+  rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
+  rpc DeleteDocument(DeleteDocumentRequest) returns (google.protobuf.Empty);
+  rpc DownloadDocument(DownloadDocumentRequest) returns (stream DocumentChunk);
+  
+  // 集合管理
+  rpc CreateCollection(CreateCollectionRequest) returns (Collection);
+  rpc GetCollection(GetCollectionRequest) returns (Collection);
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+  rpc UpdateCollection(UpdateCollectionRequest) returns (Collection);
+  rpc DeleteCollection(DeleteCollectionRequest) returns (google.protobuf.Empty);
+  
+  // 版本管理
+  rpc GetDocumentVersion(GetDocumentVersionRequest) returns (DocumentVersion);
+  rpc ListDocumentVersions(ListDocumentVersionsRequest) returns (ListDocumentVersionsResponse);
+}
+
+// ============ 文档相关 ============
+
+message Document {
+  string id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string collection_id = 4;
+  string name = 5;
+  string content_type = 6;
+  int64 size_bytes = 7;
+  string storage_path = 8;
+  DocumentStatus status = 9;
+  DocumentMetadata metadata = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  int32 version = 13;
+}
+
+enum DocumentStatus {
+  DOCUMENT_STATUS_UNSPECIFIED = 0;
+  DOCUMENT_STATUS_UPLOADING = 1;   // 上传中
+  DOCUMENT_STATUS_PROCESSING = 2;   // 处理中
+  DOCUMENT_STATUS_READY = 3;        // 就绪
+  DOCUMENT_STATUS_FAILED = 4;       // 失败
+  DOCUMENT_STATUS_DELETED = 5;      // 已删除
+}
+
+message DocumentMetadata {
+  string title = 1;
+  string author = 2;
+  int32 page_count = 3;
+  int32 word_count = 4;
+  map<string, string> tags = 5;
+  string language = 6;
+}
+
+message UploadDocumentRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string collection_id = 3;
+  string name = 4;
+  string content_type = 5;
+  bytes content = 6; // 文件内容
+  DocumentMetadata metadata = 7;
+}
+
+message GetDocumentRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message ListDocumentsRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string collection_id = 3; // 可选过滤
+  DocumentStatus status = 4; // 可选过滤
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+message ListDocumentsResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+}
+
+message UpdateDocumentRequest {
+  string id = 1;
+  string user_id = 2;
+  optional string name = 3;
+  optional DocumentMetadata metadata = 4;
+}
+
+message DeleteDocumentRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message DownloadDocumentRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message DocumentChunk {
+  bytes data = 1;
+  int32 chunk_index = 2;
+  bool is_final = 3;
+}
+
+// ============ 集合相关 ============
+
+message Collection {
+  string id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string name = 4;
+  string description = 5;
+  CollectionType type = 6;
+  CollectionMetadata metadata = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  int32 document_count = 10;
+}
+
+enum CollectionType {
+  COLLECTION_TYPE_UNSPECIFIED = 0;
+  COLLECTION_TYPE_PERSONAL = 1;     // 个人
+  COLLECTION_TYPE_SHARED = 2;       // 共享
+  COLLECTION_TYPE_PUBLIC = 3;       // 公开
+}
+
+message CollectionMetadata {
+  map<string, string> tags = 1;
+  repeated string allowed_users = 2; // 允许访问的用户
+}
+
+message CreateCollectionRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string description = 4;
+  CollectionType type = 5;
+  CollectionMetadata metadata = 6;
+}
+
+message GetCollectionRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message ListCollectionsRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  CollectionType type = 3; // 可选过滤
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListCollectionsResponse {
+  repeated Collection collections = 1;
+  int32 total = 2;
+}
+
+message UpdateCollectionRequest {
+  string id = 1;
+  string user_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional CollectionMetadata metadata = 5;
+}
+
+message DeleteCollectionRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+// ============ 版本相关 ============
+
+message DocumentVersion {
+  string id = 1;
+  string document_id = 2;
+  int32 version = 3;
+  string storage_path = 4;
+  int64 size_bytes = 5;
+  string created_by = 6;
+  google.protobuf.Timestamp created_at = 7;
+  string change_log = 8;
+}
+
+message GetDocumentVersionRequest {
+  string document_id = 1;
+  int32 version = 2;
+  string user_id = 3;
+}
+
+message ListDocumentVersionsRequest {
+  string document_id = 1;
+  string user_id = 2;
+}
+
+message ListDocumentVersionsResponse {
+  repeated DocumentVersion versions = 1;
+}

@@ -1,0 +1,65 @@
+# Identity Service 配置文件
+
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 30s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 30s
+
+data:
+  database:
+    driver: postgres
+    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=identity
+  redis:
+    addr: redis:6379
+    password: ""
+    db: 0
+    read_timeout: 1s
+    write_timeout: 1s
+    dial_timeout: 1s
+    pool_size: 10
+
+auth:
+  jwt:
+    secret: ${VAULT:secret/jwt#secret}  # 从 Vault 读取
+    issuer: voicehelper.ai
+    access_token_ttl: 1h    # 1小时
+    refresh_token_ttl: 168h # 7天
+  password:
+    bcrypt_cost: 12  # bcrypt 强度
+
+service:
+  name: identity-service
+  version: v2.0.0
+  metadata:
+    environment: production
+    region: us-west-2
+
+# 可观测性配置
+observability:
+  tracing:
+    enabled: true
+    endpoint: otel-collector:4317
+    sampler: always_on
+  metrics:
+    enabled: true
+    endpoint: prometheus:9090
+  logging:
+    level: info
+    format: json
+    output: stdout
+
+# 限流配置
+ratelimit:
+  enabled: true
+  requests_per_minute: 100
+  burst: 50
+
+# Vault 配置
+vault:
+  addr: http://vault:8200
+  token: ${VAULT_TOKEN}
+  role: identity-service
+

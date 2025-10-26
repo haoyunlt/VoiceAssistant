@@ -1,0 +1,39 @@
+apisix:
+  node_listen: 9080
+  enable_admin: true
+  admin_key:
+    - name: "admin"
+      key: changeme
+      role: admin
+
+etcd:
+  host:
+    - "http://etcd:2379"
+  prefix: "/apisix"
+  timeout: 30
+
+plugin_attr:
+  prometheus:
+    export_addr:
+      ip: "0.0.0.0"
+      port: 9091
+
+  opentelemetry:
+    resource:
+      service.name: "apisix"
+    collector:
+      address: "otel-collector:4317"
+      request_timeout: 3
+
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+
+nginx_config:
+  error_log_level: "warn"
+  worker_processes: auto
+  worker_rlimit_nofile: 20480
+  event:
+    worker_connections: 10620
+

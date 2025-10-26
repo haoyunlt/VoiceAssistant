@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package model_router.v1;
+
+option go_package = "model-router/api/proto/model_router/v1;v1";
+
+// ModelRouter Service - 模型路由与成本优化
+service ModelRouter {
+  // 路由模型请求
+  rpc RouteModel(RouteModelRequest) returns (RouteModelResponse);
+  
+  // 获取模型成本
+  rpc GetModelCost(GetModelCostRequest) returns (ModelCost);
+  
+  // 批量路由
+  rpc BatchRoute(BatchRouteRequest) returns (BatchRouteResponse);
+  
+  // 获取推荐模型
+  rpc RecommendModel(RecommendModelRequest) returns (RecommendModelResponse);
+  
+  // 更新模型配置
+  rpc UpdateModelConfig(UpdateModelConfigRequest) returns (ModelConfig);
+}
+
+message RouteModelRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+  ModelType model_type = 3;  // LLM, Embedding, Reranker
+  string task = 4;            // chat, completion, embedding
+  int32 estimated_tokens = 5;
+  map<string, string> requirements = 6;  // 例如: {"quality": "high", "latency": "low"}
+  string preferred_model = 7;  // 用户偏好的模型
+}
+
+message RouteModelResponse {
+  string model_id = 1;        // 例如: gpt-4-turbo
+  string provider = 2;        // 例如: openai
+  string endpoint = 3;        // API endpoint
+  float estimated_cost = 4;   // 预估成本 (USD)
+  string reason = 5;          // 路由原因
+  map<string, string> config = 6;  // 额外配置
+}
+
+message GetModelCostRequest {
+  string model_id = 1;
+  int32 input_tokens = 2;
+  int32 output_tokens = 3;
+}
+
+message ModelCost {
+  string model_id = 1;
+  float input_cost_per_1k = 2;   // 每1k tokens输入成本
+  float output_cost_per_1k = 3;  // 每1k tokens输出成本
+  float total_cost = 4;           // 总成本
+  string currency = 5;            // 货币单位
+}
+
+message BatchRouteRequest {
+  repeated RouteModelRequest requests = 1;
+}
+
+message BatchRouteResponse {
+  repeated RouteModelResponse responses = 1;
+}
+
+message RecommendModelRequest {
+  string tenant_id = 1;
+  ModelType model_type = 2;
+  float budget_limit = 3;     // 预算上限
+  int32 expected_qps = 4;     // 期望QPS
+}
+
+message RecommendModelResponse {
+  repeated ModelRecommendation recommendations = 1;
+}
+
+message ModelRecommendation {
+  string model_id = 1;
+  string provider = 2;
+  float score = 3;            // 推荐分数
+  string reason = 4;          // 推荐理由
+  ModelMetrics metrics = 5;
+}
+
+message ModelMetrics {
+  float avg_latency_ms = 1;
+  float p95_latency_ms = 2;
+  float success_rate = 3;
+  float cost_per_1k = 4;
+  int32 qps_limit = 5;
+}
+
+message UpdateModelConfigRequest {
+  string model_id = 1;
+  string provider = 2;
+  ModelConfig config = 3;
+}
+
+message ModelConfig {
+  string model_id = 1;
+  string provider = 2;
+  string endpoint = 3;
+  bool enabled = 4;
+  int32 priority = 5;         // 优先级 (1-10)
+  float cost_weight = 6;      // 成本权重
+  float quality_weight = 7;   // 质量权重
+  float latency_weight = 8;   // 延迟权重
+  map<string, string> extra = 9;
+}
+
+enum ModelType {
+  MODEL_TYPE_UNSPECIFIED = 0;
+  MODEL_TYPE_LLM = 1;
+  MODEL_TYPE_EMBEDDING = 2;
+  MODEL_TYPE_RERANKER = 3;
+  MODEL_TYPE_IMAGE = 4;
+  MODEL_TYPE_AUDIO = 5;
+}
+
+message Empty {}
+

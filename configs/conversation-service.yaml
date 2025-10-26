@@ -1,0 +1,65 @@
+# Conversation Service 配置文件
+
+server:
+  http:
+    addr: 0.0.0.0:8000
+    timeout: 30s
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 30s
+
+data:
+  database:
+    driver: postgres
+    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=conversation
+  redis:
+    addr: redis:6379
+    password: ""
+    db: 1  # 使用 DB 1（Identity Service 使用 DB 0）
+    read_timeout: 1s
+    write_timeout: 1s
+    dial_timeout: 1s
+    pool_size: 10
+
+# Kafka 配置
+kafka:
+  brokers:
+    - kafka:9092
+  topics:
+    conversation_events: conversation.events
+  producer:
+    timeout: 10s
+    retry_max: 3
+
+# 上下文配置
+context:
+  max_tokens: 4096  # 默认最大 Token 数
+  ttl: 24h          # Redis 缓存过期时间
+
+service:
+  name: conversation-service
+  version: v2.0.0
+  metadata:
+    environment: production
+    region: us-west-2
+
+# 可观测性配置
+observability:
+  tracing:
+    enabled: true
+    endpoint: otel-collector:4317
+    sampler: always_on
+  metrics:
+    enabled: true
+    endpoint: prometheus:9090
+  logging:
+    level: info
+    format: json
+    output: stdout
+
+# 限流配置
+ratelimit:
+  enabled: true
+  requests_per_minute: 200
+  burst: 100
+

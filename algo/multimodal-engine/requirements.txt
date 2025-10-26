@@ -1,0 +1,31 @@
+# FastAPI and dependencies
+fastapi==0.110.0
+uvicorn[standard]==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# OCR - PaddleOCR
+paddleocr==2.7.3
+paddlepaddle==2.6.0
+
+# Alternative OCR (optional)
+# easyocr==1.7.0
+
+# Image processing
+Pillow==10.2.0
+opencv-python==4.9.0.80
+
+# HTTP client
+httpx==0.26.0
+
+# Object storage (MinIO)
+minio==7.2.3
+
+# Redis cache
+redis==5.0.1
+
+# Monitoring
+prometheus-client==0.19.0
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-instrumentation-fastapi==0.43b0

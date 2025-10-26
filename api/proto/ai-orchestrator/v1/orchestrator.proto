@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package ai_orchestrator.v1;
+
+option go_package = "ai-orchestrator/api/proto/orchestrator/v1;v1";
+
+// AI Orchestrator Service - AI 任务编排与流程控制
+service AIOrchestrator {
+  // 创建 AI 任务
+  rpc CreateTask(CreateTaskRequest) returns (Task);
+  
+  // 获取任务状态
+  rpc GetTask(GetTaskRequest) returns (Task);
+  
+  // 执行对话任务
+  rpc ExecuteChat(ExecuteChatRequest) returns (stream ChatResponse);
+  
+  // 执行 RAG 任务
+  rpc ExecuteRAG(ExecuteRAGRequest) returns (stream RAGResponse);
+  
+  // 执行 Agent 任务
+  rpc ExecuteAgent(ExecuteAgentRequest) returns (stream AgentResponse);
+  
+  // 取消任务
+  rpc CancelTask(CancelTaskRequest) returns (Empty);
+  
+  // 获取任务历史
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+}
+
+message CreateTaskRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string conversation_id = 3;
+  TaskType task_type = 4;
+  string input = 5;
+  map<string, string> params = 6;
+}
+
+message Task {
+  string task_id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string conversation_id = 4;
+  TaskType task_type = 5;
+  TaskStatus status = 6;
+  string input = 7;
+  string output = 8;
+  string error = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
+  int64 completed_at = 12;
+  TaskMetrics metrics = 13;
+}
+
+message TaskMetrics {
+  int32 total_steps = 1;
+  int32 completed_steps = 2;
+  float duration_ms = 3;
+  int32 tokens_used = 4;
+  float cost_usd = 5;
+  string model_used = 6;
+}
+
+message GetTaskRequest {
+  string task_id = 1;
+}
+
+message ExecuteChatRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string conversation_id = 3;
+  string message = 4;
+  ChatMode mode = 5;
+  map<string, string> params = 6;
+}
+
+message ChatResponse {
+  string task_id = 1;
+  ResponseType type = 2;  // text, thinking, tool_call, final
+  string content = 3;
+  ToolCall tool_call = 4;
+  bool done = 5;
+  TaskMetrics metrics = 6;
+}
+
+message ExecuteRAGRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string conversation_id = 3;
+  string query = 4;
+  repeated string collection_ids = 5;
+  RAGMode mode = 6;
+  int32 top_k = 7;
+  map<string, string> params = 8;
+}
+
+message RAGResponse {
+  string task_id = 1;
+  ResponseType type = 2;
+  string content = 3;
+  repeated RetrievedChunk chunks = 4;
+  bool done = 5;
+  TaskMetrics metrics = 6;
+}
+
+message RetrievedChunk {
+  string chunk_id = 1;
+  string document_id = 2;
+  string content = 3;
+  float score = 4;
+  string method = 5;  // vector, graph, hybrid
+}
+
+message ExecuteAgentRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string conversation_id = 3;
+  string task_description = 4;
+  repeated string available_tools = 5;
+  int32 max_iterations = 6;
+  map<string, string> params = 7;
+}
+
+message AgentResponse {
+  string task_id = 1;
+  ResponseType type = 2;
+  string content = 3;
+  AgentStep step = 4;
+  bool done = 5;
+  TaskMetrics metrics = 6;
+}
+
+message AgentStep {
+  int32 step_number = 1;
+  string action = 2;       // think, tool_call, finish
+  string thought = 3;
+  ToolCall tool_call = 4;
+  string observation = 5;
+}
+
+message ToolCall {
+  string tool_name = 1;
+  map<string, string> arguments = 2;
+  string result = 3;
+}
+
+message CancelTaskRequest {
+  string task_id = 1;
+  string reason = 2;
+}
+
+message ListTasksRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string conversation_id = 3;
+  TaskType task_type = 4;
+  TaskStatus status = 5;
+  int32 page = 6;
+  int32 page_size = 7;
+}
+
+message ListTasksResponse {
+  repeated Task tasks = 1;
+  int64 total = 2;
+}
+
+enum TaskType {
+  TASK_TYPE_UNSPECIFIED = 0;
+  TASK_TYPE_CHAT = 1;
+  TASK_TYPE_RAG = 2;
+  TASK_TYPE_AGENT = 3;
+  TASK_TYPE_VOICE = 4;
+  TASK_TYPE_MULTIMODAL = 5;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_CANCELLED = 5;
+}
+
+enum ChatMode {
+  CHAT_MODE_UNSPECIFIED = 0;
+  CHAT_MODE_DIRECT = 1;      // 直接对话
+  CHAT_MODE_RAG = 2;          // RAG 增强
+  CHAT_MODE_AGENT = 3;        // Agent 模式
+}
+
+enum RAGMode {
+  RAG_MODE_UNSPECIFIED = 0;
+  RAG_MODE_VECTOR = 1;        // 向量检索
+  RAG_MODE_GRAPH = 2;         // 图检索
+  RAG_MODE_HYBRID = 3;        // 混合检索
+}
+
+enum ResponseType {
+  RESPONSE_TYPE_UNSPECIFIED = 0;
+  RESPONSE_TYPE_TEXT = 1;
+  RESPONSE_TYPE_THINKING = 2;
+  RESPONSE_TYPE_TOOL_CALL = 3;
+  RESPONSE_TYPE_RETRIEVED = 4;
+  RESPONSE_TYPE_FINAL = 5;
+}
+
+message Empty {}
+

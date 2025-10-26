@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package conversation.v1;
+
+option go_package = "voicehelper/api/conversation/v1;v1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// ConversationService 对话管理服务
+service ConversationService {
+  // 会话管理
+  rpc CreateConversation(CreateConversationRequest) returns (Conversation);
+  rpc GetConversation(GetConversationRequest) returns (Conversation);
+  rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
+  rpc UpdateConversation(UpdateConversationRequest) returns (Conversation);
+  rpc DeleteConversation(DeleteConversationRequest) returns (google.protobuf.Empty);
+  
+  // 消息管理
+  rpc SendMessage(SendMessageRequest) returns (Message);
+  rpc GetMessage(GetMessageRequest) returns (Message);
+  rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
+  rpc StreamMessages(StreamMessagesRequest) returns (stream MessageChunk);
+  
+  // 上下文管理
+  rpc GetContext(GetContextRequest) returns (Context);
+  rpc UpdateContext(UpdateContextRequest) returns (Context);
+  rpc ClearContext(ClearContextRequest) returns (google.protobuf.Empty);
+}
+
+// ============ 会话相关 ============
+
+message Conversation {
+  string id = 1;
+  string user_id = 2;
+  string tenant_id = 3;
+  string title = 4;
+  ConversationMode mode = 5;
+  ConversationStatus status = 6;
+  ConversationMetadata metadata = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  google.protobuf.Timestamp last_message_at = 10;
+  int32 message_count = 11;
+}
+
+enum ConversationMode {
+  CONVERSATION_MODE_UNSPECIFIED = 0;
+  CONVERSATION_MODE_CHAT = 1;      // 普通对话
+  CONVERSATION_MODE_AGENT = 2;     // Agent 模式
+  CONVERSATION_MODE_WORKFLOW = 3;  // 工作流模式
+  CONVERSATION_MODE_VOICE = 4;     // 语音对话
+}
+
+enum ConversationStatus {
+  CONVERSATION_STATUS_UNSPECIFIED = 0;
+  CONVERSATION_STATUS_ACTIVE = 1;   // 活跃
+  CONVERSATION_STATUS_ARCHIVED = 2; // 已归档
+  CONVERSATION_STATUS_DELETED = 3;  // 已删除
+}
+
+message ConversationMetadata {
+  string model = 1;              // 使用的模型
+  map<string, string> tags = 2;  // 标签
+  map<string, string> config = 3; // 配置项
+}
+
+message CreateConversationRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  string title = 3;
+  ConversationMode mode = 4;
+  ConversationMetadata metadata = 5;
+}
+
+message GetConversationRequest {
+  string id = 1;
+  string user_id = 2; // 用于权限校验
+}
+
+message ListConversationsRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+  ConversationMode mode = 3; // 可选过滤
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListConversationsResponse {
+  repeated Conversation conversations = 1;
+  int32 total = 2;
+}
+
+message UpdateConversationRequest {
+  string id = 1;
+  string user_id = 2;
+  optional string title = 3;
+  optional ConversationStatus status = 4;
+  optional ConversationMetadata metadata = 5;
+}
+
+message DeleteConversationRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+// ============ 消息相关 ============
+
+message Message {
+  string id = 1;
+  string conversation_id = 2;
+  MessageRole role = 3;
+  string content = 4;
+  MessageMetadata metadata = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER = 1;      // 用户消息
+  MESSAGE_ROLE_ASSISTANT = 2; // 助手回复
+  MESSAGE_ROLE_SYSTEM = 3;    // 系统消息
+  MESSAGE_ROLE_TOOL = 4;      // 工具调用结果
+}
+
+message MessageMetadata {
+  string model = 1;           // 使用的模型
+  int64 tokens_used = 2;      // Token 消耗
+  float cost_usd = 3;         // 成本（美元）
+  int64 latency_ms = 4;       // 延迟（毫秒）
+  map<string, string> extra = 5; // 额外信息
+}
+
+message SendMessageRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+  string content = 3;
+  MessageRole role = 4;
+  bool stream = 5; // 是否流式返回
+}
+
+message GetMessageRequest {
+  string id = 1;
+  string conversation_id = 2;
+}
+
+message ListMessagesRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+  int32 limit = 3; // 限制返回数量（默认 50）
+  string before_id = 4; // 分页游标（消息 ID）
+}
+
+message ListMessagesResponse {
+  repeated Message messages = 1;
+  bool has_more = 2;
+  string next_cursor = 3;
+}
+
+// 流式消息块
+message MessageChunk {
+  string id = 1;
+  string conversation_id = 2;
+  string content_delta = 3; // 增量内容
+  bool is_final = 4;        // 是否最后一块
+  MessageMetadata metadata = 5; // 仅在最后一块中返回
+}
+
+message StreamMessagesRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+  string content = 3;
+}
+
+// ============ 上下文相关 ============
+
+message Context {
+  string conversation_id = 1;
+  repeated ContextMessage messages = 2; // 历史消息
+  int32 max_tokens = 3;                 // 最大 Token 数
+  int32 current_tokens = 4;             // 当前 Token 数
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message ContextMessage {
+  MessageRole role = 1;
+  string content = 2;
+}
+
+message GetContextRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}
+
+message UpdateContextRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+  repeated ContextMessage messages = 3;
+}
+
+message ClearContextRequest {
+  string conversation_id = 1;
+  string user_id = 2;
+}

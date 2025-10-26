@@ -1,0 +1,126 @@
+# Identity Service Helm Chart 配置
+
+# 镜像配置
+image:
+  repository: voicehelper/identity-service
+  pullPolicy: IfNotPresent
+  tag: "v2.0.0"
+
+# 副本数
+replicaCount: 3
+
+# 服务配置
+service:
+  type: ClusterIP
+  http:
+    port: 8000
+  grpc:
+    port: 9000
+
+# 资源配置
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+# 自动扩缩容
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# 健康检查
+livenessProbe:
+  grpc:
+    port: 9000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  grpc:
+    port: 9000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+# 环境变量
+env:
+  - name: DATABASE_URL
+    valueFrom:
+      secretKeyRef:
+        name: postgres-secret
+        key: connection_url
+  - name: REDIS_URL
+    valueFrom:
+      configMapKeyRef:
+        name: redis-config
+        key: url
+  - name: VAULT_ADDR
+    value: "http://vault:8200"
+  - name: VAULT_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: vault-secret
+        key: token
+
+# Istio 配置
+istio:
+  enabled: true
+  virtualService:
+    enabled: true
+    gateways:
+      - istio-gateway
+    hosts:
+      - identity.voicehelper.local
+  destinationRule:
+    enabled: true
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+
+# ServiceMonitor (Prometheus)
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  path: /metrics
+
+# Pod 安全策略
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# 亲和性配置
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - identity-service
+          topologyKey: kubernetes.io/hostname
+
+# 容忍度
+tolerations: []
+
+# 节点选择器
+nodeSelector: {}
