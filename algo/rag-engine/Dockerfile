@@ -14,9 +14,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 COPY . .
 
-EXPOSE 8014
+EXPOSE 8006
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8014/health')" || exit 1
+    CMD python -c "import requests; requests.get('http://localhost:8006/health')" || exit 1
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8014"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8006"]

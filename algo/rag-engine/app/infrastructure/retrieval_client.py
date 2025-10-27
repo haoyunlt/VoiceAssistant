@@ -22,10 +22,22 @@ class RetrievalClient:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.client = httpx.AsyncClient(timeout=timeout)
+        self._closed = False
 
-    async def close(self):
+    async def __aenter__(self) -> "RetrievalClient":
+        """异步上下文管理器入口."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """异步上下文管理器退出."""
+        await self.close()
+
+    async def close(self) -> None:
         """关闭客户端."""
-        await self.client.aclose()
+        if not self._closed:
+            await self.client.aclose()
+            self._closed = True
+            logger.debug("RetrievalClient closed")
 
     async def retrieve(
         self,
@@ -54,6 +66,9 @@ class RetrievalClient:
             - score: 相关性分数
             - metadata: 元数据 (document_id, filename等)
         """
+        if self._closed:
+            raise RuntimeError("RetrievalClient is closed")
+
         try:
             payload = {
                 "query": query,
@@ -76,6 +91,16 @@ class RetrievalClient:
             data = response.json()
             return data.get("results", [])
 
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                f"Retrieval HTTP error: {e.response.status_code} - {e.response.text}"
+            )
+            raise RuntimeError(
+                f"Retrieval service error (HTTP {e.response.status_code}): {e.response.text[:200]}"
+            )
+        except httpx.TimeoutException as e:
+            logger.error(f"Retrieval timeout: {e}")
+            raise TimeoutError(f"Retrieval service timeout after {self.timeout}s")
         except httpx.HTTPError as e:
             logger.error(f"Retrieval request failed: {e}")
             raise RuntimeError(f"Failed to retrieve: {e}")
@@ -113,50 +138,3 @@ class RetrievalClient:
         except Exception as e:
             logger.warning(f"Health check failed: {e}")
             return False
-
-
-class MockRetrievalClient:
-    """Mock检索客户端 (用于测试)."""
-
-    async def close(self):
-        """关闭客户端."""
-        pass
-
-    async def retrieve(
-        self,
-        query: str,
-        top_k: int = 10,
-        mode: str = "hybrid",
-        tenant_id: Optional[str] = None,
-        rerank: bool = True,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
-        """Mock检索."""
-        # 返回模拟数据
-        return [
-            {
-                "chunk_id": f"chunk_{i}",
-                "content": f"Mock content for query: {query} (result {i})",
-                "score": 0.9 - i * 0.1,
-                "metadata": {
-                    "document_id": f"doc_{i}",
-                    "filename": f"document_{i}.pdf",
-                    "page": i + 1,
-                },
-            }
-            for i in range(min(top_k, 5))
-        ]
-
-    async def multi_retrieve(
-        self, queries: List[str], top_k: int = 10, **kwargs
-    ) -> List[List[Dict[str, Any]]]:
-        """批量Mock检索."""
-        results = []
-        for query in queries:
-            result = await self.retrieve(query, top_k=top_k, **kwargs)
-            results.append(result)
-        return results
-
-    async def health_check(self) -> bool:
-        """健康检查."""
-        return True

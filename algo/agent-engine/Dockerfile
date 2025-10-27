@@ -21,9 +21,14 @@ COPY . .
 # 暴露端口
 EXPOSE 8010
 
+# 设置环境变量
+ENV PORT=8010
+ENV HOST=0.0.0.0
+ENV WORKERS=1
+
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8010/health')" || exit 1
 
 # 运行应用
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8010"]
+CMD ["sh", "-c", "uvicorn main_refactored:app --host ${HOST} --port ${PORT} --workers ${WORKERS}"]

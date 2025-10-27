@@ -83,12 +83,24 @@ func (p *RAGPipeline) Execute(task *Task) (*TaskOutput, error) {
 
 	// 3. 构建输出
 	output := &TaskOutput{
-		Content:    ragResult["answer"].(string),
-		Metadata:   ragResult,
-		TokensUsed: int(ragResult["tokens_used"].(float64)),
-		Model:      ragResult["model"].(string),
-		CostUSD:    ragResult["cost_usd"].(float64),
-		LatencyMS:  int(ragResult["latency_ms"].(float64)),
+		Metadata: ragResult,
+	}
+
+	// 安全地提取字段
+	if answer, ok := ragResult["answer"].(string); ok {
+		output.Content = answer
+	}
+	if tokensUsed, ok := ragResult["tokens_used"].(float64); ok {
+		output.TokensUsed = int(tokensUsed)
+	}
+	if model, ok := ragResult["model"].(string); ok {
+		output.Model = model
+	}
+	if costUSD, ok := ragResult["cost_usd"].(float64); ok {
+		output.CostUSD = costUSD
+	}
+	if latencyMS, ok := ragResult["latency_ms"].(float64); ok {
+		output.LatencyMS = int(latencyMS)
 	}
 
 	return output, nil
@@ -132,9 +144,24 @@ func (p *AgentPipeline) Execute(task *Task) (*TaskOutput, error) {
 	step.CompleteStep(result)
 
 	output := &TaskOutput{
-		Content:   result["result"].(string),
-		Metadata:  result,
-		LatencyMS: int(result["latency_ms"].(float64)),
+		Metadata: result,
+	}
+
+	// 安全地提取字段
+	if resultStr, ok := result["result"].(string); ok {
+		output.Content = resultStr
+	}
+	if latencyMS, ok := result["latency_ms"].(float64); ok {
+		output.LatencyMS = int(latencyMS)
+	}
+	if tokensUsed, ok := result["tokens_used"].(float64); ok {
+		output.TokensUsed = int(tokensUsed)
+	}
+	if model, ok := result["model"].(string); ok {
+		output.Model = model
+	}
+	if costUSD, ok := result["cost_usd"].(float64); ok {
+		output.CostUSD = costUSD
 	}
 
 	return output, nil
@@ -177,9 +204,24 @@ func (p *VoicePipeline) Execute(task *Task) (*TaskOutput, error) {
 	step1.CompleteStep(asrResult)
 
 	output := &TaskOutput{
-		Content:   asrResult["text"].(string),
-		Metadata:  asrResult,
-		LatencyMS: int(asrResult["latency_ms"].(float64)),
+		Metadata: asrResult,
+	}
+
+	// 安全地提取字段
+	if text, ok := asrResult["text"].(string); ok {
+		output.Content = text
+	}
+	if latencyMS, ok := asrResult["latency_ms"].(float64); ok {
+		output.LatencyMS = int(latencyMS)
+	}
+	if tokensUsed, ok := asrResult["tokens_used"].(float64); ok {
+		output.TokensUsed = int(tokensUsed)
+	}
+	if model, ok := asrResult["model"].(string); ok {
+		output.Model = model
+	}
+	if costUSD, ok := asrResult["cost_usd"].(float64); ok {
+		output.CostUSD = costUSD
 	}
 
 	return output, nil

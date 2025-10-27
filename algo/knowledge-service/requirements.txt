@@ -13,8 +13,22 @@ spacy==3.7.2
 # python -m spacy download en_core_web_sm  # English
 # python -m spacy download zh_core_web_sm  # Chinese
 
-# Utilities
+# Redis
+redis[hiredis]==5.0.1
+
+# Kafka
+confluent-kafka==2.3.0
+
+# HTTP Client
 httpx==0.26.0
 
-# Logging and monitoring
+# Observability
+opentelemetry-api==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-instrumentation-fastapi==0.43b0
+opentelemetry-instrumentation-httpx==0.43b0
+opentelemetry-exporter-otlp==1.22.0
 prometheus-client==0.19.0
+
+# Utilities
+python-json-logger==2.0.7

@@ -147,10 +147,25 @@ func (r *TaskRepository) ListPending(ctx context.Context, limit int) ([]*domain.
 
 // toTaskPO 转换为持久化对象
 func (r *TaskRepository) toTaskPO(task *domain.Task) (*TaskPO, error) {
-	inputJSON, _ := json.Marshal(task.Input)
-	outputJSON, _ := json.Marshal(task.Output)
-	stepsJSON, _ := json.Marshal(task.Steps)
-	metadataJSON, _ := json.Marshal(task.Metadata)
+	inputJSON, err := json.Marshal(task.Input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal task input: %w", err)
+	}
+
+	outputJSON, err := json.Marshal(task.Output)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal task output: %w", err)
+	}
+
+	stepsJSON, err := json.Marshal(task.Steps)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal task steps: %w", err)
+	}
+
+	metadataJSON, err := json.Marshal(task.Metadata)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal task metadata: %w", err)
+	}
 
 	return &TaskPO{
 		ID:             task.ID,
@@ -179,16 +194,37 @@ func (r *TaskRepository) toDomainTask(po *TaskPO) (*domain.Task, error) {
 	var metadata map[string]interface{}
 
 	if po.Input != "" {
-		json.Unmarshal([]byte(po.Input), &input)
+		if err := json.Unmarshal([]byte(po.Input), &input); err != nil {
+			r.log.Warnf("failed to unmarshal task input: %v", err)
+			// 继续处理，使用空的input
+		}
 	}
 	if po.Output != "" {
-		json.Unmarshal([]byte(po.Output), &output)
+		if err := json.Unmarshal([]byte(po.Output), &output); err != nil {
+			r.log.Warnf("failed to unmarshal task output: %v", err)
+			// 继续处理，output保持为nil
+		}
 	}
 	if po.Steps != "" {
-		json.Unmarshal([]byte(po.Steps), &steps)
+		if err := json.Unmarshal([]byte(po.Steps), &steps); err != nil {
+			r.log.Warnf("failed to unmarshal task steps: %v", err)
+			steps = make([]*domain.TaskStep, 0)
+		}
 	}
 	if po.Metadata != "" {
-		json.Unmarshal([]byte(po.Metadata), &metadata)
+		if err := json.Unmarshal([]byte(po.Metadata), &metadata); err != nil {
+			r.log.Warnf("failed to unmarshal task metadata: %v", err)
+			metadata = make(map[string]interface{})
+		}
+	}
+
+	// 如果metadata为nil，初始化为空map
+	if metadata == nil {
+		metadata = make(map[string]interface{})
+	}
+	// 如果steps为nil，初始化为空切片
+	if steps == nil {
+		steps = make([]*domain.TaskStep, 0)
 	}
 
 	return &domain.Task{

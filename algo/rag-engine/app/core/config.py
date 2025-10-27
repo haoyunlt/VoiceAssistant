@@ -4,7 +4,8 @@ RAG Engine 配置管理
 
 from typing import Optional
 
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class RAGConfig(BaseSettings):
@@ -13,26 +14,29 @@ class RAGConfig(BaseSettings):
     # 服务配置
     service_name: str = Field(default="rag-engine", env="SERVICE_NAME")
     host: str = Field(default="0.0.0.0", env="HOST")
-    port: int = Field(default=8006, env="PORT")
-    workers: int = Field(default=1, env="WORKERS")
+    port: int = Field(default=8006, env="PORT", ge=1, le=65535)
+    workers: int = Field(default=1, env="WORKERS", ge=1, le=16)
     reload: bool = Field(default=False, env="RELOAD")
 
     # LLM配置
     llm_provider: str = Field(default="openai", env="LLM_PROVIDER")
-    llm_model: str = Field(default="gpt-4", env="LLM_MODEL")
+    llm_model: str = Field(default="gpt-3.5-turbo", env="LLM_MODEL")
     llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
-    llm_api_base: Optional[str] = Field(default=None, env="LLM_API_BASE")
-    llm_temperature: float = Field(default=0.7, env="LLM_TEMPERATURE")
-    llm_max_tokens: int = Field(default=2000, env="LLM_MAX_TOKENS")
-    llm_timeout: int = Field(default=30, env="LLM_TIMEOUT")
+    llm_api_base: Optional[str] = Field(
+        default="http://model-adapter:8005/api/v1",
+        env="LLM_API_BASE"
+    )
+    llm_temperature: float = Field(default=0.7, env="LLM_TEMPERATURE", ge=0.0, le=2.0)
+    llm_max_tokens: int = Field(default=2000, env="LLM_MAX_TOKENS", ge=1, le=32000)
+    llm_timeout: int = Field(default=30, env="LLM_TIMEOUT", ge=1)
 
     # Retrieval配置
     retrieval_service_url: str = Field(
         default="http://retrieval-service:8012", env="RETRIEVAL_SERVICE_URL"
     )
     retrieval_mode: str = Field(default="hybrid", env="RETRIEVAL_MODE")
-    retrieval_top_k: int = Field(default=5, env="RETRIEVAL_TOP_K")
-    retrieval_timeout: int = Field(default=10, env="RETRIEVAL_TIMEOUT")
+    retrieval_top_k: int = Field(default=5, env="RETRIEVAL_TOP_K", ge=1, le=100)
+    retrieval_timeout: int = Field(default=10, env="RETRIEVAL_TIMEOUT", ge=1)
     rerank_enabled: bool = Field(default=True, env="RERANK_ENABLED")
 
     # 查询改写配置

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
 	"voiceassistant/cmd/ai-orchestrator/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -59,6 +58,9 @@ func (uc *TaskUsecase) CreateTask(
 		return nil, err
 	}
 
+	// 记录指标
+	TaskCreatedTotal.WithLabelValues(string(task.Type), task.TenantID).Inc()
+
 	uc.log.WithContext(ctx).Infof("created task: %s, type: %s", task.ID, task.Type)
 	return task, nil
 }
@@ -95,6 +97,11 @@ func (uc *TaskUsecase) ExecuteTask(ctx context.Context, taskID string) (*domain.
 	if err != nil {
 		task.Fail(err.Error())
 		uc.repo.Update(ctx, task)
+
+		// 记录失败指标
+		TaskStatusTotal.WithLabelValues(string(task.Type), "failed", task.TenantID).Inc()
+		TaskExecutionDuration.WithLabelValues(string(task.Type), "failed", task.TenantID).Observe(task.Duration().Seconds())
+
 		uc.log.WithContext(ctx).Errorf("task %s failed: %v", task.ID, err)
 		return nil, err
 	}
@@ -103,6 +110,17 @@ func (uc *TaskUsecase) ExecuteTask(ctx context.Context, taskID string) (*domain.
 	task.Complete(output)
 	if err := uc.repo.Update(ctx, task); err != nil {
 		uc.log.WithContext(ctx).Errorf("failed to update task completion: %v", err)
+	}
+
+	// 记录成功指标
+	TaskStatusTotal.WithLabelValues(string(task.Type), "completed", task.TenantID).Inc()
+	TaskExecutionDuration.WithLabelValues(string(task.Type), "completed", task.TenantID).Observe(task.Duration().Seconds())
+
+	if output.TokensUsed > 0 {
+		TaskTokensUsed.WithLabelValues(string(task.Type), output.Model, task.TenantID).Observe(float64(output.TokensUsed))
+	}
+	if output.CostUSD > 0 {
+		TaskCostUSD.WithLabelValues(string(task.Type), output.Model, task.TenantID).Observe(output.CostUSD)
 	}
 
 	uc.log.WithContext(ctx).Infof(
@@ -153,6 +171,9 @@ func (uc *TaskUsecase) CancelTask(ctx context.Context, taskID string) error {
 		return err
 	}
 
+	// 记录取消指标
+	TaskStatusTotal.WithLabelValues(string(task.Type), "cancelled", task.TenantID).Inc()
+
 	uc.log.WithContext(ctx).Infof("cancelled task: %s", taskID)
 	return nil
 }
@@ -196,24 +217,75 @@ func (uc *TaskUsecase) CreateAndExecuteTask(
 }
 
 // ProcessPendingTasks 处理待执行任务（后台任务）
-func (uc *TaskUsecase) ProcessPendingTasks(ctx context.Context) error {
-	tasks, err := uc.repo.ListPending(ctx, 10)
+// 使用sync.WaitGroup管理goroutine，避免泄漏
+func (uc *TaskUsecase) ProcessPendingTasks(ctx context.Context, maxWorkers int) error {
+	tasks, err := uc.repo.ListPending(ctx, maxWorkers)
 	if err != nil {
 		return err
 	}
 
-	for _, task := range tasks {
-		// 使用goroutine异步执行
-		go func(t *domain.Task) {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-
-			_, err := uc.ExecuteTask(ctx, t.ID)
-			if err != nil {
-				uc.log.Errorf("background task %s execution failed: %v", t.ID, err)
-			}
-		}(task)
+	if len(tasks) == 0 {
+		return nil
 	}
 
-	return nil
+	// 创建有限的worker池
+	taskChan := make(chan *domain.Task, len(tasks))
+	errChan := make(chan error, len(tasks))
+
+	// 启动worker
+	for i := 0; i < maxWorkers && i < len(tasks); i++ {
+		go uc.taskWorker(ctx, taskChan, errChan)
+	}
+
+	// 将任务分发到channel
+	go func() {
+		for _, task := range tasks {
+			select {
+			case taskChan <- task:
+			case <-ctx.Done():
+				return
+			}
+		}
+		close(taskChan)
+	}()
+
+	// 收集结果
+	var lastErr error
+	for i := 0; i < len(tasks); i++ {
+		select {
+		case err := <-errChan:
+			if err != nil {
+				lastErr = err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	return lastErr
+}
+
+// taskWorker 任务工作协程
+func (uc *TaskUsecase) taskWorker(ctx context.Context, taskChan <-chan *domain.Task, errChan chan<- error) {
+	for {
+		select {
+		case task, ok := <-taskChan:
+			if !ok {
+				return // channel关闭，退出
+			}
+
+			// 为每个任务创建独立的超时context
+			taskCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			_, err := uc.ExecuteTask(taskCtx, task.ID)
+			cancel()
+
+			if err != nil {
+				uc.log.Errorf("background task %s execution failed: %v", task.ID, err)
+			}
+			errChan <- err
+
+		case <-ctx.Done():
+			return
+		}
+	}
 }

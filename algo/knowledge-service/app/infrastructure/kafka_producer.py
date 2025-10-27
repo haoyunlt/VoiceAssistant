@@ -22,13 +22,22 @@ _kafka_producer_lock = asyncio.Lock()
 class KafkaProducer:
     """Kafka事件生产者"""
 
-    def __init__(self, config: Optional[Dict] = None):
-        """初始化Kafka生产者"""
+    def __init__(self, config: Optional[Dict] = None, compensation_service: Optional[Any] = None):
+        """
+        初始化Kafka生产者
+        
+        Args:
+            config: Kafka配置
+            compensation_service: 事件补偿服务（可选）
+        """
+        from app.core.config import settings
+        
         self.config = config or {
-            "bootstrap.servers": os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
-            "acks": "all",
-            "retries": 3,
-            "linger.ms": 5,
+            "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
+            "acks": settings.KAFKA_ACKS,
+            "retries": settings.KAFKA_RETRIES,
+            "linger.ms": settings.KAFKA_LINGER_MS,
+            "compression.type": settings.KAFKA_COMPRESSION_TYPE,
         }
 
         # 延迟导入confluent_kafka
@@ -43,18 +52,22 @@ class KafkaProducer:
             self.Producer = None
             self.KafkaException = Exception
 
-        self.topic_knowledge_events = os.getenv(
-            "KAFKA_TOPIC_KNOWLEDGE_EVENTS", "knowledge.events"
-        )
+        self.topic_knowledge_events = settings.KAFKA_TOPIC_KNOWLEDGE_EVENTS
+        self.compensation_service = compensation_service
+        self.sent_count = 0
+        self.failed_count = 0
+        
         logger.info(
             f"Kafka Producer initialized with servers: {self.config.get('bootstrap.servers')}"
         )
 
-    def _delivery_report(self, err, msg):
+    def _delivery_report(self, err: Any, msg: Any) -> None:
         """消息发送回调"""
         if err is not None:
+            self.failed_count += 1
             logger.error(f"Message delivery failed: {err}")
         else:
+            self.sent_count += 1
             logger.debug(
                 f"Message delivered to {msg.topic()} [{msg.partition()}] @ offset {msg.offset()}"
             )
@@ -64,7 +77,7 @@ class KafkaProducer:
         event_type: str,
         payload: Dict[str, Any],
         metadata: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         """发布通用事件"""
         event = {
             "event_id": str(uuid4()),
@@ -92,11 +105,24 @@ class KafkaProducer:
             logger.info(f"Published event '{event_type}'")
         except Exception as e:
             logger.error(f"Failed to publish event to Kafka: {e}")
+            
+            # 记录失败事件到补偿服务
+            if self.compensation_service:
+                try:
+                    await self.compensation_service.record_failed_event(
+                        event_type=event_type,
+                        payload=payload,
+                        error=str(e),
+                        metadata=metadata,
+                    )
+                except Exception as comp_error:
+                    logger.error(f"Failed to record failed event: {comp_error}")
+            
             raise
 
     async def publish_entity_created(
         self, entity_id: str, tenant_id: str, entity_data: Dict[str, Any]
-    ):
+    ) -> None:
         """发布实体创建事件"""
         await self.publish_event(
             "entity.created",
@@ -111,14 +137,14 @@ class KafkaProducer:
 
     async def publish_entity_updated(
         self, entity_id: str, tenant_id: str, changes: Dict[str, Any]
-    ):
+    ) -> None:
         """发布实体更新事件"""
         await self.publish_event(
             "entity.updated",
             {"entity_id": entity_id, "tenant_id": tenant_id, "changes": changes},
         )
 
-    async def publish_entity_deleted(self, entity_id: str, tenant_id: str):
+    async def publish_entity_deleted(self, entity_id: str, tenant_id: str) -> None:
         """发布实体删除事件"""
         await self.publish_event(
             "entity.deleted", {"entity_id": entity_id, "tenant_id": tenant_id}
@@ -131,7 +157,7 @@ class KafkaProducer:
         source_id: str,
         target_id: str,
         relation_type: str,
-    ):
+    ) -> None:
         """发布关系创建事件"""
         await self.publish_event(
             "relation.created",
@@ -151,7 +177,7 @@ class KafkaProducer:
         entity_count: int,
         relation_count: int,
         metadata: Dict[str, Any],
-    ):
+    ) -> None:
         """发布图谱构建完成事件"""
         await self.publish_event(
             "graph.built",
@@ -171,7 +197,7 @@ class KafkaProducer:
         community_count: int,
         algorithm: str,
         metadata: Dict[str, Any],
-    ):
+    ) -> None:
         """发布社区检测完成事件"""
         await self.publish_event(
             "community.detected",
@@ -184,12 +210,21 @@ class KafkaProducer:
             metadata,
         )
 
-    async def close(self):
+    async def close(self) -> None:
         """关闭生产者"""
         if self.producer:
-            logger.info("Closing Kafka Producer...")
+            logger.info(
+                f"Closing Kafka Producer... (sent={self.sent_count}, failed={self.failed_count})"
+            )
             await asyncio.to_thread(self.producer.flush, 10)
             logger.info("Kafka Producer closed.")
+
+    def get_metrics(self) -> Dict[str, int]:
+        """获取生产者指标"""
+        return {
+            "sent_count": self.sent_count,
+            "failed_count": self.failed_count,
+        }
 
 
 async def get_kafka_producer() -> KafkaProducer:
@@ -201,7 +236,7 @@ async def get_kafka_producer() -> KafkaProducer:
         return _kafka_producer_instance
 
 
-async def close_kafka_producer():
+async def close_kafka_producer() -> None:
     """关闭Kafka生产者单例"""
     global _kafka_producer_instance
     async with _kafka_producer_lock:

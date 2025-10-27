@@ -5,6 +5,7 @@ Configuration management for Voice Engine
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -16,7 +17,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
-    PORT: int = 8004
+    PORT: int = Field(default=8004, ge=1, le=65535)
 
     # ASR（自动语音识别）配置
     ASR_PROVIDER: str = "whisper"  # whisper, azure
@@ -40,15 +41,15 @@ class Settings(BaseSettings):
 
     # VAD（语音活动检测）配置
     VAD_ENABLED: bool = True
-    VAD_THRESHOLD: float = 0.3  # 噪声门限 (0-1)
-    VAD_MIN_SPEECH_DURATION_MS: int = 500  # 最小语音段（毫秒）
-    VAD_MIN_SILENCE_DURATION_MS: int = 2000  # 静音超时（毫秒）
-    VAD_SPEECH_PAD_MS: int = 400  # 语音填充（毫秒）
+    VAD_THRESHOLD: float = Field(default=0.3, ge=0.0, le=1.0)  # 噪声门限 (0-1)
+    VAD_MIN_SPEECH_DURATION_MS: int = Field(default=500, ge=0)  # 最小语音段（毫秒）
+    VAD_MIN_SILENCE_DURATION_MS: int = Field(default=2000, ge=0)  # 静音超时（毫秒）
+    VAD_SPEECH_PAD_MS: int = Field(default=400, ge=0)  # 语音填充（毫秒）
 
     # 音频格式配置
-    AUDIO_SAMPLE_RATE: int = 16000  # 采样率（Hz）
-    AUDIO_CHANNELS: int = 1  # 单声道
-    AUDIO_FORMAT: str = "wav"  # wav, mp3, opus
+    AUDIO_SAMPLE_RATE: int = Field(default=16000, ge=8000, le=48000)  # 采样率（Hz）
+    AUDIO_CHANNELS: int = Field(default=1, ge=1, le=2)  # 单声道/立体声
+    AUDIO_FORMAT: str = Field(default="wav", pattern="^(wav|mp3|opus)$")  # wav, mp3, opus
 
     # MinIO 对象存储配置（用于音频文件存储）
     MINIO_ENDPOINT: str = "localhost:9000"
@@ -59,10 +60,10 @@ class Settings(BaseSettings):
 
     # Redis 缓存配置
     REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
+    REDIS_PORT: int = Field(default=6379, ge=1, le=65535)
     REDIS_PASSWORD: str = ""
-    REDIS_DB: int = 4
-    TTS_CACHE_TTL: int = 86400  # TTS 缓存 24 小时
+    REDIS_DB: int = Field(default=4, ge=0, le=15)
+    TTS_CACHE_TTL: int = Field(default=86400, ge=60)  # TTS 缓存 24 小时（最少1分钟）
 
     @property
     def REDIS_URL(self) -> str:
@@ -80,8 +81,42 @@ class Settings(BaseSettings):
     OTEL_SERVICE_NAME: str = "voice-engine"
 
     # 性能配置
-    MAX_AUDIO_DURATION_SECONDS: int = 300  # 最大音频时长（5分钟）
-    ASR_CHUNK_SIZE: int = 1024  # ASR 流式处理块大小
+    MAX_AUDIO_DURATION_SECONDS: int = Field(default=300, ge=1, le=3600)  # 最大音频时长（5分钟）
+    ASR_CHUNK_SIZE: int = Field(default=1024, ge=256, le=8192)  # ASR 流式处理块大小
+
+    # 超时配置
+    ASR_TIMEOUT_SECONDS: int = Field(default=60, ge=5)  # ASR 超时
+    TTS_TIMEOUT_SECONDS: int = Field(default=30, ge=5)  # TTS 超时
+    VAD_TIMEOUT_SECONDS: int = Field(default=10, ge=1)  # VAD 超时
+
+    # 限流配置
+    RATE_LIMIT_ENABLED: bool = True
+    RATE_LIMIT_TENANT_PER_MINUTE: int = Field(default=100, ge=1)
+    RATE_LIMIT_USER_PER_MINUTE: int = Field(default=20, ge=1)
+    RATE_LIMIT_IP_PER_MINUTE: int = Field(default=10, ge=1)
+
+    # 熔断器配置
+    CIRCUIT_BREAKER_ENABLED: bool = True
+    CIRCUIT_BREAKER_FAILURE_THRESHOLD: int = Field(default=5, ge=1)
+    CIRCUIT_BREAKER_RECOVERY_TIMEOUT: int = Field(default=60, ge=1)
+
+    @field_validator("WHISPER_MODEL")
+    @classmethod
+    def validate_whisper_model(cls, v: str) -> str:
+        """验证 Whisper 模型"""
+        valid_models = ["tiny", "base", "small", "medium", "large"]
+        if v not in valid_models:
+            raise ValueError(f"Invalid WHISPER_MODEL: {v}. Must be one of {valid_models}")
+        return v
+
+    @field_validator("WHISPER_DEVICE")
+    @classmethod
+    def validate_device(cls, v: str) -> str:
+        """验证设备"""
+        valid_devices = ["cpu", "cuda", "auto"]
+        if v not in valid_devices:
+            raise ValueError(f"Invalid WHISPER_DEVICE: {v}. Must be one of {valid_devices}")
+        return v
 
     class Config:
         env_file = ".env"

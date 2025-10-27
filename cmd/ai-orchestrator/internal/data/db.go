@@ -7,48 +7,86 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	gormlogger "gorm.io/gorm/logger"
+	"gorm.io/gorm/logger"
 )
 
 // Config 数据库配置
 type Config struct {
-	Driver string
-	Source string
+	Driver          string
+	Source          string
+	MaxIdleConns    int
+	MaxOpenConns    int
+	ConnMaxLifetime time.Duration
 }
 
 // NewDB 创建数据库连接
-func NewDB(conf *Config, logger log.Logger) (*gorm.DB, error) {
-	logHelper := log.NewHelper(logger)
-	logHelper.Infof("connecting to database: %s", conf.Driver)
+func NewDB(c *Config, log log.Logger) (*gorm.DB, error) {
+	helper := log.NewHelper(log)
 
+	// 根据驱动选择适配器
 	var dialector gorm.Dialector
-	switch conf.Driver {
-	case "postgres":
-		dialector = postgres.Open(conf.Source)
+	switch c.Driver {
+	case "postgres", "postgresql":
+		dialector = postgres.Open(c.Source)
 	default:
-		return nil, fmt.Errorf("unsupported database driver: %s", conf.Driver)
+		return nil, fmt.Errorf("unsupported database driver: %s", c.Driver)
 	}
 
-	db, err := gorm.Open(dialector, &gorm.Config{
-		Logger: gormlogger.Default.LogMode(gormlogger.Info),
-		NowFunc: func() time.Time {
-			return time.Now().UTC()
+	// 配置GORM日志
+	gormLogger := logger.New(
+		&logAdapter{helper: helper},
+		logger.Config{
+			SlowThreshold:             200 * time.Millisecond,
+			LogLevel:                  logger.Info,
+			IgnoreRecordNotFoundError: true,
+			Colorful:                  false,
 		},
+	)
+
+	// 创建连接
+	db, err := gorm.Open(dialector, &gorm.Config{
+		Logger:                 gormLogger,
+		SkipDefaultTransaction: true, // 提升性能
+		PrepareStmt:            true, // 预编译SQL
 	})
 	if err != nil {
-		logHelper.Errorf("failed to connect database: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// 配置连接池
+	// 获取底层sql.DB
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get sql.DB: %w", err)
 	}
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	logHelper.Info("database connected successfully")
+	// 设置连接池参数
+	if c.MaxIdleConns > 0 {
+		sqlDB.SetMaxIdleConns(c.MaxIdleConns)
+	} else {
+		sqlDB.SetMaxIdleConns(10) // 默认值
+	}
+
+	if c.MaxOpenConns > 0 {
+		sqlDB.SetMaxOpenConns(c.MaxOpenConns)
+	} else {
+		sqlDB.SetMaxOpenConns(100) // 默认值
+	}
+
+	if c.ConnMaxLifetime > 0 {
+		sqlDB.SetConnMaxLifetime(c.ConnMaxLifetime)
+	} else {
+		sqlDB.SetConnMaxLifetime(time.Hour) // 默认1小时
+	}
+
+	helper.Info("database connected successfully")
 	return db, nil
+}
+
+// logAdapter GORM日志适配器
+type logAdapter struct {
+	helper *log.Helper
+}
+
+func (l *logAdapter) Printf(format string, args ...interface{}) {
+	l.helper.Infof(format, args...)
 }

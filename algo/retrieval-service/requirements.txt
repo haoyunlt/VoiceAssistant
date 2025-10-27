@@ -45,6 +45,10 @@ opentelemetry-api==1.21.0
 opentelemetry-sdk==1.21.0
 opentelemetry-instrumentation-httpx==0.42b0
 opentelemetry-instrumentation-fastapi==0.42b0
+opentelemetry-exporter-otlp-proto-grpc==1.21.0
 
 # 配置管理
 pydantic-settings==2.1.0
+
+# 安全和中间件
+python-multipart==0.0.6  # 用于表单解析

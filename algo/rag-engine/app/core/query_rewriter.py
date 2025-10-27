@@ -183,33 +183,3 @@ Sub-queries (one per line):"""
         except Exception as e:
             logger.error(f"Query decomposition failed: {e}")
             return [query]
-
-
-class MockQueryRewriter:
-    """Mock查询改写器 (用于测试)."""
-
-    async def rewrite_multi_query(self, query: str, num_queries: int = 3) -> List[str]:
-        """Mock多查询扩展."""
-        return [query, f"{query} (alternative 1)", f"{query} (alternative 2)"][:num_queries]
-
-    async def rewrite_hyde(self, query: str) -> str:
-        """Mock HyDE."""
-        return f"Hypothetical answer for: {query}"
-
-    async def rewrite_query(
-        self,
-        query: str,
-        method: str = "multi",
-        num_queries: int = 3,
-    ) -> List[str]:
-        """Mock查询改写."""
-        if method == "multi":
-            return await self.rewrite_multi_query(query, num_queries)
-        elif method == "hyde":
-            return [await self.rewrite_hyde(query)]
-        else:
-            return [query]
-
-    async def decompose_query(self, query: str) -> List[str]:
-        """Mock查询分解."""
-        return [query]

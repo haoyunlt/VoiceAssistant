@@ -4,20 +4,24 @@
 package main
 
 import (
+	"voiceassistant/cmd/analytics-service/internal/app"
 	"voiceassistant/cmd/analytics-service/internal/biz"
+	"voiceassistant/cmd/analytics-service/internal/conf"
 	"voiceassistant/cmd/analytics-service/internal/data"
 	"voiceassistant/cmd/analytics-service/internal/server"
 	"voiceassistant/cmd/analytics-service/internal/service"
 
 	"github.com/google/wire"
+	"go.uber.org/zap"
 )
 
 // initApp 初始化应用
-func initApp(
-	dbConfig *data.DBConfig,
-	chConfig *data.ClickHouseConfig,
-) (*server.HTTPServer, error) {
+func initApp(config *conf.Config, logger *zap.Logger) (*app.App, func(), error) {
 	wire.Build(
+		// 提供配置
+		provideDBConfig,
+		provideClickHouseConfig,
+
 		// Data 层
 		data.NewDB,
 		data.NewClickHouseClient,
@@ -32,8 +36,37 @@ func initApp(
 		service.NewAnalyticsService,
 
 		// Server 层
+		wire.Bind(new(server.Logger), new(*zap.Logger)),
 		server.NewHTTPServer,
+
+		// App
+		app.NewApp,
 	)
 
-	return nil, nil
+	return nil, func() {}, nil
+}
+
+// provideDBConfig 提供数据库配置
+func provideDBConfig(config *conf.Config) *data.DBConfig {
+	return &data.DBConfig{
+		Host:            config.Database.Host,
+		Port:            config.Database.Port,
+		DBName:          config.Database.DBName,
+		User:            config.Database.User,
+		Password:        config.Database.Password,
+		SSLMode:         config.Database.SSLMode,
+		MaxOpenConns:    config.Database.MaxOpenConns,
+		MaxIdleConns:    config.Database.MaxIdleConns,
+		ConnMaxLifetime: config.Database.ConnMaxLifetime,
+	}
+}
+
+// provideClickHouseConfig 提供 ClickHouse 配置
+func provideClickHouseConfig(config *conf.Config) *data.ClickHouseConfig {
+	return &data.ClickHouseConfig{
+		Addr:     config.ClickHouse.Addr,
+		Database: config.ClickHouse.Database,
+		Username: config.ClickHouse.Username,
+		Password: config.ClickHouse.Password,
+	}
 }

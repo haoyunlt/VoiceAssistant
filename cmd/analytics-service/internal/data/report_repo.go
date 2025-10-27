@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-
 	"voiceassistant/cmd/analytics-service/internal/domain"
 
 	"gorm.io/gorm"
@@ -33,11 +32,11 @@ func (ReportDO) TableName() string {
 
 // ReportRepository 报表仓储实现
 type ReportRepository struct {
-	db *gorm.DB
+	db *DB
 }
 
 // NewReportRepository 创建报表仓储
-func NewReportRepository(db *gorm.DB) domain.ReportRepository {
+func NewReportRepository(db *DB) domain.ReportRepository {
 	return &ReportRepository{
 		db: db,
 	}

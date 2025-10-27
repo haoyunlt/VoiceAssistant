@@ -1,176 +1,190 @@
-"""Model Adapter服务 - 统一的LLM提供商适配层."""
+"""Model Adapter服务 - 重构版本."""
 
 import logging
-import os
 from contextlib import asynccontextmanager
+from typing import Annotated
 
-from fastapi import FastAPI, HTTPException
+from app.core.adapter_manager import AdapterManager
+from app.core.exceptions import (
+    ModelAdapterError,
+    ProviderNotAvailableError,
+    ProviderNotFoundError,
+)
+from app.core.settings import settings
+from app.models.request import ChatRequest, EmbeddingRequest
+from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import make_asgi_app
 
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=getattr(logging, settings.log_level.upper()),
+    format=settings.log_format,
 )
 logger = logging.getLogger(__name__)
+
+# 全局适配器管理器
+adapter_manager: AdapterManager = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    logger.info("Starting Model Adapter Service...")
+    """应用生命周期管理."""
+    global adapter_manager
 
-    # 初始化适配器
-    from app.adapters.claude_adapter import ClaudeAdapter
-    from app.adapters.openai_adapter import OpenAIAdapter
-    from app.adapters.zhipu_adapter import ZhipuAdapter
-    from app.services.providers.baidu_adapter import BaiduAdapter
-    from app.services.providers.qwen_adapter import QwenAdapter
-    from app.services.providers.zhipu_adapter import ZhipuAdapter as ZhipuAdapterNew
+    logger.info(f"Starting {settings.app_name} v{settings.app_version}...")
+    logger.info(f"Environment: {settings.environment}")
 
-    global adapters
+    # 初始化适配器管理器
+    adapter_manager = AdapterManager(settings)
+    await adapter_manager.initialize()
 
-    adapters = {}
-
-    # OpenAI
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if openai_key:
-        adapters["openai"] = OpenAIAdapter(openai_key)
-        logger.info("OpenAI adapter initialized")
-
-    # Claude
-    claude_key = os.getenv("ANTHROPIC_API_KEY")
-    if claude_key:
-        adapters["claude"] = ClaudeAdapter(claude_key)
-        logger.info("Claude adapter initialized")
-
-    # 智谱AI GLM-4 (新实现)
-    zhipu_key = os.getenv("ZHIPU_API_KEY")
-    if zhipu_key:
-        adapters["zhipu"] = ZhipuAdapterNew(zhipu_key)
-        logger.info("Zhipu GLM-4 adapter initialized")
-
-    # 通义千问
-    qwen_key = os.getenv("DASHSCOPE_API_KEY")
-    if qwen_key:
-        adapters["qwen"] = QwenAdapter(qwen_key)
-        logger.info("Qwen adapter initialized")
-
-    # 百度文心一言
-    baidu_key = os.getenv("BAIDU_API_KEY")
-    baidu_secret = os.getenv("BAIDU_SECRET_KEY")
-    if baidu_key and baidu_secret:
-        adapters["baidu"] = BaiduAdapter(baidu_key, baidu_secret)
-        logger.info("Baidu ERNIE adapter initialized")
-
-    logger.info(f"Model Adapter Service started with {len(adapters)} providers")
+    logger.info(
+        f"{settings.app_name} started with {adapter_manager.adapter_count} providers"
+    )
 
     yield
 
     # 清理资源
-    logger.info("Shutting down Model Adapter Service...")
-
-    for provider, adapter in adapters.items():
-        if hasattr(adapter, "close"):
-            try:
-                await adapter.close()
-            except Exception as e:
-                logger.error(f"Error closing {provider} adapter: {e}")
-
-    logger.info("Model Adapter Service shut down complete")
+    logger.info(f"Shutting down {settings.app_name}...")
+    if adapter_manager:
+        await adapter_manager.shutdown()
+    logger.info(f"{settings.app_name} shut down complete")
 
 
 # 创建FastAPI应用
 app = FastAPI(
-    title="Model Adapter",
-    description="统一的LLM提供商适配层 - OpenAI/Claude/Zhipu",
-    version="1.0.0",
+    title=settings.app_name,
+    description="统一的LLM提供商适配层",
+    version=settings.app_version,
     lifespan=lifespan,
+    debug=settings.debug,
 )
 
 # CORS中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_origins,
+    allow_credentials=settings.cors_allow_credentials,
+    allow_methods=settings.cors_allow_methods,
+    allow_headers=settings.cors_allow_headers,
 )
 
 # Prometheus指标
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+if settings.enable_metrics:
+    metrics_app = make_asgi_app()
+    app.mount("/metrics", metrics_app)
 
-# 全局适配器字典
-adapters = {}
+
+# 依赖注入：获取适配器管理器
+def get_adapter_manager() -> AdapterManager:
+    """获取适配器管理器."""
+    if adapter_manager is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service not initialized",
+        )
+    return adapter_manager
+
+
+# 全局异常处理器
+@app.exception_handler(ModelAdapterError)
+async def model_adapter_error_handler(request: Request, exc: ModelAdapterError):
+    """处理模型适配器异常."""
+    status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+    # 根据异常类型设置状态码
+    if isinstance(exc, ProviderNotFoundError):
+        status_code = status.HTTP_404_NOT_FOUND
+    elif isinstance(exc, ProviderNotAvailableError):
+        status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    logger.error(f"ModelAdapterError: {exc.message}", extra=exc.to_dict())
+
+    return JSONResponse(
+        status_code=status_code,
+        content=exc.to_dict(),
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """处理通用异常."""
+    logger.error(f"Unexpected error: {exc}", exc_info=True)
+
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "error": "InternalServerError",
+            "message": "An unexpected error occurred",
+            "details": str(exc) if settings.debug else None,
+        },
+    )
+
+
+# ===== API Endpoints =====
 
 
 @app.get("/health")
-async def health_check():
-    """健康检查"""
+async def health_check(
+    manager: Annotated[AdapterManager, Depends(get_adapter_manager)]
+):
+    """健康检查."""
     return {
         "status": "healthy",
-        "service": "model-adapter",
-        "providers": list(adapters.keys()),
+        "service": settings.app_name,
+        "version": settings.app_version,
+        "environment": settings.environment,
+        "providers": manager.list_providers(),
+        "provider_count": manager.adapter_count,
     }
 
 
 @app.get("/api/v1/providers")
-async def list_providers():
-    """列出可用的提供商"""
-    provider_status = {}
-
-    for provider, adapter in adapters.items():
-        try:
-            is_healthy = await adapter.health_check()
-            provider_status[provider] = {
-                "available": True,
-                "healthy": is_healthy,
-            }
-        except Exception as e:
-            provider_status[provider] = {
-                "available": True,
-                "healthy": False,
-                "error": str(e),
-            }
+async def list_providers(
+    manager: Annotated[AdapterManager, Depends(get_adapter_manager)]
+):
+    """列出可用的提供商及其健康状态."""
+    provider_status = await manager.get_all_provider_status()
 
     return {
         "providers": provider_status,
-        "count": len(adapters),
+        "count": len(provider_status),
     }
 
 
 @app.post("/api/v1/generate")
-async def generate(request: dict):
+async def generate(
+    request: ChatRequest,
+    manager: Annotated[AdapterManager, Depends(get_adapter_manager)],
+):
     """
     生成文本 (非流式).
 
     Args:
-        provider: 提供商 (openai/claude/zhipu)
-        model: 模型名称
-        messages: 消息列表
-        temperature: 温度
-        max_tokens: 最大token数
-        ...其他参数
-    """
-    provider = request.get("provider")
-    if not provider:
-        raise HTTPException(status_code=400, detail="Provider is required")
+        request: 聊天请求
+        manager: 适配器管理器
 
-    adapter = adapters.get(provider)
-    if not adapter:
-        raise HTTPException(
-            status_code=404, detail=f"Provider '{provider}' not found"
-        )
+    Returns:
+        生成结果
+    """
+    # 获取适配器
+    provider = request.provider or "openai"  # 默认使用openai
+    adapter = manager.get_adapter(provider)
 
     try:
+        # 转换消息格式
+        messages = [msg.dict() for msg in request.messages]
+
         response = await adapter.generate(
-            model=request.get("model"),
-            messages=request.get("messages", []),
-            temperature=request.get("temperature", 0.7),
-            max_tokens=request.get("max_tokens", 1000),
+            model=request.model,
+            messages=messages,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            top_p=request.top_p,
+            frequency_penalty=request.frequency_penalty,
+            presence_penalty=request.presence_penalty,
         )
 
         return {
@@ -184,34 +198,44 @@ async def generate(request: dict):
 
     except Exception as e:
         logger.error(f"Generation failed for {provider}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Generation failed: {str(e)}",
+        )
 
 
 @app.post("/api/v1/generate/stream")
-async def generate_stream(request: dict):
+async def generate_stream(
+    request: ChatRequest,
+    manager: Annotated[AdapterManager, Depends(get_adapter_manager)],
+):
     """
     生成文本 (流式).
 
     使用Server-Sent Events (SSE)格式返回。
-    """
-    provider = request.get("provider")
-    if not provider:
-        raise HTTPException(status_code=400, detail="Provider is required")
 
-    adapter = adapters.get(provider)
-    if not adapter:
-        raise HTTPException(
-            status_code=404, detail=f"Provider '{provider}' not found"
-        )
+    Args:
+        request: 聊天请求
+        manager: 适配器管理器
+
+    Returns:
+        SSE流
+    """
+    # 获取适配器
+    provider = request.provider or "openai"
+    adapter = manager.get_adapter(provider)
 
     async def event_stream():
-        """SSE事件流"""
+        """SSE事件流."""
         try:
+            # 转换消息格式
+            messages = [msg.dict() for msg in request.messages]
+
             async for chunk in adapter.generate_stream(
-                model=request.get("model"),
-                messages=request.get("messages", []),
-                temperature=request.get("temperature", 0.7),
-                max_tokens=request.get("max_tokens", 1000),
+                model=request.model,
+                messages=messages,
+                temperature=request.temperature,
+                max_tokens=request.max_tokens,
             ):
                 import json
 
@@ -239,51 +263,72 @@ async def generate_stream(request: dict):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # 禁用nginx缓冲
         },
     )
 
 
 @app.post("/api/v1/embeddings")
-async def create_embeddings(request: dict):
+async def create_embeddings(
+    request: EmbeddingRequest,
+    manager: Annotated[AdapterManager, Depends(get_adapter_manager)],
+):
     """
     创建文本嵌入.
 
     Args:
-        provider: 提供商 (openai/zhipu)
-        model: 嵌入模型
-        input: 输入文本或文本列表
+        request: 嵌入请求
+        manager: 适配器管理器
+
+    Returns:
+        嵌入结果
     """
-    provider = request.get("provider")
-    if not provider:
-        raise HTTPException(status_code=400, detail="Provider is required")
+    # 获取适配器
+    provider = request.provider or "openai"
+    adapter = manager.get_adapter(provider)
 
-    adapter = adapters.get(provider)
-    if not adapter:
-        raise HTTPException(
-            status_code=404, detail=f"Provider '{provider}' not found"
-        )
-
+    # 检查是否支持嵌入
     if not hasattr(adapter, "create_embedding"):
         raise HTTPException(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Provider '{provider}' does not support embeddings",
         )
 
     try:
         result = await adapter.create_embedding(
-            model=request.get("model"),
-            input_text=request.get("input"),
+            model=request.model,
+            input_text=request.input,
         )
 
         return result
 
     except Exception as e:
         logger.error(f"Embedding failed for {provider}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Embedding failed: {str(e)}",
+        )
 
+
+from typing import Any, Dict, List
+
+from pydantic import BaseModel
+
+
+class ProtocolConvertRequest(BaseModel):
+    """协议转换请求模型"""
+    target_provider: str
+    messages: List[Dict[str, Any]]
+    parameters: Dict[str, Any] = {}
+
+class CostCalculateRequest(BaseModel):
+    """成本计算请求模型"""
+    model: str
+    input_tokens: int = 0
+    output_tokens: int = 0
 
 @app.post("/api/v1/convert")
-async def convert_protocol(request: dict):
+async def convert_protocol(request: ProtocolConvertRequest):
     """
     协议转换.
 
@@ -291,44 +336,39 @@ async def convert_protocol(request: dict):
     """
     from app.core.protocol_converter import ProtocolConverter
 
-    target_provider = request.get("target_provider")
-    messages = request.get("messages", [])
-    parameters = request.get("parameters", {})
-
-    if target_provider == "openai":
-        result = ProtocolConverter.to_openai_format(messages, parameters)
-    elif target_provider == "claude":
-        result = ProtocolConverter.to_claude_format(messages, parameters)
-    elif target_provider == "zhipu":
-        result = ProtocolConverter.to_zhipu_format(messages, parameters)
+    if request.target_provider == "openai":
+        result = ProtocolConverter.to_openai_format(request.messages, request.parameters)
+    elif request.target_provider == "claude":
+        result = ProtocolConverter.to_claude_format(request.messages, request.parameters)
+    elif request.target_provider == "zhipu":
+        result = ProtocolConverter.to_zhipu_format(request.messages, request.parameters)
     else:
         raise HTTPException(
-            status_code=400, detail=f"Unknown provider: {target_provider}"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown provider: {request.target_provider}",
         )
 
     return result
 
 
 @app.post("/api/v1/cost/calculate")
-async def calculate_cost(request: dict):
+async def calculate_cost(request: CostCalculateRequest):
     """
     计算成本.
 
     Args:
-        model: 模型名称
-        input_tokens: 输入token数
-        output_tokens: 输出token数
+        request: 包含model, input_tokens, output_tokens的请求
+
+    Returns:
+        成本详情
     """
     from app.core.cost_calculator import CostCalculator
 
-    model = request.get("model")
-    input_tokens = request.get("input_tokens", 0)
-    output_tokens = request.get("output_tokens", 0)
-
-    if not model:
-        raise HTTPException(status_code=400, detail="Model is required")
-
-    cost = CostCalculator.calculate_cost(model, input_tokens, output_tokens)
+    cost = CostCalculator.calculate_cost(
+        request.model,
+        request.input_tokens,
+        request.output_tokens
+    )
 
     return cost
 
@@ -336,17 +376,13 @@ async def calculate_cost(request: dict):
 if __name__ == "__main__":
     import uvicorn
 
-    # 配置
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8005"))
-    workers = int(os.getenv("WORKERS", "1"))
-
-    logger.info(f"Starting server on {host}:{port}")
+    logger.info(f"Starting server on {settings.host}:{settings.port}")
 
     uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        workers=workers,
-        reload=False,
+        "main_refactored:app",
+        host=settings.host,
+        port=settings.port,
+        workers=settings.workers,
+        reload=settings.debug,
+        log_level=settings.log_level.lower(),
     )

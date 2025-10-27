@@ -27,6 +27,10 @@ class Neo4jClient:
         uri: str = "bolt://localhost:7687",
         user: str = "neo4j",
         password: str = "password",
+        max_connection_lifetime: int = 3600,
+        max_connection_pool_size: int = 50,
+        connection_timeout: int = 30,
+        max_transaction_retry_time: int = 30,
     ):
         """
         初始化 Neo4j 客户端
@@ -35,6 +39,10 @@ class Neo4jClient:
             uri: Neo4j 连接 URI
             user: 用户名
             password: 密码
+            max_connection_lifetime: 最大连接生命周期（秒）
+            max_connection_pool_size: 最大连接池大小
+            connection_timeout: 连接超时（秒）
+            max_transaction_retry_time: 最大事务重试时间（秒）
         """
         if not NEO4J_AVAILABLE:
             logger.warning(
@@ -44,8 +52,15 @@ class Neo4jClient:
             self.driver = None
         else:
             try:
-                self.driver = AsyncGraphDatabase.driver(uri, auth=(user, password))
-                logger.info(f"Neo4j client initialized: {uri}")
+                self.driver = AsyncGraphDatabase.driver(
+                    uri,
+                    auth=(user, password),
+                    max_connection_lifetime=max_connection_lifetime,
+                    max_connection_pool_size=max_connection_pool_size,
+                    connection_timeout=connection_timeout,
+                    max_transaction_retry_time=max_transaction_retry_time,
+                )
+                logger.info(f"Neo4j client initialized: {uri} (pool_size={max_connection_pool_size})")
             except Exception as e:
                 logger.error(f"Failed to initialize Neo4j: {e}")
                 self.driver = None
@@ -81,6 +96,13 @@ class Neo4jClient:
         except Exception as e:
             logger.error(f"Query execution failed: {e}", exc_info=True)
             return []
+
+    # 别名方法，保持向后兼容
+    async def query(
+        self, query: str, parameters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """执行 Cypher 查询（别名方法）"""
+        return await self.execute_query(query, parameters)
 
     async def create_node(
         self, label: str, properties: Dict[str, Any]
@@ -279,10 +301,16 @@ def get_neo4j_client() -> Neo4jClient:
     global _neo4j_client
 
     if _neo4j_client is None:
-        uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-        user = os.getenv("NEO4J_USER", "neo4j")
-        password = os.getenv("NEO4J_PASSWORD", "password")
-
-        _neo4j_client = Neo4jClient(uri=uri, user=user, password=password)
+        from app.core.config import settings
+        
+        _neo4j_client = Neo4jClient(
+            uri=settings.NEO4J_URI,
+            user=settings.NEO4J_USER,
+            password=settings.NEO4J_PASSWORD,
+            max_connection_lifetime=settings.NEO4J_MAX_CONNECTION_LIFETIME,
+            max_connection_pool_size=settings.NEO4J_MAX_CONNECTION_POOL_SIZE,
+            connection_timeout=settings.NEO4J_CONNECTION_TIMEOUT,
+            max_transaction_retry_time=settings.NEO4J_MAX_TRANSACTION_RETRY_TIME,
+        )
 
     return _neo4j_client

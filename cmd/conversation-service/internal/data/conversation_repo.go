@@ -4,24 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-
 	"voiceassistant/cmd/conversation-service/internal/domain"
+
 	"gorm.io/gorm"
 )
 
 // ConversationDO 对话数据对象
 type ConversationDO struct {
-	ID             string `gorm:"primaryKey"`
-	TenantID       string `gorm:"index"`
-	UserID         string `gorm:"index"`
-	Title          string
-	Mode           string
-	Status         string
-	ContextJSON    string `gorm:"type:jsonb"`
-	MetadataJSON   string `gorm:"type:jsonb"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	LastActiveAt   time.Time
+	ID           string `gorm:"primaryKey"`
+	TenantID     string `gorm:"index"`
+	UserID       string `gorm:"index"`
+	Title        string
+	Mode         string
+	Status       string
+	ContextJSON  string `gorm:"type:jsonb"`
+	MetadataJSON string `gorm:"type:jsonb"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	LastActiveAt time.Time
 }
 
 // TableName 指定表名
@@ -98,8 +98,17 @@ func (r *ConversationRepository) DeleteConversation(ctx context.Context, id stri
 
 // toDataObject 转换为数据对象
 func (r *ConversationRepository) toDataObject(conversation *domain.Conversation) *ConversationDO {
-	contextJSON, _ := json.Marshal(conversation.Context)
-	metadataJSON, _ := json.Marshal(conversation.Metadata)
+	contextJSON, err := json.Marshal(conversation.Context)
+	if err != nil {
+		// 记录错误但不中断，使用空 JSON
+		contextJSON = []byte("{}")
+	}
+
+	metadataJSON, err := json.Marshal(conversation.Metadata)
+	if err != nil {
+		// 记录错误但不中断，使用空 JSON
+		metadataJSON = []byte("{}")
+	}
 
 	return &ConversationDO{
 		ID:           conversation.ID,
@@ -119,10 +128,23 @@ func (r *ConversationRepository) toDataObject(conversation *domain.Conversation)
 // toDomain 转换为领域对象
 func (r *ConversationRepository) toDomain(do *ConversationDO) *domain.Conversation {
 	var context domain.ConversationContext
-	_ = json.Unmarshal([]byte(do.ContextJSON), &context)
+	if do.ContextJSON != "" && do.ContextJSON != "{}" {
+		if err := json.Unmarshal([]byte(do.ContextJSON), &context); err != nil {
+			// 记录错误并使用空上下文
+			context = domain.ConversationContext{}
+		}
+	}
 
 	var metadata map[string]string
-	_ = json.Unmarshal([]byte(do.MetadataJSON), &metadata)
+	if do.MetadataJSON != "" && do.MetadataJSON != "{}" {
+		if err := json.Unmarshal([]byte(do.MetadataJSON), &metadata); err != nil {
+			// 记录错误并使用空 metadata
+			metadata = make(map[string]string)
+		}
+	}
+	if metadata == nil {
+		metadata = make(map[string]string)
+	}
 
 	return &domain.Conversation{
 		ID:           do.ID,

@@ -197,7 +197,11 @@ func (r *MessageRepository) CountMessagesByRole(ctx context.Context, conversatio
 
 // toDataObject 转换为数据对象
 func (r *MessageRepository) toDataObject(message *domain.Message) *MessageDO {
-	metadataJSON, _ := json.Marshal(message.Metadata)
+	metadataJSON, err := json.Marshal(message.Metadata)
+	if err != nil {
+		// 记录错误但不中断，使用空 JSON
+		metadataJSON = []byte("{}")
+	}
 
 	return &MessageDO{
 		ID:             message.ID,
@@ -218,7 +222,15 @@ func (r *MessageRepository) toDataObject(message *domain.Message) *MessageDO {
 // toDomain 转换为领域对象
 func (r *MessageRepository) toDomain(do *MessageDO) *domain.Message {
 	var metadata map[string]string
-	_ = json.Unmarshal([]byte(do.MetadataJSON), &metadata)
+	if do.MetadataJSON != "" && do.MetadataJSON != "{}" {
+		if err := json.Unmarshal([]byte(do.MetadataJSON), &metadata); err != nil {
+			// 记录错误并使用空 metadata
+			metadata = make(map[string]string)
+		}
+	}
+	if metadata == nil {
+		metadata = make(map[string]string)
+	}
 
 	return &domain.Message{
 		ID:             do.ID,

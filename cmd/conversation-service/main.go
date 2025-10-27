@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
-
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 	"voiceassistant/cmd/conversation-service/internal/data"
 	"voiceassistant/pkg/config"
 )
@@ -71,7 +75,7 @@ func main() {
 	}
 
 	// 初始化应用（使用 Wire 生成的代码）
-	httpServer, err := initApp(dbConfig)
+	app, cleanup, err := initApp(dbConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize app: %v", err)
 	}
@@ -91,9 +95,34 @@ func main() {
 	log.Printf("🚀 Starting Conversation Service on %s", addr)
 	log.Printf("   DB: %s@%s:%d/%s", dbConfig.User, dbConfig.Host, dbConfig.Port, dbConfig.Database)
 
-	if err := httpServer.Start(addr); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
+	// 在单独的 goroutine 中启动服务器
+	go func() {
+		if err := app.Start(addr); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// 等待中断信号以优雅关闭服务器
+	quit := make(chan os.Signal, 1)
+	// 捕获 SIGINT (Ctrl+C) 和 SIGTERM (kill)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("🛑 Shutting down server...")
+
+	// 创建一个带超时的上下文，用于优雅关闭
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// 关闭 HTTP 服务器
+	if err := app.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown: %v", err)
 	}
+
+	// 清理资源（关闭数据库连接等）
+	cleanup()
+
+	log.Println("✅ Server exited")
 }
 
 // getOrDefault 获取字符串值或默认值

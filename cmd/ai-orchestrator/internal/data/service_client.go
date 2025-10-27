@@ -1,30 +1,84 @@
 package data
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/sony/gobreaker"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 // ServiceClient gRPC服务客户端
 type GRPCServiceClient struct {
-	connections map[string]*grpc.ClientConn
-	log         *log.Helper
+	connections     map[string]*grpc.ClientConn
+	circuitBreakers map[string]*gobreaker.CircuitBreaker
+	timeout         time.Duration
+	maxRetries      int
+	log             *log.Helper
 }
 
 // NewServiceClient 创建服务客户端
 func NewServiceClient(logger log.Logger) *GRPCServiceClient {
 	return &GRPCServiceClient{
-		connections: make(map[string]*grpc.ClientConn),
-		log:         log.NewHelper(logger),
+		connections:     make(map[string]*grpc.ClientConn),
+		circuitBreakers: make(map[string]*gobreaker.CircuitBreaker),
+		timeout:         30 * time.Second, // 默认超时30秒
+		maxRetries:      3,                // 默认重试3次
+		log:             log.NewHelper(logger),
 	}
 }
 
-// Call 调用服务
+// Call 调用服务（带重试、超时、熔断）
 func (c *GRPCServiceClient) Call(service, method string, input map[string]interface{}) (map[string]interface{}, error) {
+	// 获取或创建熔断器
+	cb := c.getCircuitBreaker(service)
+
+	// 通过熔断器执行调用
+	result, err := cb.Execute(func() (interface{}, error) {
+		return c.callWithRetry(service, method, input)
+	})
+
+	if err != nil {
+		c.log.Errorf("service call failed: service=%s, method=%s, error=%v", service, method, err)
+		return nil, err
+	}
+
+	return result.(map[string]interface{}), nil
+}
+
+// callWithRetry 带重试的调用
+func (c *GRPCServiceClient) callWithRetry(service, method string, input map[string]interface{}) (map[string]interface{}, error) {
+	var lastErr error
+
+	for attempt := 1; attempt <= c.maxRetries; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
+		defer cancel()
+
+		result, err := c.doCall(ctx, service, method, input)
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+		c.log.Warnf("service call attempt %d/%d failed: service=%s, method=%s, error=%v",
+			attempt, c.maxRetries, service, method, err)
+
+		// 如果不是最后一次尝试，等待一段时间后重试
+		if attempt < c.maxRetries {
+			backoff := time.Duration(attempt) * 100 * time.Millisecond
+			time.Sleep(backoff)
+		}
+	}
+
+	return nil, fmt.Errorf("service call failed after %d attempts: %w", c.maxRetries, lastErr)
+}
+
+// doCall 实际执行调用
+func (c *GRPCServiceClient) doCall(ctx context.Context, service, method string, input map[string]interface{}) (map[string]interface{}, error) {
 	// 获取或创建连接
 	_, err := c.getConnection(service)
 	if err != nil {
@@ -34,18 +88,50 @@ func (c *GRPCServiceClient) Call(service, method string, input map[string]interf
 	// 这里简化实现，实际应该根据服务和方法动态调用
 	// 在实际项目中，需要为每个服务生成相应的gRPC client stub
 
-	// 示例：通过HTTP调用（如果服务提供HTTP API）
-	// 或者使用reflection/generic gRPC调用
+	c.log.Debugf("calling service: %s, method: %s", service, method)
 
-	c.log.Infof("calling service: %s, method: %s", service, method)
+	// 检查context是否已取消
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
 
 	// 模拟返回（实际需要实现真实的gRPC调用）
 	result := map[string]interface{}{
-		"success": true,
-		"data":    input,
+		"success":    true,
+		"data":       input,
+		"latency_ms": 100.0,
 	}
 
 	return result, nil
+}
+
+// getCircuitBreaker 获取或创建熔断器
+func (c *GRPCServiceClient) getCircuitBreaker(service string) *gobreaker.CircuitBreaker {
+	if cb, exists := c.circuitBreakers[service]; exists {
+		return cb
+	}
+
+	settings := gobreaker.Settings{
+		Name:        service,
+		MaxRequests: 3,                    // 半开状态最大请求数
+		Interval:    10 * time.Second,     // 统计周期
+		Timeout:     60 * time.Second,     // 开启状态持续时间
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 3 && failureRatio >= 0.6
+		},
+		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+			c.log.Infof("circuit breaker state changed: service=%s, from=%s, to=%s", name, from, to)
+		},
+	}
+
+	cb := gobreaker.NewCircuitBreaker(settings)
+	c.circuitBreakers[service] = cb
+	c.log.Infof("created circuit breaker for service: %s", service)
+
+	return cb
 }
 
 // getConnection 获取或创建gRPC连接

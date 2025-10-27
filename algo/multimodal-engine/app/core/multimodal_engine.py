@@ -2,7 +2,9 @@ import logging
 import time
 from typing import Any, Dict, Optional
 
+from app.core.exceptions import OCRException, VideoException, VisionException
 from app.core.ocr_engine import OCREngine
+from app.core.stats import StatsTracker
 from app.core.video_engine import VideoEngine
 from app.core.vision_engine import VisionEngine
 
@@ -24,16 +26,11 @@ class MultimodalEngine:
         self.vision_engine = vision_engine
         self.video_engine = video_engine
 
-        self.stats = {
-            "total_requests": 0,
-            "successful_requests": 0,
-            "failed_requests": 0,
-            "ocr_requests": 0,
-            "vision_requests": 0,
-            "video_requests": 0,
-            "avg_latency_ms": 0.0,
-        }
-        self._latencies = []
+        # Use bounded stats trackers to prevent memory leaks
+        self.stats_tracker = StatsTracker(max_latency_samples=1000)
+        self.ocr_stats = StatsTracker(max_latency_samples=1000)
+        self.vision_stats = StatsTracker(max_latency_samples=1000)
+        self.video_stats = StatsTracker(max_latency_samples=1000)
 
         logger.info("MultimodalEngine initialized.")
 
@@ -68,10 +65,11 @@ class MultimodalEngine:
                 "regions": [{"text": "...", "bbox": [x, y, w, h], "confidence": 0.9}],
                 "duration_ms": 150
             }
+
+        Raises:
+            OCRException: If OCR processing fails
         """
         start_time = time.time()
-        self.stats["total_requests"] += 1
-        self.stats["ocr_requests"] += 1
 
         try:
             result = await self.ocr_engine.recognize(
@@ -81,18 +79,27 @@ class MultimodalEngine:
                 user_id=user_id,
             )
 
-            self.stats["successful_requests"] += 1
             latency = (time.time() - start_time) * 1000
-            self._latencies.append(latency)
-            self._update_avg_latency()
+            self.stats_tracker.record_success(latency)
+            self.ocr_stats.record_success(latency)
 
             result["duration_ms"] = latency
             return result
 
-        except Exception as e:
-            self.stats["failed_requests"] += 1
-            logger.error(f"Error in OCR: {e}", exc_info=True)
+        except OCRException:
+            # Re-raise known OCR exceptions
+            self.stats_tracker.record_failure()
+            self.ocr_stats.record_failure()
             raise
+        except Exception as e:
+            # Wrap unexpected exceptions
+            self.stats_tracker.record_failure()
+            self.ocr_stats.record_failure()
+            logger.error(f"Unexpected error in OCR: {e}", exc_info=True)
+            raise OCRException(
+                "OCR processing failed",
+                details={"error_type": type(e).__name__}
+            )
 
     async def vision_understand(
         self,
@@ -117,10 +124,11 @@ class MultimodalEngine:
                 "confidence": 0.92,
                 "duration_ms": 2000
             }
+
+        Raises:
+            VisionException: If vision processing fails
         """
         start_time = time.time()
-        self.stats["total_requests"] += 1
-        self.stats["vision_requests"] += 1
 
         try:
             result = await self.vision_engine.understand(
@@ -130,18 +138,27 @@ class MultimodalEngine:
                 user_id=user_id,
             )
 
-            self.stats["successful_requests"] += 1
             latency = (time.time() - start_time) * 1000
-            self._latencies.append(latency)
-            self._update_avg_latency()
+            self.stats_tracker.record_success(latency)
+            self.vision_stats.record_success(latency)
 
             result["duration_ms"] = latency
             return result
 
-        except Exception as e:
-            self.stats["failed_requests"] += 1
-            logger.error(f"Error in vision understanding: {e}", exc_info=True)
+        except VisionException:
+            # Re-raise known vision exceptions
+            self.stats_tracker.record_failure()
+            self.vision_stats.record_failure()
             raise
+        except Exception as e:
+            # Wrap unexpected exceptions
+            self.stats_tracker.record_failure()
+            self.vision_stats.record_failure()
+            logger.error(f"Unexpected error in vision understanding: {e}", exc_info=True)
+            raise VisionException(
+                "Vision understanding failed",
+                details={"error_type": type(e).__name__}
+            )
 
     async def vision_detect(
         self,
@@ -167,10 +184,11 @@ class MultimodalEngine:
                 ],
                 "duration_ms": 500
             }
+
+        Raises:
+            VisionException: If detection fails
         """
         start_time = time.time()
-        self.stats["total_requests"] += 1
-        self.stats["vision_requests"] += 1
 
         try:
             result = await self.vision_engine.detect(
@@ -180,18 +198,25 @@ class MultimodalEngine:
                 user_id=user_id,
             )
 
-            self.stats["successful_requests"] += 1
             latency = (time.time() - start_time) * 1000
-            self._latencies.append(latency)
-            self._update_avg_latency()
+            self.stats_tracker.record_success(latency)
+            self.vision_stats.record_success(latency)
 
             result["duration_ms"] = latency
             return result
 
-        except Exception as e:
-            self.stats["failed_requests"] += 1
-            logger.error(f"Error in vision detection: {e}", exc_info=True)
+        except VisionException:
+            self.stats_tracker.record_failure()
+            self.vision_stats.record_failure()
             raise
+        except Exception as e:
+            self.stats_tracker.record_failure()
+            self.vision_stats.record_failure()
+            logger.error(f"Unexpected error in vision detection: {e}", exc_info=True)
+            raise VisionException(
+                "Vision detection failed",
+                details={"error_type": type(e).__name__}
+            )
 
     async def video_analyze(
         self,
@@ -217,10 +242,11 @@ class MultimodalEngine:
                 "speech": [...],
                 "duration_ms": 5000
             }
+
+        Raises:
+            VideoException: If video analysis fails
         """
         start_time = time.time()
-        self.stats["total_requests"] += 1
-        self.stats["video_requests"] += 1
 
         try:
             result = await self.video_engine.analyze(
@@ -230,31 +256,38 @@ class MultimodalEngine:
                 user_id=user_id,
             )
 
-            self.stats["successful_requests"] += 1
             latency = (time.time() - start_time) * 1000
-            self._latencies.append(latency)
-            self._update_avg_latency()
+            self.stats_tracker.record_success(latency)
+            self.video_stats.record_success(latency)
 
             result["duration_ms"] = latency
             return result
 
-        except Exception as e:
-            self.stats["failed_requests"] += 1
-            logger.error(f"Error in video analysis: {e}", exc_info=True)
+        except VideoException:
+            self.stats_tracker.record_failure()
+            self.video_stats.record_failure()
             raise
-
-    def _update_avg_latency(self):
-        """更新平均延迟"""
-        if self._latencies:
-            self.stats["avg_latency_ms"] = sum(self._latencies) / len(self._latencies)
+        except Exception as e:
+            self.stats_tracker.record_failure()
+            self.video_stats.record_failure()
+            logger.error(f"Unexpected error in video analysis: {e}", exc_info=True)
+            raise VideoException(
+                "Video analysis failed",
+                details={"error_type": type(e).__name__}
+            )
 
     async def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
         return {
-            **self.stats,
-            "ocr_engine_stats": await self.ocr_engine.get_stats(),
-            "vision_engine_stats": await self.vision_engine.get_stats(),
-            "video_engine_stats": await self.video_engine.get_stats(),
+            "overall": self.stats_tracker.get_stats(),
+            "ocr": self.ocr_stats.get_stats(),
+            "vision": self.vision_stats.get_stats(),
+            "video": self.video_stats.get_stats(),
+            "engines": {
+                "ocr_engine": await self.ocr_engine.get_stats(),
+                "vision_engine": await self.vision_engine.get_stats(),
+                "video_engine": await self.video_engine.get_stats(),
+            },
         }
 
     async def is_ready(self) -> bool:

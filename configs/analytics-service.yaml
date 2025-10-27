@@ -1,0 +1,82 @@
+server:
+  http_port: 9006
+  grpc_port: 9007
+  shutdown_timeout: 10s
+  read_timeout: 30s
+  write_timeout: 30s
+
+database:
+  host: localhost
+  port: 5432
+  dbname: analytics
+  user: analytics_user
+  password: ${DB_PASSWORD}
+  sslmode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+clickhouse:
+  addr: localhost:9000
+  database: analytics
+  username: default
+  password: ${CLICKHOUSE_PASSWORD}
+  max_open_conns: 10
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+  dial_timeout: 10s
+  read_timeout: 30s
+  write_timeout: 30s
+
+redis:
+  addr: localhost:6379
+  password: ${REDIS_PASSWORD}
+  db: 0
+  pool_size: 10
+  min_idle_conns: 5
+  max_retries: 3
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+
+cache:
+  default_ttl: 300s
+  realtime_stats_ttl: 10s
+  usage_stats_ttl: 60s
+  model_stats_ttl: 60s
+
+observability:
+  otel_endpoint: ${OTEL_ENDPOINT}
+  service_name: analytics-service
+  service_version: ${SERVICE_VERSION:v1.0.0}
+  environment: ${ENVIRONMENT:production}
+  enable_trace: true
+  enable_metrics: true
+  log_level: info
+  log_format: json
+
+resilience:
+  rate_limit:
+    enabled: true
+    requests_per_second: 100
+    burst: 200
+  circuit_breaker:
+    enabled: true
+    max_requests: 5
+    interval: 10s
+    timeout: 60s
+    threshold: 0.6
+  timeout:
+    default: 30s
+    query: 10s
+    report_generation: 120s
+
+auth:
+  jwt_secret: ${JWT_SECRET}
+  jwt_expiry: 24h
+  api_key_header: X-API-Key
+
+tenant:
+  default_limit: 20
+  max_limit: 100
+  enable_quota_check: true

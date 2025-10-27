@@ -271,15 +271,6 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error building graph: {e}", exc_info=True)
 
-    async def cleanup(self):
-        """清理资源"""
-        try:
-            if self.kafka_producer:
-                await close_kafka_producer()
-                logger.info("Kafka producer closed")
-        except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
-
     async def get_stats(self) -> Dict:
         """获取统计信息"""
         return {
@@ -293,12 +284,20 @@ class DocumentProcessor:
         """清理资源"""
         logger.info("Cleaning up document processor...")
 
-        # 关闭连接
-        await self.vector_store_client.close()
-        await self.neo4j_client.close()
-        await self.minio_client.close()
+        try:
+            # 关闭 Kafka producer
+            if self.kafka_producer:
+                await close_kafka_producer()
+                logger.info("Kafka producer closed")
 
-        logger.info("Document processor cleanup complete")
+            # 关闭各个客户端连接
+            await self.vector_store_client.close()
+            await self.neo4j_client.close()
+            await self.minio_client.close()
+
+            logger.info("Document processor cleanup complete")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
 
 # ========================================

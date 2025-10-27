@@ -6,7 +6,8 @@ from typing import Any, Dict, List, Optional
 from app.backends.milvus_backend import MilvusBackend
 from app.backends.pgvector_backend import PgVectorBackend
 from app.core.base_backend import VectorStoreBackend
-from app.core.config import config
+from app.core.exceptions import BackendNotAvailableException
+from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class VectorStoreManager:
     def __init__(self):
         """初始化管理器"""
         self.backends: Dict[str, VectorStoreBackend] = {}
-        self.default_backend = config.DEFAULT_BACKEND
+        self.default_backend = settings.default_backend
 
     async def initialize(self):
         """初始化所有后端"""
@@ -25,7 +26,7 @@ class VectorStoreManager:
 
         # 初始化 Milvus
         try:
-            milvus_config = config.get_backend_config("milvus")
+            milvus_config = settings.get_backend_config("milvus")
             milvus_backend = MilvusBackend(milvus_config)
             await milvus_backend.initialize()
             self.backends["milvus"] = milvus_backend
@@ -35,7 +36,7 @@ class VectorStoreManager:
 
         # 初始化 pgvector
         try:
-            pgvector_config = config.get_backend_config("pgvector")
+            pgvector_config = settings.get_backend_config("pgvector")
             pgvector_backend = PgVectorBackend(pgvector_config)
             await pgvector_backend.initialize()
             self.backends["pgvector"] = pgvector_backend
@@ -74,7 +75,10 @@ class VectorStoreManager:
     def _get_backend(self, backend: str) -> VectorStoreBackend:
         """获取后端实例"""
         if backend not in self.backends:
-            raise ValueError(f"Backend {backend} not available. Available: {list(self.backends.keys())}")
+            raise BackendNotAvailableException(
+                f"Backend {backend} not available. Available: {list(self.backends.keys())}",
+                backend=backend,
+            )
 
         return self.backends[backend]
 

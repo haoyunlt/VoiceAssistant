@@ -36,15 +36,19 @@ from telemetry import TracingConfig, init_tracing
 setup_logging(service_name="voice-engine")
 logger = logging.getLogger(__name__)
 
-# 全局变量
-voice_engine = None
+
+# 依赖注入：获取 Voice Engine 实例
+def get_voice_engine():  # type: ignore
+    """获取 Voice Engine 实例（依赖注入）"""
+    if not hasattr(get_voice_engine, "_instance"):
+        raise RuntimeError("Voice Engine not initialized")
+    return get_voice_engine._instance
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    global voice_engine
+async def lifespan(app: FastAPI):  # type: ignore
 
+    """应用生命周期管理"""
     logger.info("Starting Voice Engine...")
 
     try:
@@ -64,6 +68,9 @@ async def lifespan(app: FastAPI):
         voice_engine = VoiceEngine()
         await voice_engine.initialize()
 
+        # 存储为依赖注入实例
+        get_voice_engine._instance = voice_engine
+
         logger.info("Voice Engine started successfully")
 
         yield
@@ -72,8 +79,9 @@ async def lifespan(app: FastAPI):
         logger.info("Shutting down Voice Engine...")
 
         # 清理资源
-        if voice_engine:
-            await voice_engine.cleanup()
+        if hasattr(get_voice_engine, "_instance"):
+            await get_voice_engine._instance.cleanup()
+            delattr(get_voice_engine, "_instance")
 
         logger.info("Voice Engine shut down complete")
 
@@ -89,6 +97,26 @@ app = FastAPI(
 # CORS 中间件（使用统一配置）
 cors_config = get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
+
+# 导入配置和中间件
+from app.core.config import get_settings
+from app.middleware.idempotency import IdempotencyMiddleware
+from app.middleware.rate_limiter import RateLimiterMiddleware
+
+settings = get_settings()
+
+# 幂等性中间件（需要 Redis）
+# app.add_middleware(IdempotencyMiddleware, redis_client=None, ttl=120)
+
+# 限流中间件
+if settings.RATE_LIMIT_ENABLED:
+    app.add_middleware(
+        RateLimiterMiddleware,
+        redis_client=None,  # TODO: 集成 Redis
+        tenant_limit=settings.RATE_LIMIT_TENANT_PER_MINUTE,
+        user_limit=settings.RATE_LIMIT_USER_PER_MINUTE,
+        ip_limit=settings.RATE_LIMIT_IP_PER_MINUTE,
+    )
 
 # 日志中间件
 app.add_middleware(BaseHTTPMiddleware, dispatch=logging_middleware)
@@ -119,22 +147,29 @@ app.include_router(full_duplex.router)
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict:
     """健康检查"""
     return {"status": "healthy", "service": "voice-engine"}
 
 
 @app.get("/ready")
-async def readiness_check():
+async def readiness_check() -> dict:
     """就绪检查"""
-    global voice_engine
-
-    checks = {
-        "engine": voice_engine is not None,
-        "asr": voice_engine.asr_engine is not None if voice_engine else False,
-        "tts": voice_engine.tts_engine is not None if voice_engine else False,
-        "vad": voice_engine.vad_engine is not None if voice_engine else False,
-    }
+    try:
+        voice_engine = get_voice_engine()
+        checks = {
+            "engine": voice_engine is not None,
+            "asr": voice_engine.asr_engine is not None if voice_engine else False,
+            "tts": voice_engine.tts_engine is not None if voice_engine else False,
+            "vad": voice_engine.vad_engine is not None if voice_engine else False,
+        }
+    except RuntimeError:
+        checks = {
+            "engine": False,
+            "asr": False,
+            "tts": False,
+            "vad": False,
+        }
 
     all_ready = all(checks.values())
 
@@ -149,7 +184,7 @@ async def speech_to_text(
     audio: UploadFile = File(...),
     language: str = "zh",
     model: str = "base",
-):
+) -> dict:
     """
     语音识别（ASR）
 
@@ -161,9 +196,9 @@ async def speech_to_text(
     Returns:
         识别文本和详细信息
     """
-    global voice_engine
-
-    if not voice_engine:
+    try:
+        voice_engine = get_voice_engine()
+    except RuntimeError:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     try:
@@ -185,7 +220,7 @@ async def speech_to_text(
 
 
 @app.post("/tts")
-async def text_to_speech(request: dict):
+async def text_to_speech(request: dict) -> StreamingResponse:
     """
     文本转语音（TTS）
 
@@ -198,9 +233,9 @@ async def text_to_speech(request: dict):
     Returns:
         音频流
     """
-    global voice_engine
-
-    if not voice_engine:
+    try:
+        voice_engine = get_voice_engine()
+    except RuntimeError:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     text = request.get("text")
@@ -230,7 +265,7 @@ async def text_to_speech(request: dict):
 async def voice_activity_detection(
     audio: UploadFile = File(...),
     threshold: float = 0.5,
-):
+) -> dict:
     """
     语音活动检测（VAD）
 
@@ -241,9 +276,9 @@ async def voice_activity_detection(
     Returns:
         语音片段列表
     """
-    global voice_engine
-
-    if not voice_engine:
+    try:
+        voice_engine = get_voice_engine()
+    except RuntimeError:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     try:
@@ -270,8 +305,8 @@ async def voice_activity_detection(
 async def process_audio(
     audio: UploadFile = File(...),
     operation: str = "asr",
-    params: dict = None,
-):
+    params: dict | None = None,
+) -> dict:
     """
     端到端音频处理
 
@@ -283,9 +318,9 @@ async def process_audio(
     Returns:
         处理结果
     """
-    global voice_engine
-
-    if not voice_engine:
+    try:
+        voice_engine = get_voice_engine()
+    except RuntimeError:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     if params is None:
@@ -311,11 +346,11 @@ async def process_audio(
 
 
 @app.get("/voices")
-async def list_voices():
+async def list_voices() -> dict:
     """列出可用的 TTS 语音"""
-    global voice_engine
-
-    if not voice_engine:
+    try:
+        voice_engine = get_voice_engine()
+    except RuntimeError:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     voices = voice_engine.list_available_voices()
@@ -327,11 +362,11 @@ async def list_voices():
 
 
 @app.get("/stats")
-async def get_stats():
+async def get_stats() -> dict:
     """获取统计信息"""
-    global voice_engine
-
-    if not voice_engine:
+    try:
+        voice_engine = get_voice_engine()
+    except RuntimeError:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     return await voice_engine.get_stats()
