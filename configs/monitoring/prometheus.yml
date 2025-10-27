@@ -1,0 +1,89 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'voice-assistant'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Agent Engine (Python/FastAPI)
+  - job_name: 'agent-engine'
+    static_configs:
+      - targets: ['agent-engine:8003']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # RAG Engine (Python/FastAPI)
+  - job_name: 'rag-engine'
+    static_configs:
+      - targets: ['rag-engine:8004']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Voice Engine (Python/FastAPI)
+  - job_name: 'voice-engine'
+    static_configs:
+      - targets: ['voice-engine:8001']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Knowledge Service (Python/FastAPI)
+  - job_name: 'knowledge-service'
+    static_configs:
+      - targets: ['knowledge-service:8006']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Model Router (Go)
+  - job_name: 'model-router'
+    static_configs:
+      - targets: ['model-router:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # AI Orchestrator (Go)
+  - job_name: 'ai-orchestrator'
+    static_configs:
+      - targets: ['ai-orchestrator:8081']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Identity Service (Go)
+  - job_name: 'identity-service'
+    static_configs:
+      - targets: ['identity-service:8082']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node Exporter (System metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Postgres Exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Redis Exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+

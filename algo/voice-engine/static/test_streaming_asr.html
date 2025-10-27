@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>流式 ASR 测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .config-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+
+        .config-section label {
+            display: inline-block;
+            width: 120px;
+            font-weight: bold;
+        }
+
+        .config-section select,
+        .config-section input[type="checkbox"] {
+            margin-left: 10px;
+        }
+
+        .controls {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s;
+        }
+
+        button.start {
+            background: #4CAF50;
+            color: white;
+        }
+
+        button.start:hover {
+            background: #45a049;
+        }
+
+        button.stop {
+            background: #f44336;
+            color: white;
+        }
+
+        button.stop:hover {
+            background: #da190b;
+        }
+
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .status.idle {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+
+        .status.connecting {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+
+        .status.recording {
+            background: #ffebee;
+            color: #c62828;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .result-box {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #4CAF50;
+            background: #f9f9f9;
+        }
+
+        .result-box.partial {
+            border-left-color: #2196F3;
+            background: #e3f2fd;
+        }
+
+        .result-box.final {
+            border-left-color: #4CAF50;
+            background: #e8f5e9;
+        }
+
+        .result-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .result-meta {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .logs {
+            margin-top: 30px;
+            padding: 15px;
+            background: #263238;
+            color: #aed581;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin: 3px 0;
+        }
+
+        .log-entry.error {
+            color: #ff5252;
+        }
+
+        .log-entry.info {
+            color: #4fc3f7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 流式 ASR 测试</h1>
+
+        <div class="config-section">
+            <h3>配置</h3>
+            <div>
+                <label>模型大小:</label>
+                <select id="modelSize">
+                    <option value="tiny">Tiny (最快)</option>
+                    <option value="base" selected>Base (推荐)</option>
+                    <option value="small">Small (更准确)</option>
+                    <option value="medium">Medium (很准确)</option>
+                </select>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>语言:</label>
+                <select id="language">
+                    <option value="zh" selected>中文</option>
+                    <option value="en">英语</option>
+                </select>
+            </div>
+            <div style="margin-top: 10px;">
+                <label>启用 VAD:</label>
+                <input type="checkbox" id="vadEnabled" checked>
+            </div>
+        </div>
+
+        <div class="status idle" id="status">
+            就绪 - 点击开始录音
+        </div>
+
+        <div class="controls">
+            <button class="start" id="startBtn" onclick="startRecording()">
+                开始录音
+            </button>
+            <button class="stop" id="stopBtn" onclick="stopRecording()" disabled>
+                停止录音
+            </button>
+        </div>
+
+        <div class="results">
+            <h3>识别结果</h3>
+            <div id="resultsContainer"></div>
+        </div>
+
+        <div class="logs">
+            <div id="logsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let audioContext = null;
+        let processor = null;
+        let stream = null;
+
+        function addLog(message, type = 'info') {
+            const logsContainer = document.getElementById('logsContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        function updateStatus(text, className) {
+            const status = document.getElementById('status');
+            status.textContent = text;
+            status.className = `status ${className}`;
+        }
+
+        function addResult(text, type, meta = {}) {
+            const resultsContainer = document.getElementById('resultsContainer');
+            const resultBox = document.createElement('div');
+            resultBox.className = `result-box ${type}`;
+
+            const resultText = document.createElement('div');
+            resultText.className = 'result-text';
+            resultText.textContent = text || '(空)';
+
+            const resultMeta = document.createElement('div');
+            resultMeta.className = 'result-meta';
+
+            if (type === 'partial') {
+                resultMeta.textContent = '增量结果 (正在识别...)';
+            } else if (type === 'final') {
+                const confidence = meta.confidence ? (meta.confidence * 100).toFixed(1) : 'N/A';
+                const duration = meta.duration_ms ? (meta.duration_ms / 1000).toFixed(2) : 'N/A';
+                resultMeta.textContent = `最终结果 | 置信度: ${confidence}% | 时长: ${duration}s`;
+            }
+
+            resultBox.appendChild(resultText);
+            resultBox.appendChild(resultMeta);
+            resultsContainer.insertBefore(resultBox, resultsContainer.firstChild);
+        }
+
+        async function startRecording() {
+            try {
+                addLog('请求麦克风权限...', 'info');
+
+                // 获取麦克风
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+
+                addLog('麦克风权限已获取', 'info');
+                updateStatus('正在连接...', 'connecting');
+
+                // 建立 WebSocket 连接
+                const wsUrl = `ws://localhost:8001/api/v1/asr/ws/stream`;
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    addLog('WebSocket 连接成功', 'info');
+
+                    // 发送配置
+                    const config = {
+                        model_size: document.getElementById('modelSize').value,
+                        language: document.getElementById('language').value,
+                        vad_enabled: document.getElementById('vadEnabled').checked
+                    };
+
+                    ws.send(JSON.stringify(config));
+                    addLog(`配置已发送: ${JSON.stringify(config)}`, 'info');
+
+                    // 开始录音
+                    startAudioCapture();
+                };
+
+                ws.onmessage = (event) => {
+                    const result = JSON.parse(event.data);
+                    handleResult(result);
+                };
+
+                ws.onerror = (error) => {
+                    addLog(`WebSocket 错误: ${error}`, 'error');
+                    updateStatus('连接错误', 'idle');
+                    stopRecording();
+                };
+
+                ws.onclose = () => {
+                    addLog('WebSocket 连接关闭', 'info');
+                    updateStatus('连接已关闭', 'idle');
+                };
+
+            } catch (error) {
+                addLog(`启动失败: ${error.message}`, 'error');
+                updateStatus(`错误: ${error.message}`, 'idle');
+            }
+        }
+
+        function startAudioCapture() {
+            // 创建 AudioContext
+            audioContext = new AudioContext({ sampleRate: 16000 });
+            const source = audioContext.createMediaStreamSource(stream);
+
+            // 创建 ScriptProcessor (用于获取原始音频数据)
+            const bufferSize = 4096;
+            processor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+
+            processor.onaudioprocess = (e) => {
+                const inputData = e.inputBuffer.getChannelData(0);
+
+                // 转换为 Int16 PCM
+                const pcmData = new Int16Array(inputData.length);
+                for (let i = 0; i < inputData.length; i++) {
+                    const s = Math.max(-1, Math.min(1, inputData[i]));
+                    pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+
+                // 发送音频数据
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(pcmData.buffer);
+                }
+            };
+
+            source.connect(processor);
+            processor.connect(audioContext.destination);
+
+            updateStatus('正在录音...', 'recording');
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+
+            addLog('开始录音', 'info');
+        }
+
+        function stopRecording() {
+            // 停止音频处理
+            if (processor) {
+                processor.disconnect();
+                processor = null;
+            }
+
+            if (audioContext) {
+                audioContext.close();
+                audioContext = null;
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            // 发送结束信号
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'end_stream' }));
+                addLog('发送结束信号', 'info');
+            }
+
+            // 关闭 WebSocket
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            updateStatus('就绪 - 点击开始录音', 'idle');
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+
+            addLog('录音已停止', 'info');
+        }
+
+        function handleResult(result) {
+            addLog(`收到: ${result.type}`, 'info');
+
+            switch (result.type) {
+                case 'session_start':
+                    addLog(`会话开始 (采样率: ${result.sample_rate}Hz)`, 'info');
+                    break;
+
+                case 'speech_start':
+                    addLog('检测到语音', 'info');
+                    break;
+
+                case 'partial_result':
+                    addLog(`增量结果: ${result.text}`, 'info');
+                    addResult(result.text, 'partial');
+                    break;
+
+                case 'final_result':
+                    addLog(`最终结果: ${result.text} (置信度: ${(result.confidence * 100).toFixed(1)}%)`, 'info');
+                    addResult(result.text, 'final', {
+                        confidence: result.confidence,
+                        duration_ms: result.duration_ms
+                    });
+                    break;
+
+                case 'speech_end':
+                    addLog('语音结束', 'info');
+                    break;
+
+                case 'session_end':
+                    addLog('会话结束', 'info');
+                    break;
+
+                case 'error':
+                    addLog(`错误: ${result.error}`, 'error');
+                    updateStatus(`错误: ${result.error}`, 'idle');
+                    stopRecording();
+                    break;
+            }
+        }
+
+        // 页面加载时的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            addLog('页面已加载', 'info');
+            addLog('准备开始测试...', 'info');
+        });
+    </script>
+</body>
+</html>

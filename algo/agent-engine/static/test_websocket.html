@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent WebSocket 测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .status.connected {
+            background: #10b981;
+        }
+
+        .status.disconnected {
+            background: #ef4444;
+        }
+
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .panel {
+            background: #f9fafb;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #1f2937;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .input-group label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            padding: 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+            font-family: inherit;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .messages {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message-sent {
+            background: #e0e7ff;
+            border-left: 4px solid #667eea;
+        }
+
+        .message-received {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+        }
+
+        .message-error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .message-info {
+            background: #e0f2fe;
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .quick-action {
+            padding: 10px;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 13px;
+        }
+
+        .quick-action:hover {
+            border-color: #667eea;
+            background: #f3f4f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Agent WebSocket 测试</h1>
+            <div class="status disconnected" id="status">断开连接</div>
+        </div>
+
+        <div class="main">
+            <div class="panel">
+                <h2>⚙️ 控制面板</h2>
+                <div class="controls">
+                    <div class="input-group">
+                        <label for="wsUrl">WebSocket URL</label>
+                        <input type="text" id="wsUrl" value="ws://localhost:8003/ws/agent">
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn-success" id="connectBtn">连接</button>
+                        <button class="btn-danger" id="disconnectBtn" disabled>断开</button>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="messageType">消息类型</label>
+                        <select id="messageType">
+                            <option value="ping">Ping (心跳)</option>
+                            <option value="agent_query">Agent 查询</option>
+                            <option value="streaming_query" selected>流式查询</option>
+                            <option value="tool_call">工具调用</option>
+                        </select>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="messageContent">查询内容</label>
+                        <textarea id="messageContent" placeholder="输入您的问题...">你好，请介绍一下你自己</textarea>
+                    </div>
+
+                    <button class="btn-primary" id="sendBtn" disabled>发送消息</button>
+
+                    <div class="quick-actions">
+                        <div class="quick-action" data-query="今天天气怎么样？">🌤️ 查天气</div>
+                        <div class="quick-action" data-query="帮我计算 123 + 456">🔢 计算</div>
+                        <div class="quick-action" data-query="搜索最新的AI新闻">🔍 搜索</div>
+                        <div class="quick-action" data-query="用Python写一个快速排序">💻 写代码</div>
+                    </div>
+
+                    <button class="btn-secondary" id="clearBtn">清空消息</button>
+
+                    <div class="stats">
+                        <div class="stat-card">
+                            <div class="stat-value" id="sentCount">0</div>
+                            <div class="stat-label">已发送</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="receivedCount">0</div>
+                            <div class="stat-label">已接收</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="latency">-</div>
+                            <div class="stat-label">延迟 (ms)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>💬 消息记录</h2>
+                <div class="messages" id="messages">
+                    <div class="message message-info">
+                        <div class="message-header">
+                            <span>系统</span>
+                            <span class="message-time">${new Date().toLocaleTimeString()}</span>
+                        </div>
+                        <div class="message-content">欢迎使用 Agent WebSocket 测试工具！请点击"连接"按钮开始。</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let sentCount = 0;
+        let receivedCount = 0;
+        let lastPingTime = 0;
+
+        const $status = document.getElementById('status');
+        const $connectBtn = document.getElementById('connectBtn');
+        const $disconnectBtn = document.getElementById('disconnectBtn');
+        const $sendBtn = document.getElementById('sendBtn');
+        const $clearBtn = document.getElementById('clearBtn');
+        const $wsUrl = document.getElementById('wsUrl');
+        const $messageType = document.getElementById('messageType');
+        const $messageContent = document.getElementById('messageContent');
+        const $messages = document.getElementById('messages');
+        const $sentCount = document.getElementById('sentCount');
+        const $receivedCount = document.getElementById('receivedCount');
+        const $latency = document.getElementById('latency');
+
+        // 连接
+        $connectBtn.addEventListener('click', () => {
+            const url = $wsUrl.value;
+            addMessage('系统', `正在连接到 ${url}...`, 'info');
+
+            try {
+                ws = new WebSocket(url);
+
+                ws.onopen = () => {
+                    updateStatus(true);
+                    addMessage('系统', '✅ 连接成功', 'info');
+                };
+
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                };
+
+                ws.onerror = (error) => {
+                    addMessage('系统', `❌ 连接错误: ${error}`, 'error');
+                };
+
+                ws.onclose = () => {
+                    updateStatus(false);
+                    addMessage('系统', '🔌 连接已断开', 'info');
+                };
+
+            } catch (error) {
+                addMessage('系统', `❌ 连接失败: ${error.message}`, 'error');
+            }
+        });
+
+        // 断开
+        $disconnectBtn.addEventListener('click', () => {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        });
+
+        // 发送消息
+        $sendBtn.addEventListener('click', () => {
+            const type = $messageType.value;
+            const content = $messageContent.value;
+
+            let message = { type };
+
+            if (type === 'ping') {
+                lastPingTime = Date.now();
+            } else if (type === 'agent_query' || type === 'streaming_query') {
+                message.query = content;
+            } else if (type === 'tool_call') {
+                message.tool_name = 'calculator';
+                message.params = { expression: content };
+            }
+
+            sendMessage(message);
+        });
+
+        // 清空消息
+        $clearBtn.addEventListener('click', () => {
+            $messages.innerHTML = '';
+            sentCount = 0;
+            receivedCount = 0;
+            updateStats();
+        });
+
+        // 快捷操作
+        document.querySelectorAll('.quick-action').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const query = btn.dataset.query;
+                $messageContent.value = query;
+                $messageType.value = 'streaming_query';
+                $sendBtn.click();
+            });
+        });
+
+        // 发送消息函数
+        function sendMessage(message) {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                addMessage('系统', '❌ 未连接到服务器', 'error');
+                return;
+            }
+
+            try {
+                ws.send(JSON.stringify(message));
+                addMessage('发送', JSON.stringify(message, null, 2), 'sent');
+                sentCount++;
+                updateStats();
+            } catch (error) {
+                addMessage('系统', `❌ 发送失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 处理收到的消息
+        function handleMessage(data) {
+            receivedCount++;
+            updateStats();
+
+            const type = data.type;
+
+            if (type === 'pong') {
+                const latency = Date.now() - lastPingTime;
+                $latency.textContent = latency;
+                addMessage('接收', `🏓 Pong (延迟: ${latency}ms)`, 'received');
+            } else if (type === 'connected') {
+                addMessage('接收', `✅ ${data.message}\nID: ${data.connection_id}`, 'received');
+            } else if (type === 'status') {
+                addMessage('接收', `⏳ 状态: ${data.status}`, 'info');
+            } else if (type === 'agent_response') {
+                addMessage('接收', `🤖 Agent 响应:\n${data.content}\n\n厂商: ${data.vendor}`, 'received');
+            } else if (type === 'stream_start') {
+                addMessage('接收', '🌊 流式响应开始...', 'info');
+            } else if (type === 'stream_chunk') {
+                // 追加到最后一条消息
+                const lastMsg = $messages.lastElementChild;
+                if (lastMsg && lastMsg.classList.contains('message-received')) {
+                    const content = lastMsg.querySelector('.message-content');
+                    content.textContent += data.content;
+                } else {
+                    addMessage('接收', data.content, 'received');
+                }
+            } else if (type === 'stream_end') {
+                addMessage('接收', '✅ 流式响应完成', 'info');
+            } else if (type === 'tool_result') {
+                addMessage('接收', `🔧 工具结果 (${data.tool_name}):\n${JSON.stringify(data.result, null, 2)}`, 'received');
+            } else if (type === 'error') {
+                addMessage('接收', `❌ 错误: ${data.error}`, 'error');
+            } else {
+                addMessage('接收', JSON.stringify(data, null, 2), 'received');
+            }
+        }
+
+        // 添加消息到界面
+        function addMessage(sender, content, type) {
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message message-${type}`;
+
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'message-header';
+            headerDiv.innerHTML = `
+                <span>${sender}</span>
+                <span class="message-time">${new Date().toLocaleTimeString()}</span>
+            `;
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = content;
+
+            msgDiv.appendChild(headerDiv);
+            msgDiv.appendChild(contentDiv);
+
+            $messages.appendChild(msgDiv);
+            $messages.scrollTop = $messages.scrollHeight;
+        }
+
+        // 更新连接状态
+        function updateStatus(connected) {
+            if (connected) {
+                $status.textContent = '已连接';
+                $status.className = 'status connected';
+                $connectBtn.disabled = true;
+                $disconnectBtn.disabled = false;
+                $sendBtn.disabled = false;
+            } else {
+                $status.textContent = '断开连接';
+                $status.className = 'status disconnected';
+                $connectBtn.disabled = false;
+                $disconnectBtn.disabled = true;
+                $sendBtn.disabled = true;
+            }
+        }
+
+        // 更新统计信息
+        function updateStats() {
+            $sentCount.textContent = sentCount;
+            $receivedCount.textContent = receivedCount;
+        }
+
+        // 定时发送心跳
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                sendMessage({ type: 'ping' });
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
+

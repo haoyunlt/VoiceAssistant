@@ -1,53 +1,221 @@
-"""工具管理路由"""
-import logging
-from typing import Any, Dict, List
+"""
+工具管理路由
 
-from fastapi import APIRouter
+提供工具列表、执行、注册等 API
+"""
 
-from app.services.tool_service import ToolService
+import time
+from typing import Any, Dict
 
-router = APIRouter()
-logger = logging.getLogger(__name__)
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
-# 创建工具服务实例
-tool_service = ToolService()
+from app.core.logging_config import get_logger
+from app.tools.dynamic_registry import get_tool_registry
+
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/api/v1/tools", tags=["Tools"])
 
 
-@router.get("/list")
-async def list_tools() -> List[Dict[str, Any]]:
-    """列出所有可用工具"""
-    tools = tool_service.list_tools()
-    return tools
+# === Request/Response Models ===
+
+
+class ToolExecuteRequest(BaseModel):
+    """工具执行请求"""
+
+    tool_name: str = Field(..., description="工具名称")
+    parameters: Dict[str, Any] = Field(default_factory=dict, description="工具参数")
+
+
+class ToolExecuteResponse(BaseModel):
+    """工具执行响应"""
+
+    tool_name: str = Field(..., description="工具名称")
+    result: str = Field(..., description="执行结果")
+    execution_time_ms: float = Field(..., description="执行时间（毫秒）")
+    success: bool = Field(..., description="是否成功")
+
+
+class ToolListResponse(BaseModel):
+    """工具列表响应"""
+
+    tools: list = Field(..., description="工具列表")
+    count: int = Field(..., description="工具数量")
+
+
+# === API Endpoints ===
+
+
+@router.get("/list", response_model=ToolListResponse)
+async def list_tools():
+    """
+    列出所有可用工具
+
+    Returns:
+        工具列表
+    """
+    try:
+        tool_registry = get_tool_registry()
+        tools = tool_registry.list_tools()
+
+        return ToolListResponse(tools=tools, count=len(tools))
+
+    except Exception as e:
+        logger.error(f"Failed to list tools: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/names")
+async def list_tool_names():
+    """
+    列出所有工具名称
+
+    Returns:
+        工具名称列表
+    """
+    try:
+        tool_registry = get_tool_registry()
+        names = tool_registry.get_tool_names()
+
+        return {"tool_names": names, "count": len(names)}
+
+    except Exception as e:
+        logger.error(f"Failed to list tool names: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/description")
+async def get_tools_description():
+    """
+    获取所有工具的文本描述
+
+    Returns:
+        工具描述文本
+    """
+    try:
+        tool_registry = get_tool_registry()
+        description = tool_registry.get_tools_description()
+
+        return {"description": description}
+
+    except Exception as e:
+        logger.error(f"Failed to get tools description: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/definitions")
+async def get_tool_definitions_for_llm():
+    """
+    获取 OpenAI Function Calling 格式的工具定义
+
+    Returns:
+        函数定义列表
+    """
+    try:
+        tool_registry = get_tool_registry()
+        definitions = tool_registry.get_tool_definitions_for_llm()
+
+        return {"definitions": definitions, "count": len(definitions)}
+
+    except Exception as e:
+        logger.error(f"Failed to get tool definitions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{tool_name}")
-async def get_tool_info(tool_name: str) -> Dict[str, Any]:
-    """获取工具详细信息"""
-    tool_info = tool_service.get_tool_info(tool_name)
-    if not tool_info:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
-    return tool_info
-
-
-@router.post("/{tool_name}/execute")
-async def execute_tool(tool_name: str, parameters: Dict[str, Any]) -> Dict[str, Any]:
+async def get_tool_info(tool_name: str):
     """
-    直接执行指定工具
+    获取指定工具的信息
 
-    用于测试工具或直接调用
+    Args:
+        tool_name: 工具名称
+
+    Returns:
+        工具定义
     """
     try:
-        result = await tool_service.execute_tool(tool_name, parameters)
-        return {
-            "tool": tool_name,
-            "result": result,
-            "status": "success",
-        }
+        tool_registry = get_tool_registry()
+        tool_info = tool_registry.get_tool_info(tool_name)
+
+        if not tool_info:
+            raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+
+        return tool_info
+
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Tool execution failed: {e}")
+        logger.error(f"Failed to get tool info: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/execute", response_model=ToolExecuteResponse)
+async def execute_tool(request: ToolExecuteRequest):
+    """
+    执行工具
+
+    Args:
+        request: 工具执行请求
+
+    Returns:
+        执行结果
+    """
+    start_time = time.time()
+
+    try:
+        tool_registry = get_tool_registry()
+
+        # 执行工具
+        result = await tool_registry.execute_tool(
+            tool_name=request.tool_name, parameters=request.parameters
+        )
+
+        execution_time = (time.time() - start_time) * 1000
+
+        return ToolExecuteResponse(
+            tool_name=request.tool_name,
+            result=result,
+            execution_time_ms=execution_time,
+            success=True,
+        )
+
+    except ValueError as e:
+        # 工具不存在
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        execution_time = (time.time() - start_time) * 1000
+
+        logger.error(
+            f"Tool '{request.tool_name}' execution failed: {e}", exc_info=True
+        )
+
+        # 返回失败信息（不抛出异常）
+        return ToolExecuteResponse(
+            tool_name=request.tool_name,
+            result=f"执行失败: {str(e)}",
+            execution_time_ms=execution_time,
+            success=False,
+        )
+
+
+@router.post("/reload")
+async def reload_builtin_tools():
+    """
+    重新加载内置工具
+
+    Returns:
+        成功消息
+    """
+    try:
+        tool_registry = get_tool_registry()
+        tool_registry.reload_builtin_tools()
+
         return {
-            "tool": tool_name,
-            "error": str(e),
-            "status": "failed",
+            "message": "Builtin tools reloaded successfully",
+            "count": len(tool_registry.get_tool_names()),
         }
+
+    except Exception as e:
+        logger.error(f"Failed to reload builtin tools: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

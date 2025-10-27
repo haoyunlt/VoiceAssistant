@@ -126,6 +126,7 @@ open http://localhost:3000
 ### 核心文档
 
 - [📖 快速开始](QUICKSTART.md) - 5 分钟上手指南
+- [📚 文档索引](docs/DOCS_INDEX.md) - 文档导航中心 ⭐
 - [🏛️ 架构设计 v2.0](docs/microservice-architecture-v2.md) - 当前系统架构
 - [📋 迁移检查清单](docs/migration-checklist.md) - 架构迁移指南
 - [🤝 贡献指南](CONTRIBUTING.md) - 如何参与贡献

@@ -1,9 +1,23 @@
 import base64
 import logging
 import os
+import sys
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import httpx
+
+# 添加common目录到Python路径
+common_path = Path(__file__).parent.parent.parent.parent / "common"
+if str(common_path) not in sys.path:
+    sys.path.insert(0, str(common_path))
+
+try:
+    from llm_client import UnifiedLLMClient
+    USE_UNIFIED_CLIENT = True
+except ImportError:
+    USE_UNIFIED_CLIENT = False
+    UnifiedLLMClient = None
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +32,18 @@ class VisionEngine:
         self.api_key = os.getenv("VISION_API_KEY", "")
         self.endpoint = os.getenv("VISION_ENDPOINT", "https://api.openai.com/v1")
         self.model = os.getenv("VISION_MODEL", "gpt-4-vision-preview")
+
+        # 优先使用统一LLM客户端
+        if USE_UNIFIED_CLIENT:
+            self.unified_client = UnifiedLLMClient(
+                model_adapter_url=os.getenv("MODEL_ADAPTER_URL", "http://model-adapter:8005"),
+                default_model=self.model,
+                timeout=60,
+            )
+            logger.info("VisionEngine using UnifiedLLMClient (via model-adapter)")
+        else:
+            self.unified_client = None
+            logger.warning("UnifiedLLMClient not available, using direct httpx client")
 
         self.client = httpx.AsyncClient(timeout=30.0)
 
@@ -142,6 +168,49 @@ class VisionEngine:
         # 将图片转换为 base64
         image_base64 = base64.b64encode(image_data).decode("utf-8")
 
+        # 优先使用统一LLM客户端
+        if self.unified_client:
+            try:
+                result = await self.unified_client.chat(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{image_base64}"
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                    model=self.model,
+                    max_tokens=500,
+                )
+                description = result["content"]
+            except Exception as e:
+                logger.warning(f"UnifiedLLMClient failed, falling back to direct call: {e}")
+                # 降级到直接调用
+                description = await self._openai_direct_call(image_base64, prompt)
+        else:
+            # 直接调用OpenAI API
+            description = await self._openai_direct_call(image_base64, prompt)
+
+        # 提取标签（简单实现）
+        tags = self._extract_tags(description)
+
+        return {
+            "description": description,
+            "tags": tags,
+            "confidence": 0.92,
+            "provider": "openai",
+            "model": self.model,
+        }
+
+    async def _openai_direct_call(self, image_base64: str, prompt: str) -> str:
+        """直接调用OpenAI API（降级方案）"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -172,18 +241,7 @@ class VisionEngine:
         response.raise_for_status()
 
         data = response.json()
-        description = data["choices"][0]["message"]["content"]
-
-        # 提取标签（简单实现）
-        tags = self._extract_tags(description)
-
-        return {
-            "description": description,
-            "tags": tags,
-            "confidence": 0.92,
-            "provider": "openai",
-            "model": self.model,
-        }
+        return data["choices"][0]["message"]["content"]
 
     async def _understand_azure(
         self, image_data: bytes, prompt: str

@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import make_asgi_app
 
 # 配置日志
@@ -77,6 +78,12 @@ app.add_middleware(
 # Prometheus 指标
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+
+# 静态文件 (用于测试页面)
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    logger.info(f"Static files mounted: {static_dir}")
 
 
 @app.get("/health")

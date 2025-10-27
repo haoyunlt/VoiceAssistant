@@ -39,6 +39,11 @@ minio==7.2.3
 # 图数据库
 neo4j==5.17.0
 
+# NLP 和 NER
+spacy==3.7.2
+transformers==4.37.2
+networkx==3.2.1  # 用于社区检测
+
 # 监控
 prometheus-client==0.19.0
 

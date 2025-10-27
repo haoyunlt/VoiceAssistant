@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package identity.v1;
 
-option go_package = "voicehelper/api/identity/v1;v1";
+option go_package = "voiceassistant/api/proto/identity/v1;v1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -14,21 +14,21 @@ service IdentityService {
   rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
   rpc RefreshToken(RefreshTokenRequest) returns (TokenResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (TokenClaims);
-  
+
   // 用户管理
   rpc CreateUser(CreateUserRequest) returns (User);
   rpc GetUser(GetUserRequest) returns (User);
   rpc UpdateUser(UpdateUserRequest) returns (User);
   rpc DeleteUser(DeleteUserRequest) returns (google.protobuf.Empty);
   rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
-  
+
   // 租户管理
   rpc CreateTenant(CreateTenantRequest) returns (Tenant);
   rpc GetTenant(GetTenantRequest) returns (Tenant);
   rpc UpdateTenant(UpdateTenantRequest) returns (Tenant);
   rpc DeleteTenant(DeleteTenantRequest) returns (google.protobuf.Empty);
   rpc UpdateTenantQuota(UpdateTenantQuotaRequest) returns (Tenant);
-  
+
   // 权限管理
   rpc CheckPermission(CheckPermissionRequest) returns (PermissionResult);
   rpc AssignRole(AssignRoleRequest) returns (google.protobuf.Empty);

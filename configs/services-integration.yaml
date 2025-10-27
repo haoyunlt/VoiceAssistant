@@ -1,0 +1,292 @@
+# 服务集成配置
+# 定义服务间的调用关系和职责边界
+
+services:
+  # ==================== Python AI 引擎层 ====================
+
+  # 统一模型适配器（核心）
+  model_adapter:
+    url: http://model-adapter:8005
+    description: "统一LLM/Embedding调用入口"
+    provides:
+      - llm_chat
+      - llm_completion
+      - embedding
+    consumers:
+      - agent-engine
+      - rag-engine
+      - multimodal-engine
+      - indexing-service
+
+  # 向量存储适配器（核心）
+  vector_store_adapter:
+    url: http://vector-store-adapter:8003
+    description: "统一向量数据库访问"
+    provides:
+      - vector_insert
+      - vector_search
+      - vector_delete
+    consumers:
+      - indexing-service
+      - retrieval-service
+    backends:
+      - milvus
+      - pgvector
+
+  # 索引服务
+  indexing_service:
+    url: http://indexing-service:8004
+    description: "文档索引流水线"
+    responsibilities:
+      - 文档解析
+      - 文本分块
+      - 向量化（调用model-adapter）
+      - 存储向量（调用vector-store-adapter）
+      - 通知知识图谱服务
+    triggers:
+      - knowledge-service (Go) 文档上传后
+      - Kafka事件
+    calls:
+      - model_adapter: embedding
+      - vector_store_adapter: insert
+      - knowledge_service_py: build_graph (可选)
+
+  # 检索服务
+  retrieval_service:
+    url: http://retrieval-service:8012
+    description: "混合检索（Vector + BM25 + Rerank）"
+    responsibilities:
+      - 向量检索（调用vector-store-adapter）
+      - BM25检索（Elasticsearch）
+      - RRF融合
+      - 重排序
+    calls:
+      - vector_store_adapter: search
+      - elasticsearch: search
+      - model_adapter: rerank (可选)
+
+  # RAG引擎
+  rag_engine:
+    url: http://rag-engine:8006
+    description: "RAG检索增强生成"
+    responsibilities:
+      - 查询改写（调用model-adapter）
+      - 检索编排（调用retrieval-service）
+      - 上下文组装
+      - 答案生成（调用model-adapter）
+    calls:
+      - model_adapter: chat, completion
+      - retrieval_service: hybrid_search
+
+  # Agent引擎
+  agent_engine:
+    url: http://agent-engine:8003
+    description: "智能Agent执行"
+    responsibilities:
+      - ReAct推理（调用model-adapter）
+      - 工具调用
+      - 多步任务执行
+    calls:
+      - model_adapter: chat
+      - retrieval_service: search (通过knowledge_base工具)
+      - calculator: local
+      - web_search: 待接入真实API
+
+  # 知识图谱服务（Python）
+  knowledge_service_py:
+    url: http://knowledge-service-py:8006
+    description: "知识图谱管理"
+    responsibilities:
+      - NER实体提取
+      - 关系抽取
+      - Neo4j图谱CRUD
+      - 图谱查询
+    calls:
+      - neo4j: cypher_query
+
+  # 多模态引擎
+  multimodal_engine:
+    url: http://multimodal-engine:8008
+    description: "图像/视频理解"
+    responsibilities:
+      - 图像理解（调用model-adapter）
+      - OCR文字识别
+      - 视频分析
+    calls:
+      - model_adapter: vision_chat
+
+  # 语音引擎
+  voice_engine:
+    url: http://voice-engine:8004
+    description: "ASR/TTS/VAD"
+    responsibilities:
+      - 语音识别（Whisper）
+      - 语音合成（Edge TTS）
+      - 语音活动检测（Silero VAD）
+    calls:
+      - openai: whisper_api (可选)
+      - edge_tts: synthesize
+
+  # ==================== Go 核心服务层 ====================
+
+  # 知识库服务（Go - 主服务）
+  knowledge_service:
+    url: http://knowledge-service:8000
+    description: "知识库元数据管理"
+    responsibilities:
+      - 知识库CRUD
+      - 文档CRUD（仅元数据）
+      - 触发索引流水线
+    calls:
+      - indexing_service: trigger_indexing
+      - postgres: metadata_storage
+
+  # 对话服务
+  conversation_service:
+    url: http://conversation-service:8080
+    description: "对话管理"
+    responsibilities:
+      - 对话CRUD
+      - 消息管理
+      - 上下文管理
+    calls:
+      - postgres: conversation_storage
+      - ai_orchestrator: ai_task (间接)
+
+  # AI编排器
+  ai_orchestrator:
+    url: http://ai-orchestrator:9003
+    description: "AI任务编排"
+    responsibilities:
+      - 任务路由
+      - 工作流编排
+      - 结果聚合
+    calls:
+      - agent_engine: execute
+      - rag_engine: generate
+      - voice_engine: asr, tts
+      - multimodal_engine: understand
+
+  # 身份服务
+  identity_service:
+    url: http://identity-service:8000
+    description: "认证授权"
+    responsibilities:
+      - 用户认证
+      - JWT签发
+      - 权限管理
+    calls:
+      - postgres: user_storage
+
+  # 模型路由器
+  model_router:
+    url: http://model-router:9004
+    description: "模型负载均衡"
+    responsibilities:
+      - 模型选择
+      - 负载均衡
+      - 成本优化
+    calls:
+      - model_adapter: forward_request (可选)
+
+  # 分析服务
+  analytics_service:
+    url: http://analytics-service:9006
+    description: "数据分析"
+    responsibilities:
+      - 实时统计
+      - 报表生成
+      - 趋势分析
+    calls:
+      - clickhouse: analytics_query
+      - postgres: metadata_query
+
+  # 通知服务
+  notification_service:
+    url: http://notification-service:9005
+    description: "消息推送"
+    responsibilities:
+      - 邮件发送
+      - SMS发送
+      - Webhook回调
+    calls:
+      - smtp: send_email
+      - twilio: send_sms
+
+# ==================== 调用链示例 ====================
+
+call_chains:
+  # 文档索引链
+  document_indexing:
+    flow:
+      - "用户上传文档 → knowledge-service (Go)"
+      - "knowledge-service → indexing-service (HTTP)"
+      - "indexing-service → model-adapter (embedding)"
+      - "indexing-service → vector-store-adapter (insert)"
+      - "indexing-service → knowledge-service-py (build_graph, 可选)"
+
+  # RAG查询链
+  rag_query:
+    flow:
+      - "用户查询 → rag-engine"
+      - "rag-engine → model-adapter (query rewrite)"
+      - "rag-engine → retrieval-service (search)"
+      - "retrieval-service → vector-store-adapter (vector search)"
+      - "retrieval-service → elasticsearch (bm25 search)"
+      - "rag-engine → model-adapter (generate answer)"
+
+  # Agent执行链
+  agent_execution:
+    flow:
+      - "用户任务 → agent-engine"
+      - "agent-engine → model-adapter (reasoning)"
+      - "agent-engine → retrieval-service (knowledge_base tool)"
+      - "agent-engine → calculator (local)"
+      - "agent-engine → model-adapter (final reasoning)"
+
+# ==================== 数据流 ====================
+
+data_stores:
+  postgresql:
+    tables:
+      - identity.users
+      - conversations.conversations
+      - conversations.messages
+      - knowledge.knowledge_bases
+      - knowledge.documents
+      - knowledge.chunks (metadata only)
+
+  milvus:
+    collections:
+      - document_chunks (vectors)
+
+  neo4j:
+    graphs:
+      - knowledge_graph (entities + relations)
+
+  elasticsearch:
+    indices:
+      - documents (full-text search)
+
+  clickhouse:
+    tables:
+      - analytics.message_stats
+      - analytics.user_activity
+      - analytics.ai_usage
+
+# ==================== 禁止的调用 ====================
+
+forbidden_calls:
+  - from: "*"
+    to: "openai_api_directly"
+    reason: "必须通过model-adapter统一调用"
+
+  - from: "*"
+    to: "milvus_directly"
+    reason: "必须通过vector-store-adapter统一访问"
+    exceptions:
+      - vector-store-adapter
+
+  - from: "indexing-service"
+    to: "rag-engine"
+    reason: "单向依赖，indexing不应调用上层服务"

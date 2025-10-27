@@ -1,204 +1,336 @@
-import asyncio
+"""Model Adapter服务 - 统一的LLM提供商适配层."""
+
 import logging
 import os
 from contextlib import asynccontextmanager
-from typing import Any, Dict
 
-from app.adapters.azure_adapter import AzureAdapter
-from app.adapters.claude_adapter import ClaudeAdapter
-from app.adapters.openai_adapter import OpenAIAdapter
-from app.core.adapter_registry import AdapterRegistry
 from fastapi import FastAPI, HTTPException
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from prometheus_client import Counter, Histogram, make_asgi_app
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+from prometheus_client import make_asgi_app
 
 # 配置日志
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
 logger = logging.getLogger(__name__)
 
-# Prometheus Metrics
-REQUEST_COUNT = Counter(
-    "model_adapter_requests_total", "Total number of Model Adapter requests", ["provider", "model"]
-)
-REQUEST_LATENCY = Histogram(
-    "model_adapter_request_duration_seconds", "Model Adapter request latency in seconds", ["provider", "model"]
-)
-
-adapter_registry: AdapterRegistry = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global adapter_registry
+    logger.info("Starting Model Adapter Service...")
 
-    logger.info("Starting Model Adapter service...")
+    # 初始化适配器
+    from app.adapters.claude_adapter import ClaudeAdapter
+    from app.adapters.openai_adapter import OpenAIAdapter
+    from app.adapters.zhipu_adapter import ZhipuAdapter
 
-    try:
-        # 初始化适配器注册表
-        adapter_registry = AdapterRegistry()
+    global adapters
 
-        # 注册各个适配器
-        openai_adapter = OpenAIAdapter()
-        claude_adapter = ClaudeAdapter()
-        azure_adapter = AzureAdapter()
+    adapters = {}
 
-        adapter_registry.register("openai", openai_adapter)
-        adapter_registry.register("anthropic", claude_adapter)
-        adapter_registry.register("azure", azure_adapter)
+    # OpenAI
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        adapters["openai"] = OpenAIAdapter(openai_key)
+        logger.info("OpenAI adapter initialized")
 
-        logger.info(f"Registered adapters: {adapter_registry.list_adapters()}")
+    # Claude
+    claude_key = os.getenv("ANTHROPIC_API_KEY")
+    if claude_key:
+        adapters["claude"] = ClaudeAdapter(claude_key)
+        logger.info("Claude adapter initialized")
 
-        logger.info("Model Adapter service started successfully.")
+    # Zhipu
+    zhipu_key = os.getenv("ZHIPU_API_KEY")
+    if zhipu_key:
+        adapters["zhipu"] = ZhipuAdapter(zhipu_key)
+        logger.info("Zhipu adapter initialized")
 
-        # OpenTelemetry Instrumentation
-        FastAPIInstrumentor.instrument_app(app)
-        HTTPXClientInstrumentor().instrument()
+    logger.info(f"Model Adapter Service started with {len(adapters)} providers")
 
-        yield
+    yield
 
-    finally:
-        logger.info("Shutting down Model Adapter service...")
-        if adapter_registry:
-            await adapter_registry.cleanup()
-        logger.info("Model Adapter service shut down complete.")
+    # 清理资源
+    logger.info("Shutting down Model Adapter Service...")
 
+    for provider, adapter in adapters.items():
+        if hasattr(adapter, "close"):
+            try:
+                await adapter.close()
+            except Exception as e:
+                logger.error(f"Error closing {provider} adapter: {e}")
+
+    logger.info("Model Adapter Service shut down complete")
+
+
+# 创建FastAPI应用
 app = FastAPI(
-    title="Model Adapter Service",
+    title="Model Adapter",
+    description="统一的LLM提供商适配层 - OpenAI/Claude/Zhipu",
     version="1.0.0",
-    description="LLM Model Adapter for VoiceHelper - API 适配与协议转换",
     lifespan=lifespan,
 )
 
-# Add Prometheus metrics endpoint
+# CORS中间件
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Prometheus指标
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
-@app.get("/")
-async def read_root():
-    return {"message": "Model Adapter Service is running!"}
+# 全局适配器字典
+adapters = {}
+
 
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    global adapter_registry
-    if adapter_registry:
-        return {"status": "ok"}
-    raise HTTPException(status_code=503, detail="Model Adapter not ready")
+    return {
+        "status": "healthy",
+        "service": "model-adapter",
+        "providers": list(adapters.keys()),
+    }
 
-@app.post("/chat/completions")
-async def chat_completions(
-    provider: str,
-    model: str,
-    messages: list[Dict[str, str]],
-    temperature: float = 0.7,
-    max_tokens: int = 2000,
-    stream: bool = False,
-    tenant_id: str = None,
-    user_id: str = None,
-):
+
+@app.get("/api/v1/providers")
+async def list_providers():
+    """列出可用的提供商"""
+    provider_status = {}
+
+    for provider, adapter in adapters.items():
+        try:
+            is_healthy = await adapter.health_check()
+            provider_status[provider] = {
+                "available": True,
+                "healthy": is_healthy,
+            }
+        except Exception as e:
+            provider_status[provider] = {
+                "available": True,
+                "healthy": False,
+                "error": str(e),
+            }
+
+    return {
+        "providers": provider_status,
+        "count": len(adapters),
+    }
+
+
+@app.post("/api/v1/generate")
+async def generate(request: dict):
     """
-    统一的聊天补全接口，自动路由到对应的模型提供商。
+    生成文本 (非流式).
 
     Args:
-        provider: 模型提供商 (openai, anthropic, azure)
+        provider: 提供商 (openai/claude/zhipu)
         model: 模型名称
         messages: 消息列表
-        temperature: 温度参数
-        max_tokens: 最大 token 数
-        stream: 是否流式响应
-        tenant_id: 租户 ID
-        user_id: 用户 ID
+        temperature: 温度
+        max_tokens: 最大token数
+        ...其他参数
     """
-    global adapter_registry
-    if not adapter_registry:
-        raise HTTPException(status_code=503, detail="Model Adapter not initialized")
+    provider = request.get("provider")
+    if not provider:
+        raise HTTPException(status_code=400, detail="Provider is required")
 
-    REQUEST_COUNT.labels(provider=provider, model=model).inc()
-
-    try:
-        with REQUEST_LATENCY.labels(provider=provider, model=model).time():
-            adapter = adapter_registry.get_adapter(provider)
-
-            if stream:
-                # TODO: Implement streaming response
-                raise NotImplementedError("Streaming is not yet implemented.")
-            else:
-                response = await adapter.chat_completion(
-                    model=model,
-                    messages=messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    tenant_id=tenant_id,
-                    user_id=user_id,
-                )
-                return response
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
-    except Exception as e:
-        logger.error(f"Error in chat completion: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/embeddings")
-async def embeddings(
-    provider: str,
-    model: str,
-    input: str | list[str],
-    tenant_id: str = None,
-    user_id: str = None,
-):
-    """
-    统一的嵌入接口。
-    """
-    global adapter_registry
-    if not adapter_registry:
-        raise HTTPException(status_code=503, detail="Model Adapter not initialized")
-
-    try:
-        adapter = adapter_registry.get_adapter(provider)
-        response = await adapter.embeddings(
-            model=model,
-            input=input,
-            tenant_id=tenant_id,
-            user_id=user_id,
+    adapter = adapters.get(provider)
+    if not adapter:
+        raise HTTPException(
+            status_code=404, detail=f"Provider '{provider}' not found"
         )
-        return response
-    except KeyError:
-        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+
+    try:
+        response = await adapter.generate(
+            model=request.get("model"),
+            messages=request.get("messages", []),
+            temperature=request.get("temperature", 0.7),
+            max_tokens=request.get("max_tokens", 1000),
+        )
+
+        return {
+            "provider": response.provider,
+            "model": response.model,
+            "content": response.content,
+            "finish_reason": response.finish_reason,
+            "usage": response.usage,
+            "metadata": response.metadata,
+        }
+
     except Exception as e:
-        logger.error(f"Error in embeddings: {e}", exc_info=True)
+        logger.error(f"Generation failed for {provider}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/adapters")
-async def list_adapters():
-    """列出所有已注册的适配器"""
-    global adapter_registry
-    if not adapter_registry:
-        raise HTTPException(status_code=503, detail="Model Adapter not initialized")
-    return {"adapters": adapter_registry.list_adapters()}
 
-@app.get("/stats")
-async def get_stats():
-    """获取 Model Adapter 统计信息"""
-    global adapter_registry
-    if not adapter_registry:
-        raise HTTPException(status_code=503, detail="Model Adapter not initialized")
-    return await adapter_registry.get_stats()
+@app.post("/api/v1/generate/stream")
+async def generate_stream(request: dict):
+    """
+    生成文本 (流式).
+
+    使用Server-Sent Events (SSE)格式返回。
+    """
+    provider = request.get("provider")
+    if not provider:
+        raise HTTPException(status_code=400, detail="Provider is required")
+
+    adapter = adapters.get(provider)
+    if not adapter:
+        raise HTTPException(
+            status_code=404, detail=f"Provider '{provider}' not found"
+        )
+
+    async def event_stream():
+        """SSE事件流"""
+        try:
+            async for chunk in adapter.generate_stream(
+                model=request.get("model"),
+                messages=request.get("messages", []),
+                temperature=request.get("temperature", 0.7),
+                max_tokens=request.get("max_tokens", 1000),
+            ):
+                import json
+
+                data = json.dumps(
+                    {
+                        "provider": chunk.provider,
+                        "model": chunk.model,
+                        "content": chunk.content,
+                        "finish_reason": chunk.finish_reason,
+                    },
+                    ensure_ascii=False,
+                )
+                yield f"data: {data}\n\n"
+
+        except Exception as e:
+            logger.error(f"Streaming failed for {provider}: {e}", exc_info=True)
+            import json
+
+            error_data = json.dumps({"error": str(e)})
+            yield f"data: {error_data}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@app.post("/api/v1/embeddings")
+async def create_embeddings(request: dict):
+    """
+    创建文本嵌入.
+
+    Args:
+        provider: 提供商 (openai/zhipu)
+        model: 嵌入模型
+        input: 输入文本或文本列表
+    """
+    provider = request.get("provider")
+    if not provider:
+        raise HTTPException(status_code=400, detail="Provider is required")
+
+    adapter = adapters.get(provider)
+    if not adapter:
+        raise HTTPException(
+            status_code=404, detail=f"Provider '{provider}' not found"
+        )
+
+    if not hasattr(adapter, "create_embedding"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider '{provider}' does not support embeddings",
+        )
+
+    try:
+        result = await adapter.create_embedding(
+            model=request.get("model"),
+            input_text=request.get("input"),
+        )
+
+        return result
+
+    except Exception as e:
+        logger.error(f"Embedding failed for {provider}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/convert")
+async def convert_protocol(request: dict):
+    """
+    协议转换.
+
+    将统一格式转换为特定Provider格式。
+    """
+    from app.core.protocol_converter import ProtocolConverter
+
+    target_provider = request.get("target_provider")
+    messages = request.get("messages", [])
+    parameters = request.get("parameters", {})
+
+    if target_provider == "openai":
+        result = ProtocolConverter.to_openai_format(messages, parameters)
+    elif target_provider == "claude":
+        result = ProtocolConverter.to_claude_format(messages, parameters)
+    elif target_provider == "zhipu":
+        result = ProtocolConverter.to_zhipu_format(messages, parameters)
+    else:
+        raise HTTPException(
+            status_code=400, detail=f"Unknown provider: {target_provider}"
+        )
+
+    return result
+
+
+@app.post("/api/v1/cost/calculate")
+async def calculate_cost(request: dict):
+    """
+    计算成本.
+
+    Args:
+        model: 模型名称
+        input_tokens: 输入token数
+        output_tokens: 输出token数
+    """
+    from app.core.cost_calculator import CostCalculator
+
+    model = request.get("model")
+    input_tokens = request.get("input_tokens", 0)
+    output_tokens = request.get("output_tokens", 0)
+
+    if not model:
+        raise HTTPException(status_code=400, detail="Model is required")
+
+    cost = CostCalculator.calculate_cost(model, input_tokens, output_tokens)
+
+    return cost
+
 
 if __name__ == "__main__":
     import uvicorn
 
+    # 配置
     host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
+    port = int(os.getenv("PORT", "8005"))
     workers = int(os.getenv("WORKERS", "1"))
-    reload = os.getenv("RELOAD", "false").lower() == "true"
 
-    logger.info(f"Starting Model Adapter server on {host}:{port} with {workers} workers")
+    logger.info(f"Starting server on {host}:{port}")
 
     uvicorn.run(
         "main:app",
         host=host,
         port=port,
         workers=workers,
-        reload=reload,
+        reload=False,
     )

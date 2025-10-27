@@ -1,0 +1,193 @@
+groups:
+  - name: service_alerts
+    interval: 30s
+    rules:
+      # Service Down Alert
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute."
+
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: |
+          (
+            rate(http_requests_total{code=~"5.."}[5m]) 
+            / 
+            rate(http_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          category: errors
+        annotations:
+          summary: "High error rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} has error rate > 5% (current: {{ $value | humanizePercentage }})"
+
+      # High Latency Alert
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          category: performance
+        annotations:
+          summary: "High latency on {{ $labels.job }}"
+          description: "{{ $labels.job }} P95 latency > 2s (current: {{ $value }}s)"
+
+      # Very High Latency Alert
+      - alert: VeryHighLatency
+        expr: |
+          histogram_quantile(0.99, 
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 5
+        for: 5m
+        labels:
+          severity: critical
+          category: performance
+        annotations:
+          summary: "Very high latency on {{ $labels.job }}"
+          description: "{{ $labels.job }} P99 latency > 5s (current: {{ $value }}s)"
+
+      # High Request Rate
+      - alert: HighRequestRate
+        expr: rate(http_requests_total[5m]) > 1000
+        for: 5m
+        labels:
+          severity: info
+          category: traffic
+        annotations:
+          summary: "High request rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} receiving > 1000 req/s (current: {{ $value }})"
+
+      # Low Request Rate (potential issue)
+      - alert: LowRequestRate
+        expr: rate(http_requests_total[5m]) < 0.1
+        for: 10m
+        labels:
+          severity: info
+          category: traffic
+        annotations:
+          summary: "Low request rate on {{ $labels.job }}"
+          description: "{{ $labels.job }} receiving < 0.1 req/s (current: {{ $value }})"
+
+  - name: resource_alerts
+    interval: 30s
+    rules:
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes
+          ) / node_memory_MemTotal_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage > 90% (current: {{ $value | humanizePercentage }})"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: |
+          (
+            100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          ) > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage > 80% (current: {{ $value }}%)"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{fstype!~"tmpfs|fuse.*"}
+            /
+            node_filesystem_size_bytes{fstype!~"tmpfs|fuse.*"}
+          ) < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Disk {{ $labels.mountpoint }} has < 10% free space"
+
+  - name: llm_alerts
+    interval: 30s
+    rules:
+      # LLM High Latency
+      - alert: LLMHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(llm_request_duration_seconds_bucket[5m])
+          ) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: llm
+        annotations:
+          summary: "LLM high latency"
+          description: "LLM P95 latency > 10s (current: {{ $value }}s)"
+
+      # LLM High Error Rate
+      - alert: LLMHighErrorRate
+        expr: |
+          rate(llm_error_total[5m]) / rate(llm_request_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          category: llm
+        annotations:
+          summary: "LLM high error rate"
+          description: "LLM error rate > 10% (current: {{ $value | humanizePercentage }})"
+
+      # High Token Usage
+      - alert: HighTokenUsage
+        expr: rate(llm_token_usage[5m]) > 100000
+        for: 5m
+        labels:
+          severity: info
+          category: llm
+        annotations:
+          summary: "High LLM token usage"
+          description: "Token usage > 100k/5min (current: {{ $value }})"
+
+  - name: websocket_alerts
+    interval: 30s
+    rules:
+      # High WebSocket Connections
+      - alert: HighWebSocketConnections
+        expr: websocket_connections_active > 1000
+        for: 5m
+        labels:
+          severity: warning
+          category: websocket
+        annotations:
+          summary: "High WebSocket connections"
+          description: "Active connections > 1000 (current: {{ $value }})"
+
+      # WebSocket Connection Drop Rate
+      - alert: WebSocketConnectionDrops
+        expr: rate(websocket_connection_duration_seconds_count[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          category: websocket
+        annotations:
+          summary: "High WebSocket connection drop rate"
+          description: "Connection drops > 10/s (current: {{ $value }})"
+

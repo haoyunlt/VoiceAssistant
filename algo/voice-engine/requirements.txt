@@ -4,26 +4,43 @@
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
 python-multipart==0.0.9
+websockets==12.0
 
 # ASR - Whisper
-openai-whisper==20231117
-# 或使用 faster-whisper（更快）
-# faster-whisper==1.0.0
+# openai-whisper==20231117
+# 使用 faster-whisper（更快，用于流式识别）
+faster-whisper==1.0.0
 
 # TTS - Edge-TTS
 edge-tts==6.1.9
 
 # VAD - Silero-VAD
-# torch==2.1.2  # Silero-VAD 依赖
-# torchaudio==2.1.2
+torch==2.1.2  # Silero-VAD 依赖
+torchaudio==2.1.2
+
+# VAD - WebRTC VAD (用于流式识别)
+webrtcvad==2.0.10
+
+# Transformers (用于 Whisper)
+transformers==4.37.2
+
+# 音频处理增强
+pydub==0.25.1
+librosa==0.10.1
 
 # 音频处理
 soundfile==0.12.1
 numpy==1.26.3
 scipy==1.11.4
 
+# Redis 缓存
+redis==5.0.1
+
 # 监控
 prometheus-client==0.19.0
 
 # 日志
 loguru==0.7.2
+
+# Azure Speech SDK (多厂商语音服务)
+azure-cognitiveservices-speech==1.38.0

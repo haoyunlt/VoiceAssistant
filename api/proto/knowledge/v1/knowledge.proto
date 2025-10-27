@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package knowledge.v1;
 
-option go_package = "voicehelper/api/knowledge/v1;v1";
+option go_package = "voiceassistant/api/proto/knowledge/v1;v1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -16,14 +16,14 @@ service KnowledgeService {
   rpc UpdateDocument(UpdateDocumentRequest) returns (Document);
   rpc DeleteDocument(DeleteDocumentRequest) returns (google.protobuf.Empty);
   rpc DownloadDocument(DownloadDocumentRequest) returns (stream DocumentChunk);
-  
+
   // 集合管理
   rpc CreateCollection(CreateCollectionRequest) returns (Collection);
   rpc GetCollection(GetCollectionRequest) returns (Collection);
   rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
   rpc UpdateCollection(UpdateCollectionRequest) returns (Collection);
   rpc DeleteCollection(DeleteCollectionRequest) returns (google.protobuf.Empty);
-  
+
   // 版本管理
   rpc GetDocumentVersion(GetDocumentVersionRequest) returns (DocumentVersion);
   rpc ListDocumentVersions(ListDocumentVersionsRequest) returns (ListDocumentVersionsResponse);

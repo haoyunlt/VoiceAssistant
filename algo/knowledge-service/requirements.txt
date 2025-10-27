@@ -1,0 +1,20 @@
+# FastAPI and dependencies
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.1.0
+
+# Neo4j
+neo4j==5.16.0
+
+# NLP
+spacy==3.7.2
+# Note: Download models with:
+# python -m spacy download en_core_web_sm  # English
+# python -m spacy download zh_core_web_sm  # Chinese
+
+# Utilities
+httpx==0.26.0
+
+# Logging and monitoring
+prometheus-client==0.19.0

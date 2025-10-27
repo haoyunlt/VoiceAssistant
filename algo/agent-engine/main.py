@@ -17,7 +17,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from prometheus_client import make_asgi_app
+from app.middleware.metrics import MetricsMiddleware
 
 # 配置日志
 logging.basicConfig(
@@ -28,16 +30,48 @@ logger = logging.getLogger(__name__)
 
 # 全局变量
 agent_engine = None
+memory_manager = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global agent_engine
+    global agent_engine, memory_manager
 
     logger.info("Starting Agent Engine...")
 
     try:
+        # 初始化工具注册表
+        from app.tools.dynamic_registry import get_tool_registry
+
+        tool_registry = get_tool_registry()
+        logger.info(f"Tool registry initialized with {len(tool_registry.get_tool_names())} tools")
+
+        # 初始化记忆管理器
+        from app.memory.unified_memory_manager import UnifiedMemoryManager
+
+        memory_manager = UnifiedMemoryManager(
+            milvus_host=os.getenv("MILVUS_HOST", "localhost"),
+            milvus_port=int(os.getenv("MILVUS_PORT", "19530")),
+            embedding_service_url=os.getenv(
+                "EMBEDDING_SERVICE_URL", "http://localhost:8002"
+            ),
+            collection_name=os.getenv("MEMORY_COLLECTION", "agent_memory"),
+            time_decay_half_life_days=int(os.getenv("MEMORY_HALF_LIFE_DAYS", "30")),
+            auto_save_to_long_term=os.getenv("AUTO_SAVE_LONG_TERM", "true").lower()
+            == "true",
+            long_term_importance_threshold=float(
+                os.getenv("IMPORTANCE_THRESHOLD", "0.6")
+            ),
+        )
+
+        logger.info("Memory manager initialized")
+
+        # 设置记忆管理器到路由
+        from app.routers import memory as memory_router
+
+        memory_router.set_memory_manager(memory_manager)
+
         # 初始化 Agent 引擎
         from app.core.agent_engine import AgentEngine
 
@@ -75,9 +109,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Metrics 中间件
+app.add_middleware(MetricsMiddleware)
+
+# 注册路由
+from app.routers import executor as executor_router
+from app.routers import llm as llm_router
+from app.routers import memory as memory_router
+from app.routers import tools as tools_router
+from app.routers import websocket as websocket_router
+
+app.include_router(memory_router.router)
+app.include_router(tools_router.router)
+app.include_router(executor_router.router)
+app.include_router(llm_router.router)
+app.include_router(websocket_router.router)
+
 # Prometheus 指标
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+
+# 静态文件（WebSocket 测试页面）
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 @app.get("/health")

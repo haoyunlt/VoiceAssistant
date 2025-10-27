@@ -29,14 +29,16 @@ def init_rag_service():
     retrieval_url = os.getenv("RETRIEVAL_SERVICE_URL", "http://retrieval-service:8012")
     retrieval_client = RetrievalClient(base_url=retrieval_url)
 
-    # 创建OpenAI客户端
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        logger.warning("OPENAI_API_KEY not set, using mock mode")
-        # 在生产环境应该抛出错误
-        # raise ValueError("OPENAI_API_KEY is required")
+    # 创建OpenAI客户端（通过model-adapter）
+    # 优先使用MODEL_ADAPTER_URL，实现统一LLM调用
+    model_adapter_url = os.getenv("MODEL_ADAPTER_URL", "http://model-adapter:8005")
+    api_key = os.getenv("OPENAI_API_KEY", "dummy-key")  # model-adapter不需要真实key
 
-    llm_client = AsyncOpenAI(api_key=api_key) if api_key else None
+    # 将base_url指向model-adapter，实现统一路由
+    llm_client = AsyncOpenAI(
+        api_key=api_key,
+        base_url=f"{model_adapter_url}/api/v1"  # model-adapter兼容OpenAI接口
+    )
 
     # 创建RAG服务
     model = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
@@ -46,7 +48,7 @@ def init_rag_service():
         model=model,
     )
 
-    logger.info(f"RAG service initialized with model: {model}")
+    logger.info(f"RAG service initialized with model: {model} via model-adapter: {model_adapter_url}")
 
 
 # API模型

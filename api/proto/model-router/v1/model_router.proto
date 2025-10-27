@@ -2,22 +2,22 @@ syntax = "proto3";
 
 package model_router.v1;
 
-option go_package = "model-router/api/proto/model_router/v1;v1";
+option go_package = "voiceassistant/api/proto/model-router/v1;v1";
 
 // ModelRouter Service - 模型路由与成本优化
 service ModelRouter {
   // 路由模型请求
   rpc RouteModel(RouteModelRequest) returns (RouteModelResponse);
-  
+
   // 获取模型成本
   rpc GetModelCost(GetModelCostRequest) returns (ModelCost);
-  
+
   // 批量路由
   rpc BatchRoute(BatchRouteRequest) returns (BatchRouteResponse);
-  
+
   // 获取推荐模型
   rpc RecommendModel(RecommendModelRequest) returns (RecommendModelResponse);
-  
+
   // 更新模型配置
   rpc UpdateModelConfig(UpdateModelConfigRequest) returns (ModelConfig);
 }
@@ -118,4 +118,3 @@ enum ModelType {
 }
 
 message Empty {}
-

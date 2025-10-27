@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package conversation.v1;
 
-option go_package = "voicehelper/api/conversation/v1;v1";
+option go_package = "voiceassistant/api/proto/conversation/v1;v1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
@@ -15,13 +15,13 @@ service ConversationService {
   rpc ListConversations(ListConversationsRequest) returns (ListConversationsResponse);
   rpc UpdateConversation(UpdateConversationRequest) returns (Conversation);
   rpc DeleteConversation(DeleteConversationRequest) returns (google.protobuf.Empty);
-  
+
   // 消息管理
   rpc SendMessage(SendMessageRequest) returns (Message);
   rpc GetMessage(GetMessageRequest) returns (Message);
   rpc ListMessages(ListMessagesRequest) returns (ListMessagesResponse);
   rpc StreamMessages(StreamMessagesRequest) returns (stream MessageChunk);
-  
+
   // 上下文管理
   rpc GetContext(GetContextRequest) returns (Context);
   rpc UpdateContext(UpdateContextRequest) returns (Context);

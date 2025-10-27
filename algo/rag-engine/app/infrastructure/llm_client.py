@@ -55,14 +55,21 @@ class LLMClient:
         logger.info("LLM client initialized")
 
     async def _initialize_openai(self):
-        """初始化 OpenAI 客户端"""
+        """初始化 OpenAI 客户端（通过model-adapter统一路由）"""
         try:
+            import os
+
             from openai import AsyncOpenAI
 
+            # 优先使用model-adapter进行统一LLM调用
+            model_adapter_url = os.getenv("MODEL_ADAPTER_URL", "http://model-adapter:8005")
+            effective_base_url = self.base_url or f"{model_adapter_url}/api/v1"
+
             self.client = AsyncOpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url,
+                api_key=self.api_key or "dummy-key",
+                base_url=effective_base_url,
             )
+            logger.info(f"OpenAI client initialized via: {effective_base_url}")
         except ImportError:
             logger.error("openai package not installed. Run: pip install openai")
             raise

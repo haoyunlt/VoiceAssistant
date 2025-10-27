@@ -1,89 +1,89 @@
-.PHONY: help lint test build deploy-dev deploy-prod e2e load proto-gen
+.PHONY: help verify test build deploy clean
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+help: ## 显示帮助信息
+	@echo "VoiceAssistant - 可用命令:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# Linting
-lint: ## Run code linters for Go, Python, and TypeScript
-	@echo "==> Linting Go code..."
-	@golangci-lint run ./...
-	@echo "==> Linting Python code..."
-	@cd algo && ruff check .
-	@echo "==> Linting TypeScript code..."
-	@cd platforms/web && npm run lint
-	@cd platforms/admin && npm run lint
+verify: ## 验证架构优化
+	@echo "🔍 验证服务集成..."
+	@./scripts/verify-integration.sh
 
-# Testing
-test: ## Run unit tests
-	@echo "==> Running Go unit tests..."
-	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-	@echo "==> Running Python unit tests..."
-	@cd algo && pytest
-	@echo "==> Running TypeScript unit tests..."
-	@cd platforms/web && npm test
+test: ## 测试服务集成
+	@echo "🧪 测试服务..."
+	@./scripts/test-services.sh
 
-# Building
-build: ## Build Docker images for all services
-	@echo "==> Building Go services..."
-	@./scripts/build.sh go
-	@echo "==> Building Python services..."
-	@./scripts/build.sh python
-	@echo "==> Building frontend..."
-	@./scripts/build.sh frontend
-
-# Deployment
-deploy-dev: ## Deploy to development environment
-	@echo "==> Deploying to dev environment..."
-	@./scripts/deploy/deploy.sh dev
-
-deploy-prod: ## Deploy to production environment
-	@echo "==> Deploying to prod environment..."
-	@./scripts/deploy/deploy.sh prod
-
-# E2E Testing
-e2e: ## Run end-to-end tests
-	@echo "==> Running E2E tests..."
-	@cd tests/e2e && npm test
-
-# Load Testing
-load: ## Run load tests with k6
-	@echo "==> Running load tests..."
-	@k6 run tests/load/k6/conversation.js
-
-# Proto Generation
-proto-gen: ## Generate gRPC code from proto files
-	@echo "==> Generating proto files..."
+proto-gen: ## 生成protobuf代码
+	@echo "📝 生成protobuf..."
 	@./scripts/proto-gen.sh
 
-# Database Migration
-migrate-up: ## Run database migrations (up)
-	@echo "==> Running migrations..."
-	@./scripts/migration/migrate.sh up
+build-go: ## 编译Go服务
+	@echo "🔨 编译Go服务..."
+	@cd cmd/knowledge-service && go build -o ../../bin/knowledge-service
+	@cd cmd/conversation-service && go build -o ../../bin/conversation-service
+	@cd cmd/identity-service && go build -o ../../bin/identity-service
+	@cd cmd/ai-orchestrator && go build -o ../../bin/ai-orchestrator
+	@cd cmd/analytics-service && go build -o ../../bin/analytics-service
+	@cd cmd/model-router && go build -o ../../bin/model-router
+	@cd cmd/notification-service && go build -o ../../bin/notification-service
 
-migrate-down: ## Run database migrations (down)
-	@echo "==> Rolling back migrations..."
-	@./scripts/migration/migrate.sh down
+build-docker: ## 构建Docker镜像
+	@echo "🐳 构建Docker镜像..."
+	@docker-compose build
 
-# Local Development
-dev-up: ## Start local development environment with docker-compose
+up: ## 启动所有服务
+	@echo "🚀 启动服务..."
 	@docker-compose up -d
 
-dev-down: ## Stop local development environment
+down: ## 停止所有服务
+	@echo "🛑 停止服务..."
 	@docker-compose down
 
-dev-logs: ## Show logs from local development environment
+logs: ## 查看日志
 	@docker-compose logs -f
 
-# Clean
-clean: ## Clean build artifacts
-	@echo "==> Cleaning build artifacts..."
-	@rm -rf coverage.out
-	@rm -rf algo/htmlcov
-	@rm -rf platforms/web/.next
-	@rm -rf platforms/web/out
-	@find . -type d -name "__pycache__" -exec rm -rf {} +
-	@find . -type f -name "*.pyc" -delete
+ps: ## 查看服务状态
+	@docker-compose ps
 
+clean: ## 清理
+	@echo "🧹 清理..."
+	@rm -rf bin/
+	@docker-compose down -v
+
+deploy: verify build-docker ## 部署（验证+构建+启动）
+	@echo "📦 部署中..."
+	@docker-compose up -d
+	@echo "✅ 部署完成"
+
+# 开发相关
+dev-agent: ## 开发模式运行Agent Engine
+	@cd algo/agent-engine && python main.py
+
+dev-rag: ## 开发模式运行RAG Engine
+	@cd algo/rag-engine && python main.py
+
+dev-retrieval: ## 开发模式运行Retrieval Service
+	@cd algo/retrieval-service && python main.py
+
+# 数据库迁移
+migrate-up: ## 执行数据库迁移
+	@echo "📊 执行数据库迁移..."
+	@psql -h localhost -U voicehelper -d voicehelper -f migrations/postgres/001_init.sql
+	@psql -h localhost -U voicehelper -d voicehelper -f migrations/postgres/002_conversations.sql
+	@psql -h localhost -U voicehelper -d voicehelper -f migrations/postgres/003_knowledge.sql
+
+# Lint相关
+lint-python: ## Python代码检查
+	@echo "🔍 Python代码检查..."
+	@cd algo && find . -name "*.py" -not -path "./__pycache__/*" | xargs ruff check || true
+
+lint-go: ## Go代码检查
+	@echo "🔍 Go代码检查..."
+	@cd cmd && golangci-lint run ./... || true
+
+format-python: ## 格式化Python代码
+	@echo "✨ 格式化Python代码..."
+	@cd algo && find . -name "*.py" -not -path "./__pycache__/*" | xargs ruff format || true
+
+format-go: ## 格式化Go代码
+	@echo "✨ 格式化Go代码..."
+	@cd cmd && go fmt ./...

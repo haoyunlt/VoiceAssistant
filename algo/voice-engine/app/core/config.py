@@ -26,7 +26,11 @@ class Settings(BaseSettings):
 
     # Azure Speech 配置（可选）
     AZURE_SPEECH_KEY: str = ""
-    AZURE_SPEECH_REGION: str = ""
+    AZURE_SPEECH_REGION: str = "eastasia"
+
+    # 多厂商语音服务配置
+    PREFERRED_ASR: str = "faster-whisper"  # azure, faster-whisper
+    PREFERRED_TTS: str = "edge"  # azure, edge
 
     # TTS（文本转语音）配置
     TTS_PROVIDER: str = "edge"  # edge, azure
@@ -59,6 +63,13 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_DB: int = 4
     TTS_CACHE_TTL: int = 86400  # TTS 缓存 24 小时
+
+    @property
+    def REDIS_URL(self) -> str:
+        """生成 Redis 连接 URL"""
+        if self.REDIS_PASSWORD:
+            return f"redis://:{self.REDIS_PASSWORD}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
+        return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
 
     # 日志配置
     LOG_LEVEL: str = "INFO"

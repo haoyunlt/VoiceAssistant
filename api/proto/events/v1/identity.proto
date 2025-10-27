@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package events.v1;
 
-option go_package = "github.com/voicehelper/voiceassistant/api/proto/events/v1;eventsv1";
+option go_package = "voiceassistant/api/proto/events/v1;eventsv1";
 
 import "google/protobuf/timestamp.proto";
 

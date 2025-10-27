@@ -1,9 +1,10 @@
 """
 Vector Store Client - 向量库适配服务客户端
-替代直接调用 MilvusClient
+通过vector-store-adapter统一访问向量数据库
 """
 
 import logging
+import os
 from typing import Dict, List, Optional
 
 import httpx
@@ -16,23 +17,25 @@ class VectorStoreClient:
 
     def __init__(
         self,
-        base_url: str = "http://vector-store-adapter:8003",
-        collection_name: str = "document_chunks",
-        backend: str = "milvus",
+        base_url: str = None,
+        collection_name: str = None,
+        backend: str = None,
         timeout: float = 30.0,
     ):
         """
         初始化客户端
 
         Args:
-            base_url: 向量库适配服务地址
-            collection_name: 集合名称
-            backend: 后端类型 (milvus/pgvector)
+            base_url: 向量库适配服务地址（默认从环境变量读取）
+            collection_name: 集合名称（默认从环境变量读取）
+            backend: 后端类型 (milvus/pgvector)（默认从环境变量读取）
             timeout: 超时时间（秒）
         """
-        self.base_url = base_url.rstrip("/")
-        self.collection_name = collection_name
-        self.backend = backend
+        self.base_url = (
+            base_url or os.getenv("VECTOR_STORE_ADAPTER_URL", "http://vector-store-adapter:8003")
+        ).rstrip("/")
+        self.collection_name = collection_name or os.getenv("VECTOR_COLLECTION_NAME", "document_chunks")
+        self.backend = backend or os.getenv("VECTOR_BACKEND", "milvus")
         self.timeout = timeout
 
         # 创建 HTTP 客户端
@@ -42,8 +45,8 @@ class VectorStoreClient:
         )
 
         logger.info(
-            f"VectorStoreClient initialized: {base_url}, "
-            f"collection={collection_name}, backend={backend}"
+            f"VectorStoreClient initialized: {self.base_url}, "
+            f"collection={self.collection_name}, backend={self.backend}"
         )
 
     async def search(

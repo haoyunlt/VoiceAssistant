@@ -11,6 +11,7 @@ import edge_tts
 
 from app.core.config import settings
 from app.core.logging_config import get_logger
+from app.infrastructure.tts_cache import TTSRedisCache
 from app.models.voice import TTSRequest, TTSResponse
 
 logger = get_logger(__name__)
@@ -19,9 +20,18 @@ logger = get_logger(__name__)
 class TTSService:
     """TTS 合成服务"""
 
-    def __init__(self):
+    def __init__(self, redis_url: str = None, max_cache_size_mb: int = 1000):
         self.provider = settings.TTS_PROVIDER
-        self.cache: dict = {}  # 简单的内存缓存，生产环境应使用 Redis
+
+        # 初始化 Redis 缓存
+        redis_url = redis_url or settings.REDIS_URL
+        self.cache = TTSRedisCache(
+            redis_url=redis_url,
+            ttl_days=30,
+            max_cache_size_mb=max_cache_size_mb,
+        )
+
+        logger.info(f"TTSService initialized with {self.cache.health_check()['backend']} cache")
 
     async def synthesize(self, request: TTSRequest) -> TTSResponse:
         """
@@ -35,14 +45,25 @@ class TTSService:
         """
         start_time = time.time()
 
-        # 检查缓存
-        cache_key = request.cache_key or self._generate_cache_key(request)
-        cached_audio = self._get_from_cache(cache_key)
+        # 检查缓存（从 Redis）
+        voice = request.voice or settings.TTS_VOICE
+        rate = request.rate or settings.TTS_RATE
+        pitch = request.pitch or settings.TTS_PITCH
+        format = request.format or "mp3"
 
-        if cached_audio:
-            logger.info(f"TTS cache hit: {cache_key}")
+        cached_audio_bytes = self.cache.get(
+            text=request.text,
+            voice=voice,
+            rate=rate,
+            pitch=pitch,
+            format=format,
+        )
+
+        if cached_audio_bytes:
+            logger.info("TTS cache hit")
+            audio_base64 = base64.b64encode(cached_audio_bytes).decode("utf-8")
             return TTSResponse(
-                audio_base64=cached_audio,
+                audio_base64=audio_base64,
                 duration_ms=0,  # 缓存的不计算时长
                 processing_time_ms=(time.time() - start_time) * 1000,
                 cached=True,
@@ -56,11 +77,18 @@ class TTSService:
         else:
             raise ValueError(f"Unsupported TTS provider: {self.provider}")
 
+        # 存入缓存（到 Redis）
+        self.cache.set(
+            text=request.text,
+            voice=voice,
+            rate=rate,
+            pitch=pitch,
+            format=format,
+            audio_data=audio_data,
+        )
+
         # 编码为 Base64
         audio_base64 = base64.b64encode(audio_data).decode("utf-8")
-
-        # 存入缓存
-        self._put_to_cache(cache_key, audio_base64)
 
         processing_time_ms = (time.time() - start_time) * 1000
 
@@ -184,17 +212,14 @@ class TTSService:
         else:
             return []
 
-    def _generate_cache_key(self, request: TTSRequest) -> str:
-        """生成缓存键"""
-        key_str = f"{request.text}:{request.voice}:{request.rate}:{request.pitch}:{request.format}"
-        return hashlib.md5(key_str.encode()).hexdigest()
+    def get_cache_stats(self) -> dict:
+        """获取缓存统计信息"""
+        return self.cache.get_stats()
 
-    def _get_from_cache(self, key: str) -> Optional[str]:
-        """从缓存获取"""
-        # TODO: 使用 Redis 缓存
-        return self.cache.get(key)
+    def clear_cache(self):
+        """清空缓存"""
+        self.cache.clear()
 
-    def _put_to_cache(self, key: str, value: str):
-        """存入缓存"""
-        # TODO: 使用 Redis 缓存
-        self.cache[key] = value
+    def health_check(self) -> dict:
+        """健康检查"""
+        return self.cache.health_check()
