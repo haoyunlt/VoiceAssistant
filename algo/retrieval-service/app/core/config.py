@@ -50,6 +50,24 @@ class Settings(BaseSettings):
     # RRF（Reciprocal Rank Fusion）参数
     RRF_K: int = 60
 
+    # Neo4j 图数据库配置
+    NEO4J_URI: str = "bolt://localhost:7687"
+    NEO4J_USER: str = "neo4j"
+    NEO4J_PASSWORD: str = "password"
+    NEO4J_DATABASE: str = "neo4j"
+    NEO4J_MAX_CONNECTION_LIFETIME: int = 3600
+    NEO4J_MAX_CONNECTION_POOL_SIZE: int = 50
+
+    # Graph 检索配置
+    GRAPH_TOP_K: int = 50
+    GRAPH_DEPTH: int = 2  # 图谱查询深度（跳数）
+    ENABLE_GRAPH_RETRIEVAL: bool = True
+
+    # 混合图谱检索权重配置
+    HYBRID_VECTOR_WEIGHT: float = 0.5
+    HYBRID_BM25_WEIGHT: float = 0.2
+    HYBRID_GRAPH_WEIGHT: float = 0.3
+
     # 日志配置
     LOG_LEVEL: str = "INFO"
 

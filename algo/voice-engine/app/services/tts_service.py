@@ -4,6 +4,7 @@ TTS (Text-to-Speech) service
 
 import base64
 import hashlib
+import os
 import time
 from typing import AsyncGenerator, List, Optional
 
@@ -31,7 +32,34 @@ class TTSService:
             max_cache_size_mb=max_cache_size_mb,
         )
 
-        logger.info(f"TTSService initialized with {self.cache.health_check()['backend']} cache")
+        # 初始化 Azure Speech Service（如果启用）
+        self.azure_service = None
+        if self.provider == "azure":
+            self._initialize_azure()
+
+        logger.info(f"TTSService initialized with provider={self.provider}, cache={self.cache.health_check()['backend']}")
+
+    def _initialize_azure(self):
+        """初始化Azure Speech Service"""
+        try:
+            from app.services.azure_speech_service import AzureSpeechService
+
+            subscription_key = os.getenv("AZURE_SPEECH_KEY")
+            region = os.getenv("AZURE_SPEECH_REGION", "eastus")
+
+            if not subscription_key:
+                logger.warning("AZURE_SPEECH_KEY not set, Azure TTS will not be available")
+                return
+
+            self.azure_service = AzureSpeechService(
+                subscription_key=subscription_key,
+                region=region
+            )
+
+            logger.info("Azure Speech Service initialized for TTS")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Azure Speech Service: {e}")
 
     async def synthesize(self, request: TTSRequest) -> TTSResponse:
         """
@@ -157,8 +185,31 @@ class TTSService:
 
     async def _synthesize_with_azure(self, request: TTSRequest) -> bytes:
         """使用 Azure Speech 合成"""
-        # TODO: 实现 Azure Speech SDK 集成
-        raise NotImplementedError("Azure Speech synthesis not implemented yet")
+        if not self.azure_service:
+            raise RuntimeError("Azure Speech Service not initialized")
+
+        try:
+            # 确保Azure服务已初始化
+            if not self.azure_service.initialized:
+                await self.azure_service.initialize()
+
+            voice = request.voice or "zh-CN-XiaoxiaoNeural"
+            rate = request.rate or "+0%"
+            pitch = request.pitch or "+0%"
+
+            # 调用Azure Speech SDK
+            audio_data = await self.azure_service.synthesize_to_bytes(
+                text=request.text,
+                voice_name=voice,
+                rate=rate,
+                pitch=pitch
+            )
+
+            return audio_data
+
+        except Exception as e:
+            logger.error(f"Azure TTS synthesis failed: {e}", exc_info=True)
+            raise
 
     async def list_voices(self) -> List[dict]:
         """列出可用的音色"""

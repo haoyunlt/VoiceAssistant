@@ -68,6 +68,9 @@ async def lifespan(app: FastAPI):
         kafka_consumer = DocumentEventConsumer()
         document_processor = DocumentProcessor()
 
+        # 初始化 DocumentProcessor（包括 Kafka Producer）
+        await document_processor.initialize()
+
         # 启动 Kafka 消费者
         asyncio.create_task(kafka_consumer.start())
 
@@ -109,6 +112,11 @@ app.add_middleware(
 # Prometheus metrics endpoint
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
+
+# 注册路由
+from app.routers import incremental
+
+app.include_router(incremental.router)
 
 
 # ========================================

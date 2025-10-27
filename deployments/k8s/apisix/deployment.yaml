@@ -1,0 +1,485 @@
+---
+# APISIX Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apisix
+  labels:
+    app: apisix
+
+---
+# APISIX ConfigMap - 核心配置
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-config
+  namespace: apisix
+data:
+  config.yaml: |
+    apisix:
+      node_listen: 9080
+      enable_admin: true
+      admin_key:
+        - name: "admin"
+          key: ${APISIX_ADMIN_KEY}
+          role: admin
+
+      enable_control: true
+      control:
+        ip: "0.0.0.0"
+        port: 9090
+
+      # 启用SSL
+      ssl:
+        enable: true
+        listen:
+          - port: 9443
+            enable_http2: true
+
+      # 性能优化
+      router:
+        http: radixtree_uri
+        ssl: radixtree_sni
+
+      # 启用WebSocket支持
+      enable_websocket: true
+
+    # etcd配置
+    deployment:
+      role: traditional
+      role_traditional:
+        config_provider: etcd
+
+      etcd:
+        host:
+          - "http://etcd.voiceassistant-infra.svc.cluster.local:2379"
+        prefix: "/apisix"
+        timeout: 30
+        watch_timeout: 60
+
+    # 插件配置
+    plugin_attr:
+      # Prometheus指标导出
+      prometheus:
+        export_addr:
+          ip: "0.0.0.0"
+          port: 9091
+        export_uri: /apisix/prometheus/metrics
+        metric_prefix: apisix_
+        enable_export_server: true
+
+      # OpenTelemetry追踪
+      opentelemetry:
+        resource:
+          service.name: "apisix-gateway"
+          service.namespace: "voiceassistant-prod"
+          deployment.environment: "production"
+        collector:
+          address: "otel-collector.voiceassistant-infra.svc.cluster.local:4317"
+          request_timeout: 3
+          request_headers:
+            authorization: "Bearer ${OTEL_TOKEN}"
+        batch_span_processor:
+          max_export_batch_size: 256
+          inactive_timeout: 5
+          max_queue_size: 2048
+
+      # gRPC配置
+      grpc-transcode:
+        proto_dir: /etc/apisix/protos
+
+      # 限流配置
+      limit-req:
+        redis_cluster_nodes:
+          - "redis-cluster.voiceassistant-infra.svc.cluster.local:6379"
+        redis_cluster_name: "redis-cluster"
+        redis_timeout: 1000
+
+      # JWT认证
+      jwt-auth:
+        secret: ${JWT_SECRET}
+
+      # CORS配置
+      cors:
+        allow_origins: "https://*.voiceassistant.com"
+        allow_methods: "GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS"
+        allow_headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Tenant-ID,X-User-ID,X-Session-ID"
+        expose_headers: "Content-Length,Content-Range"
+        max_age: 86400
+        allow_credential: true
+
+    # Nginx配置优化
+    nginx_config:
+      error_log_level: "warn"
+      worker_processes: auto
+      worker_rlimit_nofile: 65535
+      worker_shutdown_timeout: "10s"
+
+      event:
+        worker_connections: 10620
+
+      http:
+        # 连接超时
+        keepalive_timeout: 60s
+        client_header_timeout: 60s
+        client_body_timeout: 60s
+        send_timeout: 60s
+
+        # 请求体限制
+        client_max_body_size: 100m
+        client_body_buffer_size: 128k
+
+        # 代理配置
+        proxy_connect_timeout: 60s
+        proxy_send_timeout: 300s
+        proxy_read_timeout: 300s
+        proxy_buffer_size: 128k
+        proxy_buffers: 4 256k
+        proxy_busy_buffers_size: 256k
+
+        # gzip压缩
+        gzip: "on"
+        gzip_comp_level: 5
+        gzip_types: "text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript"
+
+        # 日志格式
+        access_log_format: '$remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" $request_time $upstream_response_time "$http_x_forwarded_for" "$http_x_tenant_id" "$http_x_user_id"'
+
+---
+# APISIX Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apisix
+  namespace: apisix
+  labels:
+    app: apisix
+    version: v3.10.0
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: apisix
+  template:
+    metadata:
+      labels:
+        app: apisix
+        version: v3.10.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/apisix/prometheus/metrics"
+    spec:
+      serviceAccountName: apisix
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - apisix
+                topologyKey: kubernetes.io/hostname
+
+      initContainers:
+        # 等待etcd就绪
+        - name: wait-for-etcd
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z etcd.voiceassistant-infra.svc.cluster.local 2379; do
+                echo "Waiting for etcd..."
+                sleep 2
+              done
+              echo "etcd is ready"
+
+      containers:
+        - name: apisix
+          image: apache/apisix:3.10.0-debian
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 9080
+              protocol: TCP
+            - name: https
+              containerPort: 9443
+              protocol: TCP
+            - name: admin
+              containerPort: 9180
+              protocol: TCP
+            - name: control
+              containerPort: 9090
+              protocol: TCP
+            - name: prometheus
+              containerPort: 9091
+              protocol: TCP
+
+          env:
+            - name: APISIX_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: apisix-secrets
+                  key: admin-key
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: apisix-secrets
+                  key: jwt-secret
+            - name: OTEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: apisix-secrets
+                  key: otel-token
+                  optional: true
+
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 2000m
+              memory: 2Gi
+
+          livenessProbe:
+            httpGet:
+              path: /apisix/status
+              port: 9090
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /apisix/status
+              port: 9090
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/apisix/conf/config.yaml
+              subPath: config.yaml
+            - name: protos
+              mountPath: /etc/apisix/protos
+            - name: ssl-certs
+              mountPath: /etc/apisix/ssl
+              readOnly: true
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+
+      volumes:
+        - name: config
+          configMap:
+            name: apisix-config
+        - name: protos
+          configMap:
+            name: apisix-protos
+        - name: ssl-certs
+          secret:
+            secretName: voiceassistant-tls-cert
+
+---
+# APISIX Service - LoadBalancer
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix-gateway
+  namespace: apisix
+  labels:
+    app: apisix
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+spec:
+  type: LoadBalancer
+  selector:
+    app: apisix
+  ports:
+    - name: http
+      port: 80
+      targetPort: 9080
+      protocol: TCP
+    - name: https
+      port: 443
+      targetPort: 9443
+      protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+
+---
+# APISIX Admin Service - ClusterIP (内部管理)
+apiVersion: v1
+kind: Service
+metadata:
+  name: apisix-admin
+  namespace: apisix
+  labels:
+    app: apisix
+spec:
+  type: ClusterIP
+  selector:
+    app: apisix
+  ports:
+    - name: admin
+      port: 9180
+      targetPort: 9180
+      protocol: TCP
+    - name: control
+      port: 9090
+      targetPort: 9090
+      protocol: TCP
+    - name: prometheus
+      port: 9091
+      targetPort: 9091
+      protocol: TCP
+
+---
+# APISIX ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: apisix
+  namespace: apisix
+
+---
+# APISIX ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: apisix
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - endpoints
+      - configmaps
+      - secrets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+
+---
+# APISIX ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: apisix
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: apisix
+subjects:
+  - kind: ServiceAccount
+    name: apisix
+    namespace: apisix
+
+---
+# APISIX Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: apisix-secrets
+  namespace: apisix
+type: Opaque
+stringData:
+  admin-key: "edd1c9f034335f136f87ad84b625c8f1" # 生产环境请替换为强密钥
+  jwt-secret: "your-jwt-secret-key-change-me" # 生产环境请替换
+  otel-token: "" # 如果需要认证token
+
+---
+# HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: apisix
+  namespace: apisix
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: apisix
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+      selectPolicy: Min
+
+---
+# PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: apisix
+  namespace: apisix
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: apisix

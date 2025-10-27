@@ -79,7 +79,6 @@ func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
 		}
 		return []byte(m.secretKey), nil
 	})
-
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, ErrExpiredToken
@@ -102,7 +101,6 @@ func (m *JWTManager) RefreshAccessToken(refreshToken string, username, email str
 		}
 		return []byte(m.secretKey), nil
 	})
-
 	if err != nil {
 		if errors.Is(err, jwt.ErrTokenExpired) {
 			return "", ErrExpiredToken
@@ -115,4 +113,39 @@ func (m *JWTManager) RefreshAccessToken(refreshToken string, username, email str
 	}
 
 	return "", ErrInvalidToken
+}
+
+// ShouldRenew checks if a token should be renewed
+// Returns true if the token will expire in less than 30 minutes
+func (m *JWTManager) ShouldRenew(claims *Claims) bool {
+	if claims.ExpiresAt == nil {
+		return false
+	}
+
+	timeLeft := time.Until(claims.ExpiresAt.Time)
+	// Renew if less than 30 minutes remaining and token is still valid
+	return timeLeft > 0 && timeLeft < 30*time.Minute
+}
+
+// RenewToken creates a new token with the same claims but updated timestamps
+func (m *JWTManager) RenewToken(claims *Claims) (string, error) {
+	now := time.Now()
+
+	// Create new claims with same user data but new timestamps
+	newClaims := Claims{
+		UserID:   claims.UserID,
+		Username: claims.Username,
+		Email:    claims.Email,
+		Roles:    claims.Roles,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(m.accessExpiry)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			Issuer:    "voice-assistant",
+			Subject:   claims.UserID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, newClaims)
+	return token.SignedString([]byte(m.secretKey))
 }

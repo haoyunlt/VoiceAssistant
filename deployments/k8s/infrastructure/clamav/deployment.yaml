@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clamav
+  namespace: voiceassistant-prod
+  labels:
+    app: clamav
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: clamav
+  template:
+    metadata:
+      labels:
+        app: clamav
+    spec:
+      containers:
+        - name: clamav
+          image: clamav/clamav:latest
+          ports:
+            - containerPort: 3310
+              name: clamd
+          env:
+            - name: CLAMAV_NO_FRESHCLAM
+              value: "false"
+            - name: FRESHCLAM_CHECKS
+              value: "24"
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+          volumeMounts:
+            - name: virus-db
+              mountPath: /var/lib/clamav
+          livenessProbe:
+            tcpSocket:
+              port: 3310
+            initialDelaySeconds: 120
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: 3310
+            initialDelaySeconds: 120
+            periodSeconds: 30
+      volumes:
+        - name: virus-db
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clamav
+  namespace: voiceassistant-prod
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3310
+      targetPort: 3310
+      name: clamd
+  selector:
+    app: clamav

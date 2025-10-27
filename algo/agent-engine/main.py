@@ -181,6 +181,7 @@ app.add_middleware(MetricsMiddleware)
 from app.routers import executor as executor_router
 from app.routers import llm as llm_router
 from app.routers import memory as memory_router
+from app.routers import permissions as permissions_router
 from app.routers import tools as tools_router
 from app.routers import websocket as websocket_router
 
@@ -189,6 +190,7 @@ app.include_router(tools_router.router)
 app.include_router(executor_router.router)
 app.include_router(llm_router.router)
 app.include_router(websocket_router.router)
+app.include_router(permissions_router.router)
 
 # Prometheus 指标
 metrics_app = make_asgi_app()
@@ -346,21 +348,187 @@ async def list_tools():
 @app.post("/tools/register")
 async def register_tool(request: dict):
     """
-    注册新工具
+    动态注册工具
 
-    Args:
-        name: 工具名称
-        description: 工具描述
-        parameters: 参数 Schema
-        function: 工具函数（暂不支持动态注册）
+    请求体格式:
+    {
+        "name": "custom_tool",
+        "description": "自定义工具描述",
+        "function": "package.module:callable",
+        "parameters": {...},          # OpenAI Function JSON Schema
+        "init_args": [],              # 可选，初始化位置参数
+        "init_kwargs": {}             # 可选，初始化关键字参数
+    }
     """
     global agent_engine
 
     if not agent_engine:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
-    # TODO: 实现动态工具注册
-    raise HTTPException(status_code=501, detail="Dynamic tool registration not yet implemented")
+    required_fields = ("name", "description", "parameters", "function")
+    missing = [field for field in required_fields if not request.get(field)]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing required fields: {', '.join(missing)}",
+        )
+
+    name = request["name"]
+    description = request["description"]
+    parameters = request["parameters"]
+    function_path = request["function"]
+    init_args = request.get("init_args", [])
+    init_kwargs = request.get("init_kwargs", {})
+
+    if not isinstance(name, str) or not name.strip():
+        raise HTTPException(status_code=400, detail="Field 'name' must be a non-empty string")
+
+    if not isinstance(description, str) or not description.strip():
+        raise HTTPException(status_code=400, detail="Field 'description' must be a non-empty string")
+
+    if not isinstance(parameters, dict):
+        raise HTTPException(status_code=400, detail="Field 'parameters' must be an object")
+
+    if not isinstance(function_path, str) or not function_path.strip():
+        raise HTTPException(status_code=400, detail="Field 'function' must be a non-empty string")
+
+    if not isinstance(init_args, list):
+        raise HTTPException(status_code=400, detail="Field 'init_args' must be a list when provided")
+
+    if not isinstance(init_kwargs, dict):
+        raise HTTPException(status_code=400, detail="Field 'init_kwargs' must be an object when provided")
+
+    import asyncio
+    import importlib
+    import inspect
+
+    def resolve_callable(path: str):
+        if ":" in path:
+            module_path, attr_name = path.split(":", 1)
+        elif "." in path:
+            module_path, attr_name = path.rsplit(".", 1)
+        else:
+            raise ValueError("Callable path must be 'module:attr' or 'module.attr'")
+
+        module = importlib.import_module(module_path)
+        target = getattr(module, attr_name)
+
+        if inspect.isclass(target):
+            return target
+
+        if callable(target):
+            return target
+
+        raise TypeError(f"Resolved target '{attr_name}' is not callable")
+
+    try:
+        target = resolve_callable(function_path.strip())
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid function reference: {exc}") from exc
+
+    from app.tools.dynamic_registry import get_tool_registry
+
+    registry = get_tool_registry()
+
+    if name in registry.get_tool_names():
+        raise HTTPException(status_code=409, detail=f"Tool '{name}' already exists")
+
+    class APIDynamicTool:
+        """适配任意可调用对象到动态工具注册表"""
+
+        def __init__(self, tool_name, tool_description, schema, callable_obj, args, kwargs):
+            self._definition = {
+                "name": tool_name,
+                "description": tool_description,
+                "parameters": schema,
+            }
+            self._callable = callable_obj
+            self._args = args
+            self._kwargs = kwargs
+
+        def get_definition(self):
+            return self._definition
+
+        async def execute(self, **kwargs):
+            if inspect.isclass(self._callable):
+                instance = self._callable(*self._args, **self._kwargs)
+                if not hasattr(instance, "execute"):
+                    raise ValueError("Tool class must define an 'execute' method")
+                execute_method = getattr(instance, "execute")
+                if inspect.iscoroutinefunction(execute_method):
+                    return await execute_method(**kwargs)
+                return await asyncio.to_thread(execute_method, **kwargs)
+
+            call_kwargs = {**self._kwargs, **kwargs}
+            if inspect.iscoroutinefunction(self._callable):
+                return await self._callable(*self._args, **call_kwargs)
+
+            return await asyncio.to_thread(self._callable, *self._args, **call_kwargs)
+
+    tool_instance = APIDynamicTool(
+        tool_name=name.strip(),
+        tool_description=description.strip(),
+        schema=parameters,
+        callable_obj=target,
+        args=init_args,
+        kwargs=init_kwargs,
+    )
+
+    try:
+        registry.register(tool_instance)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to register tool: {exc}") from exc
+
+    definition = tool_instance.get_definition()
+    logger.info("Successfully registered tool '%s'", definition["name"])
+
+    return {
+        "status": "registered",
+        "tool": definition,
+        "total": len(registry.get_tool_names()),
+    }
+
+
+@app.delete("/tools/{tool_name}")
+async def unregister_tool(tool_name: str):
+    """
+    注销工具
+
+    Args:
+        tool_name: 工具名称
+    """
+    global agent_engine
+
+    if not agent_engine:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    from app.tools.dynamic_registry import get_tool_registry
+
+    registry = get_tool_registry()
+
+    if tool_name in registry.get_tool_names():
+        registry.unregister(tool_name)
+        logger.info("Successfully unregistered dynamic tool: %s", tool_name)
+        return {
+            "message": f"Tool '{tool_name}' unregistered successfully",
+            "tool_name": tool_name,
+        }
+
+    tool = getattr(agent_engine.tool_registry, "tools", {}).get(tool_name)
+    if not tool:
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+
+    if hasattr(agent_engine.tool_registry, "unregister_tool"):
+        agent_engine.tool_registry.unregister_tool(tool_name)
+    else:
+        agent_engine.tool_registry.tools.pop(tool_name, None)
+
+    logger.info("Successfully unregistered tool: %s", tool_name)
+
+    return {
+        "message": f"Tool '{tool_name}' unregistered successfully",
+        "tool_name": tool_name,
+    }
 
 
 @app.get("/memory/{conversation_id}")

@@ -1896,7 +1896,7 @@ async def calculate_cost(request: dict):
 - temperature = 1.0-1.5：需要创造性（如创意写作）
 - max_tokens：根据实际需求设置，避免浪费
 
-### 3. 成本优化
+### 3. 成本优化预估
 
 - 启用请求缓存，降低成本 15-30%
 - 使用 /api/v1/cost/calculate 接口预估成本
@@ -1916,9 +1916,3 @@ async def calculate_cost(request: dict):
 - 提供备用 Provider（如 OpenAI → Claude）
 - 监控各 Provider 可用性
 - 记录详细日志便于排查
-
----
-
-**文档版本**：v2.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

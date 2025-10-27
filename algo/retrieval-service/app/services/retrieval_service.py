@@ -16,12 +16,19 @@ from app.models.retrieval import (
     RetrievalDocument,
     VectorRequest,
     VectorResponse,
+    GraphRequest,
+    GraphResponse,
+    HybridGraphRequest,
+    HybridGraphResponse,
 )
 from app.services.bm25_service import BM25Service
 from app.services.embedding_service import EmbeddingService
 from app.services.hybrid_service import HybridService
 from app.services.rerank_service import RerankService
 from app.services.vector_service import VectorService
+from app.services.graph_retrieval_service import GraphRetrievalService
+from app.services.hybrid_graph_service import HybridGraphService
+from app.infrastructure.neo4j_client import Neo4jClient
 
 logger = get_logger(__name__)
 
@@ -35,6 +42,53 @@ class RetrievalService:
         self.hybrid_service = HybridService(rrf_k=settings.RRF_K)
         self.rerank_service = RerankService()
         self.embedding_service = EmbeddingService()
+
+        # 初始化Neo4j客户端和Graph检索服务
+        self.neo4j_client = None
+        self.graph_service = None
+        self.hybrid_graph_service = None
+
+        if settings.ENABLE_GRAPH_RETRIEVAL:
+            try:
+                self.neo4j_client = Neo4jClient(
+                    uri=settings.NEO4J_URI,
+                    user=settings.NEO4J_USER,
+                    password=settings.NEO4J_PASSWORD,
+                    database=settings.NEO4J_DATABASE,
+                    max_connection_lifetime=settings.NEO4J_MAX_CONNECTION_LIFETIME,
+                    max_connection_pool_size=settings.NEO4J_MAX_CONNECTION_POOL_SIZE,
+                )
+                self.graph_service = GraphRetrievalService(self.neo4j_client)
+                self.hybrid_graph_service = HybridGraphService(
+                    vector_service=self.vector_service,
+                    bm25_service=self.bm25_service,
+                    graph_service=self.graph_service,
+                    rerank_service=self.rerank_service,
+                    rrf_k=settings.RRF_K,
+                )
+                logger.info("Graph retrieval services initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize graph retrieval services: {e}")
+                self.graph_service = None
+                self.hybrid_graph_service = None
+
+    async def startup(self):
+        """启动时初始化连接"""
+        if self.neo4j_client:
+            try:
+                await self.neo4j_client.connect()
+                logger.info("Neo4j connection established")
+            except Exception as e:
+                logger.error(f"Failed to connect to Neo4j: {e}")
+
+    async def shutdown(self):
+        """关闭时清理连接"""
+        if self.neo4j_client:
+            try:
+                await self.neo4j_client.close()
+                logger.info("Neo4j connection closed")
+            except Exception as e:
+                logger.error(f"Error closing Neo4j connection: {e}")
 
     async def vector_search(self, request: VectorRequest) -> VectorResponse:
         """向量检索"""
@@ -149,3 +203,36 @@ class RetrievalService:
             reranked=reranked,
             latency_ms=latency_ms,
         )
+
+    async def graph_search(self, request: GraphRequest) -> GraphResponse:
+        """图谱检索"""
+        if not self.graph_service:
+            raise RuntimeError("Graph retrieval is not enabled or initialization failed")
+
+        start_time = time.time()
+
+        # 执行图谱检索
+        top_k = request.top_k or settings.GRAPH_TOP_K
+        depth = request.depth or settings.GRAPH_DEPTH
+
+        documents = await self.graph_service.search(
+            query=request.query,
+            top_k=top_k,
+            depth=depth,
+            tenant_id=request.tenant_id,
+        )
+
+        latency_ms = (time.time() - start_time) * 1000
+
+        return GraphResponse(
+            documents=documents,
+            query=request.query,
+            latency_ms=latency_ms,
+        )
+
+    async def hybrid_graph_search(self, request: HybridGraphRequest) -> HybridGraphResponse:
+        """混合图谱检索（三路并行: Vector + BM25 + Graph）"""
+        if not self.hybrid_graph_service:
+            raise RuntimeError("Hybrid graph retrieval is not enabled or initialization failed")
+
+        return await self.hybrid_graph_service.search(request)

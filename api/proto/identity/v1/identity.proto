@@ -14,6 +14,8 @@ service IdentityService {
   rpc Logout(LogoutRequest) returns (google.protobuf.Empty);
   rpc RefreshToken(RefreshTokenRequest) returns (TokenResponse);
   rpc VerifyToken(VerifyTokenRequest) returns (TokenClaims);
+  rpc ChangePassword(ChangePasswordRequest) returns (google.protobuf.Empty); // 新增：修改密码
+  rpc GetBlacklistStats(GetBlacklistStatsRequest) returns (GetBlacklistStatsResponse); // 新增：黑名单统计
 
   // 用户管理
   rpc CreateUser(CreateUserRequest) returns (User);
@@ -33,6 +35,12 @@ service IdentityService {
   rpc CheckPermission(CheckPermissionRequest) returns (PermissionResult);
   rpc AssignRole(AssignRoleRequest) returns (google.protobuf.Empty);
   rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+
+  // OAuth2/SSO
+  rpc LoginWithOAuth(LoginWithOAuthRequest) returns (LoginResponse); // 新增：OAuth2登录
+  rpc BindOAuthAccount(BindOAuthAccountRequest) returns (google.protobuf.Empty); // 新增：绑定OAuth账号
+  rpc UnbindOAuthAccount(UnbindOAuthAccountRequest) returns (google.protobuf.Empty); // 新增：解绑OAuth账号
+  rpc GetOAuthAuthURL(GetOAuthAuthURLRequest) returns (GetOAuthAuthURLResponse); // 新增：获取OAuth授权URL
 }
 
 // ============ 认证相关 ============
@@ -76,6 +84,23 @@ message TokenClaims {
   repeated string permissions = 4;
   google.protobuf.Timestamp issued_at = 5;
   google.protobuf.Timestamp expires_at = 6;
+}
+
+message ChangePasswordRequest {
+  string user_id = 1;
+  string old_password = 2;
+  string new_password = 3;
+}
+
+message GetBlacklistStatsRequest {
+  // empty - 获取全局统计
+}
+
+message GetBlacklistStatsResponse {
+  bool enabled = 1;
+  int64 total_tokens = 2;
+  double average_ttl_seconds = 3;
+  int64 revoked_users = 4;
 }
 
 // ============ 用户相关 ============
@@ -229,4 +254,31 @@ message Role {
   string name = 2;
   string display_name = 3;
   repeated string permissions = 4;
+}
+
+// ============ OAuth2相关 ============
+
+message LoginWithOAuthRequest {
+  string provider = 1; // 'google', 'github', 'wechat'
+  string code = 2; // OAuth authorization code
+}
+
+message BindOAuthAccountRequest {
+  string user_id = 1;
+  string provider = 2; // 'google', 'github', 'wechat'
+  string code = 3; // OAuth authorization code
+}
+
+message UnbindOAuthAccountRequest {
+  string user_id = 1;
+  string provider = 2; // 'google', 'github', 'wechat'
+}
+
+message GetOAuthAuthURLRequest {
+  string provider = 1; // 'google', 'github', 'wechat'
+  string state = 2; // CSRF protection token
+}
+
+message GetOAuthAuthURLResponse {
+  string auth_url = 1;
 }

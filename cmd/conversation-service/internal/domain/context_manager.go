@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -134,9 +135,109 @@ func (m *ContextManagerImpl) CompressContext(
 	ctx context.Context,
 	conversationID string,
 ) error {
-	// TODO: 实现上下文压缩逻辑
-	// 可以使用LLM对历史对话进行摘要
+	// 获取对话历史
+	messages, err := m.messageRepo.GetByConversationID(ctx, conversationID, 100)
+	if err != nil {
+		return err
+	}
+
+	if len(messages) < 10 {
+		// 消息数量少，不需要压缩
+		return nil
+	}
+
+	// 1. 保留最近的N条消息（不压缩）
+	recentCount := 5
+	if len(messages) <= recentCount {
+		return nil
+	}
+
+	// 2. 对较早的消息进行压缩（摘要）
+	oldMessages := messages[:len(messages)-recentCount]
+	summary := m.generateSummary(oldMessages)
+
+	// 3. 创建系统摘要消息
+	summaryMsg := &Message{
+		ConversationID: conversationID,
+		Role:           "system",
+		Content:        fmt.Sprintf("Previous conversation summary: %s", summary),
+		Type:           "summary",
+		Metadata: map[string]interface{}{
+			"compressed_message_count": len(oldMessages),
+			"compression_time":         time.Now().Format(time.RFC3339),
+		},
+	}
+
+	// 4. 保存摘要（可以选择删除旧消息或标记为已压缩）
+	// 这里简化实现，只创建摘要消息
+	// 实际应用中可能需要：
+	// - 标记旧消息为已压缩
+	// - 或者将旧消息移到归档表
+	// - 或者直接删除非关键消息
+
+	// 保存摘要消息
+	if err := m.messageRepo.Create(ctx, summaryMsg); err != nil {
+		return fmt.Errorf("save summary message: %w", err)
+	}
+
 	return nil
+}
+
+// generateSummary 生成对话摘要
+func (m *ContextManagerImpl) generateSummary(messages []*Message) string {
+	if len(messages) == 0 {
+		return ""
+	}
+
+	// 简单实现：提取关键信息
+	// 实际应用中应该调用LLM API进行智能摘要
+	var keyPoints []string
+
+	// 提取用户问题
+	var userQuestions []string
+	var assistantResponses []string
+
+	for _, msg := range messages {
+		if msg.Role == "user" {
+			if len(msg.Content) > 100 {
+				userQuestions = append(userQuestions, msg.Content[:100]+"...")
+			} else {
+				userQuestions = append(userQuestions, msg.Content)
+			}
+		} else if msg.Role == "assistant" {
+			if len(msg.Content) > 150 {
+				assistantResponses = append(assistantResponses, msg.Content[:150]+"...")
+			} else {
+				assistantResponses = append(assistantResponses, msg.Content)
+			}
+		}
+	}
+
+	// 限制摘要长度
+	maxQuestions := 3
+	maxResponses := 3
+
+	if len(userQuestions) > maxQuestions {
+		userQuestions = userQuestions[len(userQuestions)-maxQuestions:]
+	}
+	if len(assistantResponses) > maxResponses {
+		assistantResponses = assistantResponses[len(assistantResponses)-maxResponses:]
+	}
+
+	// 构建摘要
+	if len(userQuestions) > 0 {
+		keyPoints = append(keyPoints, "User asked about: "+strings.Join(userQuestions, "; "))
+	}
+	if len(assistantResponses) > 0 {
+		keyPoints = append(keyPoints, "Assistant discussed: "+strings.Join(assistantResponses, "; "))
+	}
+
+	summary := strings.Join(keyPoints, " ")
+
+	// TODO: 实际应该调用LLM API进行更智能的摘要
+	// 例如: callLLMForSummary(messages)
+
+	return summary
 }
 
 // estimateTokens 估算Token数（简单实现）

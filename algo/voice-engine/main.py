@@ -85,6 +85,14 @@ if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
     logger.info(f"Static files mounted: {static_dir}")
 
+# 注册路由
+from app.routers import diarization, emotion, full_duplex, voice_stream
+
+app.include_router(voice_stream.router)
+app.include_router(emotion.router)
+app.include_router(diarization.router)
+app.include_router(full_duplex.router)
+
 
 @app.get("/health")
 async def health_check():

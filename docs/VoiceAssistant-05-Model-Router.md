@@ -2020,9 +2020,3 @@ limits:
   max_route_requests_per_second: 10000
   max_alternative_models: 5
 ```
-
----
-
-**文档版本**：v1.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

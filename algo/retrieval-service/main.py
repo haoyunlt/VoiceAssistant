@@ -32,16 +32,14 @@ retrieval_service = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global retrieval_service
-
     logger.info("Starting Retrieval Service...")
 
     try:
-        # 初始化检索服务
-        from app.core.retrieval_service import RetrievalService
+        # 初始化检索服务 - 在路由中引用
+        from app.routers.retrieval import retrieval_service
 
-        retrieval_service = RetrievalService()
-        await retrieval_service.initialize()
+        # 启动Neo4j连接
+        await retrieval_service.startup()
 
         logger.info("Retrieval Service started successfully")
 
@@ -51,8 +49,8 @@ async def lifespan(app: FastAPI):
         logger.info("Shutting down Retrieval Service...")
 
         # 清理资源
-        if retrieval_service:
-            await retrieval_service.cleanup()
+        from app.routers.retrieval import retrieval_service
+        await retrieval_service.shutdown()
 
         logger.info("Retrieval Service shut down complete")
 
@@ -78,6 +76,11 @@ app.add_middleware(
 metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
+# 注册路由
+from app.routers import retrieval
+
+app.include_router(retrieval.router)
+
 
 @app.get("/health")
 async def health_check():
@@ -88,13 +91,13 @@ async def health_check():
 @app.get("/ready")
 async def readiness_check():
     """就绪检查"""
-    global retrieval_service
+    from app.routers.retrieval import retrieval_service
 
     checks = {
         "service": retrieval_service is not None,
-        "vector_store": retrieval_service.vector_store_client is not None if retrieval_service else False,
+        "vector_service": retrieval_service.vector_service is not None if retrieval_service else False,
         "neo4j": retrieval_service.neo4j_client is not None if retrieval_service else False,
-        "redis": retrieval_service.redis_client is not None if retrieval_service else False,
+        "graph_enabled": retrieval_service.graph_service is not None if retrieval_service else False,
     }
 
     all_ready = all(checks.values())
@@ -105,58 +108,29 @@ async def readiness_check():
     }
 
 
-@app.post("/retrieve")
-async def retrieve(request: dict):
-    """
-    检索接口
-
-    Args:
-        query: 查询文本
-        top_k: 返回结果数
-        mode: 检索模式 (vector/bm25/graph/hybrid)
-        tenant_id: 租户 ID
-        filters: 过滤条件
-        rerank: 是否重排序
-    """
-    global retrieval_service
+@app.get("/stats/neo4j")
+async def get_neo4j_stats():
+    """获取Neo4j图谱统计信息"""
+    from app.routers.retrieval import retrieval_service
 
     if not retrieval_service:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
-    query = request.get("query")
-    if not query:
-        raise HTTPException(status_code=400, detail="Query is required")
-
-    try:
-        results = await retrieval_service.retrieve(
-            query=query,
-            top_k=request.get("top_k", 10),
-            mode=request.get("mode", "hybrid"),
-            tenant_id=request.get("tenant_id"),
-            filters=request.get("filters"),
-            rerank=request.get("rerank", True),
-        )
-
+    if not retrieval_service.neo4j_client:
         return {
-            "query": query,
-            "results": results,
-            "count": len(results),
+            "graph_enabled": False,
+            "message": "Graph retrieval is not enabled"
         }
 
+    try:
+        stats = await retrieval_service.neo4j_client.get_statistics()
+        return {
+            "graph_enabled": True,
+            "neo4j": stats
+        }
     except Exception as e:
-        logger.error(f"Error retrieving: {e}", exc_info=True)
+        logger.error(f"Error getting stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/stats")
-async def get_stats():
-    """获取统计信息"""
-    global retrieval_service
-
-    if not retrieval_service:
-        raise HTTPException(status_code=503, detail="Service not initialized")
-
-    return await retrieval_service.get_stats()
 
 
 if __name__ == "__main__":

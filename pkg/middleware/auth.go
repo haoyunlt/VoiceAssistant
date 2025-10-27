@@ -3,7 +3,6 @@ package middleware
 import (
 	"net/http"
 	"strings"
-
 	"voice-assistant/pkg/auth"
 
 	"github.com/gin-gonic/gin"
@@ -62,6 +61,18 @@ func AuthMiddleware(jwtManager *auth.JWTManager) gin.HandlerFunc {
 		c.Set("email", claims.Email)
 		c.Set("roles", claims.Roles)
 		c.Set("claims", claims)
+
+		// Check if token should be renewed
+		if jwtManager.ShouldRenew(claims) {
+			newToken, err := jwtManager.RenewToken(claims)
+			if err == nil {
+				// Return new token in response header
+				c.Header("X-New-Token", newToken)
+				// Optional: also set in X-Token-Renewed header to indicate renewal happened
+				c.Header("X-Token-Renewed", "true")
+			}
+			// If renewal fails, continue with the current valid token
+		}
 
 		c.Next()
 	}

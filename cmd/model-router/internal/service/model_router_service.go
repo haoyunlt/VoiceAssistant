@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-
 	"voiceassistant/cmd/model-router/internal/application"
 	"voiceassistant/cmd/model-router/internal/domain"
 )
@@ -12,6 +11,7 @@ type ModelRouterService struct {
 	routingService  *application.RoutingService
 	costOptimizer   *application.CostOptimizer
 	fallbackManager *application.FallbackManager
+	abTestService   *application.ABTestingServiceV2
 }
 
 // NewModelRouterService 创建模型路由服务
@@ -19,11 +19,13 @@ func NewModelRouterService(
 	routingService *application.RoutingService,
 	costOptimizer *application.CostOptimizer,
 	fallbackManager *application.FallbackManager,
+	abTestService *application.ABTestingServiceV2,
 ) *ModelRouterService {
 	return &ModelRouterService{
 		routingService:  routingService,
 		costOptimizer:   costOptimizer,
 		fallbackManager: fallbackManager,
+		abTestService:   abTestService,
 	}
 }
 
@@ -107,6 +109,87 @@ func (s *ModelRouterService) RecordUsage(
 	}
 
 	return nil
+}
+
+// ==================== A/B测试管理接口 ====================
+
+// CreateABTest 创建A/B测试
+func (s *ModelRouterService) CreateABTest(ctx context.Context, req *application.CreateTestRequest) (*domain.ABTestConfig, error) {
+	if s.abTestService == nil {
+		return nil, domain.ErrABTestDisabled
+	}
+	return s.abTestService.CreateTest(ctx, req)
+}
+
+// StartABTest 启动A/B测试
+func (s *ModelRouterService) StartABTest(ctx context.Context, testID string) error {
+	if s.abTestService == nil {
+		return domain.ErrABTestDisabled
+	}
+	return s.abTestService.StartTest(ctx, testID)
+}
+
+// PauseABTest 暂停A/B测试
+func (s *ModelRouterService) PauseABTest(ctx context.Context, testID string) error {
+	if s.abTestService == nil {
+		return domain.ErrABTestDisabled
+	}
+	return s.abTestService.PauseTest(ctx, testID)
+}
+
+// CompleteABTest 完成A/B测试
+func (s *ModelRouterService) CompleteABTest(ctx context.Context, testID string) error {
+	if s.abTestService == nil {
+		return domain.ErrABTestDisabled
+	}
+	return s.abTestService.CompleteTest(ctx, testID)
+}
+
+// GetABTest 获取A/B测试详情
+func (s *ModelRouterService) GetABTest(ctx context.Context, testID string) (*domain.ABTestConfig, error) {
+	if s.abTestService == nil {
+		return nil, domain.ErrABTestDisabled
+	}
+	return s.abTestService.repo.GetTest(ctx, testID)
+}
+
+// ListABTests 列出所有A/B测试
+func (s *ModelRouterService) ListABTests(ctx context.Context, filters *domain.TestFilters) ([]*domain.ABTestConfig, error) {
+	if s.abTestService == nil {
+		return nil, domain.ErrABTestDisabled
+	}
+	return s.abTestService.ListTests(ctx, filters)
+}
+
+// DeleteABTest 删除A/B测试
+func (s *ModelRouterService) DeleteABTest(ctx context.Context, testID string) error {
+	if s.abTestService == nil {
+		return domain.ErrABTestDisabled
+	}
+	return s.abTestService.DeleteTest(ctx, testID)
+}
+
+// GetABTestResults 获取A/B测试结果
+func (s *ModelRouterService) GetABTestResults(ctx context.Context, testID string) (map[string]*domain.ABTestResult, error) {
+	if s.abTestService == nil {
+		return nil, domain.ErrABTestDisabled
+	}
+	return s.abTestService.GetTestResults(ctx, testID)
+}
+
+// RecordABTestMetric 记录A/B测试指标
+func (s *ModelRouterService) RecordABTestMetric(
+	ctx context.Context,
+	testID, variantID, userID string,
+	success bool,
+	latencyMs float64,
+	tokens int64,
+	cost float64,
+) error {
+	if s.abTestService == nil {
+		return domain.ErrABTestDisabled
+	}
+	return s.abTestService.RecordResult(ctx, testID, variantID, userID, success, latencyMs, tokens, cost)
 }
 
 // GetUsageStats 获取使用统计

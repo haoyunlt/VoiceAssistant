@@ -4,17 +4,19 @@ import "time"
 
 // Conversation 对话聚合根
 type Conversation struct {
-	ID          string
-	TenantID    string
-	UserID      string
-	Title       string
-	Mode        ConversationMode
-	Status      ConversationStatus
-	Limits     *ConversationLimits
-	Metadata    map[string]string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID           string
+	TenantID     string
+	UserID       string
+	Title        string
+	Mode         ConversationMode
+	Status       ConversationStatus
+	DeviceID     string // 设备ID（用于多设备同步）
+	Limits       *ConversationLimits
+	Metadata     map[string]string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 	LastActiveAt time.Time
+	ExpiresAt    *time.Time // 过期时间（用于会话超时）
 }
 
 // ConversationMode 对话模式
@@ -50,18 +52,18 @@ type ConversationLimits struct {
 func NewConversation(tenantID, userID, title string, mode ConversationMode) *Conversation {
 	now := time.Now()
 	return &Conversation{
-		ID:          generateConversationID(),
-		TenantID:    tenantID,
-		UserID:      userID,
-		Title:       title,
-		Mode:        mode,
-		Status:      StatusActive,
+		ID:       generateConversationID(),
+		TenantID: tenantID,
+		UserID:   userID,
+		Title:    title,
+		Mode:     mode,
+		Status:   StatusActive,
 		Limits: &ConversationLimits{
-			MaxMessages:   100,
+			MaxMessages:     100,
 			CurrentMessages: 0,
-			TokenLimit:    4000,
-			CurrentTokens: 0,
-			Variables:     make(map[string]string),
+			TokenLimit:      4000,
+			CurrentTokens:   0,
+			Variables:       make(map[string]string),
 		},
 		Metadata:     make(map[string]string),
 		CreatedAt:    now,

@@ -2177,9 +2177,3 @@ citation:
   confidence_threshold: 0.5
   hallucination_detection: true
 ```
-
----
-
-**文档版本**：v1.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

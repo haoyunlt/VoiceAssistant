@@ -1883,10 +1883,3 @@ CREATE INDEX idx_doc_created ON knowledge.documents(created_at DESC);
   }
 }
 ```
-
----
-
-**文档版本**：v2.0
-**生成日期**：2025-01-27
-**最后更新**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

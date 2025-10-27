@@ -44,6 +44,24 @@ auth:
   password:
     bcrypt_cost: 12 # bcrypt 强度
 
+  # OAuth2/SSO 配置
+  oauth2:
+    google:
+      enabled: true
+      client_id: ${VAULT:secret/oauth/google#client_id}
+      client_secret: ${VAULT:secret/oauth/google#client_secret}
+      redirect_url: "https://api.voiceassistant.ai/auth/google/callback"
+    github:
+      enabled: true
+      client_id: ${VAULT:secret/oauth/github#client_id}
+      client_secret: ${VAULT:secret/oauth/github#client_secret}
+      redirect_url: "https://api.voiceassistant.ai/auth/github/callback"
+    wechat:
+      enabled: false
+      app_id: ${VAULT:secret/oauth/wechat#app_id}
+      app_secret: ${VAULT:secret/oauth/wechat#app_secret}
+      redirect_url: "https://api.voiceassistant.ai/auth/wechat/callback"
+
 service:
   name: identity-service
   version: v2.0.0

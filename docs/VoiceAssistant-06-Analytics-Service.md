@@ -2144,23 +2144,3 @@ ALTER TABLE metrics_hourly MODIFY TTL hour + INTERVAL 90 DAY;
 -- metrics_daily 天聚合：保留 365 天
 ALTER TABLE metrics_daily MODIFY TTL day + INTERVAL 365 DAY;
 ```
-
-**存储优化**：
-
-- events 表：1000 万行/天 × 30 天 × 100 bytes ≈ 30GB
-- metrics_hourly 表：24 行/天 × 90 天 × 50 bytes ≈ 100KB
-- metrics_daily 表：1 行/天 × 365 天 × 50 bytes ≈ 18KB
-- **总存储：30GB（相比保留 365 天原始数据 365GB，节省 92%）**
-
-**成本数据**：
-
-- ClickHouse 存储成本：$0.1/GB/月
-- 保留 365 天原始数据：365GB × $0.1 = $36.5/月
-- 分层保留策略：30GB × $0.1 = $3/月
-- **存储成本减少：92%**
-
----
-
-**文档版本**：v2.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

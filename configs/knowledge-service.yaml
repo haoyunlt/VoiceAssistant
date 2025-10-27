@@ -34,6 +34,32 @@ data:
     bucket: voiceassistant-documents
     use_ssl: false
 
+# 存储配置
+storage:
+  type: minio # local or minio
+  base_path: ./data/documents # 本地存储路径（降级使用）
+  minio:
+    endpoint: minio:9000
+    access_key: minioadmin
+    secret_key: minioadmin123
+    bucket: documents
+    use_ssl: false
+
+# 病毒扫描配置
+virus_scan:
+  enabled: true
+  type: clamav # clamav or mock
+  clamav_host: clamav.voiceassistant-prod.svc.cluster.local
+  clamav_port: 3310
+  max_file_size: 104857600 # 100MB
+  scan_timeout: 30s
+
+# 文档处理配置
+document_processor:
+  max_chunk_size: 1000 # 每个chunk最多1000个字符
+  chunk_overlap: 200 # chunk之间重叠200个字符
+  min_chunk_size: 100 # 最小chunk大小
+
 kafka:
   brokers:
     - kafka:9092

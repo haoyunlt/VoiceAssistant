@@ -177,8 +177,20 @@ wandb/
 mlruns/
 
 # ============================================
-# Documentation Build Output
+# Documentation (Doc-Light 原则)
 # ============================================
+# 排除详细设计文档，仅保留最小必要集：
+# - README.md
+# - docs/arch/overview.md
+# - docs/runbook/index.md
+# - docs/nfr/slo.md
+# - CHANGELOG.md
+# - docs/code-quality/*
+
+# 排除详细服务文档
+docs/VoiceAssistant-*.md
+
+# Documentation build output
 docs/_build/
 docs/.doctrees/
 site/

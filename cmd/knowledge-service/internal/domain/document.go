@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,10 +23,12 @@ const (
 type DocumentStatus string
 
 const (
-	DocumentStatusPending   DocumentStatus = "pending"   // 待处理
+	DocumentStatusUploaded   DocumentStatus = "uploaded"   // 已上传
+	DocumentStatusPending    DocumentStatus = "pending"    // 待处理
 	DocumentStatusProcessing DocumentStatus = "processing" // 处理中
 	DocumentStatusCompleted  DocumentStatus = "completed"  // 已完成
 	DocumentStatusFailed     DocumentStatus = "failed"     // 失败
+	DocumentStatusInfected   DocumentStatus = "infected"   // 发现病毒
 	DocumentStatusDeleted    DocumentStatus = "deleted"    // 已删除
 )
 
@@ -42,7 +45,7 @@ type Document struct {
 	Content         string // 文档内容
 	Summary         string // 文档摘要
 	Status          DocumentStatus
-	ChunkCount      int                    // 分块数量
+	ChunkCount      int // 分块数量
 	TenantID        string
 	UploadedBy      string
 	Metadata        map[string]interface{} // 元数据
@@ -119,6 +122,13 @@ func (d *Document) CompleteProcessing(chunkCount int) {
 func (d *Document) FailProcessing(errorMsg string) {
 	d.Status = DocumentStatusFailed
 	d.ErrorMessage = errorMsg
+	d.UpdatedAt = time.Now()
+}
+
+// MarkInfected 标记为病毒文件
+func (d *Document) MarkInfected(virusName string) {
+	d.Status = DocumentStatusInfected
+	d.ErrorMessage = fmt.Sprintf("发现病毒: %s", virusName)
 	d.UpdatedAt = time.Now()
 }
 

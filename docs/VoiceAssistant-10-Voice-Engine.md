@@ -2059,9 +2059,3 @@ streaming:
     connection_timeout_sec: 1800
     ping_interval_sec: 30
 ```
-
----
-
-**文档版本**：v1.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

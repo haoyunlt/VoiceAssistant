@@ -4,6 +4,7 @@ ASR (Automatic Speech Recognition) service
 
 import base64
 import io
+import os
 import time
 from typing import Optional
 
@@ -26,9 +27,34 @@ class ASRService:
         self.provider = settings.ASR_PROVIDER
         self.model = None
         self.vad_service = VADService()
+        self.azure_service = None
 
         if self.provider == "whisper":
             self._load_whisper_model()
+        elif self.provider == "azure":
+            self._initialize_azure()
+
+    def _initialize_azure(self):
+        """初始化Azure Speech Service"""
+        try:
+            from app.services.azure_speech_service import AzureSpeechService
+
+            subscription_key = os.getenv("AZURE_SPEECH_KEY")
+            region = os.getenv("AZURE_SPEECH_REGION", "eastus")
+
+            if not subscription_key:
+                logger.warning("AZURE_SPEECH_KEY not set, Azure ASR will not be available")
+                return
+
+            self.azure_service = AzureSpeechService(
+                subscription_key=subscription_key,
+                region=region
+            )
+
+            logger.info("Azure Speech Service initialized for ASR")
+
+        except Exception as e:
+            logger.error(f"Failed to initialize Azure Speech Service: {e}")
 
     def _load_whisper_model(self):
         """加载 Whisper 模型"""
@@ -187,8 +213,35 @@ class ASRService:
 
     async def _recognize_with_azure(self, audio_data: bytes, language: Optional[str]) -> dict:
         """使用 Azure Speech 识别"""
-        # TODO: 实现 Azure Speech SDK 集成
-        raise NotImplementedError("Azure Speech recognition not implemented yet")
+        if not self.azure_service:
+            raise RuntimeError("Azure Speech Service not initialized")
+
+        try:
+            # 确保Azure服务已初始化
+            if not self.azure_service.initialized:
+                await self.azure_service.initialize()
+
+            lang = language or "zh-CN"
+
+            # 调用Azure Speech SDK
+            result = await self.azure_service.recognize_from_bytes(
+                audio_data=audio_data,
+                language=lang
+            )
+
+            if not result.get("success"):
+                raise Exception(result.get("error", "Unknown error"))
+
+            return {
+                "text": result["text"],
+                "language": result["language"],
+                "confidence": result.get("confidence", 0.95),
+                "duration_ms": result.get("duration", 0),
+            }
+
+        except Exception as e:
+            logger.error(f"Azure ASR recognition failed: {e}", exc_info=True)
+            raise
 
     async def _download_audio(self, url: str) -> bytes:
         """下载音频文件"""

@@ -17,11 +17,12 @@ logger = get_logger(__name__)
 class KnowledgeGraphService:
     """知识图谱服务"""
 
-    def __init__(self):
+    def __init__(self, kafka_producer=None):
         """初始化知识图谱服务"""
         self.entity_extractor = get_entity_extractor()
         self.relation_extractor = get_relation_extractor()
         self.neo4j_client = get_neo4j_client()
+        self.kafka_producer = kafka_producer  # Kafka生产者（可选）
 
     async def extract_and_store(self, text: str, source: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -61,6 +62,21 @@ class KnowledgeGraphService:
                 if node_id:
                     entity_ids[entity["text"]] = node_id
 
+                    # 发布实体创建事件
+                    if self.kafka_producer:
+                        try:
+                            await self.kafka_producer.publish_entity_created(
+                                entity_id=node_id,
+                                tenant_id=node_properties.get("tenant_id", "default"),
+                                entity_data={
+                                    "name": entity["text"],
+                                    "type": entity["label"],
+                                    "description": "",
+                                }
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to publish entity created event: {e}")
+
             # 4. 存储关系
             stored_relations = 0
             for relation in relations:
@@ -68,22 +84,51 @@ class KnowledgeGraphService:
                 object_id = entity_ids.get(relation["object"])
 
                 if subject_id and object_id:
+                    rel_type = relation["predicate"].upper().replace(" ", "_")
                     success = await self.neo4j_client.create_relationship(
                         from_id=subject_id,
                         to_id=object_id,
-                        rel_type=relation["predicate"].upper().replace(" ", "_"),
+                        rel_type=rel_type,
                         properties={"confidence": relation.get("confidence", 0.8)},
                     )
                     if success:
                         stored_relations += 1
 
-            return {
+                        # 发布关系创建事件
+                        if self.kafka_producer:
+                            try:
+                                await self.kafka_producer.publish_relation_created(
+                                    relation_id=f"{subject_id}_{rel_type}_{object_id}",
+                                    tenant_id="default",
+                                    source_id=subject_id,
+                                    target_id=object_id,
+                                    relation_type=rel_type,
+                                )
+                            except Exception as e:
+                                logger.warning(f"Failed to publish relation created event: {e}")
+
+            result = {
                 "success": True,
                 "entities_extracted": len(entities),
                 "entities_stored": len(entity_ids),
                 "relations_extracted": len(relations),
                 "relations_stored": stored_relations,
             }
+
+            # 发布图谱构建完成事件
+            if self.kafka_producer and (len(entity_ids) > 0 or stored_relations > 0):
+                try:
+                    await self.kafka_producer.publish_graph_built(
+                        graph_id=f"graph_{hash(text[:100])}",
+                        tenant_id="default",
+                        entity_count=len(entity_ids),
+                        relation_count=stored_relations,
+                        metadata={"source": source or "unknown"}
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to publish graph built event: {e}")
+
+            return result
 
         except Exception as e:
             logger.error(f"Extract and store failed: {e}", exc_info=True)
@@ -287,9 +332,12 @@ class KnowledgeGraphService:
 _kg_service: Optional[KnowledgeGraphService] = None
 
 
-def get_kg_service() -> KnowledgeGraphService:
+def get_kg_service(kafka_producer=None) -> KnowledgeGraphService:
     """
     获取知识图谱服务实例（单例）
+
+    Args:
+        kafka_producer: Kafka生产者实例（可选）
 
     Returns:
         KnowledgeGraphService 实例
@@ -297,6 +345,8 @@ def get_kg_service() -> KnowledgeGraphService:
     global _kg_service
 
     if _kg_service is None:
-        _kg_service = KnowledgeGraphService()
+        _kg_service = KnowledgeGraphService(kafka_producer=kafka_producer)
+    elif kafka_producer and not _kg_service.kafka_producer:
+        _kg_service.kafka_producer = kafka_producer
 
     return _kg_service

@@ -2,7 +2,7 @@
 
 ## 项目简介
 
-VoiceAssistant 是一个企业级 AI 客服与语音助手平台，基于微服务架构设计，集成了 LangChain、LangGraph、RAG（检索增强生成）、多智能体协作等先进技术。该平台支持文本、语音、多模态等多种交互方式，能够处理复杂的业务场景。
+VoiceAssistant 是 AI 客服与语音助手平台，基于微服务架构设计，集成了 LangChain、LangGraph、RAG（检索增强生成）、多智能体协作等先进技术。该平台支持文本、语音、多模态等多种交互方式，能够处理复杂的业务场景。
 
 ### 核心能力
 
@@ -60,15 +60,7 @@ VoiceAssistant 是一个企业级 AI 客服与语音助手平台，基于微服�
 
 ### 性能指标
 
-| 指标项                 | 目标值     | 说明                |
-| ---------------------- | ---------- | ------------------- |
-| API Gateway P95 延迟   | < 200ms    | 网关层响应时间      |
-| 流式首字节时间（TTFB） | < 300ms    | 流式响应启动时间    |
-| 端到端问答延迟         | < 2.5s     | 完整对话响应时间    |
-| 系统可用性             | ≥ 99.9%    | 月度可用性保障      |
-| 并发处理能力           | ≥ 1000 RPS | 单服务并发请求数    |
-| 向量检索延迟           | < 100ms    | Milvus 检索响应时间 |
-| 语音识别延迟           | < 500ms    | ASR 处理时间        |
+todo
 
 ## 技术栈
 
@@ -1110,54 +1102,3 @@ Istio 提供服务间的 mTLS 加密通信，所有服务间 RPC 调用自动加
 12. **observability**：可观测性模块，OpenTelemetry 集成
 13. **resilience**：弹性模块，重试、熔断、超时
 14. **saga**：Saga 模块，分布式事务协调
-
-## 文档导航
-
-本总览文档是整个项目的入口，后续将为每个模块生成详细的技术文档，包括：
-
-### Go 服务模块文档
-
-- VoiceAssistant-01-AI-Orchestrator.md
-- VoiceAssistant-02-Conversation-Service.md
-- VoiceAssistant-03-Identity-Service.md
-- VoiceAssistant-04-Knowledge-Service.md
-- VoiceAssistant-05-Model-Router.md
-- VoiceAssistant-06-Analytics-Service.md
-- VoiceAssistant-07-Notification-Service.md
-
-### Python AI 服务模块文档
-
-- VoiceAssistant-08-Agent-Engine.md
-- VoiceAssistant-09-RAG-Engine.md
-- VoiceAssistant-10-Voice-Engine.md
-- VoiceAssistant-11-Multimodal-Engine.md
-- VoiceAssistant-12-Model-Adapter.md
-- VoiceAssistant-13-Retrieval-Service.md
-- VoiceAssistant-14-Indexing-Service.md
-- VoiceAssistant-15-Vector-Store-Adapter.md
-
-### 共享组件模块文档
-
-- VoiceAssistant-16-共享组件-Auth-Cache-Config.md
-- VoiceAssistant-17-共享组件-Middleware-Resilience.md
-- VoiceAssistant-18-共享组件-Events-Monitoring.md
-
-### 最佳实践与案例
-
-- VoiceAssistant-19-最佳实践与实战案例.md
-
-每个模块文档将包含：
-
-1. 模块概览与架构图
-2. API 详解（请求/响应结构、字段说明）
-3. 核心功能与关键代码
-4. 调用链路与时序图
-5. 数据结构 UML 图
-6. 异常处理与性能优化
-7. 配置说明与部署指南
-
----
-
-**文档版本**：v1.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

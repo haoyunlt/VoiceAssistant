@@ -1,0 +1,570 @@
+---
+# APISIX 可观测性配置
+# OpenTelemetry + Prometheus + Logging
+# 对应 Istio Telemetry
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-observability-config
+  namespace: apisix
+data:
+  observability.yaml: |
+    # OpenTelemetry 配置
+    opentelemetry:
+      # 默认配置
+      resource:
+        service.name: "apisix-gateway"
+        service.namespace: "voiceassistant"
+        service.version: "v3.10.0"
+        service.instance.id: "${HOSTNAME}"
+        deployment.environment: "production"
+        k8s.cluster.name: "voiceassistant-prod"
+        k8s.namespace.name: "apisix"
+        k8s.pod.name: "${HOSTNAME}"
+
+      # Collector配置
+      collector:
+        address: "otel-collector.voiceassistant-infra.svc.cluster.local:4317"
+        request_timeout: 3
+        request_headers:
+          authorization: "Bearer ${OTEL_TOKEN}"
+
+      # Trace配置
+      trace_id_source: x-request-id
+      batch_span_processor:
+        drop_on_queue_full: false
+        max_queue_size: 2048
+        batch_timeout: 5
+        inactive_timeout: 2
+        max_export_batch_size: 256
+
+      # 采样策略
+      sampler:
+        # 生产环境 - 10%采样
+        production:
+          name: parent_base
+          options:
+            root:
+              name: trace_id_ratio_based
+              options:
+                fraction: 0.1  # 10%
+
+        # AI服务 - 50%采样
+        ai_services:
+          name: parent_base
+          options:
+            root:
+              name: trace_id_ratio_based
+              options:
+                fraction: 0.5  # 50%
+
+        # 开发环境 - 100%采样
+        development:
+          name: always_on
+
+      # 自定义Tag
+      additional_attributes:
+        - "http.route"
+        - "http.target"
+        - "net.peer.name"
+        - "net.peer.port"
+        - "upstream.status"
+        - "upstream.latency"
+
+    # Prometheus 指标配置
+    prometheus:
+      # 导出配置
+      export_addr:
+        ip: "0.0.0.0"
+        port: 9091
+      export_uri: "/apisix/prometheus/metrics"
+
+      # 指标前缀
+      metric_prefix: "apisix_"
+
+      # 默认bucket
+      default_buckets:
+        - 0.001
+        - 0.005
+        - 0.01
+        - 0.05
+        - 0.1
+        - 0.5
+        - 1
+        - 2
+        - 5
+        - 10
+        - 30
+        - 60
+
+      # 自定义指标
+      custom_metrics:
+        # HTTP请求计数
+        - name: http_requests_total
+          help: "Total number of HTTP requests"
+          type: counter
+          labels:
+            - route
+            - method
+            - status
+            - upstream
+
+        # HTTP请求延迟
+        - name: http_request_duration_seconds
+          help: "HTTP request duration in seconds"
+          type: histogram
+          buckets: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10]
+          labels:
+            - route
+            - method
+            - status
+
+        # 上游延迟
+        - name: upstream_latency_seconds
+          help: "Upstream latency in seconds"
+          type: histogram
+          buckets: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 30]
+          labels:
+            - upstream
+            - service
+
+        # 连接数
+        - name: http_connections
+          help: "Number of HTTP connections"
+          type: gauge
+          labels:
+            - state
+
+        # 请求体大小
+        - name: http_request_size_bytes
+          help: "HTTP request size in bytes"
+          type: histogram
+          buckets: [100, 1000, 10000, 100000, 1000000, 10000000]
+          labels:
+            - route
+
+        # 响应体大小
+        - name: http_response_size_bytes
+          help: "HTTP response size in bytes"
+          type: histogram
+          buckets: [100, 1000, 10000, 100000, 1000000, 10000000]
+          labels:
+            - route
+
+        # 限流指标
+        - name: rate_limit_exceeded_total
+          help: "Total number of rate limit exceeded"
+          type: counter
+          labels:
+            - route
+            - limit_type
+            - key
+
+        # JWT认证失败
+        - name: jwt_auth_failed_total
+          help: "Total number of JWT authentication failures"
+          type: counter
+          labels:
+            - route
+            - reason
+
+        # 健康检查
+        - name: upstream_health_check_status
+          help: "Upstream health check status"
+          type: gauge
+          labels:
+            - upstream
+            - node
+
+    # 日志配置
+    logging:
+      # HTTP访问日志
+      http_logger:
+        # Kafka日志收集
+        kafka:
+          broker_list:
+            - "kafka.voiceassistant-infra.svc.cluster.local:9092"
+          kafka_topic: "apisix-access-logs"
+          producer_type: "async"
+          required_acks: 1
+          key: "apisix-gateway"
+          timeout: 3
+          batch_max_size: 1000
+          buffer_duration: 1
+          max_retry_count: 3
+
+          # 日志格式
+          log_format:
+            timestamp: "$time_iso8601"
+            client_ip: "$remote_addr"
+            upstream_ip: "$upstream_addr"
+            request_id: "$http_x_request_id"
+            tenant_id: "$http_x_tenant_id"
+            user_id: "$http_x_user_id"
+            session_id: "$http_x_session_id"
+            request_method: "$request_method"
+            request_uri: "$request_uri"
+            request_query: "$query_string"
+            request_length: "$request_length"
+            response_status: "$status"
+            response_length: "$bytes_sent"
+            response_time: "$request_time"
+            upstream_response_time: "$upstream_response_time"
+            upstream_status: "$upstream_status"
+            user_agent: "$http_user_agent"
+            referer: "$http_referer"
+            x_forwarded_for: "$http_x_forwarded_for"
+            route_id: "$route_id"
+            service_id: "$service_id"
+            upstream_id: "$upstream_id"
+
+        # SLS (阿里云日志服务) - 可选
+        sls:
+          host: "${SLS_ENDPOINT}"
+          port: 443
+          project: "voiceassistant-logs"
+          logstore: "apisix-access"
+          access_key_id: "${SLS_ACCESS_KEY}"
+          access_key_secret: "${SLS_SECRET_KEY}"
+          timeout: 5000
+          max_retry_count: 3
+
+        # File日志 - 本地开发
+        file:
+          path: "/usr/local/apisix/logs/access.log"
+          enable_compression: true
+          max_size: 100  # MB
+          max_kept: 7  # 保留7天
+
+      # 错误日志
+      error_logger:
+        level: "warn"
+
+        # 发送到Kafka
+        kafka:
+          broker_list:
+            - "kafka.voiceassistant-infra.svc.cluster.local:9092"
+          kafka_topic: "apisix-error-logs"
+          producer_type: "async"
+
+          # 错误日志格式
+          log_format:
+            timestamp: "$time_iso8601"
+            level: "$log_level"
+            message: "$log_message"
+            request_id: "$http_x_request_id"
+            route_id: "$route_id"
+            error_type: "$error_type"
+            stack_trace: "$stack_trace"
+
+      # Skywalking日志 - 可选
+      skywalking:
+        endpoint_addr: "http://skywalking-oap.voiceassistant-infra.svc.cluster.local:12800"
+        service_name: "apisix-gateway"
+        service_instance_name: "${HOSTNAME}"
+        timeout: 3
+
+---
+# ServiceMonitor for Prometheus Operator
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: apisix
+  namespace: apisix
+  labels:
+    app: apisix
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: apisix
+  endpoints:
+    - port: prometheus
+      path: /apisix/prometheus/metrics
+      interval: 15s
+      scrapeTimeout: 10s
+
+      # Relabeling
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_label_version]
+          targetLabel: version
+
+      # Metric relabeling
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          regex: "apisix_(.*)"
+          targetLabel: __name__
+          replacement: "${1}"
+
+---
+# Prometheus Rules - 告警规则
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: apisix-alerts
+  namespace: apisix
+  labels:
+    app: apisix
+    prometheus: kube-prometheus
+spec:
+  groups:
+    # 可用性告警
+    - name: apisix-availability
+      interval: 30s
+      rules:
+        # Pod不可用
+        - alert: APISIXPodDown
+          expr: up{job="apisix"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: apisix
+          annotations:
+            summary: "APISIX pod is down"
+            description: "APISIX pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been down for more than 1 minute."
+
+        # 健康检查失败
+        - alert: APISIXHealthCheckFailed
+          expr: apisix_upstream_health_check_status < 1
+          for: 2m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX upstream health check failed"
+            description: "Upstream {{ $labels.upstream }} node {{ $labels.node }} health check failed."
+
+    # 性能告警
+    - name: apisix-performance
+      interval: 30s
+      rules:
+        # P95延迟过高
+        - alert: APISIXHighLatency
+          expr: histogram_quantile(0.95, rate(apisix_http_request_duration_seconds_bucket[5m])) > 2
+          for: 5m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX high latency detected"
+            description: "P95 latency is {{ $value }}s for route {{ $labels.route }}."
+
+        # 上游延迟过高
+        - alert: APISIXUpstreamHighLatency
+          expr: histogram_quantile(0.95, rate(apisix_upstream_latency_seconds_bucket[5m])) > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX upstream high latency"
+            description: "Upstream {{ $labels.upstream }} P95 latency is {{ $value }}s."
+
+        # 错误率过高
+        - alert: APISIXHighErrorRate
+          expr: rate(apisix_http_requests_total{status=~"5.."}[5m]) / rate(apisix_http_requests_total[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: critical
+            component: apisix
+          annotations:
+            summary: "APISIX high error rate"
+            description: "Error rate is {{ $value | humanizePercentage }} for route {{ $labels.route }}."
+
+        # 4xx错误率过高
+        - alert: APISIXHighClientErrorRate
+          expr: rate(apisix_http_requests_total{status=~"4.."}[5m]) / rate(apisix_http_requests_total[5m]) > 0.2
+          for: 10m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX high client error rate"
+            description: "4xx error rate is {{ $value | humanizePercentage }} for route {{ $labels.route }}."
+
+    # 限流告警
+    - name: apisix-rate-limiting
+      interval: 30s
+      rules:
+        # 限流触发频繁
+        - alert: APISIXRateLimitExceeded
+          expr: rate(apisix_rate_limit_exceeded_total[5m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX rate limit frequently exceeded"
+            description: "Rate limit exceeded {{ $value }} times/s for route {{ $labels.route }}."
+
+    # 认证告警
+    - name: apisix-auth
+      interval: 30s
+      rules:
+        # JWT认证失败率高
+        - alert: APISIXJWTAuthFailureHigh
+          expr: rate(apisix_jwt_auth_failed_total[5m]) > 5
+          for: 5m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX JWT auth failure rate high"
+            description: "JWT auth failures {{ $value }} times/s for route {{ $labels.route }}. Reason: {{ $labels.reason }}."
+
+    # 资源告警
+    - name: apisix-resources
+      interval: 30s
+      rules:
+        # CPU使用率过高
+        - alert: APISIXHighCPU
+          expr: rate(container_cpu_usage_seconds_total{pod=~"apisix-.*"}[5m]) > 1.5
+          for: 10m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX high CPU usage"
+            description: "Pod {{ $labels.pod }} CPU usage is {{ $value | humanize }} cores."
+
+        # 内存使用率过高
+        - alert: APISIXHighMemory
+          expr: container_memory_working_set_bytes{pod=~"apisix-.*"} / container_spec_memory_limit_bytes{pod=~"apisix-.*"} > 0.85
+          for: 10m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX high memory usage"
+            description: "Pod {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }}."
+
+        # 连接数过多
+        - alert: APISIXHighConnections
+          expr: apisix_http_connections{state="active"} > 8000
+          for: 5m
+          labels:
+            severity: warning
+            component: apisix
+          annotations:
+            summary: "APISIX high connection count"
+            description: "Active connections: {{ $value }}."
+
+---
+# Grafana Dashboard ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-grafana-dashboard
+  namespace: apisix
+  labels:
+    grafana_dashboard: "1"
+data:
+  apisix-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "APISIX Gateway Monitoring",
+        "uid": "apisix-gateway",
+        "tags": ["apisix", "gateway"],
+        "timezone": "browser",
+        "schemaVersion": 30,
+        "panels": [
+          {
+            "id": 1,
+            "title": "Request Rate (QPS)",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(apisix_http_requests_total[1m])) by (route)",
+                "legendFormat": "{{ route }}"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "title": "P95 Latency",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(apisix_http_request_duration_seconds_bucket[5m])) by (route, le))",
+                "legendFormat": "{{ route }}"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "title": "Error Rate",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(apisix_http_requests_total{status=~\"5..\"}[5m])) by (route) / sum(rate(apisix_http_requests_total[5m])) by (route)",
+                "legendFormat": "{{ route }}"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "title": "Status Code Distribution",
+            "type": "piechart",
+            "targets": [
+              {
+                "expr": "sum(rate(apisix_http_requests_total[5m])) by (status)",
+                "legendFormat": "{{ status }}"
+              }
+            ]
+          },
+          {
+            "id": 5,
+            "title": "Upstream Latency",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(apisix_upstream_latency_seconds_bucket[5m])) by (upstream, le))",
+                "legendFormat": "{{ upstream }}"
+              }
+            ]
+          },
+          {
+            "id": 6,
+            "title": "Rate Limit Events",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "sum(rate(apisix_rate_limit_exceeded_total[1m])) by (route)",
+                "legendFormat": "{{ route }}"
+              }
+            ]
+          },
+          {
+            "id": 7,
+            "title": "Active Connections",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "apisix_http_connections{state=\"active\"}",
+                "legendFormat": "{{ pod }}"
+              }
+            ]
+          },
+          {
+            "id": 8,
+            "title": "Request/Response Size",
+            "type": "graph",
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(apisix_http_request_size_bytes_bucket[5m])) by (le))",
+                "legendFormat": "Request P95"
+              },
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(apisix_http_response_size_bytes_bucket[5m])) by (le))",
+                "legendFormat": "Response P95"
+              }
+            ]
+          }
+        ]
+      }
+    }

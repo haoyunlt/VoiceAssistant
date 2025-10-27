@@ -19,6 +19,7 @@ from app.core.chunker import DocumentChunker
 from app.core.embedder import BGE_M3_Embedder
 from app.core.graph_builder import GraphBuilder
 from app.core.parsers import ParserFactory
+from app.infrastructure.kafka_producer import close_kafka_producer, get_kafka_producer
 from app.infrastructure.minio_client import MinIOClient
 from app.infrastructure.neo4j_client import Neo4jClient
 from app.infrastructure.vector_store_client import VectorStoreClient
@@ -40,6 +41,9 @@ class DocumentProcessor:
         self.neo4j_client = Neo4jClient()
         self.graph_builder = GraphBuilder(self.neo4j_client)
 
+        # Kafka生产者（延迟初始化）
+        self.kafka_producer = None
+
         # 统计信息
         self.stats = {
             "total_processed": 0,
@@ -50,6 +54,15 @@ class DocumentProcessor:
         }
 
         logger.info("Document processor initialized")
+
+    async def initialize(self):
+        """初始化异步组件"""
+        try:
+            self.kafka_producer = await get_kafka_producer()
+            logger.info("Kafka producer initialized in DocumentProcessor")
+        except Exception as e:
+            logger.warning(f"Failed to initialize Kafka producer: {e}")
+            # 不阻塞主流程，继续运行
 
     async def process_document(self, document_id: str, tenant_id: str = None,
                               user_id: str = None, file_path: str = None) -> Dict:
@@ -68,11 +81,39 @@ class DocumentProcessor:
             # 3. 分块
             chunks = await self._chunk_document(text, document_id)
 
+            # 发布分块创建事件
+            if self.kafka_producer:
+                try:
+                    chunks_info = [
+                        {"chunk_id": c["id"], "content_length": len(c["content"])}
+                        for c in chunks[:10]  # 只发送前10个，避免消息过大
+                    ]
+                    await self.kafka_producer.publish_chunks_created(
+                        document_id=document_id,
+                        tenant_id=tenant_id or "default",
+                        chunk_count=len(chunks),
+                        chunks_info=chunks_info,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to publish chunks_created event: {e}")
+
             # 4. 向量化
             embeddings = await self._vectorize_chunks(chunks)
 
             # 5. 存储到 Milvus
-            await self._store_vectors(chunks, embeddings, document_id, tenant_id)
+            collection_name = await self._store_vectors(chunks, embeddings, document_id, tenant_id)
+
+            # 发布向量存储事件
+            if self.kafka_producer:
+                try:
+                    await self.kafka_producer.publish_vectors_stored(
+                        document_id=document_id,
+                        tenant_id=tenant_id or "default",
+                        vector_count=len(embeddings),
+                        collection_name=collection_name,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to publish vectors_stored event: {e}")
 
             # 6. 构建图谱 (异步)
             asyncio.create_task(
@@ -89,6 +130,22 @@ class DocumentProcessor:
 
             logger.info(f"Document {document_id} processed successfully in {duration:.2f}s")
 
+            # 发布文档索引完成事件
+            if self.kafka_producer:
+                try:
+                    await self.kafka_producer.publish_document_indexed(
+                        document_id=document_id,
+                        tenant_id=tenant_id or "default",
+                        metadata={
+                            "chunks_count": len(chunks),
+                            "vectors_count": len(embeddings),
+                            "duration": duration,
+                            "text_length": len(text),
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to publish document_indexed event: {e}")
+
             return {
                 "status": "success",
                 "document_id": document_id,
@@ -101,6 +158,18 @@ class DocumentProcessor:
             self.stats["total_failed"] += 1
 
             logger.error(f"Error processing document {document_id}: {e}", exc_info=True)
+
+            # 发布文档索引失败事件
+            if self.kafka_producer:
+                try:
+                    await self.kafka_producer.publish_document_failed(
+                        document_id=document_id,
+                        tenant_id=tenant_id or "default",
+                        error=str(e),
+                        metadata={"duration": time.time() - start_time},
+                    )
+                except Exception as e2:
+                    logger.warning(f"Failed to publish document_failed event: {e2}")
 
             return {
                 "status": "failed",
@@ -152,12 +221,18 @@ class DocumentProcessor:
         return embeddings
 
     async def _store_vectors(self, chunks: List[Dict], embeddings: List[List[float]],
-                           document_id: str, tenant_id: str = None):
-        """存储向量到 Milvus"""
+                           document_id: str, tenant_id: str = None) -> str:
+        """存储向量到 Milvus
+
+        Returns:
+            collection_name: 存储的集合名称
+        """
         logger.info(f"Storing {len(embeddings)} vectors to Milvus")
 
         # 准备数据
         data = []
+        collection_name = f"documents_{tenant_id or 'default'}"
+
         for chunk, embedding in zip(chunks, embeddings):
             data.append({
                 "chunk_id": chunk["id"],
@@ -171,7 +246,9 @@ class DocumentProcessor:
         # 批量插入
         await self.vector_store_client.insert_batch(data)
 
-        logger.info(f"Stored {len(data)} vectors successfully")
+        logger.info(f"Stored {len(data)} vectors successfully to {collection_name}")
+
+        return collection_name
 
     async def _build_graph(self, text: str, document_id: str, tenant_id: str = None):
         """构建知识图谱"""
@@ -193,6 +270,15 @@ class DocumentProcessor:
 
         except Exception as e:
             logger.error(f"Error building graph: {e}", exc_info=True)
+
+    async def cleanup(self):
+        """清理资源"""
+        try:
+            if self.kafka_producer:
+                await close_kafka_producer()
+                logger.info("Kafka producer closed")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
     async def get_stats(self) -> Dict:
         """获取统计信息"""

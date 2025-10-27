@@ -15,6 +15,8 @@ import (
 type TokenBlacklist interface {
 	AddToBlacklist(ctx context.Context, token string, expiresAt time.Time) error
 	IsBlacklisted(ctx context.Context, token string) (bool, error)
+	RevokeUserTokens(ctx context.Context, userID string) error
+	IsUserRevoked(ctx context.Context, userID string, issuedAt time.Time) (bool, error)
 	GetBlacklistStats(ctx context.Context) (map[string]interface{}, error)
 }
 
@@ -197,12 +199,24 @@ func (uc *AuthUsecase) VerifyToken(ctx context.Context, tokenString string) (*Cl
 
 	// 2. 检查是否在黑名单中
 	if uc.tokenBlacklist != nil {
+		// 2.1 检查Token是否被单独撤销
 		isBlacklisted, err := uc.tokenBlacklist.IsBlacklisted(ctx, tokenString)
 		if err != nil {
 			uc.log.WithContext(ctx).Warnf("Failed to check token blacklist: %v", err)
 			// 黑名单检查失败，不影响正常流程（降级处理）
 		} else if isBlacklisted {
 			return nil, pkgErrors.NewUnauthorized("TOKEN_REVOKED", "Token已被吊销")
+		}
+
+		// 2.2 检查用户Token是否被全局撤销
+		if claims.IssuedAt != nil {
+			isRevoked, err := uc.tokenBlacklist.IsUserRevoked(ctx, claims.UserID, claims.IssuedAt.Time)
+			if err != nil {
+				uc.log.WithContext(ctx).Warnf("Failed to check user revocation: %v", err)
+				// 检查失败，不影响正常流程（降级处理）
+			} else if isRevoked {
+				return nil, pkgErrors.NewUnauthorized("USER_TOKENS_REVOKED", "用户Token已被全局撤销")
+			}
 		}
 	}
 
@@ -288,6 +302,57 @@ func (uc *AuthUsecase) Logout(ctx context.Context, accessToken, refreshToken str
 	}
 
 	uc.log.WithContext(ctx).Infof("User logged out: %s", claims.UserID)
+	return nil
+}
+
+// ChangePassword 修改密码（并撤销用户所有Token）
+func (uc *AuthUsecase) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+	uc.log.WithContext(ctx).Infof("User changing password: %s", userID)
+
+	// 1. 获取用户
+	user, err := uc.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return pkgErrors.NewNotFound("USER_NOT_FOUND", "用户不存在")
+	}
+
+	// 2. 验证旧密码
+	if !user.VerifyPassword(oldPassword) {
+		// 记录失败的审计日志
+		if uc.auditLogSvc != nil {
+			_ = uc.auditLogSvc.LogFailure(ctx, user.TenantID, userID, AuditActionPasswordChange, "user:"+userID,
+				pkgErrors.NewUnauthorized("INVALID_PASSWORD", "旧密码错误"), map[string]interface{}{
+					"reason": "invalid_old_password",
+				})
+		}
+		return pkgErrors.NewUnauthorized("INVALID_PASSWORD", "旧密码错误")
+	}
+
+	// 3. 更新密码
+	if err := user.UpdatePassword(newPassword); err != nil {
+		return pkgErrors.NewInternalServerError("UPDATE_PASSWORD_FAILED", "更新密码失败")
+	}
+
+	// 4. 保存用户
+	if err := uc.userRepo.Update(ctx, user); err != nil {
+		return err
+	}
+
+	// 5. 撤销用户所有Token
+	if uc.tokenBlacklist != nil {
+		if err := uc.tokenBlacklist.RevokeUserTokens(ctx, userID); err != nil {
+			uc.log.WithContext(ctx).Errorf("Failed to revoke user tokens after password change: %v", err)
+			// 不中断流程，密码已经修改成功
+		}
+	}
+
+	// 6. 记录成功的审计日志
+	if uc.auditLogSvc != nil {
+		_ = uc.auditLogSvc.LogSuccess(ctx, user.TenantID, userID, AuditActionPasswordChange, "user:"+userID, map[string]interface{}{
+			"method": "password_change",
+		})
+	}
+
+	uc.log.WithContext(ctx).Infof("Password changed successfully and all tokens revoked for user: %s", userID)
 	return nil
 }
 

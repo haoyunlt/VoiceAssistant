@@ -6,7 +6,6 @@ import (
 	"math/rand"
 	"sort"
 	"time"
-
 	"voiceassistant/cmd/model-router/internal/domain"
 )
 
@@ -39,6 +38,11 @@ type RoutingRequest struct {
 	// 偏好设置
 	Temperature float64 `json:"temperature"` // 温度
 	Streaming   bool    `json:"streaming"`   // 是否流式
+
+	// A/B测试参数
+	UserID       string `json:"user_id"`        // 用户ID (用于A/B测试分流)
+	ABTestID     string `json:"ab_test_id"`     // 指定A/B测试ID (可选)
+	EnableABTest bool   `json:"enable_ab_test"` // 是否启用A/B测试
 }
 
 // RoutingResponse 路由响应
@@ -49,25 +53,41 @@ type RoutingResponse struct {
 	EstimatedCost    float64              `json:"estimated_cost"`    // 预估成本
 	EstimatedLatency time.Duration        `json:"estimated_latency"` // 预估延迟
 	Reason           string               `json:"reason"`            // 选择原因
+
+	// A/B测试信息
+	ABTestID  string `json:"ab_test_id,omitempty"` // A/B测试ID
+	VariantID string `json:"variant_id,omitempty"` // 变体ID
+	IsABTest  bool   `json:"is_ab_test"`           // 是否通过A/B测试选择
 }
 
 // RoutingService 路由服务
 type RoutingService struct {
 	registry      *domain.ModelRegistry
-	roundRobinIdx map[string]int // provider -> index (用于轮询)
+	roundRobinIdx map[string]int      // provider -> index (用于轮询)
+	abTestService *ABTestingServiceV2 // A/B测试服务
 }
 
 // NewRoutingService 创建路由服务
-func NewRoutingService(registry *domain.ModelRegistry) *RoutingService {
+func NewRoutingService(registry *domain.ModelRegistry, abTestService *ABTestingServiceV2) *RoutingService {
 	return &RoutingService{
 		registry:      registry,
 		roundRobinIdx: make(map[string]int),
+		abTestService: abTestService,
 	}
 }
 
 // Route 执行路由决策
 func (s *RoutingService) Route(ctx context.Context, req *RoutingRequest) (*RoutingResponse, error) {
-	// 1. 获取候选模型
+	// 1. 优先检查A/B测试
+	if req.EnableABTest && s.abTestService != nil && req.UserID != "" {
+		abResponse, err := s.routeWithABTest(ctx, req)
+		if err == nil && abResponse != nil {
+			return abResponse, nil
+		}
+		// A/B测试失败，继续使用常规路由
+	}
+
+	// 2. 获取候选模型
 	candidates, err := s.getCandidates(req)
 	if err != nil {
 		return nil, err
@@ -77,7 +97,7 @@ func (s *RoutingService) Route(ctx context.Context, req *RoutingRequest) (*Routi
 		return nil, fmt.Errorf("no available models found for the request")
 	}
 
-	// 2. 根据策略选择模型
+	// 3. 根据策略选择模型
 	var selected *domain.ModelInfo
 	var reason string
 
@@ -102,10 +122,10 @@ func (s *RoutingService) Route(ctx context.Context, req *RoutingRequest) (*Routi
 		return nil, fmt.Errorf("failed to select a model")
 	}
 
-	// 3. 估算输入token数 (粗略估算: 1 token ≈ 4 字符)
+	// 4. 估算输入token数 (粗略估算: 1 token ≈ 4 字符)
 	estimatedInputTokens := len(req.Prompt) / 4
 
-	// 4. 构建响应
+	// 5. 构建响应
 	return &RoutingResponse{
 		ModelID:          selected.ModelID,
 		ModelName:        selected.ModelName,
@@ -113,6 +133,60 @@ func (s *RoutingService) Route(ctx context.Context, req *RoutingRequest) (*Routi
 		EstimatedCost:    selected.EstimateCost(estimatedInputTokens, req.MaxTokens),
 		EstimatedLatency: selected.AvgLatency,
 		Reason:           reason,
+		IsABTest:         false,
+	}, nil
+}
+
+// routeWithABTest 使用A/B测试进行路由
+func (s *RoutingService) routeWithABTest(ctx context.Context, req *RoutingRequest) (*RoutingResponse, error) {
+	// 1. 查找活跃的A/B测试
+	var testID string
+	if req.ABTestID != "" {
+		testID = req.ABTestID
+	} else {
+		// 自动查找运行中的测试
+		filters := &domain.TestFilters{
+			Status: domain.TestStatusRunning,
+			Limit:  1,
+		}
+		tests, err := s.abTestService.ListTests(ctx, filters)
+		if err != nil || len(tests) == 0 {
+			return nil, fmt.Errorf("no active ab test found")
+		}
+		testID = tests[0].ID
+	}
+
+	// 2. 选择变体
+	variant, err := s.abTestService.SelectVariant(ctx, testID, req.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. 获取模型信息
+	model, err := s.registry.Get(variant.ModelID)
+	if err != nil {
+		return nil, fmt.Errorf("model not found in A/B test variant: %s", variant.ModelID)
+	}
+
+	// 4. 检查模型健康状态
+	if !model.IsHealthy() {
+		return nil, fmt.Errorf("selected model from A/B test is unhealthy: %s", variant.ModelID)
+	}
+
+	// 5. 估算成本
+	estimatedInputTokens := len(req.Prompt) / 4
+
+	// 6. 构建响应
+	return &RoutingResponse{
+		ModelID:          model.ModelID,
+		ModelName:        model.ModelName,
+		Provider:         model.Provider,
+		EstimatedCost:    model.EstimateCost(estimatedInputTokens, req.MaxTokens),
+		EstimatedLatency: model.AvgLatency,
+		Reason:           fmt.Sprintf("A/B Test: %s, Variant: %s", testID, variant.Name),
+		ABTestID:         testID,
+		VariantID:        variant.ID,
+		IsABTest:         true,
 	}, nil
 }
 

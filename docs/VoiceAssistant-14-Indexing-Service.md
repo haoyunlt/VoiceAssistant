@@ -133,7 +133,7 @@ flowchart LR
 
     subgraph Core["核心业务层"]
         DocumentProcessor["DocumentProcessor<br/>文档处理协调器"]
-        
+
         subgraph Parsers2["解析模块"]
             ParserFactory2["ParserFactory"]
             BaseParser["BaseParser接口"]
@@ -142,14 +142,14 @@ flowchart LR
             ExcelParser["ExcelParser"]
             HTMLParser["HTMLParser"]
         end
-        
+
         subgraph Processing2["处理模块"]
             DocumentChunker2["DocumentChunker<br/>固定分块"]
             AdaptiveChunker["AdaptiveChunker<br/>自适应分块"]
             BGE_M3_Embedder2["BGE_M3_Embedder<br/>向量化"]
             CachedEmbedder["CachedEmbedder<br/>缓存向量化"]
         end
-        
+
         subgraph GraphModule["图谱模块"]
             EntityExtractor["EntityExtractor<br/>实体提取"]
             GraphBuilder2["GraphBuilder<br/>图谱构建"]
@@ -158,26 +158,26 @@ flowchart LR
 
     API --> DocumentProcessor
     KafkaConsumer --> DocumentProcessor
-    
+
     DocumentProcessor --> MinIOClient
     DocumentProcessor --> ParserFactory2
     DocumentProcessor --> DocumentChunker2
     DocumentProcessor --> BGE_M3_Embedder2
     DocumentProcessor --> VectorStoreClient
     DocumentProcessor --> GraphBuilder2
-    
+
     ParserFactory2 -.实例化.-> BaseParser
     BaseParser -.实现.-> PDFParser2
     BaseParser -.实现.-> WordParser
     BaseParser -.实现.-> ExcelParser
     BaseParser -.实现.-> HTMLParser
-    
+
     DocumentChunker2 -.继承.-> AdaptiveChunker
     BGE_M3_Embedder2 -.继承.-> CachedEmbedder
-    
+
     GraphBuilder2 --> EntityExtractor
     GraphBuilder2 --> Neo4jClient
-    
+
     style API fill:#e3f2fd
     style Infrastructure fill:#fff3e0
     style Core fill:#e8f5e9
@@ -195,7 +195,7 @@ graph TB
         B --> C[DocumentEventConsumer]
         B --> D[DocumentProcessor]
     end
-    
+
     subgraph "DocumentProcessor依赖"
         D --> E[ParserFactory]
         D --> F[DocumentChunker]
@@ -205,7 +205,7 @@ graph TB
         D --> J[VectorStoreClient]
         D --> K[Neo4jClient]
     end
-    
+
     subgraph "Parser层级"
         E --> L[BaseParser接口]
         L --> M[PDFParser]
@@ -216,22 +216,22 @@ graph TB
         L --> R[TextParser]
         L --> S[PPTParser]
     end
-    
+
     subgraph "Chunker层级"
         F --> T[RecursiveCharacterTextSplitter<br/>LangChain]
         F --> U[AdaptiveChunker]
     end
-    
+
     subgraph "Embedder层级"
         G --> V[SentenceTransformer<br/>BAAI/bge-m3]
         G --> W[CachedEmbedder]
     end
-    
+
     subgraph "GraphBuilder依赖"
         H --> X[EntityExtractor]
         H --> K
     end
-    
+
     subgraph "外部库"
         M --> Y[pdfplumber]
         M --> Z[PyPDF2]
@@ -240,9 +240,9 @@ graph TB
         P --> AC[BeautifulSoup4]
         S --> AD[python-pptx]
     end
-    
+
     C -.消费事件.-> D
-    
+
     style A fill:#e3f2fd
     style B fill:#e3f2fd
     style D fill:#fff3e0
@@ -272,7 +272,7 @@ API 层使用 FastAPI 框架，支持异步请求处理。Prometheus metrics 通
 该层封装外部系统的客户端，提供统一的接口：
 
 - **KafkaConsumer**：消费 Kafka `document.events` topic，接收文档上传事件。使用 `confluent_kafka` 库，配置自动提交偏移量（5 秒间隔），最大轮询间隔 5 分钟。支持事件类型分发（document.uploaded/updated/deleted）。
-  
+
 - **MinIOClient**：对象存储客户端，负责文档下载。连接 MinIO S3 兼容 API，下载超时 30 秒，支持多租户文件路径隔离（`tenant_id/date/filename`）。
 
 - **VectorStoreClient**：Milvus 向量数据库客户端，批量插入向量。连接 Milvus 19530 端口，支持按 tenant_id 分区，单批次最大 10000 条记录，插入超时 30 秒。
@@ -328,7 +328,7 @@ API 层使用 FastAPI 框架，支持异步请求处理。Prometheus metrics 通
 - **分块参数**：
   - chunk_size：500 字符（平衡上下文长度和检索粒度）
   - chunk_overlap：50 字符（10%重叠，保证上下文连贯性）
-  
+
 - **分隔符优先级**（从高到低）：
   1. `\n\n`（段落分隔）
   2. `\n`（行分隔）
@@ -582,12 +582,12 @@ class DocumentEventConsumer:
 async def lifespan(app: FastAPI):
     kafka_consumer = DocumentEventConsumer()
     document_processor = DocumentProcessor()
-    
+
     # 异步启动Kafka消费者
     asyncio.create_task(kafka_consumer.start())
-    
+
     yield
-    
+
     # 关闭资源
     await kafka_consumer.stop()
     await document_processor.cleanup()
@@ -610,7 +610,7 @@ async def _handle_message(self, msg):
     event = json.loads(msg.value().decode("utf-8"))
     event_type = event.get("event_type")  # document.uploaded
     payload = event.get("payload", {})
-    
+
     # 分发到注册的处理器
     handlers = self.handlers.get(event_type, [])
     for handler in handlers:
@@ -630,29 +630,29 @@ sequenceDiagram
     participant Kafka as Kafka Broker
     participant Handler as document_uploaded_handler
     participant Processor as DocumentProcessor
-    
+
     Main->>App: uvicorn.run(app)
     App->>App: lifespan startup
     App->>Consumer: __init__()
     App->>Processor: __init__()
-    
+
     App->>Consumer: asyncio.create_task(start())
     Consumer->>Kafka: subscribe("document.events")
-    
+
     loop 消费循环
         Consumer->>Kafka: poll(timeout=1.0)
         Kafka-->>Consumer: message
-        
+
         Consumer->>Consumer: _handle_message(msg)
         Consumer->>Consumer: json.loads(msg.value())
         Consumer->>Consumer: 提取event_type和payload
-        
+
         Consumer->>Handler: await handler(payload)
         Handler->>Processor: process_document(doc_id, tenant_id, file_path)
         Processor-->>Handler: ProcessingResult
         Handler-->>Consumer: success
     end
-    
+
     Note over Consumer,Kafka: 轮询间隔1秒，最大轮询间隔5分钟<br/>自动提交偏移量（5秒间隔）
 ```
 
@@ -679,17 +679,17 @@ sequenceDiagram
     participant Vector as VectorStoreClient
     participant Graph as GraphBuilder
     participant Neo4j as Neo4jClient
-    
+
     Processor->>Processor: process_document(doc_id, tenant_id, file_path)
     Processor->>Processor: start_time = time.time()
-    
+
     rect rgb(230, 240, 255)
         Note over Processor,MinIO: 步骤1：下载文档
         Processor->>MinIO: _download_document(file_path)
         MinIO->>MinIO: download_file(file_path)
         MinIO-->>Processor: file_data (bytes)
     end
-    
+
     rect rgb(255, 240, 230)
         Note over Processor,PDF: 步骤2：解析文档
         Processor->>Parser: _parse_document(file_data, file_path)
@@ -705,7 +705,7 @@ sequenceDiagram
         Parser->>Parser: clean_text(text)
         Parser-->>Processor: text (纯文本)
     end
-    
+
     rect rgb(230, 255, 230)
         Note over Processor,Chunker: 步骤3：语义分块
         Processor->>Chunker: _chunk_document(text, doc_id)
@@ -716,7 +716,7 @@ sequenceDiagram
         end
         Chunker-->>Processor: chunks (List[Dict])
     end
-    
+
     rect rgb(255, 230, 255)
         Note over Processor,Embedder: 步骤4：批量向量化
         Processor->>Embedder: _vectorize_chunks(chunks)
@@ -726,7 +726,7 @@ sequenceDiagram
         end
         Embedder-->>Processor: embeddings (List[1024-dim])
     end
-    
+
     rect rgb(230, 255, 255)
         Note over Processor,Vector: 步骤5：存储向量
         Processor->>Vector: _store_vectors(chunks, embeddings, doc_id, tenant_id)
@@ -734,7 +734,7 @@ sequenceDiagram
         Vector->>Vector: insert_batch(data)
         Vector-->>Processor: success
     end
-    
+
     par 步骤6：异步构建图谱（不阻塞）
         Processor->>Graph: asyncio.create_task(_build_graph(...))
         Graph->>Graph: extract(text)
@@ -744,7 +744,7 @@ sequenceDiagram
         Graph->>Neo4j: batch_create_relationships(relationships)
         Neo4j-->>Graph: success
     end
-    
+
     Processor->>Processor: 更新统计信息
     Processor->>Processor: duration = time.time() - start_time
     Processor-->>Processor: return {status, doc_id, chunks_count, duration}
@@ -786,12 +786,12 @@ async def parse(self, file_data: bytes, **kwargs) -> str:
     try:
         # 主解析器：pdfplumber
         text = await self._parse_with_pdfplumber(file_data)
-        
+
         if not text or len(text) < 100:
             # 降级到PyPDF2
             logger.warning("pdfplumber failed, trying PyPDF2")
             text = await self._parse_with_pypdf2(file_data)
-        
+
         return self.clean_text(text)
     except Exception as e:
         logger.error(f"Failed to parse PDF: {e}")
@@ -820,10 +820,10 @@ async def _chunk_document(self, text: str, document_id: str) -> List[Dict]:
 async def chunk(self, text: str, document_id: str) -> List[Dict]:
     if not text or not text.strip():
         return []
-    
+
     # LangChain分块
     chunks = self.splitter.split_text(text)
-    
+
     # 构建结果
     result = []
     for i, chunk_text in enumerate(chunks):
@@ -865,10 +865,10 @@ async def _vectorize_chunks(self, chunks: List[Dict]) -> List[List[float]]:
 async def embed_batch(self, texts: List[str]) -> List[List[float]]:
     if not texts:
         return []
-    
+
     # 过滤空文本
     valid_texts = [text if text and text.strip() else " " for text in texts]
-    
+
     # 批量生成向量
     embeddings = self.model.encode(
         valid_texts,
@@ -876,7 +876,7 @@ async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         show_progress_bar=len(valid_texts) > 100,
         convert_to_numpy=True,
     )
-    
+
     return embeddings.tolist()
 ```
 
@@ -892,7 +892,7 @@ async def embed_batch(self, texts: List[str]) -> List[List[float]]:
 async def _store_vectors(self, chunks: List[Dict], embeddings: List[List[float]],
                        document_id: str, tenant_id: str = None):
     logger.info(f"Storing {len(embeddings)} vectors to Milvus")
-    
+
     # 准备数据
     data = []
     for chunk, embedding in zip(chunks, embeddings):
@@ -904,7 +904,7 @@ async def _store_vectors(self, chunks: List[Dict], embeddings: List[List[float]]
             "embedding": embedding,
             "metadata": chunk.get("metadata", {}),
         })
-    
+
     # 批量插入
     await self.vector_store_client.insert_batch(data)
 ```
@@ -949,29 +949,29 @@ sequenceDiagram
     participant PDF as PDFParser
     participant Plumber as pdfplumber
     participant PyPDF as PyPDF2
-    
+
     Processor->>Factory: get_parser(file_path)
     Factory->>Factory: 提取扩展名: .pdf
     Factory->>PDF: __init__()
     Factory-->>Processor: PDFParser实例
-    
+
     Processor->>PDF: parse(file_data)
-    
+
     rect rgb(230, 255, 230)
         Note over PDF,Plumber: 主解析器：pdfplumber
         PDF->>Plumber: _parse_with_pdfplumber(file_data)
         Plumber->>Plumber: pdfplumber.open(BytesIO(file_data))
-        
+
         loop 遍历每一页
             Plumber->>Plumber: page.extract_text()
             Plumber->>Plumber: text_parts.append(text)
         end
-        
+
         Plumber->>Plumber: "\n\n".join(text_parts)
         Plumber-->>PDF: text
-        
+
         PDF->>PDF: 检查文本长度
-        
+
         alt 文本长度 >= 100字符
             Note over PDF: pdfplumber成功
         else 文本过短或为空
@@ -979,22 +979,22 @@ sequenceDiagram
                 Note over PDF,PyPDF: 降级解析器：PyPDF2
                 PDF->>PyPDF: _parse_with_pypdf2(file_data)
                 PyPDF->>PyPDF: PyPDF2.PdfReader(BytesIO(file_data))
-                
+
                 loop 遍历每一页
                     PyPDF->>PyPDF: page.extract_text()
                     PyPDF->>PyPDF: text_parts.append(text)
                 end
-                
+
                 PyPDF->>PyPDF: "\n\n".join(text_parts)
                 PyPDF-->>PDF: text
             end
         end
     end
-    
+
     PDF->>PDF: clean_text(text)
     PDF->>PDF: 去除多余空格和特殊字符
     PDF-->>Processor: 清理后的text
-    
+
     Note over PDF,PyPDF: 降级策略：pdfplumber失败或文本<100字符时切换
     Note over PDF,PyPDF: 准确率：pdfplumber 95%+，PyPDF2 85%+
     Note over PDF,PyPDF: 性能：10页PDF 2-3秒，100页PDF 15-20秒
@@ -1015,18 +1015,18 @@ sequenceDiagram
     participant Processor as DocumentProcessor
     participant Chunker as DocumentChunker
     participant Splitter as RecursiveCharacterTextSplitter
-    
+
     Processor->>Chunker: chunk(text, document_id)
-    
+
     Chunker->>Chunker: 检查文本是否为空
     alt 文本为空
         Chunker-->>Processor: []
     end
-    
+
     rect rgb(230, 240, 255)
         Note over Chunker,Splitter: LangChain递归分块
         Chunker->>Splitter: split_text(text)
-        
+
         Splitter->>Splitter: 尝试分隔符: "\n\n"
         alt 分块成功且长度<=chunk_size
             Note over Splitter: 段落级分块
@@ -1043,27 +1043,27 @@ sequenceDiagram
                 end
             end
         end
-        
+
         Splitter->>Splitter: 应用chunk_overlap (50字符)
         Splitter-->>Chunker: chunks (List[str])
     end
-    
+
     rect rgb(255, 240, 230)
         Note over Chunker: 构建Chunk结构
         loop 遍历每个chunk_text
             Chunker->>Chunker: _generate_chunk_id(doc_id, index, text)
             Chunker->>Chunker: MD5哈希前8位
-            
+
             Chunker->>Chunker: _estimate_tokens(text)
             Chunker->>Chunker: 中文字符 × 1.5 + 英文单词 × 1.3
-            
+
             Chunker->>Chunker: 构建chunk对象
             Note over Chunker: {id, content, index, tokens, metadata}
         end
     end
-    
+
     Chunker-->>Processor: chunks (List[Dict])
-    
+
     Note over Chunker,Splitter: 分块策略：优先语义边界，兜底字符切分
     Note over Chunker,Splitter: chunk_size=500, overlap=50 (10%重叠)
     Note over Chunker,Splitter: 10页PDF(5000字) → 10-15 chunks
@@ -1086,39 +1086,39 @@ sequenceDiagram
     participant Embedder as BGE_M3_Embedder
     participant Model as SentenceTransformer
     participant GPU as CUDA Device
-    
+
     Processor->>Embedder: embed_batch(texts)
-    
+
     Embedder->>Embedder: 过滤空文本
     loop 遍历texts
         alt text为空或空白
             Embedder->>Embedder: 替换为单空格 " "
         end
     end
-    
+
     rect rgb(230, 240, 255)
         Note over Embedder,GPU: 批量向量化（batch_size=32）
         loop 分批处理
             Embedder->>Embedder: 提取batch (32条)
-            
+
             Embedder->>Model: encode(batch, batch_size=32)
             Model->>Model: 文本tokenize
             Model->>Model: 截断或padding到max_length (512)
-            
+
             Model->>GPU: 前向推理
             GPU->>GPU: BERT模型推理
             GPU->>GPU: Pooling (CLS或Mean)
             GPU->>GPU: L2归一化
             GPU-->>Model: embeddings (32 × 1024)
-            
+
             Model-->>Embedder: batch_embeddings
             Embedder->>Embedder: all_embeddings.extend(batch)
         end
     end
-    
+
     Embedder->>Embedder: embeddings.tolist()
     Embedder-->>Processor: List[List[float]]
-    
+
     Note over Embedder,GPU: 批量处理：32条/批，相比单条提升10倍+
     Note over Embedder,GPU: 性能：50 chunks约3-5秒(GPU)，30-50秒(CPU)
     Note over Embedder,GPU: 显存占用：2-3GB (batch_size=32)
@@ -1140,20 +1140,20 @@ sequenceDiagram
     participant Processor as DocumentProcessor
     participant Client as VectorStoreClient
     participant Milvus as Milvus Server
-    
+
     Processor->>Client: insert_batch(data)
-    
+
     Client->>Client: 准备插入数据
     loop 遍历data
         Client->>Client: 构建记录
         Note over Client: {chunk_id, doc_id, tenant_id,<br/>content, embedding, metadata}
     end
-    
+
     Client->>Client: 检查batch大小
     alt batch_size > 10000
         Client->>Client: 拆分为多个批次
     end
-    
+
     rect rgb(230, 240, 255)
         Note over Client,Milvus: Milvus批量插入
         loop 每个批次
@@ -1163,7 +1163,7 @@ sequenceDiagram
             Milvus->>Milvus: 更新主键索引
             Milvus->>Milvus: 触发HNSW索引增量更新
             Milvus-->>Client: insert_result
-            
+
             Client->>Client: 检查insert_result.err_count
             alt err_count > 0
                 Client->>Client: 记录错误
@@ -1171,12 +1171,12 @@ sequenceDiagram
             end
         end
     end
-    
+
     Client->>Milvus: collection.flush()
     Note over Client,Milvus: 确保数据持久化到磁盘
-    
+
     Client-->>Processor: success
-    
+
     Note over Client,Milvus: 批量插入：单批次最大10000条
     Note over Client,Milvus: 性能：50向量约1-2秒，1000向量约10-15秒
     Note over Client,Milvus: 索引更新：异步增量更新，不阻塞插入
@@ -2085,9 +2085,3 @@ graph_building:
     model: relation-model
     confidence_threshold: 0.6
 ```
-
----
-
-**文档版本**：v1.0
-**生成日期**：2025-01-27
-**维护者**：VoiceAssistant 技术团队

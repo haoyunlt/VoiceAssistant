@@ -6,7 +6,7 @@
 [![Go](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org/)
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 
-企业级 AI 客服与语音助手平台，基于微服务架构，集成 LangChain、LangGraph、RAG、多智能体协作等先进技术。
+AI 客服与语音助手平台，基于微服务架构，集成 LangChain、LangGraph、RAG、多智能体协作等先进技术。
 
 ## ✨ 核心特性
 
@@ -99,7 +99,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/voiceassistant/VoiceAssistant.git
+git clone https://github.com/haoyunlt/VoiceAssistant.git
 cd VoiceAssistant
 
 # 执行部署脚本
@@ -235,15 +235,7 @@ VoiceAssistant/
 
 ## 📊 性能指标
 
-| 指标                | 目标值  | 说明             |
-| ------------------- | ------- | ---------------- |
-| **API Gateway P95** | < 200ms | 网关响应延迟     |
-| **TTFB (Stream)**   | < 300ms | 流式首字节时间   |
-| **E2E QA**          | < 2.5s  | 端到端问答延迟   |
-| **可用性**          | ≥ 99.9% | 月度可用性       |
-| **并发 RPS**        | ≥ 1000  | 并发请求处理能力 |
-
-详细 SLO 请查看：[SLO 目标](docs/nfr/slo.md)
+todo
 
 ## 🔐 安全特性
 
@@ -328,31 +320,13 @@ pytest tests/
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-## 📋 待办事项
 
-查看 [IMPROVEMENTS_CHECKLIST.md](IMPROVEMENTS_CHECKLIST.md) 了解项目改进计划。
-
-## 📝 变更日志
-
-查看 [CHANGELOG.md](CHANGELOG.md) 了解版本历史。
 
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
 
-## 👥 团队
 
-- **架构师**: architect@voiceassistant.com
-- **技术负责人**: tech-lead@voiceassistant.com
-- **SRE 团队**: sre@voiceassistant.com
-- **支持**: support@voiceassistant.com
-
-## 🔗 相关链接
-
-- [官方网站](https://voiceassistant.com)
-- [文档中心](https://docs.voiceassistant.com)
-- [问题反馈](https://github.com/voiceassistant/VoiceAssistant/issues)
-- [讨论区](https://github.com/voiceassistant/VoiceAssistant/discussions)
 
 ## 🙏 致谢
 

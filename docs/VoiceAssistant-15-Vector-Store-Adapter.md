@@ -111,7 +111,7 @@ flowchart TB
 
     subgraph "Vector Store Adapter 服务"
         direction TB
-        
+
         subgraph "API 层"
             FastAPI[FastAPI 服务<br/>端口: 8003]
             HealthCheck["/health, /ready<br/>健康检查"]
@@ -121,17 +121,17 @@ flowchart TB
             CountAPI["/collections/{name}/count<br/>统计接口"]
             StatsAPI["/stats<br/>监控指标"]
         end
-        
+
         subgraph "管理层"
             VectorStoreManager[VectorStoreManager<br/>后端管理器<br/>Backend选择/健康检查]
         end
-        
+
         subgraph "适配器层"
             BaseBackend[VectorStoreBackend<br/>抽象基类]
             MilvusAdapter[MilvusBackend<br/>Milvus适配器]
             PgVectorAdapter[PgVectorBackend<br/>pgvector适配器]
         end
-        
+
         subgraph "连接池层"
             ConnectionPool[ConnectionPool<br/>连接池管理<br/>复用/健康检查/自动重连]
         end
@@ -151,7 +151,7 @@ flowchart TB
     RAGEngine -->|HTTP POST<br/>混合检索| VectorStoreClient
 
     VectorStoreClient -->|HTTP Request| FastAPI
-    
+
     FastAPI --> HealthCheck
     FastAPI --> InsertAPI
     FastAPI --> SearchAPI
@@ -280,31 +280,31 @@ sequenceDiagram
     participant PM as Prometheus<br/>监控指标
 
     Note over IS: 文档分块和向量化完成
-    
+
     IS->>VSC: insert_batch(data_list)<br/>批量插入向量数据
     activate VSC
-    
+
     Note over VSC: 构建 HTTP 请求<br/>POST /collections/{name}/insert
-    
+
     VSC->>API: HTTP POST<br/>body: {backend, data[]}
     activate API
-    
+
     Note over API: 路由到插入接口<br/>insert_vectors()
-    
+
     API->>API: 参数校验<br/>- collection_name<br/>- data 非空<br/>- backend 类型
-    
+
     API->>VM: insert_vectors()<br/>(collection, backend, data)
     activate VM
-    
+
     VM->>VM: _get_backend(backend)<br/>选择后端实例
-    
+
     VM->>MA: insert_vectors()<br/>(collection, data)
     activate MA
-    
+
     Note over MA: 自动创建 Collection<br/>（如不存在）
-    
+
     MA->>MA: _get_or_create_collection()<br/>检查/创建 Collection
-    
+
     alt Collection 不存在
         MA->>MA: _create_collection()<br/>定义 Schema + 创建索引
         MA->>MV: create_collection(schema)
@@ -320,38 +320,38 @@ sequenceDiagram
         MV-->>MA: 加载到内存
         deactivate MV
     end
-    
+
     Note over MA: 准备批量数据<br/>转换为 Milvus 格式
-    
+
     MA->>MA: 构建 entities 列表<br/>- chunk_id[]<br/>- document_id[]<br/>- content[]<br/>- embedding[]<br/>- tenant_id[]<br/>- created_at[]
-    
+
     MA->>MV: collection.insert(entities)
     activate MV
-    
+
     Note over MV: 批量插入<br/>HNSW 索引构建
-    
+
     MV-->>MA: insert_result<br/>(ids, count)
     deactivate MV
-    
+
     MA->>MV: collection.flush()<br/>持久化到磁盘
     activate MV
     MV-->>MA: flush 完成
     deactivate MV
-    
+
     MA-->>VM: insert_result
     deactivate MA
-    
+
     VM-->>API: insert_result
     deactivate VM
-    
+
     API->>PM: VECTOR_OPERATIONS.inc()<br/>operation=insert, status=success
-    
+
     API-->>VSC: HTTP 200 OK<br/>{status, inserted, result}
     deactivate API
-    
+
     VSC-->>IS: 插入完成<br/>返回插入数量
     deactivate VSC
-    
+
     Note over IS: 更新索引状态<br/>发布事件
 ```
 
@@ -365,10 +365,10 @@ sequenceDiagram
 async def process_document(self, document_id: str, job_id: str, options: Dict[str, Any]):
     # 1. 下载文档内容
     content = await self.storage_service.download(document_id)
-    
+
     # 2. 解析文档
     parsed_content = await self.parser_service.parse(content, format=options.get("format", "txt"))
-    
+
     # 3. 文本分块
     chunks = await self.chunk_service.create_chunks(
         document_id=document_id,
@@ -376,11 +376,11 @@ async def process_document(self, document_id: str, job_id: str, options: Dict[st
         chunk_size=options.get("chunk_size", settings.MAX_CHUNK_SIZE),
         overlap=options.get("overlap", settings.CHUNK_OVERLAP),
     )
-    
+
     # 4. 向量化（调用 Embedding Service）
     chunk_texts = [chunk["content"] for chunk in chunks]
     embeddings = await self.embedding_service.embed_batch(chunk_texts)
-    
+
     # 5. 调用 Vector Store Adapter 存储向量
     vectors_inserted = await self.vector_service.insert_vectors(
         document_id=document_id,
@@ -402,7 +402,7 @@ async def process_document(self, document_id: str, job_id: str, options: Dict[st
 async def insert_batch(self, data_list: List[Dict]):
     """
     批量插入数据
-    
+
     Args:
         data_list: 数据列表 [
             {
@@ -454,7 +454,7 @@ async def insert_batch(self, data_list: List[Dict]):
 async def insert_vectors(collection_name: str, request: dict):
     """
     插入向量（单条或批量）
-    
+
     Args:
         collection_name: 集合名称（如 "document_chunks"）
         request:
@@ -528,12 +528,12 @@ async def insert_vectors(
 ) -> Any:
     """
     插入向量
-    
+
     Args:
         collection_name: 集合名称
         backend: 后端类型
         data: 向量数据列表
-    
+
     Returns:
         插入结果
     """
@@ -544,7 +544,7 @@ def _get_backend(self, backend: str) -> VectorStoreBackend:
     """获取后端实例"""
     if backend not in self.backends:
         raise ValueError(f"Backend {backend} not available. Available: {list(self.backends.keys())}")
-    
+
     return self.backends[backend]
 ```
 
@@ -709,67 +709,67 @@ sequenceDiagram
     participant PM as Prometheus<br/>监控指标
 
     Note over RS: 用户查询：<br/>"什么是机器学习？"
-    
+
     RS->>RS: embed_query()<br/>查询文本向量化
-    
+
     Note over RS: 生成 query_vector<br/>1024 维向量
-    
+
     RS->>VSC: search(query_vector, top_k=10)
     activate VSC
-    
+
     Note over VSC: 构建 HTTP 请求<br/>POST /collections/{name}/search
-    
+
     VSC->>API: HTTP POST<br/>body: {backend, query_vector, top_k, filters}
     activate API
-    
+
     Note over API: 路由到检索接口<br/>search_vectors()
-    
+
     API->>API: 参数校验<br/>- query_vector 非空<br/>- top_k 合法范围 [1, 1000]<br/>- filters 格式
-    
+
     API->>VM: search_vectors()<br/>(collection, backend, query_vector, top_k, filters)
     activate VM
-    
+
     VM->>VM: _get_backend(backend)<br/>选择后端实例
-    
+
     VM->>MA: search_vectors()<br/>(collection, query_vector, top_k, tenant_id, filters)
     activate MA
-    
+
     Note over MA: 获取 Collection<br/>（必须已存在）
-    
+
     MA->>MA: _get_or_create_collection()<br/>加载 Collection
-    
+
     MA->>MA: _build_expression()<br/>构建过滤表达式<br/>tenant_id == "xxx"
-    
+
     Note over MA: 配置搜索参数<br/>metric_type=IP<br/>ef=128
-    
+
     MA->>MV: collection.search()<br/>data=[query_vector]<br/>anns_field="embedding"<br/>limit=top_k<br/>expr=filters
     activate MV
-    
+
     Note over MV: HNSW 索引检索<br/>- 构建候选集（ef=128）<br/>- 计算内积（IP）<br/>- 排序取 top-k
-    
+
     MV-->>MA: search_results<br/>hits: [{id, score, distance, entity}]
     deactivate MV
-    
+
     Note over MA: 转换结果格式<br/>提取字段
-    
+
     MA->>MA: 遍历 hits<br/>构建返回结果<br/>- chunk_id<br/>- document_id<br/>- content<br/>- score<br/>- distance
-    
+
     MA-->>VM: results: List[Dict]
     deactivate MA
-    
+
     VM-->>API: results
     deactivate VM
-    
+
     API->>PM: VECTOR_OPERATIONS.inc()<br/>operation=search, status=success
-    
+
     API->>PM: VECTOR_OPERATION_DURATION.observe()<br/>延迟统计
-    
+
     API-->>VSC: HTTP 200 OK<br/>{status, results[], count}
     deactivate API
-    
+
     VSC-->>RS: results: List[Dict]
     deactivate VSC
-    
+
     Note over RS: 后处理<br/>- 去重<br/>- 重排序（可选）<br/>- 返回给 RAG Engine
 ```
 
@@ -789,19 +789,19 @@ async def retrieve(
 ) -> List[Dict]:
     """
     向量检索
-    
+
     Args:
         query: 查询文本
         top_k: 返回结果数
         tenant_id: 租户 ID
         filters: 过滤条件
-    
+
     Returns:
         检索结果列表
     """
     # 1. 向量化查询（调用 Embedding Service）
     query_embedding = await self.embedder.embed_query(query)
-    
+
     # 2. 执行向量检索
     results = await self.vector_store_client.search(
         query_vector=query_embedding,
@@ -809,9 +809,9 @@ async def retrieve(
         tenant_id=tenant_id,
         filters=filters,
     )
-    
+
     logger.info(f"Vector retrieval: found {len(results)} results")
-    
+
     return results
 ```
 
@@ -834,13 +834,13 @@ async def search(
 ) -> List[Dict]:
     """
     向量检索
-    
+
     Args:
         query_vector: 查询向量（1024维）
         top_k: 返回结果数
         tenant_id: 租户 ID（用于过滤）
         filters: 额外过滤条件
-    
+
     Returns:
         检索结果列表 [
             {
@@ -891,7 +891,7 @@ async def search(
 async def search_vectors(collection_name: str, request: dict):
     """
     向量检索
-    
+
     Args:
         collection_name: 集合名称
         request:
@@ -971,7 +971,7 @@ async def search_vectors(
 ) -> List[Dict]:
     """
     向量检索
-    
+
     Args:
         collection_name: 集合名称
         backend: 后端类型
@@ -980,7 +980,7 @@ async def search_vectors(
         tenant_id: 租户ID
         filters: 过滤条件
         search_params: 搜索参数
-    
+
     Returns:
         检索结果列表
     """
@@ -1138,55 +1138,55 @@ sequenceDiagram
     participant PM as Prometheus<br/>监控指标
 
     Note over KS: 用户删除文档<br/>document_id="doc123"
-    
+
     KS->>VSC: delete_by_document(document_id)
     activate VSC
-    
+
     Note over VSC: 构建 HTTP 请求<br/>DELETE /collections/{name}/documents/{id}
-    
+
     VSC->>API: HTTP DELETE<br/>params: {backend}
     activate API
-    
+
     Note over API: 路由到删除接口<br/>delete_by_document()
-    
+
     API->>API: 参数校验<br/>- collection_name<br/>- document_id<br/>- backend
-    
+
     API->>VM: delete_by_document()<br/>(collection, backend, document_id)
     activate VM
-    
+
     VM->>VM: _get_backend(backend)<br/>选择后端实例
-    
+
     VM->>MA: delete_by_document()<br/>(collection, document_id)
     activate MA
-    
+
     Note over MA: 获取 Collection<br/>（必须已存在）
-    
+
     MA->>MA: _get_or_create_collection()<br/>加载 Collection
-    
+
     Note over MA: 构建删除表达式<br/>document_id == "doc123"
-    
+
     MA->>MV: collection.delete(expr)
     activate MV
-    
+
     Note over MV: 执行删除操作<br/>- 匹配 document_id<br/>- 删除所有分块<br/>- 更新索引
-    
+
     MV-->>MA: delete_result<br/>(delete_count)
     deactivate MV
-    
+
     MA-->>VM: delete_result
     deactivate MA
-    
+
     VM-->>API: delete_result
     deactivate VM
-    
+
     API->>PM: VECTOR_OPERATIONS.inc()<br/>operation=delete, status=success
-    
+
     API-->>VSC: HTTP 200 OK<br/>{status, deleted}
     deactivate API
-    
+
     VSC-->>KS: 删除完成
     deactivate VSC
-    
+
     Note over KS: 更新文档状态<br/>发布事件
 ```
 
@@ -1200,20 +1200,20 @@ sequenceDiagram
 async def delete_document(self, document_id: str, tenant_id: str):
     """
     删除文档
-    
+
     Args:
         document_id: 文档 ID
         tenant_id: 租户 ID
     """
     # 1. 删除向量数据
     await self.vector_store_client.delete_by_document(document_id)
-    
+
     # 2. 删除关系数据（PostgreSQL）
     await self.db.execute("DELETE FROM documents WHERE id = $1", document_id)
-    
+
     # 3. 删除对象存储文件
     await self.storage_service.delete(document_id)
-    
+
     logger.info(f"Document deleted: {document_id}")
 ```
 
@@ -1230,7 +1230,7 @@ async def delete_document(self, document_id: str, tenant_id: str):
 async def delete_by_document(self, document_id: str):
     """
     删除文档的所有分块
-    
+
     Args:
         document_id: 文档 ID
     """
@@ -1264,7 +1264,7 @@ async def delete_by_document(self, document_id: str):
 async def delete_by_document(collection_name: str, document_id: str, backend: str = "milvus"):
     """
     删除文档的所有向量
-    
+
     Args:
         collection_name: 集合名称
         document_id: 文档ID
@@ -1324,12 +1324,12 @@ async def delete_by_document(
 ) -> Any:
     """
     删除文档的所有向量
-    
+
     Args:
         collection_name: 集合名称
         backend: 后端类型
         document_id: 文档ID
-    
+
     Returns:
         删除结果
     """
@@ -1356,7 +1356,7 @@ async def delete_by_document(
 
     # 构建删除表达式
     expr = f'document_id == "{document_id}"'
-    
+
     # 执行删除
     result = collection.delete(expr)
 
@@ -1441,7 +1441,7 @@ class VectorStoreBackend(ABC):
     def __init__(self, config: Dict[str, Any]):
         """
         初始化后端
-        
+
         Args:
             config: 后端配置
         """
@@ -1471,7 +1471,7 @@ class VectorStoreBackend(ABC):
     ) -> Any:
         """
         插入向量
-        
+
         Args:
             collection_name: 集合名称
             data: 向量数据列表
@@ -1481,7 +1481,7 @@ class VectorStoreBackend(ABC):
                 - embedding: 向量
                 - tenant_id: 租户ID
                 - metadata: 元数据（可选）
-        
+
         Returns:
             插入结果
         """
@@ -1499,7 +1499,7 @@ class VectorStoreBackend(ABC):
     ) -> List[Dict]:
         """
         向量检索
-        
+
         Args:
             collection_name: 集合名称
             query_vector: 查询向量
@@ -1507,7 +1507,7 @@ class VectorStoreBackend(ABC):
             tenant_id: 租户ID（用于过滤）
             filters: 额外过滤条件
             search_params: 搜索参数
-        
+
         Returns:
             检索结果列表
         """
@@ -1521,11 +1521,11 @@ class VectorStoreBackend(ABC):
     ) -> Any:
         """
         删除文档的所有向量
-        
+
         Args:
             collection_name: 集合名称
             document_id: 文档ID
-        
+
         Returns:
             删除结果
         """
@@ -1535,10 +1535,10 @@ class VectorStoreBackend(ABC):
     async def get_count(self, collection_name: str) -> int:
         """
         获取集合中的向量数量
-        
+
         Args:
             collection_name: 集合名称
-        
+
         Returns:
             向量数量
         """
@@ -1553,7 +1553,7 @@ class VectorStoreBackend(ABC):
     ):
         """
         创建集合
-        
+
         Args:
             collection_name: 集合名称
             dimension: 向量维度
@@ -1565,7 +1565,7 @@ class VectorStoreBackend(ABC):
     async def drop_collection(self, collection_name: str):
         """
         删除集合
-        
+
         Args:
             collection_name: 集合名称
         """
@@ -2080,9 +2080,3 @@ Vector Store Adapter 作为 VoiceAssistant 系统的向量存储统一访问层�
 3. **更多后端**：支持 Qdrant、Weaviate、Elasticsearch 等
 4. **智能路由**：根据查询特征自动选择最优后端
 5. **缓存层**：引入 Redis 缓存热点查询结果，**延迟降低至 < 10ms**
-
----
-
-**文档版本**：v2.0  
-**生成日期**：2025-01-27  
-**维护者**：VoiceAssistant 技术团队

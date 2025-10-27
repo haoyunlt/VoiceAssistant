@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-
 	"voiceassistant/cmd/conversation-service/internal/domain"
 
 	"gorm.io/gorm"
@@ -111,6 +110,89 @@ func (r *MessageRepository) GetRecentMessages(ctx context.Context, conversationI
 // DeleteMessages 删除消息
 func (r *MessageRepository) DeleteMessages(ctx context.Context, conversationID string) error {
 	return r.db.WithContext(ctx).Where("conversation_id = ?", conversationID).Delete(&MessageDO{}).Error
+}
+
+// GetSystemMessages 获取系统消息
+func (r *MessageRepository) GetSystemMessages(ctx context.Context, conversationID string) ([]*domain.Message, error) {
+	var dos []MessageDO
+
+	if err := r.db.WithContext(ctx).
+		Where("conversation_id = ? AND role = ?", conversationID, string(domain.RoleSystem)).
+		Order("created_at ASC").
+		Find(&dos).Error; err != nil {
+		return nil, err
+	}
+
+	messages := make([]*domain.Message, len(dos))
+	for i, do := range dos {
+		messages[i] = r.toDomain(&do)
+	}
+
+	return messages, nil
+}
+
+// GetMessagesByRole 根据角色获取消息
+func (r *MessageRepository) GetMessagesByRole(ctx context.Context, conversationID string, role domain.MessageRole, limit int) ([]*domain.Message, error) {
+	var dos []MessageDO
+
+	query := r.db.WithContext(ctx).
+		Where("conversation_id = ? AND role = ?", conversationID, string(role)).
+		Order("created_at DESC")
+
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	if err := query.Find(&dos).Error; err != nil {
+		return nil, err
+	}
+
+	// 反转顺序（保持时间正序）
+	messages := make([]*domain.Message, len(dos))
+	for i, do := range dos {
+		messages[len(dos)-1-i] = r.toDomain(&do)
+	}
+
+	return messages, nil
+}
+
+// GetMessagesByTenantAndRole 根据租户和角色获取消息（跨对话）
+func (r *MessageRepository) GetMessagesByTenantAndRole(ctx context.Context, tenantID string, role domain.MessageRole, limit, offset int) ([]*domain.Message, int, error) {
+	var dos []MessageDO
+	var total int64
+
+	db := r.db.WithContext(ctx).Where("tenant_id = ? AND role = ?", tenantID, string(role))
+
+	// 获取总数
+	if err := db.Model(&MessageDO{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// 分页查询
+	if err := db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&dos).Error; err != nil {
+		return nil, 0, err
+	}
+
+	messages := make([]*domain.Message, len(dos))
+	for i, do := range dos {
+		messages[i] = r.toDomain(&do)
+	}
+
+	return messages, int(total), nil
+}
+
+// CountMessagesByRole 统计角色消息数量
+func (r *MessageRepository) CountMessagesByRole(ctx context.Context, conversationID string, role domain.MessageRole) (int, error) {
+	var count int64
+
+	if err := r.db.WithContext(ctx).
+		Model(&MessageDO{}).
+		Where("conversation_id = ? AND role = ?", conversationID, string(role)).
+		Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return int(count), nil
 }
 
 // toDataObject 转换为数据对象

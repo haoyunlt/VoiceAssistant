@@ -1,329 +1,360 @@
 """
-Realtime Full-Duplex Voice Conversation Service
+实时语音流服务
+WebSocket双向通信 + 实时VAD触发ASR
 """
 
-from typing import AsyncIterator, Optional, Dict, Any
-from collections import deque
 import asyncio
 import logging
 import time
+import uuid
+from typing import Dict, Optional
+
+import numpy as np
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
 
 class RealtimeVoiceService:
-    """Real-time full-duplex voice conversation service"""
-    
+    """实时语音流服务"""
+
     def __init__(
         self,
         asr_service,
-        tts_service,
         vad_service,
-        llm_client,
-        buffer_size_ms: int = 200,
-        vad_threshold: float = 0.5
+        sample_rate: int = 16000,
+        vad_threshold: float = 0.3,
+        min_speech_duration: float = 0.5,
+        silence_duration: float = 0.8,
+        heartbeat_interval: float = 1.0,
+        session_timeout: float = 300.0,
     ):
-        self.asr_service = asr_service
-        self.tts_service = tts_service
-        self.vad_service = vad_service
-        self.llm_client = llm_client
-        self.buffer_size_ms = buffer_size_ms
+        """
+        初始化实时语音服务
+
+        Args:
+            asr_service: ASR服务
+            vad_service: VAD服务
+            sample_rate: 采样率（Hz）
+            vad_threshold: VAD阈值
+            min_speech_duration: 最小语音时长（秒）
+            silence_duration: 静音触发时长（秒）
+            heartbeat_interval: 心跳间隔（秒）
+            session_timeout: 会话超时（秒）
+        """
+        self.asr = asr_service
+        self.vad = vad_service
+        self.sample_rate = sample_rate
         self.vad_threshold = vad_threshold
-        
-        # Audio buffers
-        self.input_buffer = deque(maxlen=100)
-        self.output_buffer = deque(maxlen=100)
-        
-        # State management
-        self.is_speaking = False
-        self.is_listening = True
-        self.is_processing = False
-        self.conversation_active = False
-        
-        # Statistics
-        self.stats = {
-            "total_turns": 0,
-            "total_interruptions": 0,
-            "avg_response_latency": 0.0,
-            "total_response_time": 0.0
+        self.min_speech_duration = min_speech_duration
+        self.silence_duration = silence_duration
+        self.heartbeat_interval = heartbeat_interval
+        self.session_timeout = session_timeout
+
+        # 会话管理
+        self.sessions: Dict[str, Dict] = {}
+
+        logger.info(
+            f"RealtimeVoiceService initialized: "
+            f"sample_rate={sample_rate}, "
+            f"vad_threshold={vad_threshold}, "
+            f"min_speech_duration={min_speech_duration}"
+        )
+
+    async def handle_stream(self, websocket: WebSocket, session_id: str):
+        """
+        处理WebSocket音频流
+
+        Args:
+            websocket: WebSocket连接
+            session_id: 会话ID
+        """
+        # 初始化会话
+        session = {
+            "audio_buffer": bytearray(),
+            "buffer_duration": 0.0,
+            "is_speaking": False,
+            "last_speech_time": 0.0,
+            "last_activity_time": time.time(),
+            "total_frames": 0,
+            "recognition_count": 0,
         }
-        
-    async def start_duplex_conversation(
-        self,
-        session_id: str,
-        input_stream: AsyncIterator[bytes],
-        output_callback
-    ):
-        """Start full-duplex conversation"""
-        self.conversation_active = True
-        logger.info(f"Starting duplex conversation: {session_id}")
-        
+        self.sessions[session_id] = session
+
+        # 启动心跳任务
+        heartbeat_task = asyncio.create_task(
+            self._send_heartbeats(websocket, session_id)
+        )
+
+        # 启动超时检测任务
+        timeout_task = asyncio.create_task(
+            self._check_timeout(websocket, session_id)
+        )
+
         try:
-            # Run input, output, and interruption handling in parallel
-            await asyncio.gather(
-                self._process_input_stream(input_stream, session_id),
-                self._process_output_stream(output_callback, session_id),
-                self._handle_interruptions(session_id),
-                return_exceptions=True
-            )
+            logger.info(f"[Session {session_id}] Stream handling started")
+
+            while True:
+                # 接收音频数据（binary）
+                data = await websocket.receive_bytes()
+
+                # 更新活动时间
+                session["last_activity_time"] = time.time()
+                session["audio_buffer"].extend(data)
+                session["buffer_duration"] += len(data) / (self.sample_rate * 2)
+                session["total_frames"] += 1
+
+                # 转换音频数据为float32
+                audio_array = np.frombuffer(
+                    bytes(session["audio_buffer"]), dtype=np.int16
+                ).astype(np.float32) / 32768.0
+
+                # VAD检测
+                try:
+                    speech_prob = await self._detect_speech(audio_array)
+                except Exception as e:
+                    logger.error(f"VAD detection failed: {e}")
+                    speech_prob = 0.0
+
+                # 状态转换
+                if speech_prob > self.vad_threshold:
+                    # 检测到语音
+                    if not session["is_speaking"]:
+                        logger.debug(
+                            f"[Session {session_id}] Speech started "
+                            f"(prob={speech_prob:.2f})"
+                        )
+                    session["is_speaking"] = True
+                    session["last_speech_time"] = time.time()
+
+                elif session["is_speaking"]:
+                    # 当前在说话，检测静音
+                    silence_duration = time.time() - session["last_speech_time"]
+
+                    # 检测到语音结束
+                    if (
+                        silence_duration > self.silence_duration
+                        and session["buffer_duration"] > self.min_speech_duration
+                    ):
+                        logger.info(
+                            f"[Session {session_id}] Speech ended, "
+                            f"duration={session['buffer_duration']:.2f}s, "
+                            f"silence={silence_duration:.2f}s"
+                        )
+
+                        # 触发ASR
+                        await self._trigger_asr(
+                            websocket, session_id, bytes(session["audio_buffer"])
+                        )
+
+                        # 清空缓冲区
+                        session["audio_buffer"].clear()
+                        session["buffer_duration"] = 0.0
+                        session["is_speaking"] = False
+                        session["recognition_count"] += 1
+
+        except asyncio.CancelledError:
+            logger.info(f"[Session {session_id}] Stream handling cancelled")
+            raise
+
         except Exception as e:
-            logger.error(f"Duplex conversation error: {e}")
+            logger.error(f"[Session {session_id}] Stream error: {e}", exc_info=True)
+            try:
+                await websocket.send_json(
+                    {"type": "error", "message": f"Stream error: {str(e)}"}
+                )
+            except:
+                pass
+
         finally:
-            self.conversation_active = False
-            logger.info(f"Duplex conversation ended: {session_id}")
-            
-    async def stop_conversation(self):
-        """Stop conversation"""
-        self.conversation_active = False
-        self.input_buffer.clear()
-        self.output_buffer.clear()
-        
-    async def _process_input_stream(
-        self,
-        stream: AsyncIterator[bytes],
-        session_id: str
+            # 取消后台任务
+            heartbeat_task.cancel()
+            timeout_task.cancel()
+
+            try:
+                await heartbeat_task
+            except asyncio.CancelledError:
+                pass
+
+            try:
+                await timeout_task
+            except asyncio.CancelledError:
+                pass
+
+    async def _detect_speech(self, audio_array: np.ndarray) -> float:
+        """
+        VAD语音检测
+
+        Args:
+            audio_array: 音频数组
+
+        Returns:
+            语音概率 (0-1)
+        """
+        # 调用VAD服务
+        result = await self.vad.detect(
+            audio_bytes=audio_array.tobytes(), sample_rate=self.sample_rate
+        )
+
+        # 返回平均语音概率
+        if result and "speech_probs" in result:
+            speech_probs = result["speech_probs"]
+            if speech_probs:
+                return float(np.mean(speech_probs))
+
+        return 0.0
+
+    async def _trigger_asr(
+        self, websocket: WebSocket, session_id: str, audio_bytes: bytes
     ):
-        """Process input audio stream"""
-        accumulated_audio = b''
-        silence_duration = 0
-        speech_detected = False
-        
-        try:
-            async for audio_chunk in stream:
-                if not self.conversation_active:
-                    break
-                    
-                # VAD detection
-                vad_result = await self.vad_service.detect(audio_chunk)
-                is_speech = vad_result.get("is_speech", False)
-                confidence = vad_result.get("confidence", 0.0)
-                
-                if is_speech and confidence >= self.vad_threshold:
-                    # Speech detected
-                    speech_detected = True
-                    silence_duration = 0
-                    accumulated_audio += audio_chunk
-                    self.input_buffer.append(audio_chunk)
-                    
-                    # If we were speaking, this is an interruption
-                    if self.is_speaking:
-                        self.stats["total_interruptions"] += 1
-                        logger.info(f"User interruption detected")
-                        await self._handle_user_interruption()
-                        
-                elif speech_detected:
-                    # Potential end of speech
-                    silence_duration += len(audio_chunk) / 16000  # Assuming 16kHz
-                    
-                    if silence_duration >= 0.5:  # 500ms silence
-                        # End of utterance
-                        if len(accumulated_audio) > 0:
-                            logger.info(f"End of utterance detected, processing...")
-                            await self._process_utterance(
-                                accumulated_audio,
-                                session_id
-                            )
-                            accumulated_audio = b''
-                            speech_detected = False
-                            silence_duration = 0
-                            
-        except Exception as e:
-            logger.error(f"Input stream processing error: {e}")
-            
-    async def _process_utterance(self, audio_data: bytes, session_id: str):
-        """Process complete utterance"""
+        """
+        触发ASR识别
+
+        Args:
+            websocket: WebSocket连接
+            session_id: 会话ID
+            audio_bytes: 音频字节数据
+        """
         try:
             start_time = time.time()
-            self.is_processing = True
-            
-            # 1. ASR - transcribe audio
-            logger.debug("Starting ASR...")
-            asr_start = time.time()
-            asr_result = await self.asr_service.recognize_from_bytes(
-                audio_data,
-                language="auto"
+
+            # 调用ASR服务
+            result = await self.asr.transcribe(
+                audio_bytes=audio_bytes, language="zh", sample_rate=self.sample_rate
             )
-            asr_latency = time.time() - asr_start
-            
-            text = asr_result.get("text", "").strip()
-            if not text:
-                logger.warning("Empty transcription")
-                self.is_processing = False
-                return
-                
-            logger.info(f"ASR result ({asr_latency:.3f}s): {text}")
-            
-            # 2. LLM - generate response
-            logger.debug("Generating LLM response...")
-            llm_start = time.time()
-            llm_response = await self.llm_client.chat([
-                {"role": "user", "content": text}
-            ])
-            llm_latency = time.time() - llm_start
-            
-            response_text = llm_response.get("content", "")
-            logger.info(f"LLM response ({llm_latency:.3f}s): {response_text[:50]}...")
-            
-            # 3. TTS - synthesize speech (streaming)
-            logger.debug("Starting TTS synthesis...")
-            tts_start = time.time()
-            first_chunk_received = False
-            
-            async for audio_chunk in self.tts_service.synthesize_streaming(
-                response_text,
-                voice_name="zh-CN-XiaoxiaoNeural"
-            ):
-                if not first_chunk_received:
-                    ttfb = time.time() - tts_start
-                    logger.info(f"TTS TTFB: {ttfb:.3f}s")
-                    first_chunk_received = True
-                    
-                # Add to output buffer
-                self.output_buffer.append(audio_chunk)
-                self.is_speaking = True
-                
-            # Update statistics
-            total_latency = time.time() - start_time
-            self.stats["total_turns"] += 1
-            self.stats["total_response_time"] += total_latency
-            self.stats["avg_response_latency"] = (
-                self.stats["total_response_time"] / self.stats["total_turns"]
-            )
-            
-            logger.info(f"Turn complete - Total latency: {total_latency:.3f}s")
-            self.is_processing = False
-            
+
+            asr_time = time.time() - start_time
+
+            # 提取文本
+            text = result.get("text", "").strip()
+
+            if text:
+                # 发送识别结果
+                session = self.sessions.get(session_id)
+                await websocket.send_json(
+                    {
+                        "type": "transcription",
+                        "text": text,
+                        "confidence": result.get("confidence", 0.0),
+                        "language": result.get("language", "zh"),
+                        "duration": session["buffer_duration"] if session else 0.0,
+                        "asr_time": asr_time,
+                        "timestamp": time.time(),
+                    }
+                )
+
+                logger.info(
+                    f"[Session {session_id}] ASR result: '{text}' "
+                    f"(confidence={result.get('confidence', 0):.2f}, "
+                    f"asr_time={asr_time*1000:.0f}ms)"
+                )
+            else:
+                logger.debug(f"[Session {session_id}] ASR returned empty text")
+
         except Exception as e:
-            logger.error(f"Utterance processing error: {e}")
-            self.is_processing = False
-            
-    async def _process_output_stream(self, output_callback, session_id: str):
-        """Process output audio stream"""
+            logger.error(f"[Session {session_id}] ASR failed: {e}", exc_info=True)
+            try:
+                await websocket.send_json(
+                    {"type": "error", "message": f"ASR failed: {str(e)}"}
+                )
+            except:
+                pass
+
+    async def _send_heartbeats(self, websocket: WebSocket, session_id: str):
+        """
+        发送心跳
+
+        Args:
+            websocket: WebSocket连接
+            session_id: 会话ID
+        """
         try:
-            while self.conversation_active:
-                if self.output_buffer:
-                    # Get audio chunk from buffer
-                    audio_chunk = self.output_buffer.popleft()
-                    
-                    # Send to output
+            while True:
+                await asyncio.sleep(self.heartbeat_interval)
+
+                session = self.sessions.get(session_id)
+                if not session:
+                    break
+
+                try:
+                    await websocket.send_json(
+                        {
+                            "type": "heartbeat",
+                            "buffer_duration": session["buffer_duration"],
+                            "total_frames": session["total_frames"],
+                            "recognition_count": session["recognition_count"],
+                            "is_speaking": session["is_speaking"],
+                            "timestamp": time.time(),
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"[Session {session_id}] Heartbeat send failed: {e}")
+                    break
+
+        except asyncio.CancelledError:
+            logger.debug(f"[Session {session_id}] Heartbeat task cancelled")
+            raise
+
+    async def _check_timeout(self, websocket: WebSocket, session_id: str):
+        """
+        检查会话超时
+
+        Args:
+            websocket: WebSocket连接
+            session_id: 会话ID
+        """
+        try:
+            while True:
+                await asyncio.sleep(10.0)  # 每10秒检查一次
+
+                session = self.sessions.get(session_id)
+                if not session:
+                    break
+
+                inactive_time = time.time() - session["last_activity_time"]
+                if inactive_time > self.session_timeout:
+                    logger.warning(
+                        f"[Session {session_id}] Session timeout "
+                        f"(inactive for {inactive_time:.1f}s)"
+                    )
+
                     try:
-                        await output_callback(audio_chunk)
-                    except Exception as e:
-                        logger.error(f"Output callback error: {e}")
-                        
-                    # Small delay to control output rate
-                    await asyncio.sleep(0.01)
-                else:
-                    # No audio to play
-                    self.is_speaking = False
-                    await asyncio.sleep(0.05)
-                    
-        except Exception as e:
-            logger.error(f"Output stream processing error: {e}")
-            
-    async def _handle_interruptions(self, session_id: str):
-        """Handle user interruptions"""
-        try:
-            while self.conversation_active:
-                # Check for interruption condition
-                if self.is_listening and self.is_speaking and len(self.input_buffer) > 0:
-                    # User is speaking while we're playing audio
-                    logger.info("Interruption detected, clearing output buffer")
-                    await self._handle_user_interruption()
-                    
-                await asyncio.sleep(0.05)
-                
-        except Exception as e:
-            logger.error(f"Interruption handling error: {e}")
-            
-    async def _handle_user_interruption(self):
-        """Handle user interrupting the assistant"""
-        # Clear output buffer immediately
-        self.output_buffer.clear()
-        self.is_speaking = False
-        logger.info("Output cleared due to interruption")
-        
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get conversation statistics"""
-        return {
-            **self.stats,
-            "buffer_sizes": {
-                "input": len(self.input_buffer),
-                "output": len(self.output_buffer)
-            },
-            "state": {
-                "is_speaking": self.is_speaking,
-                "is_listening": self.is_listening,
-                "is_processing": self.is_processing,
-                "active": self.conversation_active
-            }
-        }
+                        await websocket.send_json(
+                            {
+                                "type": "timeout",
+                                "message": "Session timeout due to inactivity",
+                            }
+                        )
+                        await websocket.close(code=1000, reason="Session timeout")
+                    except:
+                        pass
 
+                    break
 
-class StreamingOptimizer:
-    """Optimizer for streaming audio processing"""
-    
-    def __init__(self):
-        self.chunk_size = 1024  # bytes
-        self.sample_rate = 16000
-        self.latency_targets = {
-            "asr": 0.5,    # 500ms
-            "llm": 1.0,    # 1s
-            "tts_ttfb": 0.3,  # 300ms
-            "total": 2.0   # 2s
-        }
-        
-    async def optimize_asr_streaming(
-        self,
-        asr_service,
-        audio_chunks: AsyncIterator[bytes]
-    ) -> AsyncIterator[str]:
-        """Optimize ASR for streaming"""
-        buffer = b''
-        min_chunk_duration = 0.5  # seconds
-        min_chunk_size = int(self.sample_rate * 2 * min_chunk_duration)  # 16-bit audio
-        
-        async for chunk in audio_chunks:
-            buffer += chunk
-            
-            if len(buffer) >= min_chunk_size:
-                # Process accumulated buffer
-                result = await asr_service.recognize_from_bytes(buffer)
-                text = result.get("text", "")
-                
-                if text:
-                    yield text
-                    
-                buffer = b''
-                
-    async def optimize_tts_streaming(
-        self,
-        tts_service,
-        text: str
-    ) -> AsyncIterator[bytes]:
-        """Optimize TTS for low TTFB"""
-        # Split text into sentences for faster TTFB
-        sentences = self._split_into_sentences(text)
-        
-        for sentence in sentences:
-            async for audio_chunk in tts_service.synthesize_streaming(sentence):
-                yield audio_chunk
-                
-    def _split_into_sentences(self, text: str) -> list:
-        """Split text into sentences"""
-        import re
-        sentences = re.split(r'[。！？.!?]+', text)
-        return [s.strip() for s in sentences if s.strip()]
-        
-    def calculate_optimal_buffer_size(
-        self,
-        latency_target_ms: int,
-        sample_rate: int = 16000,
-        bit_depth: int = 16
-    ) -> int:
-        """Calculate optimal buffer size for target latency"""
-        bytes_per_sample = bit_depth // 8
-        samples_needed = int((latency_target_ms / 1000.0) * sample_rate)
-        buffer_size = samples_needed * bytes_per_sample
-        return buffer_size
+        except asyncio.CancelledError:
+            logger.debug(f"[Session {session_id}] Timeout check task cancelled")
+            raise
 
+    async def cleanup_session(self, session_id: str):
+        """
+        清理会话
+
+        Args:
+            session_id: 会话ID
+        """
+        if session_id in self.sessions:
+            session = self.sessions[session_id]
+            logger.info(
+                f"[Session {session_id}] Cleanup: "
+                f"total_frames={session['total_frames']}, "
+                f"recognition_count={session['recognition_count']}"
+            )
+            del self.sessions[session_id]
+
+    def get_session_count(self) -> int:
+        """获取当前会话数"""
+        return len(self.sessions)
+
+    def get_session_info(self, session_id: str) -> Optional[Dict]:
+        """获取会话信息"""
+        return self.sessions.get(session_id)

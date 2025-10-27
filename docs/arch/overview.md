@@ -9,11 +9,11 @@ graph TB
         WebApp[Web应用]
     end
 
-    subgraph "Istio Service Mesh"
-        Gateway[Istio Gateway]
+    subgraph "API Gateway (APISIX)"
+        Gateway[APISIX Gateway<br/>统一入口]
 
-        subgraph "API Gateway Layer"
-            IstioProxy[Envoy Proxy]
+        subgraph "Gateway Features"
+            RoutePlugin[路由 & 插件<br/>限流/JWT/mTLS]
         end
 
         subgraph "Go Services"
@@ -50,8 +50,8 @@ graph TB
     subgraph "可观测性"
         Prometheus[Prometheus<br/>指标]
         Grafana[Grafana<br/>可视化]
-        Jaeger[Jaeger<br/>链路追踪]
-        Kiali[Kiali<br/>服务网格]
+        OTel[OpenTelemetry<br/>链路追踪]
+        Kafka[Kafka<br/>日志收集]
     end
 
     subgraph "外部服务"
@@ -61,13 +61,13 @@ graph TB
 
     Client --> Gateway
     WebApp --> Gateway
-    Gateway --> IstioProxy
+    Gateway --> RoutePlugin
 
-    IstioProxy --> Identity
-    IstioProxy --> Conversation
-    IstioProxy --> Knowledge
-    IstioProxy --> AIOrch
-    IstioProxy --> Voice
+    RoutePlugin --> Identity
+    RoutePlugin --> Conversation
+    RoutePlugin --> Knowledge
+    RoutePlugin --> AIOrch
+    RoutePlugin --> Voice
 
     Identity --> Postgres
     Identity --> Redis
@@ -111,11 +111,15 @@ graph TB
     Conversation -.指标.-> Prometheus
     AIOrch -.指标.-> Prometheus
     Agent -.指标.-> Prometheus
+    Gateway -.指标.-> Prometheus
 
     Prometheus --> Grafana
-    Jaeger -.追踪.-> Identity
-    Jaeger -.追踪.-> Conversation
-    Jaeger -.追踪.-> AIOrch
+    Gateway -.追踪.-> OTel
+    Identity -.追踪.-> OTel
+    Conversation -.追踪.-> OTel
+    AIOrch -.追踪.-> OTel
+
+    Gateway -.日志.-> Kafka
 ```
 
 ## 关键时序图
@@ -158,7 +162,53 @@ sequenceDiagram
     Voice->>Client: 语音流输出
 ```
 
-### 2. RAG 检索-重排流程
+### 2. A/B测试模型路由流程
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Gateway
+    participant ModelRouter
+    participant ABTestSvc
+    participant Cache
+    participant DB
+    participant ModelAdapter
+
+    Client->>Gateway: 路由请求 (user_id, enable_ab_test)
+    Gateway->>ModelRouter: 转发请求
+
+    alt A/B测试已启用
+        ModelRouter->>ABTestSvc: SelectVariant(test_id, user_id)
+        ABTestSvc->>Cache: GetUserVariant(test_id, user_id)
+
+        alt 缓存命中
+            Cache-->>ABTestSvc: 返回已缓存变体
+        else 缓存未命中
+            ABTestSvc->>DB: GetTest(test_id)
+            DB-->>ABTestSvc: 测试配置
+            ABTestSvc->>ABTestSvc: 应用分流策略
+            ABTestSvc->>Cache: SetUserVariant (TTL: 24h)
+        end
+
+        ABTestSvc-->>ModelRouter: 选中的变体
+        ModelRouter->>ModelRouter: GetModel(variant.model_id)
+    else 常规路由
+        ModelRouter->>ModelRouter: 应用路由策略 (cheapest/fastest)
+    end
+
+    ModelRouter->>ModelAdapter: 调用模型
+    ModelAdapter-->>ModelRouter: 模型响应
+
+    opt 记录A/B测试指标
+        ModelRouter->>ABTestSvc: RecordMetric (success, latency, cost)
+        ABTestSvc->>DB: 插入指标记录
+    end
+
+    ModelRouter-->>Gateway: 响应 + 元数据
+    Gateway-->>Client: 最终响应
+```
+
+### 3. RAG 检索-重排流程
 
 ```mermaid
 sequenceDiagram
@@ -191,7 +241,7 @@ sequenceDiagram
     RAG-->>Agent: 增强上下文
 ```
 
-### 3. 工具调用流程
+### 4. 工具调用流程
 
 ```mermaid
 sequenceDiagram
@@ -270,6 +320,12 @@ sequenceDiagram
   - 多模型适配（OpenAI/Claude/通义等）
   - 流式响应
 
+- **Model Router** ([`cmd/model-router/`](../../cmd/model-router/))
+  - 智能模型路由（成本/延迟/质量优化）
+  - A/B测试管理
+  - 模型健康检查与熔断
+  - 成本预测与预算控制
+
 ### 基础设施
 
 - **Nacos**: 配置中心和服务发现
@@ -281,32 +337,62 @@ sequenceDiagram
 
 ## 部署架构
 
-### Kubernetes + Istio
+### Kubernetes + APISIX Gateway
+
+> **架构演进**: 已从 Istio/Envoy 迁移到 APISIX，实现更轻量级的网关架构
 
 - **命名空间隔离**:
 
   - `voiceassistant-prod`: 应用服务
   - `voiceassistant-infra`: 基础设施
-  - `istio-system`: Istio 组件
+  - `apisix`: APISIX 网关
 
-- **流量管理**:
+- **流量管理 (APISIX)**:
 
-  - Istio Gateway 统一入口
-  - VirtualService 路由规则
-  - DestinationRule 负载均衡
+  - APISIX Gateway 统一入口（替代 Istio Gateway + Envoy）
+  - Routes 路由规则（对应 Istio VirtualService）
+  - Upstreams 负载均衡和健康检查（对应 Istio DestinationRule）
+  - 支持 HTTP/HTTPS、WebSocket、gRPC
+  - Kubernetes 服务发现
 
 - **安全**:
 
-  - mTLS 服务间加密
-  - JWT 认证
-  - RBAC 授权策略
-  - Network Policy 网络隔离
+  - mTLS 服务间加密（APISIX Upstream TLS）
+  - JWT 认证（jwt-auth 插件）
+  - RBAC 授权策略（APISIX RBAC）
+  - WAF 防护（自定义规则）
+  - PII 数据脱敏
+  - IP 限流和租户限流
 
 - **可观测性**:
-  - Prometheus 指标采集
-  - Jaeger 分布式追踪
-  - Grafana 可视化
-  - Kiali 服务网格监控
+
+  - OpenTelemetry 全链路追踪（替代 Jaeger）
+  - Prometheus 指标采集（APISIX metrics exporter）
+  - Grafana Dashboard 可视化
+  - Kafka 日志收集（access log + error log）
+  - 自定义告警规则
+
+- **性能优化**:
+
+  - 无 Sidecar 开销（~90% 内存节省）
+  - HPA 自动扩缩容（3-10 副本）
+  - 连接池和 keepalive 优化
+  - Redis 集群限流缓存
+
+### APISIX vs Istio 对比
+
+| 维度 | Istio/Envoy | APISIX | 说明 |
+|------|-------------|--------|------|
+| **架构** | Sidecar 模式 | 集中式网关 | APISIX 无 Sidecar 开销 |
+| **资源消耗** | 高（每 Pod 1 Sidecar） | 低（共享网关） | ~90% 内存节省 |
+| **配置方式** | CRD (Gateway/VirtualService) | Route/Upstream | APISIX 更直观 |
+| **插件生态** | Envoy Filter | 80+ 内置插件 | APISIX 插件更丰富 |
+| **性能** | 好 | 优秀 | APISIX 延迟更低 |
+| **学习曲线** | 陡峭 | 平缓 | APISIX 更易上手 |
+| **可观测性** | Istio Telemetry | OpenTelemetry + Prometheus | 功能对等 |
+| **安全** | mTLS + RBAC | mTLS + JWT + WAF | APISIX 更全面 |
+
+**迁移文档**: [`deployments/k8s/apisix/README.md`](../../deployments/k8s/apisix/README.md)
 
 ## NFR 指标
 

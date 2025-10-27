@@ -1,13 +1,23 @@
 {
   // ========================
   // VoiceAssistant AI Platform
-  // VSCode Workspace Settings
+  // VSCode/Cursor Workspace Settings
+  // Optimized for Performance
   // ========================
 
   // ==================
-  // Editor
+  // Cursor AI Performance
+  // ==================
+  "cursor.general.enableChat": true,
+  "cursor.general.enableCopilot": true,
+  "cursor.cpp.disabledLanguages": [],
+
+  // ==================
+  // Editor Performance
   // ==================
   "editor.formatOnSave": true,
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
@@ -16,9 +26,32 @@
   "editor.insertSpaces": true,
   "editor.detectIndentation": true,
   "editor.trimAutoWhitespace": true,
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": false,
+    "strings": false
+  },
+  "editor.suggestSelection": "first",
+  "editor.acceptSuggestionOnCommitCharacter": true,
+  "editor.snippetSuggestions": "top",
+  "editor.wordBasedSuggestions": "off",
+  "editor.parameterHints.enabled": true,
+  "editor.suggest.preview": true,
+  "editor.suggest.shareSuggestSelections": true,
+  "editor.inlineSuggest.enabled": true,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.stickyScroll.enabled": true,
+  "editor.linkedEditing": true,
+  "editor.unicodeHighlight.ambiguousCharacters": false,
+  "editor.maxTokenizationLineLength": 20000,
+
+  // File handling
   "files.trimTrailingWhitespace": true,
   "files.insertFinalNewline": true,
   "files.trimFinalNewlines": true,
+  "files.eol": "\n",
+  "files.maxMemoryForLargeFilesMB": 4096,
 
   // ==================
   // File Associations
@@ -28,11 +61,12 @@
     "*.yaml": "yaml",
     "*.yml": "yaml",
     "Dockerfile*": "dockerfile",
-    ".cursorrules": "markdown"
+    ".cursorrules": "markdown",
+    ".cursorignore": "ignore"
   },
 
   // ==================
-  // Files to Exclude
+  // Files to Exclude (Performance Critical)
   // ==================
   "files.exclude": {
     "**/.git": true,
@@ -45,11 +79,20 @@
     "**/*.pyc": true,
     "**/.pytest_cache": true,
     "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
     "**/node_modules": true,
     "**/.next": true,
     "**/dist": true,
     "**/build": true,
-    "**/vendor": true
+    "**/vendor": true,
+    "**/.venv": true,
+    "**/venv": true,
+    "**/*.egg-info": true,
+    "**/milvus_data": true,
+    "**/kafka_data": true,
+    "**/clickhouse_data": true,
+    "**/postgres_data": true,
+    "**/redis_data": true
   },
 
   "files.watcherExclude": {
@@ -60,13 +103,26 @@
     "**/vendor/**": true,
     "**/__pycache__/**": true,
     "**/.pytest_cache/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true,
     "**/milvus_data/**": true,
     "**/kafka_data/**": true,
-    "**/clickhouse_data/**": true
+    "**/clickhouse_data/**": true,
+    "**/postgres_data/**": true,
+    "**/redis_data/**": true,
+    "**/qdrant_data/**": true,
+    "**/mongodb_data/**": true,
+    "**/.venv/**": true,
+    "**/venv/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/.next/**": true,
+    "**/coverage/**": true,
+    "**/*.log": true
   },
 
   // ==================
-  // Search
+  // Search Performance
   // ==================
   "search.exclude": {
     "**/node_modules": true,
@@ -79,11 +135,26 @@
     "**/*_pb2_grpc.py": true,
     "**/__pycache__": true,
     "**/.pytest_cache": true,
-    "**/.mypy_cache": true
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/.venv": true,
+    "**/venv": true,
+    "**/coverage": true,
+    "**/*.min.js": true,
+    "**/*.min.css": true,
+    "**/go.sum": true,
+    "**/*.log": true,
+    "**/milvus_data": true,
+    "**/kafka_data": true,
+    "**/clickhouse_data": true
   },
+  "search.followSymlinks": false,
+  "search.smartCase": true,
+  "search.maxResults": 20000,
+  "search.quickOpen.includeSymbols": false,
 
   // ==================
-  // Go
+  // Go Language
   // ==================
   "go.useLanguageServer": true,
   "go.lintTool": "golangci-lint",
@@ -95,13 +166,36 @@
     "type": "gutter"
   },
   "go.toolsManagement.autoUpdate": true,
+  "go.buildOnSave": "off",
+  "go.vetOnSave": "off",
+  "gopls": {
+    "ui.completion.usePlaceholders": true,
+    "ui.semanticTokens": true,
+    "ui.codelenses": {
+      "gc_details": false,
+      "generate": true,
+      "regenerate_cgo": true,
+      "test": true,
+      "tidy": true,
+      "upgrade_dependency": true,
+      "vendor": true
+    },
+    "analyses": {
+      "unusedparams": true,
+      "shadow": false,
+      "unusedwrite": false
+    },
+    "staticcheck": false,
+    "gofumpt": true
+  },
   "[go]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
     },
     "editor.tabSize": 4,
-    "editor.insertSpaces": false
+    "editor.insertSpaces": false,
+    "editor.snippetSuggestions": "none"
   },
   "[go.mod]": {
     "editor.formatOnSave": true,
@@ -111,15 +205,20 @@
   },
 
   // ==================
-  // Python
+  // Python Language
   // ==================
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
-  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.diagnosticMode": "openFilesOnly",
+  "python.analysis.indexing": true,
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.memory.keepLibraryAst": true,
+  "python.languageServer": "None",
   "python.linting.enabled": true,
   "python.linting.pylintEnabled": false,
   "python.linting.flake8Enabled": true,
-  "python.linting.mypyEnabled": true,
+  "python.linting.mypyEnabled": false,
+  "python.linting.lintOnSave": false,
   "python.formatting.provider": "black",
   "python.formatting.blackArgs": ["--line-length", "100"],
   "python.sortImports.args": ["--profile", "black"],
@@ -130,7 +229,8 @@
     },
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
-    "editor.rulers": [100]
+    "editor.rulers": [100],
+    "editor.wordBasedSuggestions": "off"
   },
 
   // ==================
@@ -142,6 +242,10 @@
   "typescript.suggest.autoImports": true,
   "javascript.updateImportsOnFileMove.enabled": "always",
   "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.quoteStyle": "single",
+  "javascript.preferences.quoteStyle": "single",
+  "typescript.disableAutomaticTypeAcquisition": true,
   "[typescript]": {
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -214,7 +318,7 @@
   // Markdown
   // ==================
   "[markdown]": {
-    "editor.formatOnSave": true,
+    "editor.formatOnSave": false,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "editor.tabSize": 2,
     "editor.wordWrap": "on",
@@ -271,24 +375,30 @@
   "git.enableSmartCommit": true,
   "git.confirmSync": false,
   "git.autofetch": true,
+  "git.ignoreLimitWarning": true,
+  "git.untrackedChanges": "separate",
 
   // ==================
   // Terminal
   // ==================
   "terminal.integrated.scrollback": 10000,
   "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.enablePersistentSessions": false,
+  "terminal.integrated.fontFamily": "Monaco, 'Courier New', monospace",
 
   // ==================
   // Extensions
   // ==================
   // ESLint
   "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.lintTask.enable": false,
 
   // Prettier
   "prettier.singleQuote": true,
   "prettier.trailingComma": "es5",
   "prettier.arrowParens": "always",
   "prettier.printWidth": 100,
+  "prettier.requireConfig": false,
 
   // ==================
   // Testing
@@ -298,15 +408,48 @@
   },
 
   // ==================
-  // Misc
+  // Workbench Performance
   // ==================
   "explorer.confirmDelete": false,
   "explorer.confirmDragAndDrop": false,
+  "explorer.compactFolders": false,
   "workbench.startupEditor": "none",
+  "workbench.editor.enablePreview": true,
+  "workbench.editor.enablePreviewFromQuickOpen": false,
+  "workbench.editor.limit.enabled": true,
+  "workbench.editor.limit.value": 10,
+  "workbench.editor.limit.perEditorGroup": false,
+  "workbench.list.smoothScrolling": true,
+  "workbench.settings.enableNaturalLanguageSearch": false,
   "diffEditor.ignoreTrimWhitespace": false,
+  "diffEditor.renderSideBySide": true,
+  "diffEditor.maxComputationTime": 5000,
 
   // ==================
-  // Telemetry (Optional)
+  // Security & Privacy
   // ==================
-  "telemetry.telemetryLevel": "off"
+  "telemetry.telemetryLevel": "off",
+  "security.workspace.trust.enabled": false,
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "update.mode": "none",
+
+  // ==================
+  // Performance Tuning
+  // ==================
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/.hg/store/**": true
+  },
+  "emmet.showExpandedAbbreviation": "never",
+  "breadcrumbs.enabled": true,
+  "problems.showCurrentInStatus": true,
+  "html.autoClosingTags": true,
+  "javascript.autoClosingTags": true,
+  "typescript.autoClosingTags": true,
+  "typescript.surveys.enabled": false,
+  "javascript.suggest.names": false,
+  "typescript.suggest.includeAutomaticOptionalChainCompletions": false
 }

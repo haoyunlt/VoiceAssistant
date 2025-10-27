@@ -1,0 +1,537 @@
+---
+# APISIX 安全策略配置
+# 对应 Istio PeerAuthentication, AuthorizationPolicy, RequestAuthentication
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-security-plugins
+  namespace: apisix
+data:
+  security.yaml: |
+    # Global Plugins - 全局安全插件
+    global_rules:
+      # 1. 全局安全头
+      - id: global-security-headers
+        plugins:
+          response-rewrite:
+            headers:
+              set:
+                X-Frame-Options: "DENY"
+                X-Content-Type-Options: "nosniff"
+                X-XSS-Protection: "1; mode=block"
+                Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+                Content-Security-Policy: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'"
+                Referrer-Policy: "strict-origin-when-cross-origin"
+                Permissions-Policy: "geolocation=(), microphone=(), camera=()"
+              remove:
+                - "Server"
+                - "X-Powered-By"
+
+      # 2. 全局请求ID追踪
+      - id: global-request-id
+        plugins:
+          request-id:
+            header_name: X-Request-ID
+            include_in_response: true
+            algorithm: uuid
+
+      # 3. 全局IP限流 (防DDoS)
+      - id: global-ip-rate-limit
+        plugins:
+          limit-count:
+            count: 1000
+            time_window: 60
+            key: "$remote_addr"
+            key_type: var
+            rejected_code: 429
+            rejected_msg: "Too many requests from your IP"
+            policy: redis
+            redis_host: "redis-cluster.voiceassistant-infra.svc.cluster.local"
+            redis_port: 6379
+            redis_database: 1
+            redis_timeout: 1000
+
+      # 4. 全局PII脱敏 (日志)
+      - id: global-pii-redaction
+        plugins:
+          log-rotate:
+            interval: 3600
+            max_kept: 168
+            enable_compression: true
+
+    # Consumer - JWT认证配置
+    consumers:
+      # API Gateway Consumer (服务间调用)
+      - username: api-gateway
+        plugins:
+          jwt-auth:
+            key: api-gateway-key
+            secret: ${JWT_SECRET_GATEWAY}
+            algorithm: HS256
+            exp: 86400  # 24小时
+            base64_secret: false
+
+      # Mobile App Consumer
+      - username: mobile-app
+        plugins:
+          jwt-auth:
+            key: mobile-app-key
+            secret: ${JWT_SECRET_MOBILE}
+            algorithm: HS256
+            exp: 3600  # 1小时
+
+      # Web App Consumer
+      - username: web-app
+        plugins:
+          jwt-auth:
+            key: web-app-key
+            secret: ${JWT_SECRET_WEB}
+            algorithm: HS256
+            exp: 3600
+
+      # Admin Console Consumer
+      - username: admin-console
+        plugins:
+          jwt-auth:
+            key: admin-console-key
+            secret: ${JWT_SECRET_ADMIN}
+            algorithm: HS256
+            exp: 7200  # 2小时
+
+          # Admin额外的RBAC
+          authz-keycloak:
+            discovery: "https://identity.voiceassistant.com/.well-known/openid-configuration"
+            client_id: "admin-console"
+            client_secret: ${KEYCLOAK_CLIENT_SECRET}
+            realm_roles_required: ["admin", "superuser"]
+
+    # Plugin Metadata - JWT全局配置
+    plugin_metadata:
+      - id: jwt-auth
+        jwt_secret: ${JWT_MASTER_SECRET}
+        exp: 3600
+        algorithm: HS256
+
+      # CORS全局配置
+      - id: cors
+        allow_origins: "https://*.voiceassistant.com,https://voiceassistant.com"
+        allow_methods: "GET,POST,PUT,DELETE,PATCH,HEAD,OPTIONS"
+        allow_headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Tenant-ID,X-User-ID,X-Session-ID,X-Request-ID"
+        expose_headers: "Content-Length,Content-Range,X-Request-ID"
+        max_age: 86400
+        allow_credential: true
+
+---
+# APISIX SSL/TLS 配置
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-ssl-config
+  namespace: apisix
+data:
+  ssl.yaml: |
+    # SSL Certificates
+    ssls:
+      # 1. API Gateway TLS
+      - id: api-voiceassistant-com
+        snis:
+          - "api.voiceassistant.com"
+          - "*.voiceassistant.com"
+        cert: |
+          ${API_TLS_CERT}
+        key: |
+          ${API_TLS_KEY}
+        status: 1  # 启用
+
+        # TLS配置
+        ssl_protocols:
+          - TLSv1.2
+          - TLSv1.3
+        ssl_ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305"
+
+        # 客户端证书验证 (mTLS - PERMISSIVE模式)
+        client:
+          ca: |
+            ${CLIENT_CA_CERT}
+          depth: 2
+          verify: false  # 可选验证，对应Istio PERMISSIVE
+
+      # 2. WebSocket TLS
+      - id: ws-voiceassistant-com
+        snis:
+          - "ws.voiceassistant.com"
+        cert: |
+          ${WS_TLS_CERT}
+        key: |
+          ${WS_TLS_KEY}
+        status: 1
+        ssl_protocols:
+          - TLSv1.2
+          - TLSv1.3
+
+      # 3. gRPC TLS
+      - id: grpc-voiceassistant-com
+        snis:
+          - "grpc.voiceassistant.com"
+        cert: |
+          ${GRPC_TLS_CERT}
+        key: |
+          ${GRPC_TLS_KEY}
+        status: 1
+        ssl_protocols:
+          - TLSv1.2
+          - TLSv1.3
+
+        # gRPC需要HTTP/2
+        http2: true
+
+---
+# APISIX mTLS 配置 (服务间通信)
+# 对应 Istio PeerAuthentication STRICT模式
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-mtls-config
+  namespace: apisix
+data:
+  mtls.yaml: |
+    # mTLS Upstreams - 服务间加密通信
+    mtls_upstreams:
+      # Identity Service mTLS
+      - upstream_id: identity-service
+        tls:
+          client_cert: |
+            ${APISIX_CLIENT_CERT}
+          client_key: |
+            ${APISIX_CLIENT_KEY}
+          verify: true
+
+          # 验证服务端证书
+          ssl_verify: true
+          sni: identity-service.voiceassistant-prod.svc.cluster.local
+
+      # Conversation Service mTLS
+      - upstream_id: conversation-service
+        tls:
+          client_cert: |
+            ${APISIX_CLIENT_CERT}
+          client_key: |
+            ${APISIX_CLIENT_KEY}
+          verify: true
+          ssl_verify: true
+          sni: conversation-service.voiceassistant-prod.svc.cluster.local
+
+      # Knowledge Service mTLS
+      - upstream_id: knowledge-service
+        tls:
+          client_cert: |
+            ${APISIX_CLIENT_CERT}
+          client_key: |
+            ${APISIX_CLIENT_KEY}
+          verify: true
+          ssl_verify: true
+          sni: knowledge-service.voiceassistant-prod.svc.cluster.local
+
+      # AI Orchestrator mTLS
+      - upstream_id: ai-orchestrator
+        tls:
+          client_cert: |
+            ${APISIX_CLIENT_CERT}
+          client_key: |
+            ${APISIX_CLIENT_KEY}
+          verify: true
+          ssl_verify: true
+          sni: ai-orchestrator.voiceassistant-prod.svc.cluster.local
+
+---
+# RBAC 策略配置
+# 对应 Istio AuthorizationPolicy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-rbac-config
+  namespace: apisix
+data:
+  rbac.yaml: |
+    # Service-level Authorization
+    service_authorization:
+      # Identity Service - 允许网关和内部服务
+      - service: identity-service
+        routes:
+          - /api/v1/auth/*
+          - /api/v1/users/*
+
+        rules:
+          # 允许来自网关的请求
+          - action: allow
+            principals:
+              - "cluster.local/ns/apisix/sa/apisix"
+
+            # 来源命名空间
+            from:
+              namespaces:
+                - apisix
+                - voiceassistant-prod
+
+          # 拒绝未认证请求
+          - action: deny
+            when:
+              - key: "jwt_claim_sub"
+                operator: not_exists
+
+      # AI Orchestrator - 需要JWT认证
+      - service: ai-orchestrator
+        routes:
+          - /api/v1/ai/*
+
+        rules:
+          # 允许认证用户
+          - action: allow
+            when:
+              - key: "jwt_claim_sub"
+                operator: exists
+              - key: "jwt_claim_sub"
+                operator: not_equal
+                value: ""
+
+          # 允许内部服务间调用
+          - action: allow
+            from:
+              namespaces:
+                - voiceassistant-prod
+
+          # 默认拒绝
+          - action: deny
+
+      # Conversation Service - JWT + 租户隔离
+      - service: conversation-service
+        routes:
+          - /api/v1/conversations/*
+          - /api/v1/messages/*
+
+        rules:
+          # 租户隔离 - 只能访问自己租户的数据
+          - action: allow
+            when:
+              - key: "jwt_claim_tenant_id"
+                operator: equal
+                value: "$http_x_tenant_id"
+              - key: "jwt_claim_sub"
+                operator: exists
+
+          # 拒绝跨租户访问
+          - action: deny
+            when:
+              - key: "jwt_claim_tenant_id"
+                operator: not_equal
+                value: "$http_x_tenant_id"
+
+      # Admin APIs - 需要admin角色
+      - service: admin-apis
+        routes:
+          - /admin/*
+
+        rules:
+          # 仅允许admin角色
+          - action: allow
+            when:
+              - key: "jwt_claim_role"
+                operator: in
+                values:
+                  - "admin"
+                  - "superuser"
+              - key: "remote_addr"
+                operator: in
+                cidrs:
+                  - "10.0.0.0/8"
+                  - "172.16.0.0/12"
+
+          # 拒绝其他请求
+          - action: deny
+
+---
+# 安全插件启用配置
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-security-routes
+  namespace: apisix
+data:
+  secure-routes.yaml: |
+    # Protected Routes - 需要认证的路由
+    protected_routes:
+      # API路由 - JWT必需
+      - pattern: /api/v1/ai/*
+        auth_required: true
+        auth_type: jwt
+        rate_limit:
+          enabled: true
+          rate: 30
+          burst: 10
+
+      - pattern: /api/v1/conversations/*
+        auth_required: true
+        auth_type: jwt
+        tenant_isolation: true
+        rate_limit:
+          enabled: true
+          rate: 200
+          burst: 100
+
+      - pattern: /api/v1/messages/*
+        auth_required: true
+        auth_type: jwt
+        tenant_isolation: true
+        rate_limit:
+          enabled: true
+          rate: 200
+          burst: 100
+
+      - pattern: /api/v1/knowledge/*
+        auth_required: true
+        auth_type: jwt
+        tenant_isolation: true
+        rate_limit:
+          enabled: true
+          rate: 50
+          burst: 20
+
+      # WebSocket路由 - JWT + 连接数限制
+      - pattern: /ws/*
+        auth_required: true
+        auth_type: jwt
+        connection_limit:
+          enabled: true
+          max_connections: 10
+          per_key: user_id
+
+      # Admin路由 - 严格认证
+      - pattern: /admin/*
+        auth_required: true
+        auth_type: jwt
+        rbac_required: true
+        required_roles:
+          - admin
+          - superuser
+        ip_whitelist:
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+        rate_limit:
+          enabled: true
+          rate: 100
+          burst: 50
+
+    # Public Routes - 不需要认证
+    public_routes:
+      - /health
+      - /api/v1/auth/login
+      - /api/v1/auth/register
+      - /api/v1/auth/refresh
+      - /.well-known/*
+
+---
+# WAF 配置 (Web Application Firewall)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-waf-config
+  namespace: apisix
+data:
+  waf.yaml: |
+    # OWASP ModSecurity Core Rule Set
+    waf_rules:
+      # SQL注入防护
+      - id: sql-injection
+        enabled: true
+        rules:
+          - "(?i)(union.*select|select.*from|insert.*into|delete.*from|update.*set|drop.*table)"
+        action: deny
+        status: 403
+        message: "SQL Injection detected"
+
+      # XSS防护
+      - id: xss-protection
+        enabled: true
+        rules:
+          - "(?i)(<script|javascript:|onerror=|onload=)"
+        action: deny
+        status: 403
+        message: "XSS attack detected"
+
+      # 路径遍历防护
+      - id: path-traversal
+        enabled: true
+        rules:
+          - "(\\.\\./|\\.\\.\\\\)"
+        action: deny
+        status: 403
+        message: "Path traversal attempt detected"
+
+      # 命令注入防护
+      - id: command-injection
+        enabled: true
+        rules:
+          - "(?i)(;.*rm|;.*wget|;.*curl|\\||&&)"
+        action: deny
+        status: 403
+        message: "Command injection detected"
+
+      # 敏感信息泄露防护
+      - id: sensitive-data
+        enabled: true
+        patterns:
+          - "password"
+          - "api_key"
+          - "secret"
+          - "token"
+        redact: true
+        response_filter: true
+
+---
+# PII 数据脱敏插件配置
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apisix-pii-redaction
+  namespace: apisix
+data:
+  pii-redaction.yaml: |
+    # PII Redaction Rules
+    pii_rules:
+      # 日志中的PII脱敏
+      - type: email
+        pattern: "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+        replacement: "***@***.***"
+
+      - type: phone
+        pattern: "(\\+?\\d{1,3}[- ]?)?\\(?\\d{3}\\)?[- ]?\\d{3}[- ]?\\d{4}"
+        replacement: "***-***-****"
+
+      - type: id_card
+        pattern: "\\d{15}|\\d{18}"
+        replacement: "****"
+
+      - type: credit_card
+        pattern: "\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}"
+        replacement: "****-****-****-****"
+
+      - type: ip_address
+        pattern: "\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}"
+        replacement: "***.***.***.***"
+
+      # API响应中的敏感字段
+      - type: jwt_token
+        fields:
+          - "access_token"
+          - "refresh_token"
+          - "id_token"
+        replacement: "***TOKEN***"
+
+      - type: api_keys
+        fields:
+          - "api_key"
+          - "secret"
+          - "password"
+        replacement: "***SECRET***"

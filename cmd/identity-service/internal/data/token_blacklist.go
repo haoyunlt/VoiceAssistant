@@ -84,6 +84,44 @@ func (s *TokenBlacklistService) RemoveFromBlacklist(ctx context.Context, token s
 	return nil
 }
 
+// RevokeUserTokens 撤销用户所有Token
+// 记录撤销时间，之前签发的所有token都无效
+// 用于：修改密码、账号被封禁等场景
+func (s *TokenBlacklistService) RevokeUserTokens(ctx context.Context, userID string) error {
+	key := fmt.Sprintf("user:revoked:%s", userID)
+
+	// 记录撤销时间，7天后自动过期（Refresh Token最长有效期）
+	err := s.redis.Set(ctx, key, time.Now().Unix(), 7*24*time.Hour).Err()
+	if err != nil {
+		s.log.WithContext(ctx).Errorf("Failed to revoke user tokens: %v", err)
+		return fmt.Errorf("撤销用户Token失败: %w", err)
+	}
+
+	s.log.WithContext(ctx).Infof("All tokens revoked for user: %s", userID)
+	return nil
+}
+
+// IsUserRevoked 检查用户Token是否被全局撤销
+// 如果Token的签发时间早于撤销时间，则视为无效
+func (s *TokenBlacklistService) IsUserRevoked(ctx context.Context, userID string, issuedAt time.Time) (bool, error) {
+	key := fmt.Sprintf("user:revoked:%s", userID)
+
+	revokeTimeStr, err := s.redis.Get(ctx, key).Result()
+	if err == redis.Nil {
+		return false, nil // 用户未被全局撤销
+	}
+	if err != nil {
+		s.log.WithContext(ctx).Errorf("Failed to check user revocation: %v", err)
+		return false, fmt.Errorf("检查用户撤销状态失败: %w", err)
+	}
+
+	var revokeTime int64
+	fmt.Sscanf(revokeTimeStr, "%d", &revokeTime)
+
+	// 如果Token签发时间早于撤销时间，则Token无效
+	return issuedAt.Before(time.Unix(revokeTime, 0)), nil
+}
+
 // GetBlacklistStats 获取黑名单统计信息
 func (s *TokenBlacklistService) GetBlacklistStats(ctx context.Context) (map[string]interface{}, error) {
 	pattern := fmt.Sprintf("%s*", s.prefix)
@@ -119,8 +157,28 @@ func (s *TokenBlacklistService) GetBlacklistStats(ctx context.Context) (map[stri
 		avgTTL = totalTTL / time.Duration(count)
 	}
 
+	// 统计被撤销的用户数量
+	userPattern := "user:revoked:*"
+	var userCursor uint64
+	var revokedUserCount int64
+
+	for {
+		keys, nextCursor, err := s.redis.Scan(ctx, userCursor, userPattern, 100).Result()
+		if err != nil {
+			s.log.WithContext(ctx).Warnf("Failed to scan revoked users: %v", err)
+			break
+		}
+
+		revokedUserCount += int64(len(keys))
+		userCursor = nextCursor
+		if userCursor == 0 {
+			break
+		}
+	}
+
 	return map[string]interface{}{
 		"total_tokens":        count,
 		"average_ttl_seconds": avgTTL.Seconds(),
+		"revoked_users":       revokedUserCount,
 	}, nil
 }

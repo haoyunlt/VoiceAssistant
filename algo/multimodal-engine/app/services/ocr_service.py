@@ -24,9 +24,12 @@ class OCRService:
     def __init__(self):
         self.provider = settings.OCR_PROVIDER
         self.ocr_engine = None
+        self.easyocr_reader = None
 
         if self.provider == "paddleocr":
             self._load_paddleocr()
+        elif self.provider == "easyocr":
+            self._load_easyocr()
 
     def _load_paddleocr(self):
         """加载 PaddleOCR 模型"""
@@ -46,6 +49,33 @@ class OCRService:
         except Exception as e:
             logger.error(f"Failed to load PaddleOCR: {e}")
             # 不抛出异常，允许服务启动（降级模式）
+
+    def _load_easyocr(self):
+        """加载 EasyOCR 模型"""
+        try:
+            import easyocr
+
+            # 获取语言列表
+            languages = settings.OCR_LANGUAGES or ['ch_sim', 'en']
+
+            logger.info(f"Loading EasyOCR: languages={languages}, use_gpu={settings.OCR_USE_GPU}")
+
+            # 初始化 EasyOCR Reader
+            self.easyocr_reader = easyocr.Reader(
+                languages,
+                gpu=settings.OCR_USE_GPU,
+                verbose=False,
+                download_enabled=True  # 自动下载模型
+            )
+
+            logger.info(f"EasyOCR loaded successfully with languages: {languages}")
+
+        except ImportError:
+            logger.warning("EasyOCR not installed. Install with: pip install easyocr")
+            self.easyocr_reader = None
+        except Exception as e:
+            logger.error(f"Failed to load EasyOCR: {e}", exc_info=True)
+            self.easyocr_reader = None
 
     async def recognize(self, request: OCRRequest) -> OCRResponse:
         """
@@ -177,9 +207,101 @@ class OCRService:
     async def _recognize_with_easyocr(
         self, image_data: bytes, languages: Optional[List[str]], confidence_threshold: Optional[float]
     ) -> dict:
-        """使用 EasyOCR 识别"""
-        # TODO: 实现 EasyOCR 集成
-        raise NotImplementedError("EasyOCR not implemented yet")
+        """
+        使用 EasyOCR 识别
+
+        Args:
+            image_data: 图像数据
+            languages: 语言列表（可选，覆盖初始化时的语言）
+            confidence_threshold: 置信度阈值
+
+        Returns:
+            包含text_blocks、full_text、language的字典
+        """
+        if not self.easyocr_reader:
+            raise RuntimeError("EasyOCR not loaded. Please initialize with provider='easyocr'")
+
+        try:
+            import numpy as np
+            from PIL import Image
+
+            # 加载图像
+            image = Image.open(io.BytesIO(image_data))
+
+            # 转换为 RGB
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+
+            # 转换为numpy数组
+            image_np = np.array(image)
+
+            # 执行 OCR
+            # readtext返回：[(bbox, text, confidence), ...]
+            results = self.easyocr_reader.readtext(
+                image_np,
+                detail=1,  # 返回详细信息（边界框和置信度）
+                paragraph=False,  # 不合并段落
+                batch_size=10
+            )
+
+            # 解析结果
+            text_blocks = []
+            full_text_parts = []
+            threshold = confidence_threshold or settings.OCR_CONFIDENCE_THRESHOLD
+
+            for bbox, text, confidence in results:
+                # 过滤低置信度结果
+                if confidence < threshold:
+                    continue
+
+                # EasyOCR的bbox格式：[[x1,y1], [x2,y2], [x3,y3], [x4,y4]]
+                # 转换为整数坐标
+                bbox_int = [[int(x), int(y)] for x, y in bbox]
+
+                text_blocks.append(
+                    OCRTextBlock(
+                        text=text,
+                        confidence=float(confidence),
+                        bbox=bbox_int,
+                    )
+                )
+
+                full_text_parts.append(text)
+
+            # 合并为完整文本
+            full_text = "\n".join(full_text_parts)
+
+            # 检测主要语言（简化实现）
+            # 检测中文字符
+            has_chinese = any('\u4e00' <= c <= '\u9fff' for c in full_text)
+            # 检测日文字符
+            has_japanese = any('\u3040' <= c <= '\u30ff' for c in full_text)
+            # 检测韩文字符
+            has_korean = any('\uac00' <= c <= '\ud7af' for c in full_text)
+
+            if has_chinese:
+                language = "zh"
+            elif has_japanese:
+                language = "ja"
+            elif has_korean:
+                language = "ko"
+            else:
+                language = "en"
+
+            logger.info(
+                f"EasyOCR recognized {len(text_blocks)} text blocks, "
+                f"total text length: {len(full_text)}, language: {language}"
+            )
+
+            return {
+                "text_blocks": text_blocks,
+                "full_text": full_text,
+                "language": language,
+            }
+
+        except Exception as e:
+            logger.error(f"EasyOCR recognition failed: {e}", exc_info=True)
+            raise
 
     async def _download_image(self, url: str) -> bytes:
         """下载图像文件"""

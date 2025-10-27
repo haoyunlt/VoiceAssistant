@@ -241,10 +241,53 @@ class ToolRegistry:
     # 工具实现
 
     def _search_tool(self, query: str) -> str:
-        """搜索工具（模拟）"""
+        """搜索工具（集成DuckDuckGo）"""
         logger.info(f"Searching for: {query}")
-        # TODO: 实现真实的搜索功能
-        return f"Search results for '{query}': [Mock results]"
+        try:
+            import json
+
+            import httpx
+
+            # 使用 DuckDuckGo Instant Answer API
+            url = "https://api.duckduckgo.com/"
+            params = {
+                "q": query,
+                "format": "json",
+                "no_html": 1,
+                "skip_disambig": 1
+            }
+
+            with httpx.Client(timeout=10) as client:
+                response = client.get(url, params=params)
+                if response.status_code == 200:
+                    data = response.json()
+
+                    # 提取摘要或相关主题
+                    result_parts = []
+
+                    if data.get("Abstract"):
+                        result_parts.append(f"摘要: {data['Abstract']}")
+
+                    if data.get("RelatedTopics"):
+                        topics = []
+                        for topic in data["RelatedTopics"][:3]:
+                            if isinstance(topic, dict) and "Text" in topic:
+                                topics.append(topic["Text"])
+                        if topics:
+                            result_parts.append(f"相关主题: {'; '.join(topics)}")
+
+                    if result_parts:
+                        return "\n".join(result_parts)
+                    else:
+                        return f"未找到关于 '{query}' 的详细信息，建议使用更具体的搜索词。"
+                else:
+                    return f"搜索失败: HTTP {response.status_code}"
+        except ImportError:
+            logger.warning("httpx not installed, using mock results")
+            return f"搜索结果 for '{query}': [需要安装 httpx 库以启用真实搜索]"
+        except Exception as e:
+            logger.error(f"Search error: {e}")
+            return f"搜索出错: {str(e)}"
 
     def _calculator_tool(self, expression: str) -> str:
         """计算器工具"""
@@ -256,16 +299,89 @@ class ToolRegistry:
             return f"Calculation error: {str(e)}"
 
     def _knowledge_search_tool(self, query: str, tenant_id: str) -> str:
-        """知识库搜索工具（模拟）"""
+        """知识库搜索工具（调用RAG服务）"""
         logger.info(f"Searching knowledge base: {query} (tenant: {tenant_id})")
-        # TODO: 实现真实的知识库搜索
-        return f"Knowledge base results for '{query}': [Mock results]"
+        try:
+            import os
+
+            import httpx
+
+            # 获取 RAG 服务地址
+            rag_service_url = os.getenv("RAG_SERVICE_URL", "http://rag-engine:8004")
+
+            # 调用 RAG 服务
+            with httpx.Client(timeout=30) as client:
+                response = client.post(
+                    f"{rag_service_url}/retrieve",
+                    json={
+                        "query": query,
+                        "tenant_id": tenant_id,
+                        "top_k": 5
+                    }
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+                    results = data.get("results", [])
+
+                    if results:
+                        formatted_results = []
+                        for i, result in enumerate(results[:3], 1):
+                            content = result.get("content", "")
+                            score = result.get("score", 0)
+                            formatted_results.append(f"{i}. (相关度: {score:.2f}) {content}")
+
+                        return "知识库检索结果:\n" + "\n".join(formatted_results)
+                    else:
+                        return f"知识库中未找到与 '{query}' 相关的内容"
+                else:
+                    return f"知识库搜索失败: HTTP {response.status_code}"
+        except ImportError:
+            logger.warning("httpx not installed, using mock results")
+            return f"知识库结果 for '{query}': [需要安装 httpx 库以启用真实搜索]"
+        except Exception as e:
+            logger.error(f"Knowledge search error: {e}")
+            return f"知识库搜索出错: {str(e)}"
 
     def _weather_tool(self, location: str) -> str:
-        """天气工具（模拟）"""
+        """天气工具（集成 wttr.in API）"""
         logger.info(f"Getting weather for: {location}")
-        # TODO: 实现真实的天气API调用
-        return f"Weather in {location}: Sunny, 25°C"
+        try:
+            import httpx
+
+            # 使用 wttr.in API（免费，无需API key）
+            url = f"https://wttr.in/{location}?format=j1"
+
+            with httpx.Client(timeout=10) as client:
+                response = client.get(url)
+                if response.status_code == 200:
+                    data = response.json()
+
+                    current = data.get("current_condition", [{}])[0]
+
+                    temp_c = current.get("temp_C", "N/A")
+                    feels_like = current.get("FeelsLikeC", "N/A")
+                    weather_desc = current.get("weatherDesc", [{}])[0].get("value", "N/A")
+                    humidity = current.get("humidity", "N/A")
+                    wind_speed = current.get("windspeedKmph", "N/A")
+
+                    result = (
+                        f"天气信息 - {location}:\n"
+                        f"天气: {weather_desc}\n"
+                        f"温度: {temp_c}°C (体感: {feels_like}°C)\n"
+                        f"湿度: {humidity}%\n"
+                        f"风速: {wind_speed} km/h"
+                    )
+
+                    return result
+                else:
+                    return f"无法获取 '{location}' 的天气信息: HTTP {response.status_code}"
+        except ImportError:
+            logger.warning("httpx not installed, using mock results")
+            return f"天气信息 for {location}: [需要安装 httpx 库以启用真实天气查询]"
+        except Exception as e:
+            logger.error(f"Weather API error: {e}")
+            return f"天气查询出错: {str(e)}"
 
     def _current_time_tool(self) -> str:
         """当前时间工具"""

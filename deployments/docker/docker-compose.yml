@@ -1,0 +1,379 @@
+# Docker Compose - VoiceAssistant 统一配置
+# 包含所有服务和基础设施组件
+version: "3.8"
+
+services:
+  # ============================================
+  # 配置中心 - Nacos
+  # ============================================
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: nacos
+    environment:
+      - MODE=standalone
+      - SPRING_DATASOURCE_PLATFORM=embedded
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - nacos-data:/home/nacos/data
+    networks:
+      - voice-assistant
+    profiles:
+      - nacos
+      - full
+
+  # ============================================
+  # Go 服务 - Conversation Service
+  # ============================================
+  conversation-service-local:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.go-service
+      args:
+        SERVICE_NAME: conversation-service
+    container_name: conversation-service-local
+    environment:
+      # 本地配置模式
+      - CONFIG_MODE=local
+      - CONFIG_PATH=/app/configs/conversation-service.yaml
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=voiceassistant
+      - DB_PASSWORD=password
+      - DB_NAME=voiceassistant
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../../configs:/app/configs
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - voice-assistant
+    profiles:
+      - local
+      - full
+
+  conversation-service-nacos:
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.go-service
+      args:
+        SERVICE_NAME: conversation-service
+    container_name: conversation-service-nacos
+    environment:
+      # Nacos 配置中心模式
+      - CONFIG_MODE=nacos
+      - CONFIG_PATH=/app/configs/conversation-service.yaml
+      - NACOS_SERVER_ADDR=nacos
+      - NACOS_SERVER_PORT=8848
+      - NACOS_NAMESPACE=
+      - NACOS_GROUP=VoiceAssistant
+      - NACOS_DATA_ID=conversation-service.yaml
+      - NACOS_USERNAME=
+      - NACOS_PASSWORD=
+      # 环境变量仍可覆盖
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+    ports:
+      - "8081:8080"
+    volumes:
+      - ../../configs:/app/configs
+    depends_on:
+      nacos:
+        condition: service_healthy
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - voice-assistant
+    profiles:
+      - nacos
+      - full
+
+  # ============================================
+  # Python 服务 - Agent Engine
+  # ============================================
+  agent-engine-local:
+    build:
+      context: ../../algo/agent-engine
+      dockerfile: ../../deployments/docker/Dockerfile.python-service
+    container_name: agent-engine-local
+    environment:
+      # 本地配置模式
+      - CONFIG_MODE=local
+      - CONFIG_PATH=/app/configs/agent-engine.yaml
+      - HOST=0.0.0.0
+      - PORT=8003
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      - EMBEDDING_SERVICE_URL=http://model-adapter:8002
+    ports:
+      - "8003:8003"
+    volumes:
+      - ../../configs:/app/configs
+    depends_on:
+      - milvus
+    networks:
+      - voice-assistant
+    profiles:
+      - local
+      - full
+
+  agent-engine-nacos:
+    build:
+      context: ../../algo/agent-engine
+      dockerfile: ../../deployments/docker/Dockerfile.python-service
+    container_name: agent-engine-nacos
+    environment:
+      # Nacos 配置中心模式
+      - CONFIG_MODE=nacos
+      - CONFIG_PATH=/app/configs/agent-engine.yaml
+      - NACOS_SERVER_ADDR=nacos
+      - NACOS_SERVER_PORT=8848
+      - NACOS_NAMESPACE=
+      - NACOS_GROUP=VoiceAssistant
+      - NACOS_DATA_ID=agent-engine.yaml
+      - NACOS_USERNAME=
+      - NACOS_PASSWORD=
+      # 环境变量仍可覆盖
+      - HOST=0.0.0.0
+      - PORT=8003
+    ports:
+      - "8004:8003"
+    volumes:
+      - ../../configs:/app/configs
+    depends_on:
+      nacos:
+        condition: service_healthy
+      milvus:
+        condition: service_started
+    networks:
+      - voice-assistant
+    profiles:
+      - nacos
+      - full
+
+  # ============================================
+  # Python 服务 - Vector Store Adapter
+  # ============================================
+  vector-store-adapter:
+    build:
+      context: ../../algo/vector-store-adapter
+      dockerfile: Dockerfile
+    container_name: vector-store-adapter
+    ports:
+      - "8005:8003"
+    environment:
+      # Milvus 配置
+      - MILVUS_HOST=milvus
+      - MILVUS_PORT=19530
+      # pgvector 配置
+      - PGVECTOR_HOST=postgres
+      - PGVECTOR_PORT=5432
+      - PGVECTOR_DATABASE=voiceassistant
+      - PGVECTOR_USER=postgres
+      - PGVECTOR_PASSWORD=postgres
+      # 默认配置
+      - DEFAULT_BACKEND=milvus
+      - VECTOR_DIMENSION=1024
+    depends_on:
+      - milvus
+      - postgres
+    networks:
+      - voice-assistant
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - vector
+      - full
+
+  # ============================================
+  # 基础设施 - 数据库
+  # ============================================
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=voiceassistant
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../migrations/postgres:/docker-entrypoint-initdb.d
+    networks:
+      - voice-assistant
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # 基础设施 - 缓存
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - voice-assistant
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # 向量数据库 - Milvus (完整模式)
+  # ============================================
+  milvus:
+    image: milvusdb/milvus:v2.3.6
+    container_name: milvus
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    environment:
+      - ETCD_ENDPOINTS=etcd:2379
+      - MINIO_ADDRESS=minio:9000
+    volumes:
+      - milvus-data:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+    networks:
+      - voice-assistant
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ============================================
+  # 基础设施 - Etcd (Milvus 元数据存储)
+  # ============================================
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: milvus-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd-data:/etcd
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    networks:
+      - voice-assistant
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # 基础设施 - MinIO (Milvus 对象存储)
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: milvus-minio
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    volumes:
+      - minio-data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - voice-assistant
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  nacos-data:
+  postgres-data:
+  redis-data:
+  milvus-data:
+  etcd-data:
+  minio-data:
+
+networks:
+  voice-assistant:
+    driver: bridge
+# ============================================
+# 使用说明
+# ============================================
+#
+# 启动基础设施（推荐，最小依赖）：
+#   docker-compose up -d postgres redis milvus etcd minio
+#
+# 启动本地配置模式（Go + Python 服务）：
+#   docker-compose --profile local up -d
+#
+# 启动 Nacos 配置中心模式：
+#   docker-compose --profile nacos up -d
+#
+# 启动向量存储适配器：
+#   docker-compose --profile vector up -d
+#
+# 启动所有服务（完整模式）：
+#   docker-compose --profile full up -d
+#
+# 同时启动多个 profile：
+#   docker-compose --profile local --profile vector up -d
+#
+# 访问服务：
+#   - Nacos 控制台: http://localhost:8848/nacos （账号/密码：nacos/nacos）
+#   - MinIO 控制台: http://localhost:9001 （账号/密码：minioadmin/minioadmin）
+#   - Conversation Service (local): http://localhost:8080
+#   - Conversation Service (nacos): http://localhost:8081
+#   - Agent Engine (local): http://localhost:8003
+#   - Agent Engine (nacos): http://localhost:8004
+#   - Vector Store Adapter: http://localhost:8005
+#   - PostgreSQL: localhost:5432
+#   - Redis: localhost:6379
+#   - Milvus: localhost:19530
+#
+# 在 Nacos 中配置服务：
+#   1. 登录 Nacos 控制台
+#   2. 进入"配置管理" -> "配置列表"
+#   3. 创建配置：
+#      - Data ID: conversation-service.yaml 或 agent-engine.yaml
+#      - Group: VoiceAssistant
+#      - 配置格式: YAML
+#      - 配置内容: 复制对应的 configs/*.yaml 内容
+#
+# 停止所有服务：
+#   docker-compose --profile full down
+#
+# 停止并删除数据卷：
+#   docker-compose --profile full down -v

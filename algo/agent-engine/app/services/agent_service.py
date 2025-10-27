@@ -300,3 +300,268 @@ Think step by step and explain your reasoning before taking actions.
             }
 
         return None
+
+    async def execute_stream(self, task: AgentTask):
+        """
+        流式执行Agent任务（ReAct模式）
+
+        使用 async generator 实时yield每个步骤，适合SSE或WebSocket传输
+
+        Yields:
+            Dict: 每个执行步骤的事件，包含：
+                - event_type: "start"|"thought"|"action"|"observation"|"answer"|"error"|"complete"
+                - step_number: 步骤编号
+                - content: 步骤内容
+                - metadata: 额外元数据
+        """
+        task_id = task.task_id or self.generate_task_id()
+        start_time = time.time()
+        steps = []
+
+        try:
+            logger.info(f"[{task_id}] Starting streaming agent execution: {task.task}")
+
+            # 发送开始事件
+            yield {
+                "event_type": "start",
+                "task_id": task_id,
+                "task": task.task,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+            # 初始化系统提示
+            system_prompt = self._build_system_prompt(task)
+            conversation_history = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": task.task},
+            ]
+
+            # ReAct循环
+            for iteration in range(task.max_iterations):
+                logger.info(f"[{task_id}] Iteration {iteration + 1}/{task.max_iterations}")
+
+                # 1. Thought - 让LLM思考下一步
+                thought_response = await self.llm_service.chat(
+                    messages=conversation_history,
+                    model=task.model,
+                    temperature=task.temperature,
+                )
+
+                thought_content = thought_response.get("content", "")
+                logger.info(f"[{task_id}] Thought: {thought_content[:200]}...")
+
+                # 流式发送思考步骤
+                thought_step = {
+                    "step_number": len(steps) + 1,
+                    "step_type": "thought",
+                    "content": thought_content,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+                steps.append(thought_step)
+
+                yield {
+                    "event_type": "thought",
+                    "step_number": thought_step["step_number"],
+                    "content": thought_content,
+                    "iteration": iteration + 1,
+                    "timestamp": thought_step["timestamp"],
+                }
+
+                # 2. 判断是否完成
+                if self._is_final_answer(thought_content):
+                    # 提取最终答案
+                    final_answer = self._extract_answer(thought_content)
+
+                    answer_step = {
+                        "step_number": len(steps) + 1,
+                        "step_type": "answer",
+                        "content": final_answer,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    steps.append(answer_step)
+
+                    # 流式发送最终答案
+                    yield {
+                        "event_type": "answer",
+                        "step_number": answer_step["step_number"],
+                        "content": final_answer,
+                        "timestamp": answer_step["timestamp"],
+                    }
+
+                    execution_time = time.time() - start_time
+                    result = AgentResult(
+                        task_id=task_id,
+                        result=final_answer,
+                        steps=steps,
+                        status=AgentStatus.COMPLETED,
+                        iterations=iteration + 1,
+                        execution_time=execution_time,
+                        completed_at=datetime.utcnow(),
+                    )
+
+                    await task_manager.save_task(result)
+
+                    # 发送完成事件
+                    yield {
+                        "event_type": "complete",
+                        "task_id": task_id,
+                        "result": final_answer,
+                        "iterations": iteration + 1,
+                        "execution_time": execution_time,
+                        "status": "completed",
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+
+                    logger.info(f"[{task_id}] Completed in {execution_time:.2f}s")
+                    return
+
+                # 3. Action - 解析工具调用
+                action_info = self._parse_action(thought_content)
+
+                if action_info:
+                    tool_name = action_info.get("tool")
+                    tool_input = action_info.get("input", {})
+
+                    logger.info(f"[{task_id}] Action: {tool_name} with {tool_input}")
+
+                    # 流式发送行动步骤
+                    action_step = {
+                        "step_number": len(steps) + 1,
+                        "step_type": "action",
+                        "content": f"Using tool: {tool_name}",
+                        "tool_name": tool_name,
+                        "tool_input": tool_input,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                    steps.append(action_step)
+
+                    yield {
+                        "event_type": "action",
+                        "step_number": action_step["step_number"],
+                        "content": action_step["content"],
+                        "tool_name": tool_name,
+                        "tool_input": tool_input,
+                        "timestamp": action_step["timestamp"],
+                    }
+
+                    # 4. Observation - 执行工具并观察结果
+                    try:
+                        tool_output = await self.tool_service.execute_tool(
+                            tool_name, tool_input
+                        )
+
+                        logger.info(f"[{task_id}] Observation: {str(tool_output)[:200]}...")
+
+                        observation_step = {
+                            "step_number": len(steps) + 1,
+                            "step_type": "observation",
+                            "content": str(tool_output),
+                            "tool_output": tool_output,
+                            "timestamp": datetime.utcnow().isoformat(),
+                        }
+                        steps.append(observation_step)
+
+                        # 流式发送观察结果
+                        yield {
+                            "event_type": "observation",
+                            "step_number": observation_step["step_number"],
+                            "content": str(tool_output),
+                            "tool_name": tool_name,
+                            "timestamp": observation_step["timestamp"],
+                        }
+
+                        # 将观察结果加入对话历史
+                        conversation_history.append({
+                            "role": "assistant",
+                            "content": thought_content,
+                        })
+                        conversation_history.append({
+                            "role": "user",
+                            "content": f"Observation: {tool_output}",
+                        })
+
+                    except Exception as e:
+                        error_msg = f"Tool execution failed: {str(e)}"
+                        logger.error(f"[{task_id}] {error_msg}")
+
+                        observation_step = {
+                            "step_number": len(steps) + 1,
+                            "step_type": "observation",
+                            "content": error_msg,
+                            "timestamp": datetime.utcnow().isoformat(),
+                        }
+                        steps.append(observation_step)
+
+                        # 流式发送错误观察
+                        yield {
+                            "event_type": "observation",
+                            "step_number": observation_step["step_number"],
+                            "content": error_msg,
+                            "error": True,
+                            "timestamp": observation_step["timestamp"],
+                        }
+
+                        conversation_history.append({
+                            "role": "user",
+                            "content": f"Error: {error_msg}",
+                        })
+                else:
+                    # 没有明确的工具调用，继续下一轮思考
+                    conversation_history.append({
+                        "role": "assistant",
+                        "content": thought_content,
+                    })
+
+            # 达到最大迭代次数
+            execution_time = time.time() - start_time
+            result = AgentResult(
+                task_id=task_id,
+                result="Maximum iterations reached without finding a solution.",
+                steps=steps,
+                status=AgentStatus.TIMEOUT,
+                iterations=task.max_iterations,
+                execution_time=execution_time,
+                completed_at=datetime.utcnow(),
+            )
+
+            await task_manager.save_task(result)
+
+            # 发送超时事件
+            yield {
+                "event_type": "complete",
+                "task_id": task_id,
+                "result": "Maximum iterations reached",
+                "iterations": task.max_iterations,
+                "execution_time": execution_time,
+                "status": "timeout",
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+            logger.warning(f"[{task_id}] Timeout after {task.max_iterations} iterations")
+
+        except Exception as e:
+            execution_time = time.time() - start_time
+            error_msg = str(e)
+            logger.error(f"[{task_id}] Failed: {error_msg}", exc_info=True)
+
+            result = AgentResult(
+                task_id=task_id,
+                result="",
+                steps=steps,
+                status=AgentStatus.FAILED,
+                iterations=len(steps),
+                execution_time=execution_time,
+                error=error_msg,
+                completed_at=datetime.utcnow(),
+            )
+
+            await task_manager.save_task(result)
+
+            # 发送错误事件
+            yield {
+                "event_type": "error",
+                "task_id": task_id,
+                "error": error_msg,
+                "execution_time": execution_time,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
