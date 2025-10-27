@@ -10,11 +10,11 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.core.logging_config import get_logger
+import logging
 from app.llm.base import Message
 from app.llm.multi_llm_adapter import get_multi_llm_adapter
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/llm", tags=["LLM"])
 
 

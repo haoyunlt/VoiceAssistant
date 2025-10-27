@@ -27,21 +27,24 @@ from prometheus_client import make_asgi_app
 # 添加 common 目录到 Python 路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
 
+# 导入统一基础设施模块
+from cors_config import get_cors_config
+from cost_tracking import cost_tracking_middleware
+from exception_handlers import register_exception_handlers
+from structured_logging import logging_middleware, setup_logging
+from telemetry import TracingConfig, init_tracing
+
+# 配置统一日志
+setup_logging(service_name="agent-engine")
+logger = logging.getLogger(__name__)
+
 # 尝试导入 Nacos 配置（可选）
 try:
     from nacos_config import get_config_manager, init_config
     NACOS_AVAILABLE = True
 except ImportError:
     NACOS_AVAILABLE = False
-    logger = logging.getLogger(__name__)
     logger.warning("Nacos support not available, using environment variables only")
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
 
 # 全局变量
 agent_engine = None
@@ -57,6 +60,16 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Agent Engine...")
 
     try:
+        # 初始化 OpenTelemetry 追踪
+        tracing_config = TracingConfig(
+            service_name="agent-engine",
+            service_version=os.getenv("SERVICE_VERSION", "1.0.0"),
+            environment=os.getenv("ENV", "development"),
+        )
+        tracer = init_tracing(tracing_config)
+        if tracer:
+            logger.info("OpenTelemetry tracing initialized")
+
         # 1. 加载配置（支持 Nacos 或纯环境变量）
         config_data = {}
         use_nacos = os.getenv("USE_NACOS", "false").lower() == "true"
@@ -165,17 +178,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 中间件
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS 中间件（使用统一配置）
+cors_config = get_cors_config()
+app.add_middleware(CORSMiddleware, **cors_config)
+
+# 日志中间件
+from starlette.middleware.base import BaseHTTPMiddleware
+
+app.add_middleware(BaseHTTPMiddleware, dispatch=logging_middleware)
+
+# 成本追踪中间件
+app.add_middleware(BaseHTTPMiddleware, dispatch=cost_tracking_middleware)
 
 # Metrics 中间件
 app.add_middleware(MetricsMiddleware)
+
+# 注册全局异常处理器
+register_exception_handlers(app)
 
 # 注册路由
 from app.routers import executor as executor_router

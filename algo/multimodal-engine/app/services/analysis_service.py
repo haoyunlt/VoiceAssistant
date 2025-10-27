@@ -10,12 +10,12 @@ from typing import List
 import httpx
 from PIL import Image
 
-from app.core.logging_config import get_logger
+import logging
 from app.models.multimodal import ImageAnalysisRequest, ImageAnalysisResponse
 from app.services.ocr_service import OCRService
 from app.services.vision_service import VisionService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class AnalysisService:

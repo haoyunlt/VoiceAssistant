@@ -13,10 +13,10 @@ OpenAI -> Claude -> Ollama
 import os
 from typing import Any, AsyncIterator, Dict, List, Literal, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from app.llm.base import CompletionResponse, LLMClient, Message
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MultiLLMAdapter:

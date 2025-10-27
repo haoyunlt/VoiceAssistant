@@ -15,10 +15,10 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 import numpy as np
-from app.core.logging_config import get_logger
+import logging
 from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, connections, utility
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class VectorMemoryManager:

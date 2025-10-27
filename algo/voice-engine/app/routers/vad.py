@@ -4,11 +4,11 @@ VAD (Voice Activity Detection) endpoints
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.core.logging_config import get_logger
+import logging
 from app.models.voice import VADRequest, VADResponse
 from app.services.vad_service import VADService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/vad", tags=["VAD"])
 
 # 全局服务实例

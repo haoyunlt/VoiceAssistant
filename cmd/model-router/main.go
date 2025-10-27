@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"model-router/internal/application"
 	"net/http"
 	"os"
 	"os/signal"
@@ -106,18 +107,87 @@ func readinessCheck(c *gin.Context) {
 	})
 }
 
+// 全局路由器（应该在初始化时创建）
+var router *application.IntelligentRouter
+
 func routeRequest(c *gin.Context) {
-	var req map[string]interface{}
+	var req struct {
+		Strategy      string `json:"strategy"`       // round_robin, cost_optimized, latency_based, load_balanced
+		RequiredModel string `json:"required_model"` // 可选，指定模型
+		EstTokens     int    `json:"est_tokens"`     // 预估token数
+		TenantID      string `json:"tenant_id"`
+		Priority      int    `json:"priority"`
+	}
+
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// TODO: 实现路由逻辑
+	// 确保路由器已初始化
+	if router == nil {
+		router = application.NewIntelligentRouter()
+
+		// 注册示例模型（实际应从配置或数据库加载）
+		router.RegisterModel(&application.ModelConfig{
+			ID:              "gpt-4-turbo",
+			Name:            "gpt-4-turbo-preview",
+			Provider:        "openai",
+			Endpoint:        "https://api.openai.com/v1/chat/completions",
+			Priority:        1,
+			CostPer1KTokens: 0.03,
+			MaxRPS:          100,
+			Timeout:         30 * time.Second,
+			Enabled:         true,
+		})
+
+		router.RegisterModel(&application.ModelConfig{
+			ID:              "gpt-3.5-turbo",
+			Name:            "gpt-3.5-turbo",
+			Provider:        "openai",
+			Endpoint:        "https://api.openai.com/v1/chat/completions",
+			Priority:        2,
+			CostPer1KTokens: 0.002,
+			MaxRPS:          500,
+			Timeout:         30 * time.Second,
+			Enabled:         true,
+		})
+	}
+
+	// 构建路由请求
+	routingReq := &application.RoutingRequest{
+		Strategy:      application.RoutingStrategy(req.Strategy),
+		RequiredModel: req.RequiredModel,
+		EstTokens:     req.EstTokens,
+		TenantID:      req.TenantID,
+		Priority:      req.Priority,
+		Context:       c.Request.Context(),
+	}
+
+	// 默认策略
+	if routingReq.Strategy == "" {
+		routingReq.Strategy = application.StrategyLoadBalanced
+	}
+
+	// 执行路由
+	result, err := router.Route(routingReq)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error":   "routing_failed",
+			"message": err.Error(),
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"model":    "gpt-4-turbo-preview",
-		"provider": "openai",
-		"endpoint": "https://api.openai.com/v1/chat/completions",
+		"model":             result.Model.Name,
+		"model_id":          result.Model.ID,
+		"provider":          result.Model.Provider,
+		"endpoint":          result.Model.Endpoint,
+		"routing_reason":    result.Reason,
+		"estimated_cost":    result.EstimatedCost,
+		"estimated_latency": result.EstimatedLatency,
+		"fallback_used":     result.FallbackUsed,
 	})
 }
 

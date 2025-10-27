@@ -14,11 +14,11 @@ TTS: Azure -> Edge TTS
 import os
 from typing import Literal, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from app.services.asr_service import ASRService
 from app.services.tts_service import TTSService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MultiVendorSpeechAdapter:

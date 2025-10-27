@@ -7,10 +7,10 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.logging_config import get_logger
+import logging
 from app.graph.knowledge_graph_service import get_kg_service
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/kg", tags=["Knowledge Graph"])
 
 

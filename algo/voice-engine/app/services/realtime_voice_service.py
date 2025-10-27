@@ -28,6 +28,9 @@ class RealtimeVoiceService:
         silence_duration: float = 0.8,
         heartbeat_interval: float = 1.0,
         session_timeout: float = 300.0,
+        max_concurrent_sessions: int = 100,
+        max_buffer_size_bytes: int = 16 * 1024 * 1024,  # 16MB
+        max_audio_duration_seconds: float = 60.0,
     ):
         """
         初始化实时语音服务
@@ -41,6 +44,9 @@ class RealtimeVoiceService:
             silence_duration: 静音触发时长（秒）
             heartbeat_interval: 心跳间隔（秒）
             session_timeout: 会话超时（秒）
+            max_concurrent_sessions: 最大并发会话数
+            max_buffer_size_bytes: 单个会话最大缓冲区大小（字节）
+            max_audio_duration_seconds: 单个音频片段最大时长（秒）
         """
         self.asr = asr_service
         self.vad = vad_service
@@ -51,24 +57,50 @@ class RealtimeVoiceService:
         self.heartbeat_interval = heartbeat_interval
         self.session_timeout = session_timeout
 
+        # 资源限制
+        self.max_concurrent_sessions = max_concurrent_sessions
+        self.max_buffer_size_bytes = max_buffer_size_bytes
+        self.max_audio_duration_seconds = max_audio_duration_seconds
+
         # 会话管理
         self.sessions: Dict[str, Dict] = {}
+
+        # 统计信息
+        self.total_sessions_created = 0
+        self.total_sessions_rejected = 0
+        self.total_buffer_overflows = 0
 
         logger.info(
             f"RealtimeVoiceService initialized: "
             f"sample_rate={sample_rate}, "
             f"vad_threshold={vad_threshold}, "
-            f"min_speech_duration={min_speech_duration}"
+            f"min_speech_duration={min_speech_duration}, "
+            f"max_concurrent_sessions={max_concurrent_sessions}, "
+            f"max_buffer_size={max_buffer_size_bytes / 1024 / 1024:.1f}MB"
         )
 
     async def handle_stream(self, websocket: WebSocket, session_id: str):
         """
-        处理WebSocket音频流
+        处理WebSocket音频流（带资源限制）
 
         Args:
             websocket: WebSocket连接
             session_id: 会话ID
         """
+        # 检查并发连接数限制
+        if len(self.sessions) >= self.max_concurrent_sessions:
+            self.total_sessions_rejected += 1
+            logger.warning(
+                f"Session {session_id} rejected: "
+                f"max concurrent sessions ({self.max_concurrent_sessions}) reached. "
+                f"Current sessions: {len(self.sessions)}"
+            )
+            await websocket.close(
+                code=1008,
+                reason=f"Server at maximum capacity ({self.max_concurrent_sessions} sessions)"
+            )
+            return
+
         # 初始化会话
         session = {
             "audio_buffer": bytearray(),
@@ -78,8 +110,10 @@ class RealtimeVoiceService:
             "last_activity_time": time.time(),
             "total_frames": 0,
             "recognition_count": 0,
+            "buffer_overflow_count": 0,
         }
         self.sessions[session_id] = session
+        self.total_sessions_created += 1
 
         # 启动心跳任务
         heartbeat_task = asyncio.create_task(
@@ -100,6 +134,44 @@ class RealtimeVoiceService:
 
                 # 更新活动时间
                 session["last_activity_time"] = time.time()
+
+                # 检查缓冲区大小限制
+                buffer_size_after = len(session["audio_buffer"]) + len(data)
+                if buffer_size_after > self.max_buffer_size_bytes:
+                    session["buffer_overflow_count"] += 1
+                    self.total_buffer_overflows += 1
+
+                    logger.warning(
+                        f"[Session {session_id}] Buffer overflow: "
+                        f"size={buffer_size_after / 1024 / 1024:.2f}MB, "
+                        f"limit={self.max_buffer_size_bytes / 1024 / 1024:.2f}MB. "
+                        f"Triggering ASR early."
+                    )
+
+                    # 强制触发ASR以清空缓冲区
+                    if len(session["audio_buffer"]) > 0:
+                        await self._trigger_asr(
+                            websocket, session_id, bytes(session["audio_buffer"])
+                        )
+                        session["audio_buffer"].clear()
+                        session["buffer_duration"] = 0.0
+                        session["is_speaking"] = False
+
+                # 检查音频时长限制
+                if session["buffer_duration"] > self.max_audio_duration_seconds:
+                    logger.warning(
+                        f"[Session {session_id}] Audio duration exceeded: "
+                        f"{session['buffer_duration']:.1f}s > {self.max_audio_duration_seconds:.1f}s. "
+                        f"Triggering ASR."
+                    )
+
+                    await self._trigger_asr(
+                        websocket, session_id, bytes(session["audio_buffer"])
+                    )
+                    session["audio_buffer"].clear()
+                    session["buffer_duration"] = 0.0
+                    session["is_speaking"] = False
+
                 session["audio_buffer"].extend(data)
                 session["buffer_duration"] += len(data) / (self.sample_rate * 2)
                 session["total_frames"] += 1
@@ -358,3 +430,25 @@ class RealtimeVoiceService:
     def get_session_info(self, session_id: str) -> Optional[Dict]:
         """获取会话信息"""
         return self.sessions.get(session_id)
+
+    def get_statistics(self) -> Dict:
+        """
+        获取服务统计信息
+
+        Returns:
+            统计信息字典
+        """
+        return {
+            "current_sessions": len(self.sessions),
+            "max_concurrent_sessions": self.max_concurrent_sessions,
+            "utilization": len(self.sessions) / self.max_concurrent_sessions,
+            "total_sessions_created": self.total_sessions_created,
+            "total_sessions_rejected": self.total_sessions_rejected,
+            "total_buffer_overflows": self.total_buffer_overflows,
+            "rejection_rate": (
+                self.total_sessions_rejected /
+                max(self.total_sessions_created + self.total_sessions_rejected, 1)
+            ),
+            "max_buffer_size_mb": self.max_buffer_size_bytes / 1024 / 1024,
+            "max_audio_duration_s": self.max_audio_duration_seconds,
+        }

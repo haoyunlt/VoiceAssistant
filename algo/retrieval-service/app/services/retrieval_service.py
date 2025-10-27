@@ -7,7 +7,7 @@ import time
 from typing import List
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.models.retrieval import (
     BM25Request,
     BM25Response,
@@ -30,7 +30,7 @@ from app.services.graph_retrieval_service import GraphRetrievalService
 from app.services.hybrid_graph_service import HybridGraphService
 from app.infrastructure.neo4j_client import Neo4jClient
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class RetrievalService:

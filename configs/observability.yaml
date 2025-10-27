@@ -1,0 +1,317 @@
+# 可观测性统一配置
+# 适用于所有 Python 和 Go 服务，确保统一的追踪、指标和日志格式
+
+# 分布式追踪配置（OpenTelemetry）
+tracing:
+  # 是否启用追踪
+  enabled: true
+
+  # 服务信息
+  service:
+    # 服务名称（每个服务应覆盖此值）
+    name: "voice-assistant"
+    # 服务版本
+    version: "1.0.0"
+    # 部署环境
+    environment: "development" # development | staging | production
+
+  # OTLP 导出配置
+  exporter:
+    # OTLP 端点（Jaeger/Tempo等）
+    endpoint: "localhost:4317"
+    # 是否使用不安全连接（生产环境应设为false并配置TLS）
+    insecure: true
+    # 导出超时（秒）
+    timeout: 30
+    # 批量发送配置
+    batch:
+      # 批量大小
+      max_export_batch_size: 512
+      # 批量超时（毫秒）
+      batch_timeout: 5000
+      # 最大队列大小
+      max_queue_size: 2048
+
+  # 采样配置
+  sampling:
+    # 采样率（0.0 - 1.0）
+    rate: 1.0 # 开发环境100%，生产环境建议0.1-0.5
+    # 采样策略
+    strategy: "traceidratio" # always | never | traceidratio | parentbased
+
+  # 资源属性（自动添加到所有span）
+  resource_attributes:
+    # 是否自动检测资源属性
+    auto_detect: true
+    # 自定义属性
+    custom:
+      # 业务属性
+      business_unit: "ai-customer"
+      team: "platform"
+
+  # 自动 instrumentation
+  auto_instrumentation:
+    # HTTP 客户端
+    http_client: true
+    # HTTP 服务端
+    http_server: true
+    # gRPC
+    grpc: true
+    # 数据库
+    database: true
+    # Redis
+    redis: true
+    # 消息队列
+    messaging: true
+
+  # 是否输出到控制台（调试用）
+  console_export: false
+
+# 指标收集配置（Prometheus）
+metrics:
+  # 是否启用指标
+  enabled: true
+
+  # Prometheus 导出端点
+  exporter:
+    # 端口号
+    port: 9090
+    # 路径
+    path: "/metrics"
+
+  # 收集间隔（秒）
+  collection_interval: 15
+
+  # 指标前缀
+  prefix: "voice_assistant"
+
+  # 默认标签（添加到所有指标）
+  default_labels:
+    environment: "development"
+
+  # 业务指标
+  custom_metrics:
+    # LLM 调用指标
+    llm:
+      - name: "llm_request_total"
+        type: "counter"
+        description: "LLM请求总数"
+        labels: ["model", "status"]
+      - name: "llm_request_duration_seconds"
+        type: "histogram"
+        description: "LLM请求耗时"
+        labels: ["model"]
+        buckets: [0.1, 0.5, 1, 2, 5, 10, 30]
+      - name: "llm_token_usage_total"
+        type: "counter"
+        description: "Token使用总数"
+        labels: ["model", "type"] # type: prompt | completion
+
+    # 检索指标
+    retrieval:
+      - name: "retrieval_request_total"
+        type: "counter"
+        description: "检索请求总数"
+        labels: ["type", "status"] # type: vector | bm25 | hybrid
+      - name: "retrieval_latency_seconds"
+        type: "histogram"
+        description: "检索延迟"
+        labels: ["type"]
+        buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2]
+      - name: "retrieval_results_count"
+        type: "histogram"
+        description: "检索结果数量"
+        labels: ["type"]
+        buckets: [1, 5, 10, 20, 50, 100]
+
+    # 成本指标
+    cost:
+      - name: "cost_usd_total"
+        type: "counter"
+        description: "总成本（美元）"
+        labels: ["service", "model", "tenant_id"]
+      - name: "cost_per_request_usd"
+        type: "histogram"
+        description: "单次请求成本"
+        labels: ["service"]
+        buckets: [0.0001, 0.001, 0.01, 0.1, 1, 10]
+
+# 日志配置
+logging:
+  # 日志级别
+  level: "INFO" # DEBUG | INFO | WARNING | ERROR | CRITICAL
+
+  # 日志格式
+  format: "json" # json | text
+
+  # 输出目标
+  output:
+    # 标准输出
+    stdout: true
+    # 文件输出
+    file:
+      enabled: false
+      path: "/var/log/voice-assistant"
+      max_size_mb: 100
+      max_backups: 10
+      max_age_days: 30
+
+  # 结构化日志字段
+  structured_fields:
+    # 时间戳格式
+    timestamp_format: "iso8601"
+    # 是否包含调用位置（文件名、行号）
+    include_caller: false # 生产环境建议false
+    # 是否包含堆栈跟踪
+    include_stacktrace: true # 仅ERROR级别
+
+  # 日志采样（高频日志降低输出频率）
+  sampling:
+    enabled: true
+    # 初始采样数（前N条必须输出）
+    initial: 100
+    # 之后每N条输出1条
+    thereafter: 100
+
+  # 第三方库日志级别
+  third_party_levels:
+    uvicorn: "WARNING"
+    httpx: "WARNING"
+    httpcore: "WARNING"
+    urllib3: "WARNING"
+    asyncio: "WARNING"
+
+# 健康检查配置
+health:
+  # 健康检查端点
+  endpoint: "/health"
+  # 就绪检查端点
+  readiness_endpoint: "/ready"
+  # 存活检查端点
+  liveness_endpoint: "/liveness"
+
+  # 检查项
+  checks:
+    # 数据库连接
+    database: true
+    # Redis连接
+    redis: true
+    # 外部服务依赖
+    external_services: true
+    # 磁盘空间
+    disk_space: true
+
+# 告警配置（与 Alertmanager 集成）
+alerting:
+  # 是否启用告警
+  enabled: true
+
+  # Alertmanager 端点
+  alertmanager:
+    url: "http://localhost:9093"
+    timeout: 10
+
+  # 告警规则
+  rules:
+    # 高错误率告警
+    - name: "HighErrorRate"
+      condition: "error_rate > 5"
+      severity: "critical"
+      duration: "5m"
+      annotations:
+        summary: "错误率过高"
+        description: "{{ $labels.service }} 错误率超过5%"
+
+    # 高延迟告警
+    - name: "HighLatency"
+      condition: "p95_latency_ms > 2000"
+      severity: "warning"
+      duration: "10m"
+      annotations:
+        summary: "响应延迟过高"
+        description: "{{ $labels.service }} P95延迟超过2秒"
+
+    # 熔断器打开告警
+    - name: "CircuitBreakerOpen"
+      condition: "circuit_breaker_state == 'open'"
+      severity: "critical"
+      duration: "1m"
+      annotations:
+        summary: "熔断器已打开"
+        description: "{{ $labels.service }} 熔断器打开，服务可能不可用"
+
+    # 成本超支告警
+    - name: "CostOverBudget"
+      condition: "daily_cost_usd > 1000"
+      severity: "warning"
+      duration: "1h"
+      annotations:
+        summary: "每日成本超出预算"
+        description: "当前成本: {{ $value }} USD"
+
+# 链路追踪采样策略（高级）
+advanced_sampling:
+  # 始终采样的路径
+  always_sample:
+    - "/health"
+    - "/ready"
+    - "/metrics"
+
+  # 从不采样的路径
+  never_sample:
+    - "/static/*"
+
+  # 基于属性的采样
+  attribute_based:
+    # 错误请求始终采样
+    - condition: "error == true"
+      rate: 1.0
+    # 慢请求始终采样
+    - condition: "duration_ms > 5000"
+      rate: 1.0
+    # 特定用户始终采样（用于调试）
+    - condition: "user_id == 'debug-user'"
+      rate: 1.0
+
+# 集成配置
+integrations:
+  # Jaeger UI
+  jaeger:
+    ui_url: "http://localhost:16686"
+
+  # Grafana
+  grafana:
+    url: "http://localhost:3000"
+    # 默认仪表盘
+    dashboards:
+      - "service-overview"
+      - "llm-metrics"
+      - "cost-tracking"
+
+  # Prometheus
+  prometheus:
+    url: "http://localhost:9090"
+# 说明
+#
+# 使用示例（Python）:
+# ```python
+# from algo.common.telemetry import init_tracing, TracingConfig
+# from algo.common.config import load_config
+#
+# config = load_config('configs/observability.yaml')
+# tracing_config = TracingConfig(
+#     service_name='agent-engine',
+#     **config['tracing']['service'],
+#     **config['tracing']['exporter']
+# )
+# tracer = init_tracing(tracing_config)
+# ```
+#
+# 使用示例（Go）:
+# ```go
+# import "voice-assistant/pkg/observability"
+#
+# config := observability.LoadConfig("configs/observability.yaml")
+# shutdown, err := observability.InitTracing(ctx, config.Tracing)
+# defer shutdown(ctx)
+# ```

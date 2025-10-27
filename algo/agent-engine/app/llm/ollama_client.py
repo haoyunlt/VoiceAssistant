@@ -9,10 +9,10 @@ import os
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
-from app.core.logging_config import get_logger
+import logging
 from app.llm.base import CompletionResponse, LLMClient, Message
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class OllamaClient(LLMClient):

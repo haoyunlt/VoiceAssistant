@@ -6,12 +6,12 @@ Knowledge Graph Service - 知识图谱服务
 
 from typing import Any, Dict, List, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from app.graph.entity_extractor import get_entity_extractor
 from app.graph.neo4j_client import get_neo4j_client
 from app.graph.relation_extractor import get_relation_extractor
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class KnowledgeGraphService:

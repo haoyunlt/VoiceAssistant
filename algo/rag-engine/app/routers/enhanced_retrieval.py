@@ -9,12 +9,12 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.logging_config import get_logger
+import logging
 from app.reranking.reranker import get_reranker
 from app.retrieval.bm25_retriever import get_bm25_retriever
 from app.retrieval.hybrid_retriever import get_hybrid_retriever
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/retrieval", tags=["Enhanced Retrieval"])
 
 

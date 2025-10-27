@@ -13,11 +13,11 @@ import torch
 from faster_whisper import WhisperModel
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.models.voice import ASRRequest, ASRResponse
 from app.services.vad_service import VADService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ASRService:

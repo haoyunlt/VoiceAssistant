@@ -4,7 +4,7 @@ Retrieval API endpoints
 
 from fastapi import APIRouter, HTTPException
 
-from app.core.logging_config import get_logger
+import logging
 from app.models.retrieval import (
     BM25Request,
     BM25Response,
@@ -19,7 +19,7 @@ from app.models.retrieval import (
 )
 from app.services.retrieval_service import RetrievalService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/retrieval", tags=["Retrieval"])
 
 # 全局服务实例

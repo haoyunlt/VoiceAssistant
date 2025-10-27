@@ -8,19 +8,66 @@ import (
 
 // TenantDeletionUsecase 租户删除用例
 type TenantDeletionUsecase struct {
-	tenantRepo TenantRepository
-	userRepo   UserRepository
-	// 其他需要清理的资源仓储
+	tenantRepo       TenantRepository
+	userRepo         UserRepository
+	conversationRepo ConversationRepository
+	knowledgeRepo    KnowledgeRepository
+	sessionRepo      SessionRepository
+	billingRepo      BillingRepository
+}
+
+// ConversationRepository 会话仓储接口
+type ConversationRepository interface {
+	CountByTenantID(ctx context.Context, tenantID string) (int64, error)
+	CountActiveByTenantID(ctx context.Context, tenantID string) (int64, error)
+	DeleteByTenantID(ctx context.Context, tenantID string) (int64, error)
+}
+
+// KnowledgeRepository 知识库仓储接口
+type KnowledgeRepository interface {
+	CountDocumentsByTenantID(ctx context.Context, tenantID string) (int64, error)
+	CountEntitiesByTenantID(ctx context.Context, tenantID string) (int64, error)
+	GetTotalSizeByTenantID(ctx context.Context, tenantID string) (int64, error)
+	DeleteByTenantID(ctx context.Context, tenantID string) (int64, error)
+}
+
+// SessionRepository 会话仓储接口
+type SessionRepository interface {
+	CountActiveByTenantID(ctx context.Context, tenantID string) (int64, error)
+	TerminateAllByTenantID(ctx context.Context, tenantID string) error
+}
+
+// BillingRepository 账单仓储接口
+type BillingRepository interface {
+	HasUnpaidBillsByTenantID(ctx context.Context, tenantID string) (bool, float64, error)
+	GetUsageSummary(ctx context.Context, tenantID string) (*UsageSummary, error)
+}
+
+// UsageSummary 使用量摘要
+type UsageSummary struct {
+	TotalCalls      int64     `json:"total_calls"`
+	TotalTokens     int64     `json:"total_tokens"`
+	TotalCost       float64   `json:"total_cost"`
+	UnpaidAmount    float64   `json:"unpaid_amount"`
+	LastBillingDate time.Time `json:"last_billing_date"`
 }
 
 // NewTenantDeletionUsecase 创建租户删除用例
 func NewTenantDeletionUsecase(
 	tenantRepo TenantRepository,
 	userRepo UserRepository,
+	conversationRepo ConversationRepository,
+	knowledgeRepo KnowledgeRepository,
+	sessionRepo SessionRepository,
+	billingRepo BillingRepository,
 ) *TenantDeletionUsecase {
 	return &TenantDeletionUsecase{
-		tenantRepo: tenantRepo,
-		userRepo:   userRepo,
+		tenantRepo:       tenantRepo,
+		userRepo:         userRepo,
+		conversationRepo: conversationRepo,
+		knowledgeRepo:    knowledgeRepo,
+		sessionRepo:      sessionRepo,
+		billingRepo:      billingRepo,
 	}
 }
 
@@ -177,9 +224,22 @@ func (uc *TenantDeletionUsecase) checkUsers(ctx context.Context, tenantID string
 		Blocker:  false,
 	}
 
-	// 获取用户统计（实际应该调用repository）
-	totalUsers := 25  // Mock数据
-	activeUsers := 15 // Mock数据
+	// 获取用户统计
+	users, err := uc.userRepo.ListByTenant(ctx, tenantID, 0, 1000)
+	if err != nil {
+		check.Passed = false
+		check.Message = fmt.Sprintf("无法查询用户信息: %v", err)
+		check.Severity = "error"
+		return check
+	}
+
+	totalUsers := len(users)
+	activeUsers := 0
+	for _, user := range users {
+		if user.Status == "active" {
+			activeUsers++
+		}
+	}
 
 	check.Details = map[string]int{
 		"total":  totalUsers,
@@ -191,7 +251,7 @@ func (uc *TenantDeletionUsecase) checkUsers(ctx context.Context, tenantID string
 		check.Message = fmt.Sprintf("租户有%d个活跃用户，建议先通知用户", activeUsers)
 	} else {
 		check.Passed = true
-		check.Message = "没有活跃用户"
+		check.Message = fmt.Sprintf("共%d个用户，无活跃用户", totalUsers)
 	}
 
 	return check
@@ -205,10 +265,16 @@ func (uc *TenantDeletionUsecase) checkActiveSessions(ctx context.Context, tenant
 		Blocker:  false,
 	}
 
-	// 实际应该查询会话服务
-	activeSessions := 3 // Mock数据
+	// 查询活跃会话数量
+	activeSessions, err := uc.sessionRepo.CountActiveByTenantID(ctx, tenantID)
+	if err != nil {
+		check.Passed = false
+		check.Message = fmt.Sprintf("无法查询会话信息: %v", err)
+		check.Severity = "error"
+		return check
+	}
 
-	check.Details = map[string]int{
+	check.Details = map[string]int64{
 		"count": activeSessions,
 	}
 
@@ -231,13 +297,33 @@ func (uc *TenantDeletionUsecase) checkDataVolume(ctx context.Context, tenantID s
 		Blocker:  false,
 	}
 
-	// 实际应该查询各个服务的数据量
+	// 查询各个服务的数据量
+	documents, err := uc.knowledgeRepo.CountDocumentsByTenantID(ctx, tenantID)
+	if err != nil {
+		documents = 0
+	}
+
+	conversations, err := uc.conversationRepo.CountByTenantID(ctx, tenantID)
+	if err != nil {
+		conversations = 0
+	}
+
+	kbEntities, err := uc.knowledgeRepo.CountEntitiesByTenantID(ctx, tenantID)
+	if err != nil {
+		kbEntities = 0
+	}
+
+	totalSizeMB, err := uc.knowledgeRepo.GetTotalSizeByTenantID(ctx, tenantID)
+	if err != nil {
+		totalSizeMB = 0
+	}
+
 	dataSummary := DataSummary{
-		Documents:     120,
-		Conversations: 350,
-		Messages:      4200,
-		KBEntities:    850,
-		TotalSizeMB:   2500,
+		Documents:     documents,
+		Conversations: conversations,
+		Messages:      conversations * 10, // 估算：平均每个对话10条消息
+		KBEntities:    kbEntities,
+		TotalSizeMB:   totalSizeMB,
 	}
 
 	check.Details = dataSummary
@@ -247,7 +333,10 @@ func (uc *TenantDeletionUsecase) checkDataVolume(ctx context.Context, tenantID s
 		check.Message = fmt.Sprintf("数据量较大（%.1fGB），删除可能需要较长时间", float64(dataSummary.TotalSizeMB)/1024)
 		check.Severity = "warning"
 	} else {
-		check.Message = fmt.Sprintf("数据量：%.1fGB", float64(dataSummary.TotalSizeMB)/1024)
+		check.Message = fmt.Sprintf("数据量：%.1fGB（%d文档，%d对话）",
+			float64(dataSummary.TotalSizeMB)/1024,
+			dataSummary.Documents,
+			dataSummary.Conversations)
 	}
 
 	return check
@@ -261,20 +350,30 @@ func (uc *TenantDeletionUsecase) checkBillingStatus(ctx context.Context, tenantI
 		Blocker:  true,
 	}
 
-	// 实际应该查询账单服务
-	hasUnpaidBills := false // Mock数据
-	unpaidAmount := 0.0     // Mock数据
+	// 查询账单状态
+	hasUnpaidBills, unpaidAmount, err := uc.billingRepo.HasUnpaidBillsByTenantID(ctx, tenantID)
+	if err != nil {
+		check.Passed = false
+		check.Message = fmt.Sprintf("无法查询账单信息: %v", err)
+		check.Severity = "error"
+		return check
+	}
 
 	if hasUnpaidBills {
 		check.Passed = false
-		check.Message = fmt.Sprintf("有未支付账单：$%.2f，请先结清", unpaidAmount)
+		check.Message = fmt.Sprintf("有未支付账单：$%.2f，必须先结清账单", unpaidAmount)
 		check.Details = map[string]interface{}{
 			"unpaid_amount": unpaidAmount,
 		}
 	} else {
 		check.Passed = true
-		check.Message = "没有未支付账单"
+		check.Message = "账单已结清"
 		check.Blocker = false
+
+		// 获取使用量摘要
+		if usage, err := uc.billingRepo.GetUsageSummary(ctx, tenantID); err == nil {
+			check.Details = usage
+		}
 	}
 
 	return check
@@ -288,17 +387,11 @@ func (uc *TenantDeletionUsecase) checkDependencies(ctx context.Context, tenantID
 		Blocker:  true,
 	}
 
-	// 实际应该检查是否有其他租户依赖
-	hasDependencies := false // Mock数据
-
-	if hasDependencies {
-		check.Passed = false
-		check.Message = "存在依赖关系，无法删除"
-	} else {
-		check.Passed = true
-		check.Message = "没有依赖关系"
-		check.Blocker = false
-	}
+	// 检查租户依赖（暂不实现复杂依赖逻辑）
+	// 未来可以扩展：检查子租户、共享资源、跨租户权限等
+	check.Passed = true
+	check.Message = "没有依赖关系"
+	check.Blocker = false
 
 	return check
 }
@@ -311,20 +404,13 @@ func (uc *TenantDeletionUsecase) checkBackupStatus(ctx context.Context, tenantID
 		Blocker:  false,
 	}
 
-	// 实际应该检查最近的备份时间
-	hasRecentBackup := false // Mock数据
-	lastBackup := time.Now().Add(-48 * time.Hour)
-
+	// 备份检查（当前简化实现：建议人工确认）
+	// 未来可以集成备份服务API，检查最近备份时间
+	check.Passed = false
+	check.Message = "建议在删除前手动备份重要数据"
 	check.Details = map[string]interface{}{
-		"last_backup": lastBackup.Format(time.RFC3339),
-	}
-
-	if !hasRecentBackup {
-		check.Passed = false
-		check.Message = fmt.Sprintf("最近备份时间：%s，建议先备份数据", lastBackup.Format("2006-01-02"))
-	} else {
-		check.Passed = true
-		check.Message = "数据已备份"
+		"recommendation": "Export tenant data before deletion",
+		"note":           "Deletion is irreversible",
 	}
 
 	return check
@@ -410,27 +496,47 @@ func (uc *TenantDeletionUsecase) DeleteTenant(ctx context.Context, tenantID stri
 
 // deleteUsers 删除用户
 func (uc *TenantDeletionUsecase) deleteUsers(ctx context.Context, tenantID string) (int64, error) {
-	// 实际应该调用用户服务API
-	// 这里返回Mock数据
-	return 25, nil
+	count, err := uc.userRepo.DeleteByTenantID(ctx, tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete users: %w", err)
+	}
+	return count, nil
 }
 
 // deleteConversations 删除对话
 func (uc *TenantDeletionUsecase) deleteConversations(ctx context.Context, tenantID string) (int64, error) {
-	// 实际应该调用对话服务API
-	return 350, nil
+	// 先终止所有活跃会话
+	if err := uc.sessionRepo.TerminateAllByTenantID(ctx, tenantID); err != nil {
+		return 0, fmt.Errorf("failed to terminate sessions: %w", err)
+	}
+
+	// 删除对话记录
+	count, err := uc.conversationRepo.DeleteByTenantID(ctx, tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete conversations: %w", err)
+	}
+	return count, nil
 }
 
 // deleteDocuments 删除文档
 func (uc *TenantDeletionUsecase) deleteDocuments(ctx context.Context, tenantID string) (int64, error) {
-	// 实际应该调用文档服务API
-	return 120, nil
+	count, err := uc.knowledgeRepo.CountDocumentsByTenantID(ctx, tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count documents: %w", err)
+	}
+
+	// 删除实际在deleteKnowledgeBase中统一处理
+	return count, nil
 }
 
 // deleteKnowledgeBase 删除知识库
 func (uc *TenantDeletionUsecase) deleteKnowledgeBase(ctx context.Context, tenantID string) (int64, error) {
-	// 实际应该调用知识库服务API
-	return 850, nil
+	// 删除所有知识库相关数据：文档、向量、图谱实体等
+	count, err := uc.knowledgeRepo.DeleteByTenantID(ctx, tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete knowledge base: %w", err)
+	}
+	return count, nil
 }
 
 // Repository interfaces (should be defined elsewhere)
@@ -440,7 +546,15 @@ type TenantRepository interface {
 }
 
 type UserRepository interface {
-	CountByTenant(ctx context.Context, tenantID string) (int, error)
+	ListByTenant(ctx context.Context, tenantID string, offset, limit int) ([]*User, error)
+	DeleteByTenantID(ctx context.Context, tenantID string) (int64, error)
+}
+
+// User 用户模型
+type User struct {
+	ID       string
+	TenantID string
+	Status   string
 }
 
 // Tenant model (should be defined elsewhere)

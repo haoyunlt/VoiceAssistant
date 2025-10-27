@@ -9,12 +9,12 @@ import json
 import time
 from typing import Any, Dict, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from app.llm.multi_llm_adapter import get_multi_llm_adapter
 from app.tools.dynamic_registry import get_tool_registry
 from app.websocket.connection_manager import get_connection_manager
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class MessageHandler:

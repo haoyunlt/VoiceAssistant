@@ -1,0 +1,201 @@
+# 弹性机制统一配置
+# 适用于所有 Python 和 Go 服务
+
+# 熔断器配置
+circuit_breaker:
+  # 默认配置（所有服务共用）
+  default:
+    # 触发熔断的连续失败次数
+    failure_threshold: 5
+    # 从打开到半开的等待时间（秒）
+    recovery_timeout: 60
+    # 半开状态下允许的最大并发请求数
+    max_requests: 3
+    # 半开状态下需要的连续成功次数才能恢复关闭状态
+    success_threshold: 2
+
+  # 服务特定配置（可覆盖默认值）
+  services:
+    # LLM 调用熔断器（对外部模型调用更宽容）
+    llm:
+      failure_threshold: 10
+      recovery_timeout: 120
+      max_requests: 5
+      success_threshold: 3
+
+    # 向量存储熔断器
+    vector_store:
+      failure_threshold: 5
+      recovery_timeout: 30
+      max_requests: 3
+      success_threshold: 2
+
+    # 外部API调用熔断器（严格）
+    external_api:
+      failure_threshold: 3
+      recovery_timeout: 300
+      max_requests: 1
+      success_threshold: 5
+
+# 重试策略配置
+retry:
+  # 默认重试策略
+  default:
+    # 最大重试次数
+    max_attempts: 3
+    # 初始延迟（毫秒）
+    initial_delay: 100
+    # 最大延迟（秒）
+    max_delay: 10
+    # 指数退避乘数
+    backoff_multiplier: 2.0
+    # 是否对所有错误都重试（false则需要明确指定可重试的错误类型）
+    retry_all_errors: false
+
+  # 服务特定重试策略
+  services:
+    # LLM 调用重试（更宽松）
+    llm:
+      max_attempts: 5
+      initial_delay: 500
+      max_delay: 30
+      backoff_multiplier: 2.0
+      # 可重试的错误类型
+      retryable_errors:
+        - "TimeoutException"
+        - "ConnectionError"
+        - "RateLimitError"
+
+    # 数据库查询重试（快速）
+    database:
+      max_attempts: 3
+      initial_delay: 50
+      max_delay: 5
+      backoff_multiplier: 2.0
+      retryable_errors:
+        - "ConnectionError"
+        - "DeadlockError"
+
+    # HTTP 请求重试
+    http:
+      max_attempts: 3
+      initial_delay: 200
+      max_delay: 10
+      backoff_multiplier: 2.0
+      # HTTP 状态码可重试列表
+      retryable_status_codes:
+        - 408 # Request Timeout
+        - 429 # Too Many Requests
+        - 500 # Internal Server Error
+        - 502 # Bad Gateway
+        - 503 # Service Unavailable
+        - 504 # Gateway Timeout
+
+# 超时配置（毫秒）
+timeout:
+  # 默认超时
+  default: 30000
+
+  # 服务特定超时
+  services:
+    # LLM 调用超时（较长）
+    llm: 60000
+    # 流式LLM超时
+    llm_stream: 120000
+    # Embedding 超时
+    embedding: 10000
+    # 向量检索超时
+    vector_search: 5000
+    # 数据库查询超时
+    database: 5000
+    # HTTP 请求超时
+    http: 10000
+    # gRPC 调用超时
+    grpc: 5000
+
+# 限流配置（每秒请求数）
+rate_limit:
+  # 是否启用限流
+  enabled: true
+
+  # 默认限流
+  default:
+    requests_per_second: 100
+    burst: 200
+
+  # 端点特定限流
+  endpoints:
+    # LLM 调用限流（保护外部API）
+    "/api/v1/llm/*":
+      requests_per_second: 10
+      burst: 20
+
+    # Embedding 限流
+    "/api/v1/embedding/*":
+      requests_per_second: 50
+      burst: 100
+
+    # 检索限流
+    "/api/v1/retrieval/*":
+      requests_per_second: 100
+      burst: 200
+
+# 降级策略
+degradation:
+  # 是否启用自动降级
+  enabled: true
+
+  # 降级触发条件
+  triggers:
+    # 错误率阈值（百分比）
+    error_rate_threshold: 50
+    # 延迟阈值（毫秒）
+    latency_p95_threshold: 5000
+    # 并发请求数阈值
+    concurrent_requests_threshold: 1000
+
+  # 降级策略
+  strategies:
+    # 缓存降级：优先使用缓存数据
+    cache_fallback: true
+    # 简化响应：返回简化版本的数据
+    simplified_response: true
+    # 默认响应：返回预设的默认值
+    default_response: true
+
+# 监控和指标
+monitoring:
+  # 是否启用指标收集
+  enabled: true
+
+  # 指标导出间隔（秒）
+  export_interval: 60
+
+  # 收集的指标
+  metrics:
+    - circuit_breaker_state
+    - circuit_breaker_failures
+    - retry_attempts
+    - timeout_count
+    - rate_limit_rejections
+# 说明
+#
+# 使用示例（Python）:
+# ```python
+# from algo.common.resilience import CircuitBreaker
+# from algo.common.config import load_config
+#
+# config = load_config('configs/resilience.yaml')
+# breaker = CircuitBreaker(
+#     name='llm-service',
+#     **config['circuit_breaker']['services']['llm']
+# )
+# ```
+#
+# 使用示例（Go）:
+# ```go
+# import "voice-assistant/pkg/resilience"
+#
+# config := resilience.LoadConfig("configs/resilience.yaml")
+# breaker := resilience.NewCircuitBreaker(config.CircuitBreaker.Services["llm"])
+# ```

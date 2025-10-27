@@ -6,7 +6,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from app.tools.real_tools import (
     ALL_TOOLS,
     CalculatorTool,
@@ -16,7 +16,7 @@ from app.tools.real_tools import (
     WeatherTool,
 )
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class DynamicToolRegistry:

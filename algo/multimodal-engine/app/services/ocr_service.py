@@ -12,10 +12,10 @@ from paddleocr import PaddleOCR
 from PIL import Image
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.models.multimodal import OCRRequest, OCRResponse, OCRTextBlock
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class OCRService:

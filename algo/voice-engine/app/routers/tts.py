@@ -8,12 +8,12 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from app.core.logging_config import get_logger
+import logging
 from app.models.voice import TTSRequest, TTSResponse
 from app.services.multi_vendor_adapter import get_multi_vendor_adapter
 from app.services.tts_service import TTSService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/tts", tags=["TTS"])
 
 # 全局服务实例

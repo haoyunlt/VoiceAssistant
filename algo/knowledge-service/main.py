@@ -7,7 +7,7 @@ Knowledge Service - Main Application
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
-from app.core.logging_config import get_logger, setup_logging
+import logging, setup_logging
 from app.graph.knowledge_graph_service import get_kg_service
 from app.graph.neo4j_client import get_neo4j_client
 from app.routers import knowledge_graph
@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # 设置日志
 setup_logging(settings.LOG_LEVEL)
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # 全局服务实例
 kafka_producer = None

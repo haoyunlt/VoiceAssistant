@@ -10,10 +10,10 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.logging_config import get_logger
+import logging
 from app.tools.dynamic_registry import get_tool_registry
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/tools", tags=["Tools"])
 

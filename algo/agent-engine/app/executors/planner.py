@@ -7,10 +7,10 @@ Planner - 任务规划器
 import json
 from typing import List, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from pydantic import BaseModel, Field
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Step(BaseModel):

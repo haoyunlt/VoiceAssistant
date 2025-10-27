@@ -356,13 +356,28 @@ class EmotionRecognitionService:
             raise
 
 
-# 全局单例
+# 全局单例（线程安全版本）
+import threading
+
 _emotion_service: Optional[EmotionRecognitionService] = None
+_emotion_service_lock = threading.Lock()
 
 
 def get_emotion_service() -> EmotionRecognitionService:
-    """获取情感识别服务单例"""
+    """
+    获取情感识别服务单例（线程安全）
+
+    使用双重检查锁定模式确保线程安全的单例初始化
+    """
     global _emotion_service
-    if _emotion_service is None:
-        _emotion_service = EmotionRecognitionService(use_pretrained=True)
-    return _emotion_service
+
+    # 第一次检查（无锁，快速路径）
+    if _emotion_service is not None:
+        return _emotion_service
+
+    # 第二次检查（加锁）
+    with _emotion_service_lock:
+        if _emotion_service is None:
+            _emotion_service = EmotionRecognitionService(use_pretrained=True)
+            logger.info("EmotionRecognitionService singleton initialized")
+        return _emotion_service

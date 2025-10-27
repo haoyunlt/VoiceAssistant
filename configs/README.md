@@ -199,6 +199,8 @@ export CONFIG_MODE=local
 
 ## 配置文件结构
 
+### 服务配置文件
+
 所有服务配置文件都应包含 `nacos` 配置块：
 
 ```yaml
@@ -216,6 +218,75 @@ nacos:
 service:
   name: 'service-name'
   # ...
+```
+
+### 统一基础配置文件
+
+为了消除跨语言（Python/Go）的功能重复，新增以下统一配置文件：
+
+#### 1. `resilience.yaml` - 弹性机制配置
+
+包含熔断器、重试、超时、限流等统一配置：
+
+```yaml
+circuit_breaker:
+  default:
+    failure_threshold: 5
+    recovery_timeout: 60
+    max_requests: 3
+    success_threshold: 2
+
+retry:
+  default:
+    max_attempts: 3
+    initial_delay: 100
+    max_delay: 10
+    backoff_multiplier: 2.0
+```
+
+**使用方式：**
+- Python: `from algo.common.config import load_config`
+- Go: `import "voice-assistant/pkg/config"`
+- Nacos DataID: `resilience.yaml`
+- Nacos Group: `VoiceAssistant-Common`
+
+#### 2. `observability.yaml` - 可观测性配置
+
+包含OpenTelemetry追踪、Prometheus指标、日志等统一配置：
+
+```yaml
+tracing:
+  enabled: true
+  service:
+    name: "service-name"  # 各服务需覆盖
+    version: "1.0.0"
+    environment: "development"
+  exporter:
+    endpoint: "localhost:4317"
+    insecure: true
+  sampling:
+    rate: 1.0  # 生产环境建议0.1-0.5
+```
+
+**使用方式：**
+- Python: `from algo.common.telemetry import init_tracing, TracingConfig`
+- Go: `import "voice-assistant/pkg/observability"`
+- Nacos DataID: `observability.yaml`
+- Nacos Group: `VoiceAssistant-Common`
+
+### Nacos 配置组织结构
+
+```
+命名空间: public (或 dev/staging/prod)
+├── Group: VoiceAssistant (服务配置)
+│   ├── conversation-service.yaml
+│   ├── agent-engine.yaml
+│   ├── model-router.yaml
+│   └── ...
+└── Group: VoiceAssistant-Common (公共配置)
+    ├── resilience.yaml
+    ├── observability.yaml
+    └── services-integration.yaml
 ```
 
 ## Go 服务集成

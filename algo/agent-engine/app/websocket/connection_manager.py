@@ -9,9 +9,9 @@ from typing import Dict, List, Optional
 
 from fastapi import WebSocket
 
-from app.core.logging_config import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:

@@ -14,9 +14,9 @@ except ImportError:
     NEO4J_AVAILABLE = False
     AsyncGraphDatabase = None
 
-from app.core.logging_config import get_logger
+import logging
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Neo4jClient:

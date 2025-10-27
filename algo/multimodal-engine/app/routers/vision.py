@@ -4,11 +4,11 @@ Vision understanding endpoints (using Vision LLMs)
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.core.logging_config import get_logger
+import logging
 from app.models.multimodal import VisionRequest, VisionResponse
 from app.services.vision_service import VisionService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/vision", tags=["Vision"])
 
 # 全局服务实例

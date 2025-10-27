@@ -1,0 +1,108 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  # Prometheus metrics scraping
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "voice-assistant-services"
+          scrape_interval: 15s
+          static_configs:
+            - targets:
+                - "agent-engine:8003"
+                - "rag-engine:8002"
+                - "voice-engine:8001"
+                - "indexing-service:8004"
+                - "retrieval-service:8005"
+              labels:
+                environment: "development"
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+    send_batch_max_size: 2048
+
+  # 资源属性处理
+  resource:
+    attributes:
+      - key: service.namespace
+        value: voice-assistant
+        action: upsert
+
+  # 采样（可选，降低存储成本）
+  probabilistic_sampler:
+    sampling_percentage: 100 # 开发环境100%，生产环境可降低
+
+  # 内存限制
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 512
+    spike_limit_mib: 128
+
+exporters:
+  # Jaeger exporter
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Tempo exporter
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+
+  # Prometheus exporter
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: voice_assistant
+    const_labels:
+      environment: development
+
+  # Logging exporter (调试用)
+  logging:
+    loglevel: info
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # File exporter (备份)
+  file:
+    path: /var/log/otel/traces.json
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  pprof:
+    endpoint: 0.0.0.0:1888
+  zpages:
+    endpoint: 0.0.0.0:55679
+
+service:
+  extensions: [health_check, pprof, zpages]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource, probabilistic_sampler]
+      exporters: [otlp/jaeger, otlp/tempo, logging]
+
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, batch, resource]
+      exporters: [prometheus, logging]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch, resource]
+      exporters: [logging]
+
+  telemetry:
+    logs:
+      level: "info"
+    metrics:
+      address: 0.0.0.0:8888

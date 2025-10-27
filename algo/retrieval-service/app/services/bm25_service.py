@@ -8,10 +8,10 @@ from typing import Any, Dict, List, Optional
 from elasticsearch import AsyncElasticsearch
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.models.retrieval import RetrievalDocument
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class BM25Service:

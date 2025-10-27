@@ -5,10 +5,10 @@ Hybrid search service (Vector + BM25 + RRF)
 from typing import Dict, List
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.models.retrieval import RetrievalDocument
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class HybridService:

@@ -13,10 +13,10 @@ import torch
 from pydub import AudioSegment
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.models.voice import VADRequest, VADResponse, VoiceSegment
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class VADService:

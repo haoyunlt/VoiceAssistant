@@ -12,8 +12,12 @@ import (
 
 // ClickHouseClient ClickHouse客户端
 type ClickHouseClient struct {
-	conn driver.Conn
-	log  *log.Helper
+	conn   driver.Conn
+	log    *log.Helper
+	config *ClickHouseConfig
+
+	// 连接池统计
+	stats ConnectionPoolStats
 }
 
 // ClickHouseConfig ClickHouse配置
@@ -24,6 +28,17 @@ type ClickHouseConfig struct {
 	Username string
 	Password string
 	Debug    bool
+}
+
+// ConnectionPoolStats 连接池统计信息
+type ConnectionPoolStats struct {
+	TotalConnections  int64 `json:"total_connections"`
+	ActiveConnections int64 `json:"active_connections"`
+	IdleConnections   int64 `json:"idle_connections"`
+	WaitCount         int64 `json:"wait_count"`
+	WaitDuration      int64 `json:"wait_duration_ms"`
+	MaxIdleClosed     int64 `json:"max_idle_closed"`
+	MaxLifetimeClosed int64 `json:"max_lifetime_closed"`
 }
 
 // NewClickHouseClient 创建ClickHouse客户端
@@ -56,8 +71,9 @@ func NewClickHouseClient(config *ClickHouseConfig, logger log.Logger) (*ClickHou
 	}
 
 	client := &ClickHouseClient{
-		conn: conn,
-		log:  log.NewHelper(logger),
+		conn:   conn,
+		log:    log.NewHelper(logger),
+		config: config,
 	}
 
 	// 初始化表结构
@@ -543,4 +559,82 @@ func (c *ClickHouseClient) QueryStats(ctx context.Context, query string, args ..
 // Exec 执行SQL
 func (c *ClickHouseClient) Exec(ctx context.Context, query string, args ...interface{}) error {
 	return c.conn.Exec(ctx, query, args...)
+}
+
+// GetConnectionPoolStats 获取连接池统计信息
+func (c *ClickHouseClient) GetConnectionPoolStats(ctx context.Context) (*ConnectionPoolStats, error) {
+	// ClickHouse系统表查询连接信息
+	query := `
+	SELECT
+		countDistinct(user) as total_connections,
+		count() as active_connections,
+		countIf(query = '') as idle_connections
+	FROM system.processes
+	WHERE user = ?
+	`
+
+	var totalConn, activeConn, idleConn int64
+
+	row := c.conn.QueryRow(ctx, query, c.config.Username)
+	if err := row.Scan(&totalConn, &activeConn, &idleConn); err != nil {
+		c.log.Warnf("Failed to query connection pool stats: %v", err)
+		// 返回默认统计
+		return &c.stats, nil
+	}
+
+	c.stats.TotalConnections = totalConn
+	c.stats.ActiveConnections = activeConn
+	c.stats.IdleConnections = idleConn
+
+	return &c.stats, nil
+}
+
+// GetPoolUtilization 获取连接池利用率
+func (c *ClickHouseClient) GetPoolUtilization(ctx context.Context) float64 {
+	stats, err := c.GetConnectionPoolStats(ctx)
+	if err != nil || stats.TotalConnections == 0 {
+		return 0.0
+	}
+
+	return float64(stats.ActiveConnections) / float64(stats.TotalConnections)
+}
+
+// GetServerStats 获取ClickHouse服务器统计
+func (c *ClickHouseClient) GetServerStats(ctx context.Context) (map[string]interface{}, error) {
+	query := `
+	SELECT
+		name,
+		value
+	FROM system.metrics
+	WHERE name IN (
+		'Query',
+		'BackgroundPoolTask',
+		'BackgroundSchedulePoolTask',
+		'MemoryTracking',
+		'MaxPartCountForPartition'
+	)
+	`
+
+	rows, err := c.conn.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query server stats: %w", err)
+	}
+	defer rows.Close()
+
+	stats := make(map[string]interface{})
+	for rows.Next() {
+		var name string
+		var value int64
+		if err := rows.Scan(&name, &value); err != nil {
+			c.log.Warnf("Failed to scan row: %v", err)
+			continue
+		}
+		stats[name] = value
+	}
+
+	// 添加连接池统计
+	poolStats, _ := c.GetConnectionPoolStats(ctx)
+	stats["connection_pool"] = poolStats
+
+	return stats, nil
 }

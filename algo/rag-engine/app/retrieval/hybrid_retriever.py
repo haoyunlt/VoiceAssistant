@@ -7,10 +7,10 @@ Hybrid Retriever - 混合检索器
 import os
 from typing import Any, Dict, List, Optional
 
-from app.core.logging_config import get_logger
+import logging
 from app.retrieval.bm25_retriever import get_bm25_retriever
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class HybridRetriever:

@@ -14,10 +14,10 @@ except ImportError:
     ANTHROPIC_AVAILABLE = False
     AsyncAnthropic = None
 
-from app.core.logging_config import get_logger
+import logging
 from app.llm.base import CompletionResponse, LLMClient, Message
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class ClaudeClient(LLMClient):

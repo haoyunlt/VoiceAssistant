@@ -4,11 +4,11 @@ OCR (Optical Character Recognition) endpoints
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-from app.core.logging_config import get_logger
+import logging
 from app.models.multimodal import OCRRequest, OCRResponse
 from app.services.ocr_service import OCRService
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/ocr", tags=["OCR"])
 
 # 全局服务实例

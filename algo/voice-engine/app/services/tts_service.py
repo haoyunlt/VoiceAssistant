@@ -11,11 +11,11 @@ from typing import AsyncGenerator, List, Optional
 import edge_tts
 
 from app.core.config import settings
-from app.core.logging_config import get_logger
+import logging
 from app.infrastructure.tts_cache import TTSRedisCache
 from app.models.voice import TTSRequest, TTSResponse
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class TTSService:

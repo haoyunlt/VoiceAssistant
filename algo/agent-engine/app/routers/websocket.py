@@ -7,11 +7,11 @@ import uuid
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
-from app.core.logging_config import get_logger
+import logging
 from app.websocket.connection_manager import get_connection_manager
 from app.websocket.message_handler import get_message_handler
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ws", tags=["WebSocket"])
 
 

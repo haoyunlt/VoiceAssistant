@@ -12,17 +12,27 @@ RAG Engine - 检索增强生成引擎
 
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
+from starlette.middleware.base import BaseHTTPMiddleware
 
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# 添加 common 模块到路径
+sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+
+# 导入统一基础设施模块
+from cors_config import get_cors_config
+from cost_tracking import cost_tracking_middleware
+from exception_handlers import register_exception_handlers
+from structured_logging import logging_middleware, setup_logging
+from telemetry import TracingConfig, init_tracing
+
+# 配置统一日志
+setup_logging(service_name="rag-engine")
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +42,16 @@ async def lifespan(app: FastAPI):
     logger.info("Starting RAG Engine...")
 
     try:
+        # 初始化 OpenTelemetry 追踪
+        tracing_config = TracingConfig(
+            service_name="rag-engine",
+            service_version=os.getenv("SERVICE_VERSION", "1.0.0"),
+            environment=os.getenv("ENV", "development"),
+        )
+        tracer = init_tracing(tracing_config)
+        if tracer:
+            logger.info("OpenTelemetry tracing initialized")
+
         # 初始化 RAG 服务
         from app.routers.rag import init_rag_service
 
@@ -61,14 +81,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS 中间件
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# CORS 中间件（使用统一配置）
+cors_config = get_cors_config()
+app.add_middleware(CORSMiddleware, **cors_config)
+
+# 日志中间件
+app.add_middleware(BaseHTTPMiddleware, dispatch=logging_middleware)
+
+# 成本追踪中间件
+app.add_middleware(BaseHTTPMiddleware, dispatch=cost_tracking_middleware)
+
+# 注册全局异常处理器
+register_exception_handlers(app)
 
 # 注册路由
 from app.routers import rag as rag_router
