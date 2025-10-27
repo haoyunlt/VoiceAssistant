@@ -213,19 +213,85 @@ class ToolService:
 
     async def _web_search_tool(self, query: str) -> str:
         """
-        互联网搜索工具（示例实现）
-
-        TODO: 接入真实搜索API（如Google、Bing、DuckDuckGo等）
+        互联网搜索工具
+        集成真实搜索 API (DuckDuckGo / SerpAPI)
         """
-        logger.info(f"Web search (mock): {query}")
+        import os
 
-        # 示例实现 - 返回Mock结果
-        return f"""Web search results for '{query}':
+        logger.info(f"Web search: {query}")
 
-1. [Example Result 1] This is a mock search result. In production, this would call a real search API.
+        try:
+            # 优先使用 SerpAPI（如果配置了）
+            if os.getenv("SERPAPI_KEY"):
+                return await self._search_with_serpapi(query)
 
-2. [Example Result 2] You can integrate with Google Custom Search, Bing API, or other search services.
+            # 备选：DuckDuckGo
+            return await self._search_with_duckduckgo(query)
 
-3. [Example Result 3] Consider using Serper API, SerpAPI, or similar services for production.
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            return f"搜索失败: {str(e)}"
 
-Note: This is a placeholder. Implement real search API integration for production use."""
+    async def _search_with_serpapi(self, query: str) -> str:
+        """使用 SerpAPI 搜索"""
+        import os
+
+        import httpx
+
+        api_key = os.getenv("SERPAPI_KEY")
+        url = "https://serpapi.com/search"
+
+        params = {
+            "engine": "google",
+            "q": query,
+            "api_key": api_key,
+            "num": 5
+        }
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, params=params)
+            response.raise_for_status()
+            result = response.json()
+
+        # 提取搜索结果
+        snippets = []
+        for item in result.get("organic_results", [])[:5]:
+            title = item.get("title", "")
+            snippet = item.get("snippet", "")
+            link = item.get("link", "")
+            snippets.append(f"**{title}**\n{snippet}\nURL: {link}")
+
+        return "\n\n".join(snippets) if snippets else "未找到相关结果"
+
+    async def _search_with_duckduckgo(self, query: str) -> str:
+        """使用 DuckDuckGo 搜索"""
+        try:
+            import asyncio
+
+            from duckduckgo_search import DDGS
+
+            # DuckDuckGo 搜索（在线程池中执行）
+            def search():
+                with DDGS() as ddgs:
+                    return list(ddgs.text(query, max_results=5))
+
+            loop = asyncio.get_event_loop()
+            results = await loop.run_in_executor(None, search)
+
+            if not results:
+                return "未找到相关结果"
+
+            snippets = []
+            for r in results:
+                title = r.get("title", "")
+                body = r.get("body", "")
+                href = r.get("href", "")
+                snippets.append(f"**{title}**\n{body}\nURL: {href}")
+
+            return "\n\n".join(snippets)
+
+        except ImportError:
+            return "DuckDuckGo 搜索模块未安装。请运行: pip install duckduckgo-search"
+        except Exception as e:
+            logger.error(f"DuckDuckGo search failed: {e}")
+            return f"搜索失败: {str(e)}"

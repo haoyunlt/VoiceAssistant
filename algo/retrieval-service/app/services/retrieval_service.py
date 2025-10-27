@@ -18,6 +18,7 @@ from app.models.retrieval import (
     VectorResponse,
 )
 from app.services.bm25_service import BM25Service
+from app.services.embedding_service import EmbeddingService
 from app.services.hybrid_service import HybridService
 from app.services.rerank_service import RerankService
 from app.services.vector_service import VectorService
@@ -33,20 +34,24 @@ class RetrievalService:
         self.bm25_service = BM25Service()
         self.hybrid_service = HybridService(rrf_k=settings.RRF_K)
         self.rerank_service = RerankService()
+        self.embedding_service = EmbeddingService()
 
     async def vector_search(self, request: VectorRequest) -> VectorResponse:
         """向量检索"""
         start_time = time.time()
 
-        # 如果没有提供向量，需要先获取向量（调用 embedding 服务）
+        # 如果没有提供向量，自动获取向量
         query_embedding = request.query_embedding
         if not query_embedding:
-            # TODO: 调用 embedding 服务获取向量
-            # 这里简化处理，假设已经提供了向量
-            logger.warning("No query embedding provided, returning empty results")
-            return VectorResponse(
-                documents=[], query=request.query, latency_ms=(time.time() - start_time) * 1000
-            )
+            if not request.query:
+                logger.warning("No query or embedding provided")
+                return VectorResponse(
+                    documents=[], query=request.query or "", latency_ms=(time.time() - start_time) * 1000
+                )
+
+            # 使用embedding服务获取向量
+            logger.info(f"Generating embedding for query: {request.query[:50]}...")
+            query_embedding = await self.embedding_service.embed_query(request.query)
 
         # 执行向量检索
         top_k = request.top_k or settings.VECTOR_TOP_K

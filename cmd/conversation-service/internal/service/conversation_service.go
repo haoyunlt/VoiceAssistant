@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"conversation-service/internal/biz"
-	"conversation-service/internal/domain"
+	"voiceassistant/conversation-service/internal/domain"
 )
 
 // ConversationService 对话服务实现

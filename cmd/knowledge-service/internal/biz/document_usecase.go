@@ -294,3 +294,184 @@ func isAllowedFileType(filename string) bool {
 	ext := filepath.Ext(filename)
 	return allowedExtensions[ext]
 }
+
+// BatchDeleteDocuments 批量删除文档
+func (uc *DocumentUsecase) BatchDeleteDocuments(ctx context.Context, documentIDs []string, userID string) (int, []string, error) {
+	successCount := 0
+	failedIDs := []string{}
+
+	for _, docID := range documentIDs {
+		err := uc.DeleteDocument(ctx, docID, userID)
+		if err != nil {
+			uc.log.Errorf("Failed to delete document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+		} else {
+			successCount++
+		}
+	}
+
+	return successCount, failedIDs, nil
+}
+
+// BatchUpdateDocumentStatus 批量更新文档状态
+func (uc *DocumentUsecase) BatchUpdateDocumentStatus(ctx context.Context, documentIDs []string, status domain.DocumentStatus, userID string) (int, []string, error) {
+	successCount := 0
+	failedIDs := []string{}
+
+	for _, docID := range documentIDs {
+		// 检查权限
+		doc, err := uc.repo.FindByID(ctx, docID)
+		if err != nil {
+			uc.log.Errorf("Failed to find document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 检查知识库权限
+		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		if err != nil {
+			uc.log.Errorf("No permission for document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		if kb == nil {
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 更新状态
+		err = uc.UpdateDocumentStatus(ctx, docID, status)
+		if err != nil {
+			uc.log.Errorf("Failed to update document status %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+		} else {
+			successCount++
+		}
+	}
+
+	return successCount, failedIDs, nil
+}
+
+// BatchMoveDocuments 批量移动文档到另一个知识库
+func (uc *DocumentUsecase) BatchMoveDocuments(ctx context.Context, documentIDs []string, targetKBID, userID string) (int, []string, error) {
+	// 检查目标知识库是否存在和权限
+	targetKB, err := uc.kbUsecase.GetKnowledgeBase(ctx, targetKBID, userID)
+	if err != nil {
+		return 0, documentIDs, fmt.Errorf("目标知识库不存在或无权限: %w", err)
+	}
+
+	if targetKB == nil {
+		return 0, documentIDs, fmt.Errorf("目标知识库不存在")
+	}
+
+	successCount := 0
+	failedIDs := []string{}
+
+	for _, docID := range documentIDs {
+		// 检查文档权限
+		doc, err := uc.repo.FindByID(ctx, docID)
+		if err != nil {
+			uc.log.Errorf("Failed to find document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 检查源知识库权限
+		sourceKB, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		if err != nil || sourceKB == nil {
+			uc.log.Errorf("No permission for document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 更新知识库ID
+		doc.KnowledgeBaseID = targetKBID
+		doc.UpdatedAt = time.Now()
+
+		err = uc.repo.Update(ctx, doc)
+		if err != nil {
+			uc.log.Errorf("Failed to move document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+		} else {
+			successCount++
+		}
+	}
+
+	return successCount, failedIDs, nil
+}
+
+// BatchExportDocuments 批量导出文档（生成下载链接）
+func (uc *DocumentUsecase) BatchExportDocuments(ctx context.Context, documentIDs []string, userID string) (map[string]string, []string, error) {
+	exportLinks := make(map[string]string)
+	failedIDs := []string{}
+
+	for _, docID := range documentIDs {
+		// 检查文档权限
+		doc, err := uc.repo.FindByID(ctx, docID)
+		if err != nil {
+			uc.log.Errorf("Failed to find document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 检查知识库权限
+		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		if err != nil || kb == nil {
+			uc.log.Errorf("No permission for document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 生成临时下载链接（有效期1小时）
+		downloadURL, err := uc.storageClient.GeneratePresignedURL(ctx, doc.StoragePath, 3600)
+		if err != nil {
+			uc.log.Errorf("Failed to generate download URL for document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		exportLinks[docID] = downloadURL
+	}
+
+	return exportLinks, failedIDs, nil
+}
+
+// BatchReprocessDocuments 批量重新处理文档
+func (uc *DocumentUsecase) BatchReprocessDocuments(ctx context.Context, documentIDs []string, userID string) (int, []string, error) {
+	successCount := 0
+	failedIDs := []string{}
+
+	for _, docID := range documentIDs {
+		// 检查文档权限
+		doc, err := uc.repo.FindByID(ctx, docID)
+		if err != nil {
+			uc.log.Errorf("Failed to find document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 检查知识库权限
+		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		if err != nil || kb == nil {
+			uc.log.Errorf("No permission for document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 更新状态为pending，触发重新处理
+		doc.Status = domain.DocumentStatusPending
+		doc.UpdatedAt = time.Now()
+
+		err = uc.repo.Update(ctx, doc)
+		if err != nil {
+			uc.log.Errorf("Failed to reprocess document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+		} else {
+			// TODO: 发布文档处理事件到Kafka
+			successCount++
+		}
+	}
+
+	return successCount, failedIDs, nil
+}

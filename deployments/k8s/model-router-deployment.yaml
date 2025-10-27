@@ -1,0 +1,423 @@
+---
+# Model Router ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-router-config
+  namespace: voicehelper-prod
+data:
+  # 应用配置
+  APP_NAME: "model-router"
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  
+  # 服务端口
+  HTTP_PORT: "8080"
+  GRPC_PORT: "9000"
+  
+  # PostHog配置
+  POSTHOG_ENABLED: "true"
+  POSTHOG_HOST: "http://posthog-web.posthog.svc.cluster.local:8000"  # PostHog服务地址
+  # 如果使用PostHog云服务，改为: https://app.posthog.com
+  
+  # PostgreSQL配置
+  DB_HOST: "postgres-service.voicehelper-prod.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "model_router"
+  DB_USER: "model_router"
+  DB_SSL_MODE: "disable"
+  
+  # Redis配置
+  REDIS_ADDR: "redis-service.voicehelper-prod.svc.cluster.local:6379"
+  REDIS_DB: "0"
+  
+  # Consul配置 (服务发现)
+  CONSUL_ADDR: "consul-service.voicehelper-prod.svc.cluster.local:8500"
+  
+  # Prometheus配置
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9090"
+
+---
+# Model Router Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: model-router-secret
+  namespace: voicehelper-prod
+type: Opaque
+stringData:
+  # PostHog API密钥 - 从PostHog控制台获取
+  POSTHOG_API_KEY: "phc_YOUR_PROJECT_API_KEY_HERE"
+  
+  # 数据库密码
+  DB_PASSWORD: "your-db-password"
+  
+  # Redis密码（如果有）
+  REDIS_PASSWORD: ""
+  
+  # LLM API密钥
+  OPENAI_API_KEY: "sk-..."
+  ANTHROPIC_API_KEY: "sk-ant-..."
+  ZHIPU_API_KEY: ""
+  DASHSCOPE_API_KEY: ""
+  BAIDU_API_KEY: ""
+  BAIDU_SECRET_KEY: ""
+
+---
+# Model Router Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-router
+  namespace: voicehelper-prod
+  labels:
+    app: model-router
+    component: ai-infrastructure
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: model-router
+  template:
+    metadata:
+      labels:
+        app: model-router
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: model-router-sa
+      initContainers:
+      # 等待PostgreSQL就绪
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z $DB_HOST $DB_PORT; do 
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+        envFrom:
+        - configMapRef:
+            name: model-router-config
+      
+      # 等待Redis就绪
+      - name: wait-for-redis
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          until nc -z $(echo $REDIS_ADDR | cut -d: -f1) $(echo $REDIS_ADDR | cut -d: -f2); do 
+            echo "Waiting for Redis..."
+            sleep 2
+          done
+        envFrom:
+        - configMapRef:
+            name: model-router-config
+      
+      containers:
+      - name: model-router
+        image: your-registry/model-router:latest  # 替换为你的镜像
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 9000
+          name: grpc
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        
+        env:
+        # 从ConfigMap加载配置
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: APP_NAME
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: APP_ENV
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: LOG_LEVEL
+        
+        # PostHog配置
+        - name: POSTHOG_ENABLED
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: POSTHOG_ENABLED
+        - name: POSTHOG_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: POSTHOG_HOST
+        - name: POSTHOG_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-router-secret
+              key: POSTHOG_API_KEY
+        
+        # 数据库配置
+        - name: DATABASE_URL
+          value: "postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSL_MODE)"
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: DB_PORT
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: DB_NAME
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: model-router-secret
+              key: DB_PASSWORD
+        - name: DB_SSL_MODE
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: DB_SSL_MODE
+        
+        # Redis配置
+        - name: REDIS_ADDR
+          valueFrom:
+            configMapKeyRef:
+              name: model-router-config
+              key: REDIS_ADDR
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: model-router-secret
+              key: REDIS_PASSWORD
+        
+        # LLM API密钥
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-router-secret
+              key: OPENAI_API_KEY
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-router-secret
+              key: ANTHROPIC_API_KEY
+        
+        # 健康检查
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # 资源限制
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        
+        # 优雅关闭
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 15"]
+      
+      # Pod优雅关闭时间
+      terminationGracePeriodSeconds: 30
+
+---
+# Model Router Service (HTTP + gRPC)
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-router
+  namespace: voicehelper-prod
+  labels:
+    app: model-router
+spec:
+  type: ClusterIP
+  selector:
+    app: model-router
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  - port: 9000
+    targetPort: 9000
+    protocol: TCP
+    name: grpc
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+    name: metrics
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+
+---
+# Model Router Service Account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: model-router-sa
+  namespace: voicehelper-prod
+
+---
+# Model Router HorizontalPodAutoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model-router-hpa
+  namespace: voicehelper-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model-router
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 30
+      selectPolicy: Max
+
+---
+# Model Router PodDisruptionBudget (保证高可用)
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: model-router-pdb
+  namespace: voicehelper-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: model-router
+
+---
+# Model Router Ingress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: model-router-ingress
+  namespace: voicehelper-prod
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    # Rate limiting
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    # CORS
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  tls:
+  - hosts:
+    - model-router.voicehelper.com  # 替换为你的域名
+    secretName: model-router-tls
+  rules:
+  - host: model-router.voicehelper.com  # 替换为你的域名
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: model-router
+            port:
+              number: 8080
+
+---
+# ServiceMonitor (用于Prometheus监控)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: model-router
+  namespace: voicehelper-prod
+  labels:
+    app: model-router
+spec:
+  selector:
+    matchLabels:
+      app: model-router
+  endpoints:
+  - port: metrics
+    interval: 30s
+    path: /metrics

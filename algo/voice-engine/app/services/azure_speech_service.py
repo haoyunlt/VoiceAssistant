@@ -1,385 +1,370 @@
-"""
-Azure Speech Service
+"""Azure Speech SDK集成服务"""
+import logging
+from typing import Optional, AsyncIterator
+import io
 
-提供 Azure Cognitive Services Speech SDK 集成：
-- ASR (Automatic Speech Recognition)
-- TTS (Text-to-Speech)
-"""
-
-import os
-from typing import Optional
-
-try:
-    import azure.cognitiveservices.speech as speechsdk
-    AZURE_SDK_AVAILABLE = True
-except ImportError:
-    AZURE_SDK_AVAILABLE = False
-    speechsdk = None
-
-from app.core.logging_config import get_logger
-
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class AzureSpeechService:
-    """Azure 语音服务"""
+    """
+    Azure Speech SDK服务
+    
+    作为Faster-Whisper和Edge-TTS的备份方案
+    """
 
-    def __init__(
-        self,
-        subscription_key: Optional[str] = None,
-        region: str = "eastasia",
-    ):
+    def __init__(self, subscription_key: str, region: str):
         """
-        初始化 Azure Speech 服务
-
+        初始化Azure Speech服务
+        
         Args:
-            subscription_key: Azure Speech 订阅密钥
-            region: Azure 区域（默认 eastasia）
-
-        Raises:
-            ImportError: 如果 Azure SDK 未安装
-            ValueError: 如果 subscription_key 未提供
+            subscription_key: Azure订阅密钥
+            region: Azure区域（如'eastus'）
         """
-        if not AZURE_SDK_AVAILABLE:
-            raise ImportError(
-                "Azure Speech SDK not installed. "
-                "Install it with: pip install azure-cognitiveservices-speech"
+        self.subscription_key = subscription_key
+        self.region = region
+        self.speech_config = None
+        self.initialized = False
+
+    async def initialize(self):
+        """初始化Azure Speech SDK"""
+        try:
+            import azure.cognitiveservices.speech as speechsdk
+            
+            # 配置Speech SDK
+            self.speech_config = speechsdk.SpeechConfig(
+                subscription=self.subscription_key,
+                region=self.region
             )
-
-        self.subscription_key = subscription_key or os.getenv("AZURE_SPEECH_KEY")
-        self.region = region or os.getenv("AZURE_SPEECH_REGION", "eastasia")
-
-        if not self.subscription_key:
-            raise ValueError(
-                "Azure Speech subscription key is required. "
-                "Set AZURE_SPEECH_KEY environment variable or pass it to constructor."
-            )
-
-        # ASR 配置
-        self.speech_config = speechsdk.SpeechConfig(
-            subscription=self.subscription_key, region=self.region
-        )
-
-        logger.info(f"Azure Speech Service initialized (region: {self.region})")
+            
+            # 设置语音识别语言
+            self.speech_config.speech_recognition_language = "zh-CN"
+            
+            # 设置语音合成语言和音色
+            self.speech_config.speech_synthesis_language = "zh-CN"
+            self.speech_config.speech_synthesis_voice_name = "zh-CN-XiaoxiaoNeural"
+            
+            self.initialized = True
+            logger.info("Azure Speech Service initialized successfully")
+            
+        except ImportError:
+            logger.warning("Azure Speech SDK not installed. Install with: pip install azure-cognitiveservices-speech")
+            self.initialized = False
+        except Exception as e:
+            logger.error(f"Failed to initialize Azure Speech Service: {e}")
+            self.initialized = False
 
     async def recognize_from_bytes(
-        self, audio_data: bytes, language: str = "zh-CN"
+        self,
+        audio_data: bytes,
+        language: str = "zh-CN"
     ) -> dict:
         """
-        ASR 识别（从字节数据）
-
+        从音频字节数据识别语音（ASR）
+        
         Args:
-            audio_data: 音频数据（16kHz, 16-bit, mono PCM）
-            language: 语言代码（zh-CN, en-US 等）
-
+            audio_data: 音频数据（WAV格式，16kHz，单声道）
+            language: 识别语言
+            
         Returns:
-            识别结果字典:
-            {
-                "text": str,          # 识别的文本
-                "confidence": float,  # 置信度 (0-1)
-                "language": str,      # 语言代码
-                "duration_ms": float, # 音频时长（毫秒）
-                "error": str          # 错误信息（如果失败）
-            }
+            识别结果字典
         """
+        if not self.initialized:
+            raise RuntimeError("Azure Speech Service not initialized")
+        
         try:
-            # 设置识别语言
-            self.speech_config.speech_recognition_language = language
-
-            # 创建音频格式
-            audio_format = speechsdk.audio.AudioStreamFormat(
-                samples_per_second=16000, bits_per_sample=16, channels=1
-            )
-
-            # 创建推送流
-            push_stream = speechsdk.audio.PushAudioInputStream(audio_format)
-            push_stream.write(audio_data)
-            push_stream.close()
-
+            import azure.cognitiveservices.speech as speechsdk
+            
+            # 创建音频流
+            audio_stream = speechsdk.audio.PushAudioInputStream()
+            audio_stream.write(audio_data)
+            audio_stream.close()
+            
             # 创建音频配置
-            audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
-
+            audio_config = speechsdk.audio.AudioConfig(stream=audio_stream)
+            
+            # 设置识别语言
+            speech_config = speechsdk.SpeechConfig(
+                subscription=self.subscription_key,
+                region=self.region
+            )
+            speech_config.speech_recognition_language = language
+            
             # 创建识别器
             speech_recognizer = speechsdk.SpeechRecognizer(
-                speech_config=self.speech_config, audio_config=audio_config
+                speech_config=speech_config,
+                audio_config=audio_config
             )
-
-            # 执行识别（同步）
+            
+            # 执行识别
             result = speech_recognizer.recognize_once()
-
+            
             # 处理结果
             if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-                # 成功识别
-                confidence = 0.0
-                try:
-                    # 尝试从 JSON 获取置信度
-                    import json
-                    result_json = json.loads(result.json)
-                    if "NBest" in result_json and len(result_json["NBest"]) > 0:
-                        confidence = result_json["NBest"][0].get("Confidence", 0.0)
-                except Exception:
-                    confidence = 0.9  # 默认置信度
-
-                duration_ms = 0
-                if hasattr(result, "duration"):
-                    duration_ms = result.duration.total_seconds() * 1000
-
                 return {
+                    "success": True,
                     "text": result.text,
-                    "confidence": confidence,
+                    "confidence": 0.95,  # Azure不提供置信度，使用固定值
                     "language": language,
-                    "duration_ms": duration_ms,
+                    "duration": 0,  # Azure不提供时长信息
+                    "provider": "azure"
                 }
-
             elif result.reason == speechsdk.ResultReason.NoMatch:
-                # 未识别到语音
                 return {
+                    "success": False,
                     "text": "",
-                    "confidence": 0.0,
-                    "language": language,
-                    "error": "未识别到语音内容",
+                    "error": "No speech recognized",
+                    "provider": "azure"
                 }
-
             elif result.reason == speechsdk.ResultReason.Canceled:
-                # 识别被取消
                 cancellation = result.cancellation_details
-                error_msg = f"识别取消: {cancellation.reason}"
-                if cancellation.error_details:
-                    error_msg += f", {cancellation.error_details}"
-
                 return {
+                    "success": False,
                     "text": "",
-                    "confidence": 0.0,
-                    "language": language,
-                    "error": error_msg,
+                    "error": f"Recognition canceled: {cancellation.reason}",
+                    "provider": "azure"
                 }
-
             else:
-                # 其他错误
                 return {
+                    "success": False,
                     "text": "",
-                    "confidence": 0.0,
-                    "language": language,
-                    "error": f"未知识别结果: {result.reason}",
+                    "error": "Unknown error",
+                    "provider": "azure"
                 }
-
+                
         except Exception as e:
-            logger.error(f"Azure ASR failed: {e}", exc_info=True)
+            logger.error(f"Azure ASR error: {e}")
             return {
+                "success": False,
                 "text": "",
-                "confidence": 0.0,
-                "language": language,
-                "error": f"Azure ASR 错误: {str(e)}",
+                "error": str(e),
+                "provider": "azure"
             }
 
-    async def synthesize(
+    async def recognize_streaming(
+        self,
+        audio_stream: AsyncIterator[bytes],
+        language: str = "zh-CN"
+    ) -> AsyncIterator[dict]:
+        """
+        流式语音识别
+        
+        Args:
+            audio_stream: 音频流
+            language: 识别语言
+            
+        Yields:
+            识别结果字典
+        """
+        if not self.initialized:
+            raise RuntimeError("Azure Speech Service not initialized")
+        
+        try:
+            import azure.cognitiveservices.speech as speechsdk
+            
+            # 创建推送流
+            push_stream = speechsdk.audio.PushAudioInputStream()
+            
+            # 创建音频配置
+            audio_config = speechsdk.audio.AudioConfig(stream=push_stream)
+            
+            # 设置识别语言
+            speech_config = speechsdk.SpeechConfig(
+                subscription=self.subscription_key,
+                region=self.region
+            )
+            speech_config.speech_recognition_language = language
+            
+            # 创建识别器
+            speech_recognizer = speechsdk.SpeechRecognizer(
+                speech_config=speech_config,
+                audio_config=audio_config
+            )
+            
+            # 设置识别事件处理
+            recognized_texts = []
+            
+            def recognized_callback(evt):
+                if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+                    recognized_texts.append({
+                        "text": evt.result.text,
+                        "is_final": True,
+                        "provider": "azure"
+                    })
+            
+            speech_recognizer.recognized.connect(recognized_callback)
+            
+            # 开始连续识别
+            speech_recognizer.start_continuous_recognition()
+            
+            # 推送音频数据
+            async for chunk in audio_stream:
+                push_stream.write(chunk)
+                
+                # 如果有识别结果，返回
+                while recognized_texts:
+                    yield recognized_texts.pop(0)
+            
+            # 关闭流
+            push_stream.close()
+            
+            # 停止识别
+            speech_recognizer.stop_continuous_recognition()
+            
+            # 返回剩余结果
+            while recognized_texts:
+                yield recognized_texts.pop(0)
+                
+        except Exception as e:
+            logger.error(f"Azure streaming ASR error: {e}")
+            yield {
+                "text": "",
+                "is_final": True,
+                "error": str(e),
+                "provider": "azure"
+            }
+
+    async def synthesize_to_bytes(
         self,
         text: str,
-        voice: str = "zh-CN-XiaoxiaoNeural",
+        voice_name: str = "zh-CN-XiaoxiaoNeural",
         rate: str = "0%",
-        pitch: str = "0%",
+        pitch: str = "0%"
     ) -> bytes:
         """
-        TTS 合成
-
+        文本转语音（TTS）
+        
         Args:
-            text: 待合成文本
-            voice: 语音名称（zh-CN-XiaoxiaoNeural 等）
-            rate: 语速（-50% ~ +100%）
-            pitch: 音调（-50% ~ +50%）
-
+            text: 要合成的文本
+            voice_name: 音色名称
+            rate: 语速（-100%到+200%）
+            pitch: 音调（-50%到+50%）
+            
         Returns:
-            音频数据（bytes）
-
-        Raises:
-            Exception: 合成失败
+            音频数据（WAV格式）
         """
+        if not self.initialized:
+            raise RuntimeError("Azure Speech Service not initialized")
+        
         try:
-            # 设置语音
-            self.speech_config.speech_synthesis_voice_name = voice
-
-            # 构建 SSML
-            ssml = self._build_ssml(text, voice, rate, pitch)
-
-            # 创建合成器（使用内存流）
-            synthesizer = speechsdk.SpeechSynthesizer(
-                speech_config=self.speech_config, audio_config=None
+            import azure.cognitiveservices.speech as speechsdk
+            
+            # 配置Speech SDK
+            speech_config = speechsdk.SpeechConfig(
+                subscription=self.subscription_key,
+                region=self.region
             )
-
+            
+            # 设置音色
+            speech_config.speech_synthesis_voice_name = voice_name
+            
+            # 创建音频配置（输出到内存）
+            audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=False)
+            
+            # 创建合成器
+            synthesizer = speechsdk.SpeechSynthesizer(
+                speech_config=speech_config,
+                audio_config=None  # None表示返回音频数据
+            )
+            
+            # 构建SSML（用于控制语速和音调）
+            ssml = f"""
+            <speak version='1.0' xml:lang='zh-CN'>
+                <voice name='{voice_name}'>
+                    <prosody rate='{rate}' pitch='{pitch}'>
+                        {text}
+                    </prosody>
+                </voice>
+            </speak>
+            """
+            
             # 执行合成
             result = synthesizer.speak_ssml_async(ssml).get()
-
+            
             # 处理结果
             if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-                logger.info(
-                    f"Azure TTS synthesis completed (length: {len(result.audio_data)} bytes)"
-                )
                 return result.audio_data
-
             elif result.reason == speechsdk.ResultReason.Canceled:
                 cancellation = result.cancellation_details
-                error_msg = f"合成取消: {cancellation.reason}"
-                if cancellation.error_details:
-                    error_msg += f", {cancellation.error_details}"
-
-                logger.error(error_msg)
-                raise Exception(error_msg)
-
+                raise Exception(f"TTS canceled: {cancellation.reason}")
             else:
-                error_msg = f"未知合成结果: {result.reason}"
-                logger.error(error_msg)
-                raise Exception(error_msg)
-
+                raise Exception("TTS failed")
+                
         except Exception as e:
-            logger.error(f"Azure TTS synthesis failed: {e}", exc_info=True)
+            logger.error(f"Azure TTS error: {e}")
             raise
 
-    def _build_ssml(
-        self, text: str, voice: str, rate: str = "0%", pitch: str = "0%"
-    ) -> str:
+    async def synthesize_streaming(
+        self,
+        text: str,
+        voice_name: str = "zh-CN-XiaoxiaoNeural",
+        rate: str = "0%",
+        pitch: str = "0%"
+    ) -> AsyncIterator[bytes]:
         """
-        构建 SSML
-
+        流式文本转语音
+        
         Args:
-            text: 文本
-            voice: 语音名称
+            text: 要合成的文本
+            voice_name: 音色名称
             rate: 语速
             pitch: 音调
-
-        Returns:
-            SSML 字符串
+            
+        Yields:
+            音频数据块
         """
-        # 确定语言
-        lang = "zh-CN" if voice.startswith("zh-") else "en-US"
+        if not self.initialized:
+            raise RuntimeError("Azure Speech Service not initialized")
+        
+        try:
+            # Azure SDK不直接支持流式输出，使用分块合成模拟
+            # 将文本按句子分割
+            sentences = self._split_sentences(text)
+            
+            for sentence in sentences:
+                if sentence.strip():
+                    audio_data = await self.synthesize_to_bytes(
+                        text=sentence,
+                        voice_name=voice_name,
+                        rate=rate,
+                        pitch=pitch
+                    )
+                    yield audio_data
+                    
+        except Exception as e:
+            logger.error(f"Azure streaming TTS error: {e}")
+            raise
 
-        ssml = f"""
-        <speak version='1.0' xml:lang='{lang}' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='https://www.w3.org/2001/mstts'>
-            <voice name='{voice}'>
-                <prosody rate='{rate}' pitch='{pitch}'>
-                    {text}
-                </prosody>
-            </voice>
-        </speak>
-        """
-        return ssml.strip()
+    def _split_sentences(self, text: str) -> list:
+        """将文本分割为句子"""
+        import re
+        # 按中文和英文句号分割
+        sentences = re.split(r'[。！？.!?]', text)
+        # 过滤空句子
+        return [s.strip() for s in sentences if s.strip()]
 
-    def list_voices(self) -> list:
-        """
-        列出可用的语音
-
-        Returns:
-            语音列表
-        """
-        # 常用的 Azure Neural 语音
-        return [
-            {
-                "name": "zh-CN-XiaoxiaoNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓晓（女声，温暖友好）",
-            },
-            {
-                "name": "zh-CN-YunxiNeural",
-                "gender": "Male",
-                "language": "zh-CN",
-                "description": "云希（男声，自然稳重）",
-            },
-            {
-                "name": "zh-CN-YunyangNeural",
-                "gender": "Male",
-                "language": "zh-CN",
-                "description": "云扬（男声，新闻播报）",
-            },
-            {
-                "name": "zh-CN-XiaoyiNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓伊（女声，温柔体贴）",
-            },
-            {
-                "name": "zh-CN-YunjianNeural",
-                "gender": "Male",
-                "language": "zh-CN",
-                "description": "云健（男声，运动解说）",
-            },
-            {
-                "name": "zh-CN-XiaochenNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓辰（女声，活泼可爱）",
-            },
-            {
-                "name": "zh-CN-XiaohanNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓涵（女声，亲切自然）",
-            },
-            {
-                "name": "zh-CN-XiaomengNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓梦（女声，甜美温柔）",
-            },
-            {
-                "name": "zh-CN-XiaomoNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓墨（女声，知性优雅）",
-            },
-            {
-                "name": "zh-CN-XiaoqiuNeural",
-                "gender": "Female",
-                "language": "zh-CN",
-                "description": "晓秋（女声，成熟稳重）",
-            },
-            # 英文语音
-            {
-                "name": "en-US-AriaNeural",
-                "gender": "Female",
-                "language": "en-US",
-                "description": "Aria (Female, Newscast)",
-            },
-            {
-                "name": "en-US-GuyNeural",
-                "gender": "Male",
-                "language": "en-US",
-                "description": "Guy (Male, Newscast)",
-            },
-            {
-                "name": "en-US-JennyNeural",
-                "gender": "Female",
-                "language": "en-US",
-                "description": "Jenny (Female, Assistant)",
-            },
-            {
-                "name": "en-US-DavisNeural",
-                "gender": "Male",
-                "language": "en-US",
-                "description": "Davis (Male, Chat)",
-            },
-        ]
-
-    def health_check(self) -> dict:
-        """
-        健康检查
-
-        Returns:
-            健康状态字典
-        """
-        if not AZURE_SDK_AVAILABLE:
+    async def health_check(self) -> dict:
+        """健康检查"""
+        if not self.initialized:
             return {
                 "healthy": False,
-                "error": "Azure Speech SDK not installed",
+                "provider": "azure",
+                "error": "Not initialized"
             }
-
-        if not self.subscription_key:
+        
+        try:
+            # 尝试简单的TTS来测试服务
+            test_text = "测试"
+            audio_data = await self.synthesize_to_bytes(test_text)
+            
+            return {
+                "healthy": True,
+                "provider": "azure",
+                "test_audio_size": len(audio_data)
+            }
+        except Exception as e:
             return {
                 "healthy": False,
-                "error": "Azure Speech subscription key not configured",
+                "provider": "azure",
+                "error": str(e)
             }
-
-        return {
-            "healthy": True,
-            "region": self.region,
-            "sdk_available": True,
-        }

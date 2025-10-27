@@ -1,79 +1,180 @@
 package kafka
 
 import (
-	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/segmentio/kafka-go"
+	"github.com/Shopify/sarama"
 )
 
-type Producer struct {
-	writer *kafka.Writer
+// EventProducer Kafka事件生产者
+type EventProducer struct {
+	producer sarama.SyncProducer
+	config   *ProducerConfig
 }
 
-func NewProducer(brokers []string, topic string) *Producer {
-	return &Producer{
-		writer: &kafka.Writer{
-			Addr:         kafka.TCP(brokers...),
-			Topic:        topic,
-			Balancer:     &kafka.LeastBytes{},
-			RequiredAcks: kafka.RequireOne,
-			Async:        false,
-		},
+// ProducerConfig 生产者配置
+type ProducerConfig struct {
+	Brokers     []string
+	Compression string // none, gzip, snappy, lz4, zstd
+	MaxRetries  int
+	Timeout     time.Duration
+}
+
+// NewEventProducer 创建事件生产者
+func NewEventProducer(config *ProducerConfig) (*EventProducer, error) {
+	saramaConfig := sarama.NewConfig()
+	saramaConfig.Producer.Return.Successes = true
+	saramaConfig.Producer.RequiredAcks = sarama.WaitForAll // 等待所有副本确认
+	saramaConfig.Producer.Retry.Max = config.MaxRetries
+	saramaConfig.Producer.Timeout = config.Timeout
+
+	// 设置压缩
+	switch config.Compression {
+	case "gzip":
+		saramaConfig.Producer.Compression = sarama.CompressionGZIP
+	case "snappy":
+		saramaConfig.Producer.Compression = sarama.CompressionSnappy
+	case "lz4":
+		saramaConfig.Producer.Compression = sarama.CompressionLZ4
+	case "zstd":
+		saramaConfig.Producer.Compression = sarama.CompressionZSTD
+	default:
+		saramaConfig.Producer.Compression = sarama.CompressionNone
 	}
-}
 
-func (p *Producer) PublishEvent(ctx context.Context, event interface{}) error {
-	data, err := json.Marshal(event)
+	// 创建生产者
+	producer, err := sarama.NewSyncProducer(config.Brokers, saramaConfig)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("create producer: %w", err)
 	}
 
-	message := kafka.Message{
-		Value: data,
-		Time:  time.Now(),
+	return &EventProducer{
+		producer: producer,
+		config:   config,
+	}, nil
+}
+
+// PublishEvent 发布事件
+func (p *EventProducer) PublishEvent(topic string, event interface{}) error {
+	// 序列化事件
+	eventBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
 	}
 
-	return p.writer.WriteMessages(ctx, message)
+	// 创建消息
+	msg := &sarama.ProducerMessage{
+		Topic:     topic,
+		Value:     sarama.ByteEncoder(eventBytes),
+		Timestamp: time.Now(),
+	}
+
+	// 发送消息
+	partition, offset, err := p.producer.SendMessage(msg)
+	if err != nil {
+		return fmt.Errorf("send message: %w", err)
+	}
+
+	// 记录成功
+	_ = partition
+	_ = offset
+
+	return nil
 }
 
-func (p *Producer) Close() error {
-	return p.writer.Close()
+// PublishEventWithKey 发布带key的事件（用于分区）
+func (p *EventProducer) PublishEventWithKey(topic string, key string, event interface{}) error {
+	// 序列化事件
+	eventBytes, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event: %w", err)
+	}
+
+	// 创建消息
+	msg := &sarama.ProducerMessage{
+		Topic:     topic,
+		Key:       sarama.StringEncoder(key),
+		Value:     sarama.ByteEncoder(eventBytes),
+		Timestamp: time.Now(),
+	}
+
+	// 发送消息
+	_, _, err = p.producer.SendMessage(msg)
+	if err != nil {
+		return fmt.Errorf("send message: %w", err)
+	}
+
+	return nil
 }
 
-// Event structures
+// PublishBatch 批量发布事件
+func (p *EventProducer) PublishBatch(topic string, events []interface{}) error {
+	// 构建消息列表
+	messages := make([]*sarama.ProducerMessage, 0, len(events))
+
+	for _, event := range events {
+		eventBytes, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("marshal event: %w", err)
+		}
+
+		msg := &sarama.ProducerMessage{
+			Topic:     topic,
+			Value:     sarama.ByteEncoder(eventBytes),
+			Timestamp: time.Now(),
+		}
+
+		messages = append(messages, msg)
+	}
+
+	// 批量发送
+	err := p.producer.SendMessages(messages)
+	if err != nil {
+		return fmt.Errorf("send batch messages: %w", err)
+	}
+
+	return nil
+}
+
+// Close 关闭生产者
+func (p *EventProducer) Close() error {
+	if p.producer != nil {
+		return p.producer.Close()
+	}
+	return nil
+}
+
+// ConversationCreatedEvent 对话创建事件
 type ConversationCreatedEvent struct {
-	EventID        string    `json:"event_id"`
 	EventType      string    `json:"event_type"`
-	EventVersion   string    `json:"event_version"`
 	ConversationID string    `json:"conversation_id"`
-	UserID         string    `json:"user_id"`
 	TenantID       string    `json:"tenant_id"`
-	Mode           string    `json:"mode"`
+	UserID         string    `json:"user_id"`
 	Title          string    `json:"title"`
-	Timestamp      time.Time `json:"timestamp"`
+	Mode           string    `json:"mode"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
+// MessageSentEvent 消息发送事件
 type MessageSentEvent struct {
-	EventID        string    `json:"event_id"`
 	EventType      string    `json:"event_type"`
-	EventVersion   string    `json:"event_version"`
-	ConversationID string    `json:"conversation_id"`
 	MessageID      string    `json:"message_id"`
-	UserID         string    `json:"user_id"`
+	ConversationID string    `json:"conversation_id"`
 	TenantID       string    `json:"tenant_id"`
+	UserID         string    `json:"user_id"`
 	Role           string    `json:"role"`
-	Content        string    `json:"content"`
-	Timestamp      time.Time `json:"timestamp"`
+	ContentLength  int       `json:"content_length"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
-type ConversationClosedEvent struct {
-	EventID        string    `json:"event_id"`
+// ConversationArchivedEvent 对话归档事件
+type ConversationArchivedEvent struct {
 	EventType      string    `json:"event_type"`
-	EventVersion   string    `json:"event_version"`
 	ConversationID string    `json:"conversation_id"`
-	UserID         string    `json:"user_id"`
 	TenantID       string    `json:"tenant_id"`
-	Timestamp      time.Time `json:"timestamp"`
+	UserID         string    `json:"user_id"`
+	MessageCount   int       `json:"message_count"`
+	ArchivedAt     time.Time `json:"archived_at"`
 }

@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // ConversationRepository 对话仓储接口
 type ConversationRepository interface {
@@ -36,4 +39,16 @@ type MessageRepository interface {
 
 	// DeleteMessages 删除消息
 	DeleteMessages(ctx context.Context, conversationID string) error
+}
+
+// ContextRepository 上下文缓存仓储接口
+type ContextRepository interface {
+	// GetCached 获取缓存的上下文
+	GetCached(ctx context.Context, conversationID string) (*ConversationContext, error)
+
+	// Cache 缓存上下文
+	Cache(ctx context.Context, context *ConversationContext, ttl time.Duration) error
+
+	// Invalidate 使缓存失效
+	Invalidate(ctx context.Context, conversationID string) error
 }

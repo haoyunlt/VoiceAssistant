@@ -1,0 +1,78 @@
+# PostHog A/B测试配置
+posthog:
+  # 是否启用PostHog集成
+  enabled: true
+  
+  # PostHog API密钥
+  # 从 PostHog项目设置 获取
+  api_key: "phc_YOUR_PROJECT_API_KEY"
+  
+  # PostHog服务器地址
+  # 云版本: https://app.posthog.com (US) 或 https://eu.posthog.com (EU)
+  # 自托管: http://your-posthog-instance.com
+  host: "https://app.posthog.com"
+  
+  # 项目密钥（可选）
+  project_key: "your_project_key"
+  
+  # 批量发送配置
+  batch_size: 100
+  interval_seconds: 30
+  
+  # 特性标志轮询间隔（秒）
+  polling_interval: 30
+
+# A/B测试配置
+ab_testing:
+  # 默认测试持续时间（小时）
+  default_duration_hours: 168  # 7天
+  
+  # 最小样本数量
+  min_sample_size: 100
+  
+  # 统计显著性阈值
+  significance_threshold: 0.05
+  
+  # 自动停止配置
+  auto_stop:
+    enabled: true
+    # 当某个变体明显优于其他变体时自动停止
+    confidence_threshold: 0.95
+    min_runtime_hours: 24
+
+# 特性标志示例
+feature_flags:
+  # 模型路由策略
+  - key: "model_routing_strategy"
+    variants:
+      - "cost_optimized"      # 成本优化
+      - "performance_first"   # 性能优先
+      - "balanced"            # 平衡策略
+  
+  # 启用新模型
+  - key: "enable_gpt4_turbo"
+    type: "boolean"
+  
+  # 启用缓存
+  - key: "enable_response_cache"
+    type: "boolean"
+
+# 实验配置示例
+experiments:
+  # GPT-4 vs Claude对比测试
+  - name: "llm_comparison_2024"
+    description: "比较GPT-4和Claude-3.5在客服场景的表现"
+    variants:
+      - id: "variant_a"
+        name: "GPT-4"
+        model_id: "gpt-4-turbo"
+        weight: 0.5
+      - id: "variant_b"
+        name: "Claude"
+        model_id: "claude-3.5-sonnet"
+        weight: 0.5
+    metrics:
+      - "response_quality"
+      - "latency"
+      - "cost_per_request"
+      - "user_satisfaction"

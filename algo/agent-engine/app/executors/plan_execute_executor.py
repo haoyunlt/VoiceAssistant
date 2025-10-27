@@ -1,383 +1,385 @@
 """
-Plan-Execute Executor - 规划-执行执行器
-
-将复杂任务分解为多个步骤，逐步执行并综合结果
+Plan-Execute Executor
+基于计划-执行模式的 Agent 执行器
 """
 
 import asyncio
+import json
+import logging
+from datetime import datetime
 from typing import Dict, List, Optional
 
-from app.core.logging_config import get_logger
-from app.executors.planner import Plan, Planner, Step
-from app.tools.dynamic_registry import get_tool_registry
-from pydantic import BaseModel, Field
+import httpx
+from app.models.agent_models import AgentResult, Plan, Step, StepResult
+from app.services.tool_service import ToolService
 
-logger = get_logger(__name__)
-
-
-class StepResult(BaseModel):
-    """步骤执行结果"""
-
-    step_id: int = Field(..., description="步骤 ID")
-    success: bool = Field(..., description="是否成功")
-    result: str = Field("", description="执行结果")
-    error: Optional[str] = Field(None, description="错误信息")
-    execution_time_ms: float = Field(0.0, description="执行时长（毫秒）")
-
-
-class ExecutionTrace(BaseModel):
-    """执行追踪"""
-
-    task: str = Field(..., description="任务描述")
-    plan: Plan = Field(..., description="执行计划")
-    step_results: List[StepResult] = Field(
-        default_factory=list, description="步骤结果列表"
-    )
-    final_answer: str = Field("", description="最终答案")
-    total_time_ms: float = Field(0.0, description="总执行时长（毫秒）")
-    success: bool = Field(True, description="整体是否成功")
+logger = logging.getLogger(__name__)
 
 
 class PlanExecuteExecutor:
-    """规划-执行执行器"""
+    """
+    Plan-Execute 模式执行器
+    1. 使用 LLM 将复杂任务分解为子任务
+    2. 为每个子任务生成执行计划
+    3. 按顺序或并行执行子任务
+    4. 汇总结果生成最终答案
+    """
 
-    def __init__(self, llm_client=None, max_retries: int = 2):
+    def __init__(self, llm_client_url: str = "http://model-adapter:8005"):
+        self.llm_client_url = llm_client_url
+        self.tool_service = ToolService()
+        self.max_steps = 10
+        self.timeout = 300  # 5分钟
+
+    async def execute(self, task: str, context: Dict = None) -> AgentResult:
         """
-        初始化执行器
+        执行计划-执行流程
 
         Args:
-            llm_client: LLM 客户端
-            max_retries: 步骤失败时的最大重试次数
-        """
-        self.planner = Planner(llm_client=llm_client)
-        self.tool_registry = get_tool_registry()
-        self.llm_client = llm_client
-        self.max_retries = max_retries
-
-        logger.info("PlanExecuteExecutor initialized")
-
-    async def execute(self, task: str, context: Optional[dict] = None) -> ExecutionTrace:
-        """
-        执行任务
-
-        Args:
-            task: 任务描述
+            task: 用户任务描述
             context: 上下文信息
 
         Returns:
-            ExecutionTrace 对象
+            AgentResult: 执行结果
         """
-        import time
-
-        start_time = time.time()
+        start_time = datetime.utcnow()
+        logger.info(f"Plan-Execute started: {task}")
 
         try:
-            # Phase 1: 规划
-            logger.info(f"=== Phase 1: Planning ===")
-            available_tools = self._get_available_tools()
-            plan = await self.planner.create_plan(task, available_tools, context)
-            logger.info(f"Plan created: {len(plan.steps)} steps")
-            logger.info(f"Reasoning: {plan.reasoning}")
+            # Step 1: 生成执行计划
+            plan = await self._generate_plan(task, context)
+            logger.info(f"Generated plan with {len(plan.steps)} steps")
 
-            # Phase 2: 执行
-            logger.info(f"=== Phase 2: Execution ===")
-            step_results = await self._execute_plan(plan)
+            # Step 2: 执行各个步骤
+            step_results = []
+            for step in plan.steps:
+                # 检查依赖是否完成
+                if not self._check_dependencies(step, step_results):
+                    logger.warning(f"Step {step.id} dependencies not met, waiting...")
+                    await asyncio.sleep(1)
 
-            # Phase 3: 综合
-            logger.info(f"=== Phase 3: Synthesis ===")
-            final_answer = await self._synthesize_answer(task, plan, step_results)
+                # 执行步骤
+                result = await self._execute_step(step, step_results, context)
+                step_results.append(result)
 
-            total_time = (time.time() - start_time) * 1000
+                logger.info(f"Completed step {step.id}: {step.description}")
 
-            # 检查是否有失败的步骤
-            success = all(result.success for result in step_results)
+                # 检查是否超过最大步骤数
+                if len(step_results) >= self.max_steps:
+                    logger.warning(f"Reached max steps limit: {self.max_steps}")
+                    break
 
-            return ExecutionTrace(
-                task=task,
+            # Step 3: 汇总结果
+            final_answer = await self._summarize_results(task, plan, step_results)
+
+            duration = (datetime.utcnow() - start_time).total_seconds()
+
+            return AgentResult(
+                answer=final_answer,
                 plan=plan,
                 step_results=step_results,
-                final_answer=final_answer,
-                total_time_ms=total_time,
-                success=success,
+                success=True,
+                duration=duration,
+                metadata={
+                    "total_steps": len(step_results),
+                    "plan_steps": len(plan.steps)
+                }
             )
 
         except Exception as e:
-            logger.error(f"Execution failed: {e}", exc_info=True)
-            total_time = (time.time() - start_time) * 1000
+            logger.error(f"Plan-Execute failed: {e}", exc_info=True)
+            duration = (datetime.utcnow() - start_time).total_seconds()
 
-            return ExecutionTrace(
-                task=task,
-                plan=Plan(task=task, steps=[], reasoning="执行失败"),
+            return AgentResult(
+                answer=f"执行失败: {str(e)}",
+                plan=None,
                 step_results=[],
-                final_answer=f"执行失败: {str(e)}",
-                total_time_ms=total_time,
                 success=False,
+                duration=duration,
+                error=str(e)
             )
 
-    async def _execute_plan(self, plan: Plan) -> List[StepResult]:
+    async def _generate_plan(self, task: str, context: Dict = None) -> Plan:
         """
-        执行计划
-
-        Args:
-            plan: 执行计划
-
-        Returns:
-            步骤结果列表
+        使用 LLM 生成执行计划
         """
-        step_results: List[StepResult] = []
-        results_map: Dict[int, StepResult] = {}  # step_id -> result
+        # 构建 prompt
+        tools_description = self._get_tools_description()
+        context_str = json.dumps(context, ensure_ascii=False) if context else ""
 
-        for step in plan.steps:
-            # 检查依赖
-            if not self._check_dependencies(step, results_map):
-                logger.warning(
-                    f"Step {step.step_id} dependencies not met, skipping"
+        prompt = f"""你是一个任务规划专家。请将以下任务分解为多个可执行的子任务。
+
+任务: {task}
+
+{f"上下文信息: {context_str}" if context else ""}
+
+可用工具:
+{tools_description}
+
+请按照以下 JSON 格式返回计划:
+{{
+    "steps": [
+        {{
+            "id": 1,
+            "description": "子任务描述",
+            "tool": "工具名称",
+            "params": {{"param1": "value1"}},
+            "dependencies": []
+        }},
+        {{
+            "id": 2,
+            "description": "子任务描述2",
+            "tool": "工具名称",
+            "params": {{"param1": "value1"}},
+            "dependencies": [1]
+        }}
+    ],
+    "reasoning": "分解任务的思路"
+}}
+
+注意:
+1. 将复杂任务分解为简单、可执行的子任务
+2. 标明子任务之间的依赖关系
+3. 为每个子任务选择合适的工具
+4. 确保步骤顺序合理
+"""
+
+        # 调用 LLM
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.llm_client_url}/api/v1/chat/completions",
+                    json={
+                        "model": "gpt-4-turbo-preview",
+                        "messages": [
+                            {"role": "system", "content": "你是一个任务规划专家，擅长将复杂任务分解为可执行的步骤。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 2000
+                    }
                 )
-                step_results.append(
-                    StepResult(
-                        step_id=step.step_id,
-                        success=False,
-                        error="依赖步骤未成功",
+                response.raise_for_status()
+
+                result = response.json()
+                content = result["choices"][0]["message"]["content"]
+
+                # 解析 JSON
+                # 清理可能的 markdown 代码块标记
+                content = content.strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.startswith("```"):
+                    content = content[3:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+
+                plan_data = json.loads(content)
+
+                # 转换为 Plan 对象
+                steps = []
+                for step_data in plan_data["steps"]:
+                    steps.append(Step(
+                        id=step_data["id"],
+                        description=step_data["description"],
+                        tool=step_data.get("tool"),
+                        params=step_data.get("params", {}),
+                        dependencies=step_data.get("dependencies", [])
+                    ))
+
+                return Plan(
+                    steps=steps,
+                    reasoning=plan_data.get("reasoning", "")
+                )
+
+        except Exception as e:
+            logger.error(f"Failed to generate plan: {e}")
+            # 返回简单的单步计划作为降级
+            return Plan(
+                steps=[
+                    Step(
+                        id=1,
+                        description=task,
+                        tool=None,
+                        params={},
+                        dependencies=[]
                     )
-                )
-                continue
-
-            # 执行步骤（带重试）
-            result = await self._execute_step_with_retry(step, results_map)
-            step_results.append(result)
-            results_map[step.step_id] = result
-
-            logger.info(
-                f"Step {step.step_id} completed: success={result.success}, time={result.execution_time_ms:.2f}ms"
+                ],
+                reasoning="Failed to generate detailed plan, using simple fallback"
             )
-
-        return step_results
-
-    def _check_dependencies(
-        self, step: Step, results_map: Dict[int, StepResult]
-    ) -> bool:
-        """
-        检查步骤依赖是否满足
-
-        Args:
-            step: 步骤
-            results_map: 已执行步骤的结果映射
-
-        Returns:
-            是否满足依赖
-        """
-        for dep_id in step.depends_on:
-            if dep_id not in results_map:
-                return False
-            if not results_map[dep_id].success:
-                return False
-        return True
-
-    async def _execute_step_with_retry(
-        self, step: Step, results_map: Dict[int, StepResult]
-    ) -> StepResult:
-        """
-        执行步骤（带重试）
-
-        Args:
-            step: 步骤
-            results_map: 已执行步骤的结果映射
-
-        Returns:
-            步骤结果
-        """
-        for attempt in range(self.max_retries + 1):
-            result = await self._execute_step(step, results_map)
-
-            if result.success:
-                return result
-
-            if attempt < self.max_retries:
-                logger.warning(
-                    f"Step {step.step_id} failed (attempt {attempt + 1}/{self.max_retries + 1}), retrying..."
-                )
-                await asyncio.sleep(0.5)  # 短暂延迟
-            else:
-                logger.error(
-                    f"Step {step.step_id} failed after {self.max_retries + 1} attempts"
-                )
-
-        return result
 
     async def _execute_step(
-        self, step: Step, results_map: Dict[int, StepResult]
+        self,
+        step: Step,
+        previous_results: List[StepResult],
+        context: Dict = None
     ) -> StepResult:
         """
         执行单个步骤
-
-        Args:
-            step: 步骤
-            results_map: 已执行步骤的结果映射
-
-        Returns:
-            步骤结果
         """
-        import time
-
-        start_time = time.time()
+        start_time = datetime.utcnow()
 
         try:
-            # 如果步骤不需要工具，跳过
-            if not step.tool:
-                return StepResult(
-                    step_id=step.step_id,
-                    success=True,
-                    result=f"步骤 {step.step_id}: {step.description}（无需执行）",
-                    execution_time_ms=(time.time() - start_time) * 1000,
-                )
+            # 获取依赖步骤的结果
+            dependency_outputs = {}
+            for dep_id in step.dependencies:
+                for result in previous_results:
+                    if result.step_id == dep_id:
+                        dependency_outputs[f"step_{dep_id}_output"] = result.output
 
-            # 准备工具参数（可能引用之前步骤的结果）
-            tool_args = self._prepare_tool_args(step, results_map)
+            # 如果指定了工具，使用工具执行
+            if step.tool:
+                # 合并参数（包含依赖输出）
+                params = {**step.params, **dependency_outputs}
 
-            # 执行工具
-            result = await self.tool_registry.execute_tool(step.tool, tool_args)
-
-            # 检查结果
-            if result.get("success", True):
-                return StepResult(
-                    step_id=step.step_id,
-                    success=True,
-                    result=str(result.get("result", "")),
-                    execution_time_ms=(time.time() - start_time) * 1000,
+                output = await self.tool_service.execute_tool(
+                    tool_name=step.tool,
+                    params=params
                 )
             else:
-                return StepResult(
-                    step_id=step.step_id,
-                    success=False,
-                    error=str(result.get("error", "Unknown error")),
-                    execution_time_ms=(time.time() - start_time) * 1000,
-                )
+                # 没有指定工具，使用 LLM 直接处理
+                output = await self._llm_process_step(step, dependency_outputs, context)
 
-        except Exception as e:
-            logger.error(f"Step {step.step_id} execution failed: {e}", exc_info=True)
+            duration = (datetime.utcnow() - start_time).total_seconds()
+
             return StepResult(
-                step_id=step.step_id,
-                success=False,
-                error=str(e),
-                execution_time_ms=(time.time() - start_time) * 1000,
+                step_id=step.id,
+                description=step.description,
+                output=output,
+                status="completed",
+                duration=duration
             )
 
-    def _prepare_tool_args(
-        self, step: Step, results_map: Dict[int, StepResult]
-    ) -> dict:
-        """
-        准备工具参数
+        except Exception as e:
+            logger.error(f"Step {step.id} failed: {e}")
+            duration = (datetime.utcnow() - start_time).total_seconds()
 
-        可能需要引用之前步骤的结果
+            return StepResult(
+                step_id=step.id,
+                description=step.description,
+                output=f"执行失败: {str(e)}",
+                status="failed",
+                duration=duration,
+                error=str(e)
+            )
 
-        Args:
-            step: 步骤
-            results_map: 已执行步骤的结果映射
-
-        Returns:
-            工具参数字典
-        """
-        tool_args = step.tool_args.copy()
-
-        # 处理参数中的引用（如 "${step_1_result}"）
-        for key, value in tool_args.items():
-            if isinstance(value, str) and value.startswith("${") and value.endswith("}"):
-                # 提取引用的步骤 ID
-                import re
-
-                match = re.match(r"\$\{step_(\d+)_result\}", value)
-                if match:
-                    ref_step_id = int(match.group(1))
-                    if ref_step_id in results_map:
-                        tool_args[key] = results_map[ref_step_id].result
-                    else:
-                        logger.warning(
-                            f"Referenced step {ref_step_id} not found in results"
-                        )
-
-        return tool_args
-
-    async def _synthesize_answer(
-        self, task: str, plan: Plan, step_results: List[StepResult]
+    async def _llm_process_step(
+        self,
+        step: Step,
+        dependency_outputs: Dict,
+        context: Dict = None
     ) -> str:
         """
-        综合所有步骤结果，生成最终答案
-
-        Args:
-            task: 原始任务
-            plan: 执行计划
-            step_results: 步骤结果列表
-
-        Returns:
-            最终答案
+        使用 LLM 处理步骤（当没有合适工具时）
         """
-        try:
-            # 收集所有成功的步骤结果
-            successful_results = [
-                f"步骤 {r.step_id}: {r.result}"
-                for r in step_results
-                if r.success and r.result
-            ]
+        prompt = f"""请完成以下任务:
 
-            if not successful_results:
-                return "未能获取有效结果"
+任务: {step.description}
 
-            # 如果有 LLM，使用 LLM 综合答案
-            if self.llm_client:
-                synthesis_prompt = f"""
-任务: {task}
+{f"依赖步骤的输出: {json.dumps(dependency_outputs, ensure_ascii=False)}" if dependency_outputs else ""}
+{f"上下文信息: {json.dumps(context, ensure_ascii=False)}" if context else ""}
 
-执行过程:
-{chr(10).join(successful_results)}
-
-请基于以上执行过程，生成一个简洁、准确的答案。
+请直接给出答案，不要额外解释。
 """
-                # TODO: 调用 LLM
-                # final_answer = await self._call_llm(synthesis_prompt)
-                final_answer = (
-                    f"基于执行结果，答案是：\n" + "\n".join(successful_results)
-                )
-            else:
-                # 简单拼接
-                final_answer = "\n".join(successful_results)
 
-            return final_answer
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.llm_client_url}/api/v1/chat/completions",
+                    json={
+                        "model": "gpt-3.5-turbo",
+                        "messages": [
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 1000
+                    }
+                )
+                response.raise_for_status()
+
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
 
         except Exception as e:
-            logger.error(f"Answer synthesis failed: {e}", exc_info=True)
-            return f"综合答案失败: {str(e)}"
+            logger.error(f"LLM process step failed: {e}")
+            return f"LLM 处理失败: {str(e)}"
 
-    def _get_available_tools(self) -> List[dict]:
+    async def _summarize_results(
+        self,
+        task: str,
+        plan: Plan,
+        step_results: List[StepResult]
+    ) -> str:
         """
-        获取可用工具列表
-
-        Returns:
-            工具定义列表
+        汇总所有步骤结果，生成最终答案
         """
-        tools = self.tool_registry.list_tools()
-        return [
-            {
-                "name": tool["name"],
-                "description": tool.get("description", ""),
-            }
-            for tool in tools
-        ]
+        # 构建汇总 prompt
+        results_str = "\n".join([
+            f"步骤 {r.step_id}: {r.description}\n结果: {r.output}\n"
+            for r in step_results
+        ])
 
+        prompt = f"""基于以下执行结果，请生成对原始任务的完整回答。
 
-# 全局执行器实例
-_plan_execute_executor: Optional[PlanExecuteExecutor] = None
+原始任务: {task}
 
+执行步骤和结果:
+{results_str}
 
-def get_plan_execute_executor() -> PlanExecuteExecutor:
-    """
-    获取 Plan-Execute 执行器实例（单例）
+请整合所有信息，给出清晰、完整的最终答案。
+"""
 
-    Returns:
-        PlanExecuteExecutor 实例
-    """
-    global _plan_execute_executor
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    f"{self.llm_client_url}/api/v1/chat/completions",
+                    json={
+                        "model": "gpt-4-turbo-preview",
+                        "messages": [
+                            {"role": "system", "content": "你是一个善于总结和整合信息的助手。"},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": 0.5,
+                        "max_tokens": 1500
+                    }
+                )
+                response.raise_for_status()
 
-    if _plan_execute_executor is None:
-        _plan_execute_executor = PlanExecuteExecutor()
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
 
-    return _plan_execute_executor
+        except Exception as e:
+            logger.error(f"Failed to summarize results: {e}")
+            # 降级：简单拼接结果
+            return "\n\n".join([
+                f"**{r.description}**\n{r.output}"
+                for r in step_results
+                if r.status == "completed"
+            ])
+
+    def _check_dependencies(
+        self,
+        step: Step,
+        completed_results: List[StepResult]
+    ) -> bool:
+        """
+        检查步骤的依赖是否都已完成
+        """
+        if not step.dependencies:
+            return True
+
+        completed_ids = {r.step_id for r in completed_results if r.status == "completed"}
+        return all(dep_id in completed_ids for dep_id in step.dependencies)
+
+    def _get_tools_description(self) -> str:
+        """
+        获取可用工具的描述
+        """
+        tools = self.tool_service.list_tools()
+        descriptions = []
+
+        for tool in tools:
+            descriptions.append(f"- {tool['name']}: {tool['description']}")
+
+        return "\n".join(descriptions)

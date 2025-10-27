@@ -26,6 +26,9 @@ async def lifespan(app: FastAPI):
     from app.adapters.claude_adapter import ClaudeAdapter
     from app.adapters.openai_adapter import OpenAIAdapter
     from app.adapters.zhipu_adapter import ZhipuAdapter
+    from app.services.providers.baidu_adapter import BaiduAdapter
+    from app.services.providers.qwen_adapter import QwenAdapter
+    from app.services.providers.zhipu_adapter import ZhipuAdapter as ZhipuAdapterNew
 
     global adapters
 
@@ -43,11 +46,24 @@ async def lifespan(app: FastAPI):
         adapters["claude"] = ClaudeAdapter(claude_key)
         logger.info("Claude adapter initialized")
 
-    # Zhipu
+    # 智谱AI GLM-4 (新实现)
     zhipu_key = os.getenv("ZHIPU_API_KEY")
     if zhipu_key:
-        adapters["zhipu"] = ZhipuAdapter(zhipu_key)
-        logger.info("Zhipu adapter initialized")
+        adapters["zhipu"] = ZhipuAdapterNew(zhipu_key)
+        logger.info("Zhipu GLM-4 adapter initialized")
+
+    # 通义千问
+    qwen_key = os.getenv("DASHSCOPE_API_KEY")
+    if qwen_key:
+        adapters["qwen"] = QwenAdapter(qwen_key)
+        logger.info("Qwen adapter initialized")
+
+    # 百度文心一言
+    baidu_key = os.getenv("BAIDU_API_KEY")
+    baidu_secret = os.getenv("BAIDU_SECRET_KEY")
+    if baidu_key and baidu_secret:
+        adapters["baidu"] = BaiduAdapter(baidu_key, baidu_secret)
+        logger.info("Baidu ERNIE adapter initialized")
 
     logger.info(f"Model Adapter Service started with {len(adapters)} providers")
 

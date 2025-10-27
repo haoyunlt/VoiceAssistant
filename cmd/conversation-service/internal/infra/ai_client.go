@@ -521,3 +521,30 @@ type TaskStatus struct {
 	CurrentStep string
 	Metadata    map[string]string
 }
+
+// Generate 生成文本（用于上下文压缩等简单任务）
+func (c *AIClient) Generate(ctx context.Context, prompt string, maxTokens int) (string, error) {
+	// 使用ProcessMessage方法，但不需要对话ID
+	req := &ProcessRequest{
+		ConversationID: "temp-compression",
+		Message:        prompt,
+		UserID:         "system",
+		TenantID:       "system",
+		Mode:           "chat",
+		Config: &ProcessConfig{
+			Model:       "gpt-3.5-turbo",
+			Temperature: 0.3,
+			MaxTokens:   int32(maxTokens),
+			Stream:      false,
+			EnableRAG:   false,
+			EnableAgent: false,
+		},
+	}
+
+	resp, err := c.ProcessMessage(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Reply, nil
+}

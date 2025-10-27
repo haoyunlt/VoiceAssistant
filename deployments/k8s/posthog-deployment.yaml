@@ -1,0 +1,438 @@
+---
+# PostHog Namespace (可选，如果想隔离PostHog)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: posthog
+  labels:
+    name: posthog
+    app: analytics
+
+---
+# PostHog PostgreSQL PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: posthog-postgres-pvc
+  namespace: posthog
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard  # 根据云提供商调整
+
+---
+# PostHog Redis PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: posthog-redis-pvc
+  namespace: posthog
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: standard
+
+---
+# PostHog ClickHouse PVC
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: posthog-clickhouse-pvc
+  namespace: posthog
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+
+---
+# PostHog ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: posthog-config
+  namespace: posthog
+data:
+  SITE_URL: "http://posthog.voicehelper.local"  # 修改为你的域名
+  DISABLE_SECURE_SSL_REDIRECT: "true"
+  IS_BEHIND_PROXY: "true"
+  TRUST_ALL_PROXIES: "true"
+  
+  # Database
+  POSTHOG_DB_NAME: "posthog"
+  POSTHOG_DB_USER: "posthog"
+  
+  # Redis
+  POSTHOG_REDIS_HOST: "posthog-redis"
+  POSTHOG_REDIS_PORT: "6379"
+  
+  # ClickHouse
+  CLICKHOUSE_HOST: "posthog-clickhouse"
+  CLICKHOUSE_DATABASE: "posthog"
+  CLICKHOUSE_USER: "posthog"
+  
+  # Kafka (可选，用于大规模部署)
+  KAFKA_ENABLED: "false"
+
+---
+# PostHog Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: posthog-secret
+  namespace: posthog
+type: Opaque
+stringData:
+  # 修改这些密码！
+  POSTHOG_DB_PASSWORD: "your-strong-password-here"
+  POSTHOG_REDIS_PASSWORD: ""
+  CLICKHOUSE_PASSWORD: "your-clickhouse-password"
+  SECRET_KEY: "your-secret-key-min-32-chars-long-here"
+
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posthog-postgres
+  namespace: posthog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: posthog-postgres
+  template:
+    metadata:
+      labels:
+        app: posthog-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:14-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: posthog-config
+              key: POSTHOG_DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            configMapKeyRef:
+              name: posthog-config
+              key: POSTHOG_DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: posthog-secret
+              key: POSTHOG_DB_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: posthog-postgres-pvc
+
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: posthog-postgres
+  namespace: posthog
+spec:
+  selector:
+    app: posthog-postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posthog-redis
+  namespace: posthog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: posthog-redis
+  template:
+    metadata:
+      labels:
+        app: posthog-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-storage
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: redis-storage
+        persistentVolumeClaim:
+          claimName: posthog-redis-pvc
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: posthog-redis
+  namespace: posthog
+spec:
+  selector:
+    app: posthog-redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+
+---
+# ClickHouse Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posthog-clickhouse
+  namespace: posthog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: posthog-clickhouse
+  template:
+    metadata:
+      labels:
+        app: posthog-clickhouse
+    spec:
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:23.8-alpine
+        ports:
+        - containerPort: 8123
+          name: http
+        - containerPort: 9000
+          name: native
+        env:
+        - name: CLICKHOUSE_DB
+          valueFrom:
+            configMapKeyRef:
+              name: posthog-config
+              key: CLICKHOUSE_DATABASE
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            configMapKeyRef:
+              name: posthog-config
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: posthog-secret
+              key: CLICKHOUSE_PASSWORD
+        volumeMounts:
+        - name: clickhouse-storage
+          mountPath: /var/lib/clickhouse
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+      volumes:
+      - name: clickhouse-storage
+        persistentVolumeClaim:
+          claimName: posthog-clickhouse-pvc
+
+---
+# ClickHouse Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: posthog-clickhouse
+  namespace: posthog
+spec:
+  selector:
+    app: posthog-clickhouse
+  ports:
+  - port: 8123
+    targetPort: 8123
+    name: http
+  - port: 9000
+    targetPort: 9000
+    name: native
+  type: ClusterIP
+
+---
+# PostHog Web Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posthog-web
+  namespace: posthog
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: posthog-web
+  template:
+    metadata:
+      labels:
+        app: posthog-web
+    spec:
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z posthog-postgres 5432; do echo waiting for postgres; sleep 2; done;']
+      - name: posthog-migrate
+        image: posthog/posthog:latest
+        command: ["python", "manage.py", "migrate"]
+        envFrom:
+        - configMapRef:
+            name: posthog-config
+        - secretRef:
+            name: posthog-secret
+        env:
+        - name: DATABASE_URL
+          value: "postgres://$(POSTHOG_DB_USER):$(POSTHOG_DB_PASSWORD)@posthog-postgres:5432/$(POSTHOG_DB_NAME)"
+      containers:
+      - name: posthog
+        image: posthog/posthog:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: posthog-config
+        - secretRef:
+            name: posthog-secret
+        env:
+        - name: DATABASE_URL
+          value: "postgres://$(POSTHOG_DB_USER):$(POSTHOG_DB_PASSWORD)@posthog-postgres:5432/$(POSTHOG_DB_NAME)"
+        livenessProbe:
+          httpGet:
+            path: /_health
+            port: 8000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /_health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+
+---
+# PostHog Web Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: posthog-web
+  namespace: posthog
+spec:
+  selector:
+    app: posthog-web
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: ClusterIP
+
+---
+# PostHog Worker Deployment (处理后台任务)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posthog-worker
+  namespace: posthog
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: posthog-worker
+  template:
+    metadata:
+      labels:
+        app: posthog-worker
+    spec:
+      containers:
+      - name: worker
+        image: posthog/posthog:latest
+        command: ["./bin/docker-worker-celery", "--with-scheduler"]
+        envFrom:
+        - configMapRef:
+            name: posthog-config
+        - secretRef:
+            name: posthog-secret
+        env:
+        - name: DATABASE_URL
+          value: "postgres://$(POSTHOG_DB_USER):$(POSTHOG_DB_PASSWORD)@posthog-postgres:5432/$(POSTHOG_DB_NAME)"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+
+---
+# PostHog Ingress (使用Nginx Ingress Controller)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: posthog-ingress
+  namespace: posthog
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod  # 如果使用cert-manager
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  tls:
+  - hosts:
+    - posthog.voicehelper.com  # 修改为你的域名
+    secretName: posthog-tls
+  rules:
+  - host: posthog.voicehelper.com  # 修改为你的域名
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: posthog-web
+            port:
+              number: 8000

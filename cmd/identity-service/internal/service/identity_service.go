@@ -111,3 +111,65 @@ func domainUserToPB(user *domain.User) *pb.User {
 		UpdatedAt: user.UpdatedAt.Unix(),
 	}
 }
+
+// Logout logs out a user and revokes tokens.
+func (s *IdentityService) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
+	s.log.WithContext(ctx).Infof("Logout called")
+
+	err := s.authUC.Logout(ctx, req.AccessToken, req.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.LogoutResponse{Success: true}, nil
+}
+
+// RefreshToken refreshes access token.
+func (s *IdentityService) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	s.log.WithContext(ctx).Infof("RefreshToken called")
+
+	tokenPair, err := s.authUC.RefreshToken(ctx, req.RefreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.RefreshTokenResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresIn:    tokenPair.ExpiresIn,
+	}, nil
+}
+
+// VerifyToken verifies a token.
+func (s *IdentityService) VerifyToken(ctx context.Context, req *pb.VerifyTokenRequest) (*pb.VerifyTokenResponse, error) {
+	s.log.WithContext(ctx).Infof("VerifyToken called")
+
+	claims, err := s.authUC.VerifyToken(ctx, req.Token)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.VerifyTokenResponse{
+		Valid:    true,
+		UserId:   claims.UserID,
+		Email:    claims.Email,
+		TenantId: claims.TenantID,
+		Roles:    claims.Roles,
+	}, nil
+}
+
+// GetBlacklistStats gets token blacklist statistics.
+func (s *IdentityService) GetBlacklistStats(ctx context.Context, req *pb.GetBlacklistStatsRequest) (*pb.GetBlacklistStatsResponse, error) {
+	s.log.WithContext(ctx).Infof("GetBlacklistStats called")
+
+	stats, err := s.authUC.GetBlacklistStats(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GetBlacklistStatsResponse{
+		Enabled:          stats["enabled"].(bool),
+		TotalTokens:      int64(stats["total_tokens"].(int64)),
+		AverageTtlSeconds: float32(stats["average_ttl_seconds"].(float64)),
+	}, nil
+}

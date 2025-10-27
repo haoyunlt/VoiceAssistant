@@ -10,7 +10,7 @@ type Conversation struct {
 	Title       string
 	Mode        ConversationMode
 	Status      ConversationStatus
-	Context     *ConversationContext
+	Limits     *ConversationLimits
 	Metadata    map[string]string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -37,7 +37,7 @@ const (
 )
 
 // ConversationContext 对话上下文
-type ConversationContext struct {
+type ConversationLimits struct {
 	MaxMessages     int               // 最大消息数
 	CurrentMessages int               // 当前消息数
 	TokenLimit      int               // Token 限制
@@ -56,7 +56,7 @@ func NewConversation(tenantID, userID, title string, mode ConversationMode) *Con
 		Title:       title,
 		Mode:        mode,
 		Status:      StatusActive,
-		Context: &ConversationContext{
+		Limits: &ConversationLimits{
 			MaxMessages:   100,
 			CurrentMessages: 0,
 			TokenLimit:    4000,
@@ -103,7 +103,7 @@ func (c *Conversation) CanSendMessage() bool {
 	if c.Status != StatusActive {
 		return false
 	}
-	if c.Context.CurrentMessages >= c.Context.MaxMessages {
+	if c.Limits.CurrentMessages >= c.Limits.MaxMessages {
 		return false
 	}
 	return true
@@ -111,13 +111,13 @@ func (c *Conversation) CanSendMessage() bool {
 
 // IncrementMessageCount 增加消息计数
 func (c *Conversation) IncrementMessageCount() {
-	c.Context.CurrentMessages++
+	c.Limits.CurrentMessages++
 	c.UpdateActivity()
 }
 
 // AddTokens 添加 Token 计数
 func (c *Conversation) AddTokens(tokens int) {
-	c.Context.CurrentTokens += tokens
+	c.Limits.CurrentTokens += tokens
 	c.UpdateActivity()
 }
 

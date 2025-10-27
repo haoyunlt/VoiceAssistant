@@ -13,7 +13,7 @@ import (
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"github.com/google/wire"
 )
 
@@ -28,6 +28,10 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 
 		// Cache layer
 		data.NewCacheManager,
+
+		// Token Blacklist
+		data.NewTokenBlacklistService,
+		wire.Bind(new(biz.TokenBlacklist), new(*data.TokenBlacklistService)),
 
 		// Data layer
 		data.NewDB,

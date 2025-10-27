@@ -113,3 +113,121 @@ async def get_task_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
 
     return result
+
+# 任务管理相关的新端点
+
+@router.get("/tasks/{task_id}", response_model=AgentResult, summary="获取任务结果")
+async def get_task_result(task_id: str):
+    """
+    从Redis获取任务执行结果
+    
+    Args:
+        task_id: 任务ID
+        
+    Returns:
+        任务执行结果
+    """
+    from app.services.task_manager import task_manager
+    
+    result = await task_manager.get_task(task_id)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    
+    return result
+
+
+@router.get("/tasks", summary="列出任务")
+async def list_tasks(
+    limit: int = 100,
+    offset: int = 0,
+    status: Optional[str] = None
+):
+    """
+    列出任务（按创建时间倒序）
+    
+    Args:
+        limit: 返回数量限制
+        offset: 偏移量
+        status: 状态过滤（可选）
+        
+    Returns:
+        任务列表
+    """
+    from app.services.task_manager import task_manager
+    from app.models.agent import AgentStatus
+    
+    status_filter = None
+    if status:
+        try:
+            status_filter = AgentStatus(status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+    
+    results = await task_manager.list_tasks(
+        limit=limit,
+        offset=offset,
+        status=status_filter
+    )
+    
+    return {
+        "total": len(results),
+        "limit": limit,
+        "offset": offset,
+        "tasks": results
+    }
+
+
+@router.get("/tasks/stats/summary", summary="获取任务统计")
+async def get_task_stats():
+    """
+    获取任务统计信息
+    
+    Returns:
+        统计信息字典
+    """
+    from app.services.task_manager import task_manager
+    
+    stats = await task_manager.get_task_stats()
+    return stats
+
+
+@router.delete("/tasks/{task_id}", summary="删除任务")
+async def delete_task(task_id: str):
+    """
+    删除指定任务
+    
+    Args:
+        task_id: 任务ID
+        
+    Returns:
+        删除结果
+    """
+    from app.services.task_manager import task_manager
+    
+    success = await task_manager.delete_task(task_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to delete task")
+    
+    return {"success": True, "message": f"Task {task_id} deleted"}
+
+
+@router.post("/tasks/cleanup", summary="清理旧任务")
+async def cleanup_old_tasks(days: int = 7):
+    """
+    清理超过指定天数的旧任务
+    
+    Args:
+        days: 天数阈值（默认7天）
+        
+    Returns:
+        清理结果
+    """
+    from app.services.task_manager import task_manager
+    
+    deleted_count = await task_manager.cleanup_old_tasks(days=days)
+    
+    return {
+        "success": True,
+        "deleted_count": deleted_count,
+        "message": f"Cleaned up {deleted_count} tasks older than {days} days"
+    }

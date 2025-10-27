@@ -15,6 +15,7 @@ from app.models.agent import (
 )
 from app.services.llm_service import LLMService
 from app.services.tool_service import ToolService
+from app.services.task_manager import task_manager
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class AgentService:
     def __init__(self):
         self.llm_service = LLMService()
         self.tool_service = ToolService()
-        self.task_results: Dict[str, AgentResult] = {}  # 简单内存存储
+        # self.task_results: Dict[str, AgentResult] = {}  # 已迁移到Redis
 
     def generate_task_id(self) -> str:
         """生成任务ID"""
@@ -99,7 +100,7 @@ class AgentService:
                         completed_at=datetime.utcnow(),
                     )
 
-                    self.task_results[task_id] = result
+                    await task_manager.save_task(result)
                     logger.info(f"[{task_id}] Completed in {execution_time:.2f}s")
                     return result
 
@@ -185,7 +186,7 @@ class AgentService:
                 completed_at=datetime.utcnow(),
             )
 
-            self.task_results[task_id] = result
+                    await task_manager.save_task(result)
             logger.warning(f"[{task_id}] Timeout after {task.max_iterations} iterations")
             return result
 
@@ -205,7 +206,7 @@ class AgentService:
                 completed_at=datetime.utcnow(),
             )
 
-            self.task_results[task_id] = result
+                    await task_manager.save_task(result)
             return result
 
     async def execute_async(self, task: AgentTask):
@@ -214,7 +215,7 @@ class AgentService:
 
     async def get_task_result(self, task_id: str) -> Optional[AgentResult]:
         """获取任务结果"""
-        return self.task_results.get(task_id)
+        return await task_manager.get_task(task_id)
 
     def _build_system_prompt(self, task: AgentTask) -> str:
         """构建系统提示"""

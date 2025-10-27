@@ -1,75 +1,90 @@
-"""配置管理"""
-from typing import List
+"""
+RAG Engine 配置管理
+"""
 
-from pydantic import Field
-from pydantic_settings import BaseSettings
+from typing import Optional
+
+from pydantic import BaseSettings, Field
 
 
-class Settings(BaseSettings):
-    """应用配置"""
+class RAGConfig(BaseSettings):
+    """RAG Engine 配置"""
 
-    # 基础配置
-    SERVICE_NAME: str = "rag-engine"
-    VERSION: str = "1.0.0"
-    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
-    DEBUG: bool = Field(default=True, env="DEBUG")
-
-    # 服务器配置
-    HOST: str = Field(default="0.0.0.0", env="HOST")
-    PORT: int = Field(default=8006, env="PORT")
-
-    # 日志配置
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-
-    # CORS配置
-    CORS_ORIGINS: List[str] = Field(
-        default=["*"],
-        env="CORS_ORIGINS",
-    )
-
-    # 检索服务配置
-    RETRIEVAL_SERVICE_URL: str = Field(
-        default="http://localhost:8007", env="RETRIEVAL_SERVICE_URL"
-    )
-    RETRIEVAL_TOP_K: int = Field(default=10, env="RETRIEVAL_TOP_K")
-
-    # 模型适配器配置
-    MODEL_ADAPTER_URL: str = Field(
-        default="http://localhost:8005", env="MODEL_ADAPTER_URL"
-    )
+    # 服务配置
+    service_name: str = Field(default="rag-engine", env="SERVICE_NAME")
+    host: str = Field(default="0.0.0.0", env="HOST")
+    port: int = Field(default=8006, env="PORT")
+    workers: int = Field(default=1, env="WORKERS")
+    reload: bool = Field(default=False, env="RELOAD")
 
     # LLM配置
-    DEFAULT_LLM_MODEL: str = Field(default="gpt-4", env="DEFAULT_LLM_MODEL")
-    LLM_TEMPERATURE: float = Field(default=0.7, env="LLM_TEMPERATURE")
-    LLM_MAX_TOKENS: int = Field(default=2048, env="LLM_MAX_TOKENS")
+    llm_provider: str = Field(default="openai", env="LLM_PROVIDER")
+    llm_model: str = Field(default="gpt-4", env="LLM_MODEL")
+    llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
+    llm_api_base: Optional[str] = Field(default=None, env="LLM_API_BASE")
+    llm_temperature: float = Field(default=0.7, env="LLM_TEMPERATURE")
+    llm_max_tokens: int = Field(default=2000, env="LLM_MAX_TOKENS")
+    llm_timeout: int = Field(default=30, env="LLM_TIMEOUT")
 
-    # RAG配置
-    MAX_CONTEXT_LENGTH: int = Field(default=4000, env="MAX_CONTEXT_LENGTH")
-    ENABLE_RERANK: bool = Field(default=True, env="ENABLE_RERANK")
-    RERANK_TOP_K: int = Field(default=5, env="RERANK_TOP_K")
-    ENABLE_QUERY_EXPANSION: bool = Field(default=True, env="ENABLE_QUERY_EXPANSION")
-    ENABLE_SEMANTIC_CACHE: bool = Field(default=True, env="ENABLE_SEMANTIC_CACHE")
+    # Retrieval配置
+    retrieval_service_url: str = Field(
+        default="http://retrieval-service:8012", env="RETRIEVAL_SERVICE_URL"
+    )
+    retrieval_mode: str = Field(default="hybrid", env="RETRIEVAL_MODE")
+    retrieval_top_k: int = Field(default=5, env="RETRIEVAL_TOP_K")
+    retrieval_timeout: int = Field(default=10, env="RETRIEVAL_TIMEOUT")
+    rerank_enabled: bool = Field(default=True, env="RERANK_ENABLED")
 
-    # 提示词模板
-    DEFAULT_SYSTEM_PROMPT: str = Field(
-        default="You are a helpful AI assistant. Answer the user's question based on the provided context.",
-        env="DEFAULT_SYSTEM_PROMPT",
+    # 查询改写配置
+    query_rewrite_enabled: bool = Field(default=True, env="QUERY_REWRITE_ENABLED")
+    query_rewrite_model: str = Field(
+        default="gpt-3.5-turbo", env="QUERY_REWRITE_MODEL"
     )
 
-    # Redis配置（用于缓存）
-    REDIS_URL: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
-    CACHE_TTL: int = Field(default=3600, env="CACHE_TTL")
+    # 缓存配置
+    cache_enabled: bool = Field(default=True, env="CACHE_ENABLED")
+    cache_ttl: int = Field(default=3600, env="CACHE_TTL")  # 秒
+    redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
 
-    # 数据库配置（可选）
-    DATABASE_URL: str = Field(
-        default="postgresql://voicehelper:voicehelper_dev@localhost:5432/voicehelper",
-        env="DATABASE_URL",
+    # 性能配置
+    timeout: int = Field(default=30, env="RAG_TIMEOUT")
+    max_retries: int = Field(default=3, env="RAG_MAX_RETRIES")
+    retry_delay: float = Field(default=1.0, env="RAG_RETRY_DELAY")
+
+    # 上下文配置
+    max_context_tokens: int = Field(default=4000, env="MAX_CONTEXT_TOKENS")
+    context_compression_enabled: bool = Field(
+        default=False, env="CONTEXT_COMPRESSION_ENABLED"
     )
+
+    # Observability
+    metrics_enabled: bool = Field(default=True, env="METRICS_ENABLED")
+    tracing_enabled: bool = Field(default=False, env="TRACING_ENABLED")
+    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+
+    # 开发模式
+    debug: bool = Field(default=False, env="DEBUG")
 
     class Config:
         env_file = ".env"
-        case_sensitive = True
+        env_file_encoding = "utf-8"
+        case_sensitive = False
 
 
-# 创建全局配置实例
-settings = Settings()
+# 全局配置实例
+_config: Optional[RAGConfig] = None
+
+
+def get_config() -> RAGConfig:
+    """获取全局配置实例"""
+    global _config
+    if _config is None:
+        _config = RAGConfig()
+    return _config
+
+
+def reload_config() -> RAGConfig:
+    """重新加载配置"""
+    global _config
+    _config = RAGConfig()
+    return _config

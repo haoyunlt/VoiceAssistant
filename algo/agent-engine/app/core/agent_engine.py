@@ -57,9 +57,12 @@ class AgentEngine:
         await self.memory_manager.initialize()
 
         # 初始化执行器
+        from app.executors.reflexion_executor import ReflexionExecutor
+
         self.executors = {
             "react": ReActExecutor(self.llm_client, self.tool_registry),
             "plan_execute": PlanExecuteExecutor(self.llm_client, self.tool_registry),
+            "reflexion": ReflexionExecutor(self.llm_client, self.tool_registry, self.memory_manager, max_iterations=3),
         }
 
         logger.info("Agent Engine initialized successfully")

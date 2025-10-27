@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"conversation-service/internal/domain"
+	"voiceassistant/conversation-service/internal/domain"
 )
 
 // MessageUsecase 消息用例
@@ -104,4 +104,52 @@ func (uc *MessageUsecase) GetRecentMessages(ctx context.Context, conversationID,
 
 	// 获取最近消息
 	return uc.messageRepo.GetRecentMessages(ctx, conversationID, limit)
+}
+
+// GetCompressedContext 获取压缩后的上下文
+func (uc *MessageUsecase) GetCompressedContext(
+	ctx context.Context,
+	conversationID string,
+	userID string,
+	maxTokens int,
+	compressionService *ContextCompressionService,
+) ([]*domain.Message, error) {
+	// 获取对话并检查权限
+	conversation, err := uc.conversationRepo.GetConversation(ctx, conversationID)
+	if err != nil {
+		return nil, err
+	}
+
+	if conversation.UserID != userID {
+		return nil, domain.ErrUnauthorized
+	}
+
+	// 获取所有消息
+	messages, _, err := uc.messageRepo.ListMessages(ctx, conversationID, 1000, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list messages: %w", err)
+	}
+
+	// 计算当前token总数
+	currentTokens := 0
+	for _, msg := range messages {
+		currentTokens += msg.Tokens
+		if msg.Tokens == 0 {
+			// 估算
+			currentTokens += len(msg.Content) / 3
+		}
+	}
+
+	// 如果未超过限制，直接返回
+	if currentTokens <= maxTokens {
+		return messages, nil
+	}
+
+	// 压缩上下文
+	compressed, err := compressionService.CompressContext(ctx, messages, currentTokens)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compress context: %w", err)
+	}
+
+	return compressed, nil
 }

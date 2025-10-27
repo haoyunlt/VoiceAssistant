@@ -191,3 +191,103 @@ func (c *AdapterClient) HealthCheck(ctx context.Context) error {
 
 	return nil
 }
+
+// HealthCheckRequest 健康检查请求
+type HealthCheckRequest struct {
+	Model string `json:"model"`
+}
+
+// HealthCheckResponse 健康检查响应
+type HealthCheckResponse struct {
+	Status     string  `json:"status"` // "healthy", "degraded", "unhealthy"
+	ResponseTimeMs float64 `json:"response_time_ms"`
+	Available  bool    `json:"available"`
+	Message    string  `json:"message,omitempty"`
+	Error      string  `json:"error,omitempty"`
+}
+
+// HealthCheck 执行真实的健康检查
+func (c *AdapterClient) HealthCheck(ctx context.Context, modelName string) (*HealthCheckResponse, error) {
+	startTime := time.Now()
+
+	// 方法1：使用简单的测试prompt
+	testReq := &ChatRequest{
+		Model: modelName,
+		Messages: []map[string]interface{}{
+			{
+				"role":    "user",
+				"content": "Hello",
+			},
+		},
+		MaxTokens: 5,
+		Temperature: 0.1,
+	}
+
+	// 设置较短的超时
+	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	resp, err := c.ForwardChatRequest(checkCtx, testReq)
+	responseTime := time.Since(startTime).Milliseconds()
+
+	if err != nil {
+		return &HealthCheckResponse{
+			Status:         "unhealthy",
+			ResponseTimeMs: float64(responseTime),
+			Available:      false,
+			Error:          err.Error(),
+		}, nil
+	}
+
+	// 检查响应是否有效
+	if len(resp.Choices) == 0 {
+		return &HealthCheckResponse{
+			Status:         "degraded",
+			ResponseTimeMs: float64(responseTime),
+			Available:      true,
+			Message:        "Model responded but returned empty choices",
+		}, nil
+	}
+
+	// 判断健康状态
+	status := "healthy"
+	if responseTime > 5000 { // 超过5秒认为是degraded
+		status = "degraded"
+	}
+
+	return &HealthCheckResponse{
+		Status:         status,
+		ResponseTimeMs: float64(responseTime),
+		Available:      true,
+		Message:        fmt.Sprintf("Model %s is responding normally", modelName),
+	}, nil
+}
+
+// BatchHealthCheck 批量健康检查
+func (c *AdapterClient) BatchHealthCheck(ctx context.Context, modelNames []string) map[string]*HealthCheckResponse {
+	results := make(map[string]*HealthCheckResponse)
+	
+	// 并发检查所有模型
+	resultChan := make(chan struct {
+		modelName string
+		result    *HealthCheckResponse
+	}, len(modelNames))
+
+	for _, modelName := range modelNames {
+		go func(name string) {
+			result, _ := c.HealthCheck(ctx, name)
+			resultChan <- struct {
+				modelName string
+				result    *HealthCheckResponse
+			}{name, result}
+		}(modelName)
+	}
+
+	// 收集结果
+	for i := 0; i < len(modelNames); i++ {
+		res := <-resultChan
+		results[res.modelName] = res.result
+	}
+
+	return results
+}

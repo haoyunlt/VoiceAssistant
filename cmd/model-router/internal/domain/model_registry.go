@@ -354,3 +354,36 @@ func (r *ModelRegistry) Enable(modelID string) error {
 
 	return nil
 }
+
+// UpdateModelAvailability 更新模型可用性
+func (r *ModelRegistry) UpdateModelAvailability(modelID string, available bool) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	model, exists := r.models[modelID]
+	if !exists {
+		return fmt.Errorf("model not found: %s", modelID)
+	}
+
+	model.Available = available
+	return nil
+}
+
+// MarkHealthy 标记模型健康
+func (m *ModelInfo) MarkHealthy() {
+	m.Available = true
+	m.ConsecutiveFailures = 0
+}
+
+// MarkUnhealthy 标记模型不健康
+func (m *ModelInfo) MarkUnhealthy(reason string) {
+	m.ConsecutiveFailures++
+	if m.ConsecutiveFailures >= 3 {
+		m.Available = false
+	}
+}
+
+// UpdateLatency 更新延迟
+func (m *ModelInfo) UpdateLatency(latency time.Duration) {
+	m.AvgLatency = latency.Milliseconds()
+}

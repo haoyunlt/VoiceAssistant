@@ -66,6 +66,12 @@ async def lifespan(app: FastAPI):
         )
 
         logger.info("Memory manager initialized")
+        # 初始化任务管理器
+        from app.services.task_manager import task_manager
+        
+        await task_manager.initialize()
+        logger.info("Task manager initialized with Redis persistence")
+
 
         # 设置记忆管理器到路由
         from app.routers import memory as memory_router
@@ -86,7 +92,11 @@ async def lifespan(app: FastAPI):
         logger.info("Shutting down Agent Engine...")
 
         # 清理资源
-        if agent_engine:
+                # 关闭任务管理器
+        if task_manager:
+            await task_manager.close()
+
+if agent_engine:
             await agent_engine.cleanup()
 
         logger.info("Agent Engine shut down complete")
