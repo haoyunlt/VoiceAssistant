@@ -1,5 +1,5 @@
 """
-Agent Engine - 智能代理引擎
+Agent Engine - 智能代理引擎（支持 Nacos 配置中心）
 
 核心功能：
 - LangGraph 工作流引擎
@@ -8,18 +8,33 @@ Agent Engine - 智能代理引擎
 - 工具注册表与调用
 - 记忆管理（短期 + 长期）
 - 多步骤任务编排
+- 支持本地配置和 Nacos 配置中心两种模式
 """
 
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+from app.middleware.metrics import MetricsMiddleware
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_client import make_asgi_app
-from app.middleware.metrics import MetricsMiddleware
+
+# 添加 common 目录到 Python 路径
+sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+
+# 尝试导入 Nacos 配置（可选）
+try:
+    from nacos_config import get_config_manager, init_config
+    NACOS_AVAILABLE = True
+except ImportError:
+    NACOS_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning("Nacos support not available, using environment variables only")
 
 # 配置日志
 logging.basicConfig(
@@ -31,54 +46,91 @@ logger = logging.getLogger(__name__)
 # 全局变量
 agent_engine = None
 memory_manager = None
+config_manager = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global agent_engine, memory_manager
+    global agent_engine, memory_manager, config_manager
 
     logger.info("Starting Agent Engine...")
 
     try:
-        # 初始化工具注册表
+        # 1. 加载配置（支持 Nacos 或纯环境变量）
+        config_data = {}
+        use_nacos = os.getenv("USE_NACOS", "false").lower() == "true"
+
+        if use_nacos and NACOS_AVAILABLE:
+            config_path = os.getenv("CONFIG_PATH", "./configs/agent-engine.yaml")
+            service_name = "agent-engine"
+
+            logger.info(f"Loading config from Nacos: {config_path}")
+            config_data = init_config(config_path, service_name)
+            config_manager = get_config_manager()
+
+            logger.info(f"Config mode: {config_manager.get_mode()}")
+            logger.info(f"Service name: {config_data.get('service', {}).get('name', service_name)}")
+        else:
+            logger.info("Using environment variables for configuration")
+            config_data = {
+                "milvus": {},
+                "memory": {},
+                "embedding": {},
+            }
+
+        # 2. 初始化工具注册表
         from app.tools.dynamic_registry import get_tool_registry
 
         tool_registry = get_tool_registry()
         logger.info(f"Tool registry initialized with {len(tool_registry.get_tool_names())} tools")
 
-        # 初始化记忆管理器
+        # 3. 初始化记忆管理器
         from app.memory.unified_memory_manager import UnifiedMemoryManager
 
+        milvus_config = config_data.get("milvus", {})
+        memory_config = config_data.get("memory", {})
+        embedding_config = config_data.get("embedding", {})
+
         memory_manager = UnifiedMemoryManager(
-            milvus_host=os.getenv("MILVUS_HOST", "localhost"),
-            milvus_port=int(os.getenv("MILVUS_PORT", "19530")),
+            milvus_host=os.getenv("MILVUS_HOST", milvus_config.get("host", "localhost")),
+            milvus_port=int(os.getenv("MILVUS_PORT", milvus_config.get("port", 19530))),
             embedding_service_url=os.getenv(
-                "EMBEDDING_SERVICE_URL", "http://localhost:8002"
+                "EMBEDDING_SERVICE_URL",
+                embedding_config.get("service_url", "http://localhost:8002")
             ),
-            collection_name=os.getenv("MEMORY_COLLECTION", "agent_memory"),
-            time_decay_half_life_days=int(os.getenv("MEMORY_HALF_LIFE_DAYS", "30")),
-            auto_save_to_long_term=os.getenv("AUTO_SAVE_LONG_TERM", "true").lower()
-            == "true",
-            long_term_importance_threshold=float(
-                os.getenv("IMPORTANCE_THRESHOLD", "0.6")
+            collection_name=os.getenv(
+                "MEMORY_COLLECTION",
+                memory_config.get("collection_name", "agent_memory")
             ),
+            time_decay_half_life_days=int(os.getenv(
+                "MEMORY_HALF_LIFE_DAYS",
+                memory_config.get("time_decay_half_life_days", 30)
+            )),
+            auto_save_to_long_term=os.getenv(
+                "AUTO_SAVE_LONG_TERM",
+                str(memory_config.get("auto_save_to_long_term", True))
+            ).lower() == "true",
+            long_term_importance_threshold=float(os.getenv(
+                "IMPORTANCE_THRESHOLD",
+                memory_config.get("long_term_importance_threshold", 0.6)
+            )),
         )
 
         logger.info("Memory manager initialized")
-        # 初始化任务管理器
+
+        # 4. 初始化任务管理器
         from app.services.task_manager import task_manager
-        
+
         await task_manager.initialize()
         logger.info("Task manager initialized with Redis persistence")
 
-
-        # 设置记忆管理器到路由
+        # 5. 设置记忆管理器到路由
         from app.routers import memory as memory_router
 
         memory_router.set_memory_manager(memory_manager)
 
-        # 初始化 Agent 引擎
+        # 6. 初始化 Agent 引擎
         from app.core.agent_engine import AgentEngine
 
         agent_engine = AgentEngine()
@@ -92,12 +144,15 @@ async def lifespan(app: FastAPI):
         logger.info("Shutting down Agent Engine...")
 
         # 清理资源
-                # 关闭任务管理器
         if task_manager:
             await task_manager.close()
 
-if agent_engine:
+        if agent_engine:
             await agent_engine.cleanup()
+
+        # 关闭配置管理器
+        if config_manager:
+            config_manager.close()
 
         logger.info("Agent Engine shut down complete")
 
@@ -167,6 +222,25 @@ async def readiness_check():
         "ready": all_ready,
         "checks": checks,
     }
+
+
+@app.get("/config/info")
+async def config_info():
+    """配置信息（用于调试）"""
+    global config_manager
+
+    if config_manager:
+        return {
+            "mode": config_manager.get_mode().value,
+            "service": config_manager.get("service.name", "unknown"),
+            "nacos_enabled": True,
+        }
+    else:
+        return {
+            "mode": "environment",
+            "service": "agent-engine",
+            "nacos_enabled": False,
+        }
 
 
 @app.post("/execute")
@@ -335,7 +409,7 @@ async def get_stats():
 if __name__ == "__main__":
     import uvicorn
 
-    # 配置
+    # 从环境变量或配置获取参数
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8003"))
     workers = int(os.getenv("WORKERS", "1"))
