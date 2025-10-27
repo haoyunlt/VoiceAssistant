@@ -300,9 +300,9 @@ multimodal-engine:
 postgresql:
   enabled: true
   auth:
-    username: voicehelper
+    username: voiceassistant
     password: changeme
-    database: voicehelper
+    database: voiceassistant
   primary:
     persistence:
       enabled: true

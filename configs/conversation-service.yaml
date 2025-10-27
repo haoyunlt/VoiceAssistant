@@ -1,5 +1,20 @@
 # Conversation Service 配置文件
 
+# Nacos 配置中心连接配置（可选）
+# 当 CONFIG_MODE=nacos 时使用
+nacos:
+  server_addr: "localhost"
+  server_port: 8848
+  namespace: ""
+  group: "VoiceAssistant"
+  data_id: "conversation-service.yaml"
+  username: ""
+  password: ""
+  log_dir: "/tmp/nacos/log"
+  cache_dir: "/tmp/nacos/cache"
+  log_level: "info"
+  timeout_ms: 5000
+
 server:
   http:
     addr: 0.0.0.0:8000
@@ -11,11 +26,11 @@ server:
 data:
   database:
     driver: postgres
-    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=conversation
+    source: postgresql://voiceassistant:password@postgres:5432/voiceassistant?sslmode=disable&search_path=conversation
   redis:
     addr: redis:6379
     password: ""
-    db: 1  # 使用 DB 1（Identity Service 使用 DB 0）
+    db: 1 # 使用 DB 1（Identity Service 使用 DB 0）
     read_timeout: 1s
     write_timeout: 1s
     dial_timeout: 1s
@@ -33,8 +48,8 @@ kafka:
 
 # 上下文配置
 context:
-  max_tokens: 4096  # 默认最大 Token 数
-  ttl: 24h          # Redis 缓存过期时间
+  max_tokens: 4096 # 默认最大 Token 数
+  ttl: 24h # Redis 缓存过期时间
 
 service:
   name: conversation-service
@@ -62,4 +77,3 @@ ratelimit:
   enabled: true
   requests_per_minute: 200
   burst: 100
-

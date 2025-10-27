@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/VoiceAssistant/cmd/identity-service/internal/domain"
+	"voiceassistant/cmd/identity-service/internal/domain"
 )
 
 // GitHubClient GitHub OAuth客户端

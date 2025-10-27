@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/VoiceAssistant/cmd/conversation-service/internal/domain"
+	"voiceassistant/cmd/conversation-service/internal/domain"
 )
 
 var (

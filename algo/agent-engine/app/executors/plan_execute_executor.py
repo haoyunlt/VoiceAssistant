@@ -1,6 +1,7 @@
 """
 Plan-Execute Executor
 基于计划-执行模式的 Agent 执行器
+增强版：OpenTelemetry 追踪、超时控制、指标上报
 """
 
 import asyncio
@@ -13,7 +14,33 @@ import httpx
 from app.models.agent_models import AgentResult, Plan, Step, StepResult
 from app.services.tool_service import ToolService
 
+try:
+    from opentelemetry import trace
+    from opentelemetry.trace import Status, StatusCode
+    OTEL_AVAILABLE = True
+except ImportError:
+    OTEL_AVAILABLE = False
+    logger.warning("OpenTelemetry not available, tracing disabled")
+
 logger = logging.getLogger(__name__)
+
+# 初始化 tracer
+if OTEL_AVAILABLE:
+    tracer = trace.get_tracer(__name__)
+else:
+    # 创建一个空的 tracer stub
+    class NoOpTracer:
+        def start_as_current_span(self, name, **kwargs):
+            from contextlib import contextmanager
+            @contextmanager
+            def noop():
+                class NoOpSpan:
+                    def set_attribute(self, *args, **kwargs): pass
+                    def set_status(self, *args, **kwargs): pass
+                    def record_exception(self, *args, **kwargs): pass
+                yield NoOpSpan()
+            return noop()
+    tracer = NoOpTracer()
 
 
 class PlanExecuteExecutor:
@@ -33,7 +60,7 @@ class PlanExecuteExecutor:
 
     async def execute(self, task: str, context: Dict = None) -> AgentResult:
         """
-        执行计划-执行流程
+        执行计划-执行流程 - 增强版（带追踪和超时控制）
 
         Args:
             task: 用户任务描述
@@ -42,17 +69,86 @@ class PlanExecuteExecutor:
         Returns:
             AgentResult: 执行结果
         """
-        start_time = datetime.utcnow()
-        logger.info(f"Plan-Execute started: {task}")
+        with tracer.start_as_current_span(
+            "plan_execute.execute",
+            attributes={
+                "task": task[:100] if len(task) > 100 else task,  # 截断避免太长
+                "has_context": context is not None
+            }
+        ) as span:
+            start_time = datetime.utcnow()
+            logger.info(f"Plan-Execute started: {task}")
 
-        try:
-            # Step 1: 生成执行计划
+            try:
+                # 添加整体超时控制（Python 3.11+）
+                try:
+                    async with asyncio.timeout(self.timeout):
+                        return await self._execute_with_tracing(task, context, span, start_time)
+                except AttributeError:
+                    # Python 3.10 及以下，使用 wait_for
+                    return await asyncio.wait_for(
+                        self._execute_with_tracing(task, context, span, start_time),
+                        timeout=self.timeout
+                    )
+
+            except asyncio.TimeoutError:
+                duration = (datetime.utcnow() - start_time).total_seconds()
+                if OTEL_AVAILABLE:
+                    span.set_status(Status(StatusCode.ERROR, "Execution timeout"))
+                    span.set_attribute("timeout_seconds", self.timeout)
+                logger.error(f"Plan-Execute timeout after {duration}s (limit: {self.timeout}s)")
+
+                return AgentResult(
+                    answer="执行超时，请稍后重试或简化任务",
+                    plan=None,
+                    step_results=[],
+                    success=False,
+                    duration=duration,
+                    error="timeout"
+                )
+
+            except Exception as e:
+                duration = (datetime.utcnow() - start_time).total_seconds()
+                if OTEL_AVAILABLE:
+                    span.record_exception(e)
+                    span.set_status(Status(StatusCode.ERROR, str(e)))
+                logger.error(f"Plan-Execute failed: {e}", exc_info=True)
+
+                return AgentResult(
+                    answer=f"执行失败: {str(e)}",
+                    plan=None,
+                    step_results=[],
+                    success=False,
+                    duration=duration,
+                    error=str(e)
+                )
+
+    async def _execute_with_tracing(
+        self,
+        task: str,
+        context: Dict,
+        span,
+        start_time: datetime
+    ) -> AgentResult:
+        """内部执行逻辑（带追踪）"""
+        # Step 1: 生成执行计划
+        with tracer.start_as_current_span("plan_execute.generate_plan"):
             plan = await self._generate_plan(task, context)
+            if OTEL_AVAILABLE:
+                span.set_attribute("plan_steps_count", len(plan.steps))
             logger.info(f"Generated plan with {len(plan.steps)} steps")
 
-            # Step 2: 执行各个步骤
-            step_results = []
-            for step in plan.steps:
+        # Step 2: 执行各个步骤
+        step_results = []
+        for step in plan.steps:
+            with tracer.start_as_current_span(
+                f"plan_execute.step_{step.id}",
+                attributes={
+                    "step_id": step.id,
+                    "step_description": step.description[:100] if len(step.description) > 100 else step.description,
+                    "step_tool": step.tool or "llm"
+                }
+            ) as step_span:
                 # 检查依赖是否完成
                 if not self._check_dependencies(step, step_results):
                     logger.warning(f"Step {step.id} dependencies not met, waiting...")
@@ -62,42 +158,41 @@ class PlanExecuteExecutor:
                 result = await self._execute_step(step, step_results, context)
                 step_results.append(result)
 
-                logger.info(f"Completed step {step.id}: {step.description}")
+                if OTEL_AVAILABLE:
+                    step_span.set_attribute("step_status", result.status)
+                    step_span.set_attribute("step_duration", result.duration)
+
+                logger.info(f"Completed step {step.id}: {step.description} (status: {result.status})")
 
                 # 检查是否超过最大步骤数
                 if len(step_results) >= self.max_steps:
                     logger.warning(f"Reached max steps limit: {self.max_steps}")
                     break
 
-            # Step 3: 汇总结果
+        # Step 3: 汇总结果
+        with tracer.start_as_current_span("plan_execute.summarize"):
             final_answer = await self._summarize_results(task, plan, step_results)
 
-            duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (datetime.utcnow() - start_time).total_seconds()
 
-            return AgentResult(
-                answer=final_answer,
-                plan=plan,
-                step_results=step_results,
-                success=True,
-                duration=duration,
-                metadata={
-                    "total_steps": len(step_results),
-                    "plan_steps": len(plan.steps)
-                }
-            )
+        # 记录最终指标
+        if OTEL_AVAILABLE:
+            span.set_attribute("duration_seconds", duration)
+            span.set_attribute("total_steps", len(step_results))
+            span.set_attribute("success", True)
+            span.set_status(Status(StatusCode.OK))
 
-        except Exception as e:
-            logger.error(f"Plan-Execute failed: {e}", exc_info=True)
-            duration = (datetime.utcnow() - start_time).total_seconds()
-
-            return AgentResult(
-                answer=f"执行失败: {str(e)}",
-                plan=None,
-                step_results=[],
-                success=False,
-                duration=duration,
-                error=str(e)
-            )
+        return AgentResult(
+            answer=final_answer,
+            plan=plan,
+            step_results=step_results,
+            success=True,
+            duration=duration,
+            metadata={
+                "total_steps": len(step_results),
+                "plan_steps": len(plan.steps)
+            }
+        )
 
     async def _generate_plan(self, task: str, context: Dict = None) -> Plan:
         """
@@ -216,7 +311,7 @@ class PlanExecuteExecutor:
         context: Dict = None
     ) -> StepResult:
         """
-        执行单个步骤
+        执行单个步骤（带追踪）
         """
         start_time = datetime.utcnow()
 

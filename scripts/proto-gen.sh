@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# Proto generation script for VoiceHelper
+# Proto generation script for VoiceAssistant
 # Generates Go gRPC code and OpenAPI specs from proto files
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

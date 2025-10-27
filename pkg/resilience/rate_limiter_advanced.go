@@ -91,10 +91,10 @@ func (tb *TokenBucket) AvailableTokens() int64 {
 
 // SlidingWindowLimiter 滑动窗口限流器
 type SlidingWindowLimiter struct {
-	mu         sync.Mutex
-	window     time.Duration
-	limit      int64
-	requests   []time.Time
+	mu       sync.Mutex
+	window   time.Duration
+	limit    int64
+	requests []time.Time
 }
 
 // NewSlidingWindowLimiter 创建滑动窗口限流器
@@ -152,16 +152,16 @@ func (swl *SlidingWindowLimiter) CurrentRate() int64 {
 
 // AdaptiveRateLimiter 自适应限流器
 type AdaptiveRateLimiter struct {
-	mu              sync.RWMutex
-	baseLimit       int64
-	currentLimit    int64
-	minLimit        int64
-	maxLimit        int64
-	adjustInterval  time.Duration
-	lastAdjust      time.Time
-	successCount    int64
-	failureCount    int64
-	tokenBucket     *TokenBucket
+	mu             sync.RWMutex
+	baseLimit      int64
+	currentLimit   int64
+	minLimit       int64
+	maxLimit       int64
+	adjustInterval time.Duration
+	lastAdjust     time.Time
+	successCount   int64
+	failureCount   int64
+	tokenBucket    *TokenBucket
 }
 
 // NewAdaptiveRateLimiter 创建自适应限流器
@@ -256,4 +256,3 @@ func RateLimiterMiddleware(limiter *TokenBucket) func(next func(ctx context.Cont
 		}
 	}
 }
-

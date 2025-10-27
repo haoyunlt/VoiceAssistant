@@ -7,7 +7,7 @@ import (
 
 	"github.com/segmentio/kafka-go"
 
-	"notification-service/internal/biz"
+	"voiceassistant/cmd/notification-service/internal/biz"
 )
 
 type Consumer struct {
@@ -160,7 +160,7 @@ func (c *Consumer) handleUserRegistered(ctx context.Context, event map[string]in
 		UserID:    userID,
 		Type:      "email",
 		Recipient: email,
-		Title:     "Welcome to VoiceHelper",
+		Title:     "Welcome to VoiceAssistant",
 		Content:   "Thank you for registering!",
 		EventType: "user.registered",
 		EventID:   event["event_id"].(string),

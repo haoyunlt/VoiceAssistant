@@ -23,10 +23,10 @@ clean:
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 
 docker-build:
-	docker build -t voicehelper/rag-engine:latest .
+	docker build -t voiceassistant/rag-engine:latest .
 
 docker-run:
-	docker run -p 8006:8006 --env-file .env voicehelper/rag-engine:latest
+	docker run -p 8006:8006 --env-file .env voiceassistant/rag-engine:latest
 
 dev:
 	uvicorn main:app --reload --host 0.0.0.0 --port 8006 --log-level debug

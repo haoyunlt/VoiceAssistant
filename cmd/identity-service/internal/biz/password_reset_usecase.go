@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VoiceAssistant/cmd/identity-service/internal/domain"
+	"voiceassistant/cmd/identity-service/internal/domain"
 )
 
 var (

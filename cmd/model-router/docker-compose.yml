@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/model-router:latest
+    image: voiceassistant/model-router:latest
     container_name: model-router
     ports:
       - "9004:9004"  # gRPC port
@@ -15,9 +15,9 @@ services:
       - LOG_LEVEL=info
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=voicehelper
-      - POSTGRES_PASSWORD=voicehelper123
-      - POSTGRES_DB=voicehelper
+      - POSTGRES_USER=voiceassistant
+      - POSTGRES_PASSWORD=voiceassistant123
+      - POSTGRES_DB=voiceassistant
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
@@ -25,7 +25,7 @@ services:
       - postgres
       - redis
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8004/health"]
@@ -38,16 +38,16 @@ services:
     image: postgres:15-alpine
     container_name: model-router-postgres
     environment:
-      - POSTGRES_USER=voicehelper
-      - POSTGRES_PASSWORD=voicehelper123
-      - POSTGRES_DB=voicehelper
+      - POSTGRES_USER=voiceassistant
+      - POSTGRES_PASSWORD=voiceassistant123
+      - POSTGRES_DB=voiceassistant
     ports:
       - "5436:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../../migrations/postgres:/docker-entrypoint-initdb.d
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
 
   redis:
@@ -58,7 +58,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -67,5 +67,5 @@ volumes:
   redis-data:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

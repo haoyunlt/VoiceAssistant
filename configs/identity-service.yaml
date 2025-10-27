@@ -1,5 +1,19 @@
 # Identity Service 配置文件
 
+# Nacos 配置中心连接配置（可选）
+nacos:
+  server_addr: "localhost"
+  server_port: 8848
+  namespace: ""
+  group: "VoiceAssistant"
+  data_id: "identity-service.yaml"
+  username: ""
+  password: ""
+  log_dir: "/tmp/nacos/log"
+  cache_dir: "/tmp/nacos/cache"
+  log_level: "info"
+  timeout_ms: 5000
+
 server:
   http:
     addr: 0.0.0.0:8000
@@ -11,7 +25,7 @@ server:
 data:
   database:
     driver: postgres
-    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=identity
+    source: postgresql://voiceassistant:password@postgres:5432/voiceassistant?sslmode=disable&search_path=identity
   redis:
     addr: redis:6379
     password: ""
@@ -23,12 +37,12 @@ data:
 
 auth:
   jwt:
-    secret: ${VAULT:secret/jwt#secret}  # 从 Vault 读取
-    issuer: voicehelper.ai
-    access_token_ttl: 1h    # 1小时
+    secret: ${VAULT:secret/jwt#secret} # 从 Vault 读取
+    issuer: voiceassistant.ai
+    access_token_ttl: 1h # 1小时
     refresh_token_ttl: 168h # 7天
   password:
-    bcrypt_cost: 12  # bcrypt 强度
+    bcrypt_cost: 12 # bcrypt 强度
 
 service:
   name: identity-service
@@ -62,4 +76,3 @@ vault:
   addr: http://vault:8200
   token: ${VAULT_TOKEN}
   role: identity-service
-

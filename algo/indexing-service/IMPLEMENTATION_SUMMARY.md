@@ -2,7 +2,7 @@
 
 ## 服务概述
 
-**Indexing Service**（索引服务）是 VoiceHelper 平台的文档索引与向量化服务，负责将各种格式的文档转换为可检索的向量表示。
+**Indexing Service**（索引服务）是 VoiceAssistant 平台的文档索引与向量化服务，负责将各种格式的文档转换为可检索的向量表示。
 
 ## 核心功能
 

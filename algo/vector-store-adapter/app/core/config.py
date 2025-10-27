@@ -20,7 +20,7 @@ class Config:
     # PostgreSQL (pgvector) 配置
     PGVECTOR_HOST = os.getenv("PGVECTOR_HOST", "localhost")
     PGVECTOR_PORT = int(os.getenv("PGVECTOR_PORT", "5432"))
-    PGVECTOR_DATABASE = os.getenv("PGVECTOR_DATABASE", "voicehelper")
+    PGVECTOR_DATABASE = os.getenv("PGVECTOR_DATABASE", "voiceassistant")
     PGVECTOR_USER = os.getenv("PGVECTOR_USER", "postgres")
     PGVECTOR_PASSWORD = os.getenv("PGVECTOR_PASSWORD", "")
 

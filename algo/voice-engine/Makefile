@@ -27,7 +27,7 @@ format: ## Format code
 	ruff check --fix .
 
 docker-build: ## Build Docker image
-	docker build -t voicehelper/voice-engine:latest .
+	docker build -t voiceassistant/voice-engine:latest .
 
 docker-run: ## Run Docker container
 	docker run -d \
@@ -35,7 +35,7 @@ docker-run: ## Run Docker container
 		--name voice-engine \
 		-e ASR_PROVIDER=whisper \
 		-e TTS_PROVIDER=edge \
-		voicehelper/voice-engine:latest
+		voiceassistant/voice-engine:latest
 
 clean: ## Clean up
 	find . -type d -name "__pycache__" -exec rm -rf {} +

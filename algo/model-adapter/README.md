@@ -2,7 +2,7 @@
 
 ## 概述
 
-Model Adapter 是 VoiceHelper 平台的模型适配器服务，负责：
+Model Adapter 是 VoiceAssistant 平台的模型适配器服务，负责：
 
 - **统一接口**：提供统一的 AI 模型调用接口
 - **多提供商支持**：OpenAI、Anthropic、智谱、千问、文心等

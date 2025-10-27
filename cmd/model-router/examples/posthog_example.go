@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"voiceassistant/model-router/internal/application"
-	"voiceassistant/model-router/internal/domain"
+	"voiceassistant/cmd/model-router/internal/application"
+	"voiceassistant/cmd/model-router/internal/domain"
 )
 
 // 演示如何使用 PostHog 集成的 A/B 测试

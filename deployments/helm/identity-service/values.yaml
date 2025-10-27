@@ -2,7 +2,7 @@
 
 # 镜像配置
 image:
-  repository: voicehelper/identity-service
+  repository: voiceassistant/identity-service
   pullPolicy: IfNotPresent
   tag: "v2.0.0"
 
@@ -79,7 +79,7 @@ istio:
     gateways:
       - istio-gateway
     hosts:
-      - identity.voicehelper.local
+      - identity.voiceassistant.local
   destinationRule:
     enabled: true
     trafficPolicy:

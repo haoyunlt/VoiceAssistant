@@ -1,0 +1,203 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: voice-engine-config
+  namespace: voiceassistant-prod
+  labels:
+    app: voice-engine
+data:
+  APP_NAME: "voice-engine"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8002"
+  WORKERS: "4"
+  # Nacos
+  NACOS_SERVER_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  # Redis
+  REDIS_HOST: "redis.voiceassistant-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "3"
+  # Azure Speech配置
+  AZURE_SPEECH_REGION: "eastus"
+  # VAD配置
+  VAD_MODE: "3"
+  VAD_FRAME_MS: "30"
+  # ASR配置
+  ASR_LANGUAGE: "zh-CN"
+  # TTS配置
+  TTS_VOICE: "zh-CN-XiaoxiaoNeural"
+  TTS_STYLE: "friendly"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: voice-engine-secret
+  namespace: voiceassistant-prod
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+  AZURE_SPEECH_KEY: "your-azure-speech-key"
+  OPENAI_API_KEY: "sk-..."
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: voice-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: voice-engine
+    version: v1
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: voice-engine
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: voice-engine
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: voice-engine-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: voice-engine
+        image: ghcr.io/voiceassistant/voice-engine:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8002
+          name: http
+        envFrom:
+        - configMapRef:
+            name: voice-engine-config
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: voice-engine-secret
+              key: REDIS_PASSWORD
+        - name: AZURE_SPEECH_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voice-engine-secret
+              key: AZURE_SPEECH_KEY
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: voice-engine-secret
+              key: OPENAI_API_KEY
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/app/.cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      terminationGracePeriodSeconds: 90  # WebSocket需要更长的优雅关闭时间
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: voice-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: voice-engine
+  annotations:
+    # WebSocket支持
+    service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "true"
+spec:
+  type: ClusterIP
+  selector:
+    app: voice-engine
+  ports:
+  - port: 8002
+    targetPort: 8002
+    name: http
+  sessionAffinity: ClientIP  # WebSocket会话保持
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: voice-engine-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: voice-engine-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: voice-engine
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: voice-engine-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: voice-engine
+

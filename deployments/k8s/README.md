@@ -1,381 +1,437 @@
-# Kubernetes 部署配置
+# VoiceAssistant Kubernetes 部署
 
-本目录包含VoiceAssistant项目的Kubernetes部署配置，包括PostHog A/B测试平台的集成。
+VoiceAssistant 完整的 Kubernetes + Istio 部署配置，包含所有微服务和基础设施。
 
-## 📂 文件列表
+## 📁 目录结构
 
-| 文件 | 说明 |
-|------|------|
-| `namespace.yaml` | 命名空间定义 |
-| `posthog-deployment.yaml` | PostHog自托管完整部署 |
-| `posthog-cloud-config.yaml` | PostHog云服务配置 |
-| `model-router-deployment.yaml` | Model Router服务部署 |
-| `deploy-posthog.sh` | 快速部署脚本 |
-| `POSTHOG_K8S_DEPLOYMENT_GUIDE.md` | 详细部署指南 |
+```
+k8s/
+├── README.md                 # 本文件
+├── deploy-all.yaml          # 基础配置（命名空间、RBAC、资源配额等）
+├── istio/                   # Istio 服务网格配置
+│   ├── namespace.yaml       # 命名空间（启用 Istio 注入）
+│   ├── gateway.yaml         # Istio Gateway 入口
+│   ├── virtual-service.yaml # 路由规则
+│   ├── destination-rule.yaml# 流量策略
+│   ├── security.yaml        # mTLS、JWT、授权策略
+│   ├── telemetry.yaml       # 可观测性配置
+│   └── traffic-management.yaml # 熔断、限流、超时
+├── services/                # 应用服务配置
+│   ├── go/                  # Go 微服务
+│   │   ├── identity-service.yaml
+│   │   ├── conversation-service.yaml
+│   │   ├── knowledge-service.yaml
+│   │   ├── ai-orchestrator.yaml
+│   │   ├── notification-service.yaml
+│   │   └── analytics-service.yaml
+│   └── python/              # Python AI 服务
+│       ├── agent-engine.yaml
+│       ├── rag-engine.yaml
+│       ├── voice-engine.yaml
+│       ├── model-adapter.yaml
+│       ├── retrieval-service.yaml
+│       ├── indexing-service.yaml
+│       ├── multimodal-engine.yaml
+│       └── vector-store-adapter.yaml
+└── infrastructure/          # 基础设施服务
+    ├── README.md            # 基础设施详细文档
+    ├── postgres.yaml
+    ├── redis.yaml
+    ├── nacos.yaml
+    ├── milvus.yaml
+    ├── elasticsearch.yaml
+    ├── clickhouse.yaml
+    ├── kafka.yaml
+    ├── minio-standalone.yaml
+    ├── prometheus-grafana.yaml
+    ├── jaeger.yaml
+    └── alertmanager.yaml
+```
 
 ## 🚀 快速开始
 
-### 选项1: 使用PostHog云服务（推荐）
+### 前置要求
+
+- Kubernetes 1.25+
+- kubectl 配置完成
+- Istio 1.19+ （可选，脚本会自动安装）
+- 至少 3 个节点，每个节点 8 核 CPU / 16 GB 内存
+- 持久化存储支持（StorageClass）
+
+### 一键部署
 
 ```bash
-# 1. 注册PostHog云服务
-# 访问 https://app.posthog.com 获取API Key
+# 克隆项目
+cd VoiceAssistant
 
-# 2. 配置
-./deploy-posthog.sh cloud
+# 执行部署脚本
+./scripts/deploy-k8s.sh
 
-# 3. 部署Model Router
-./deploy-posthog.sh model-router
-
-# 4. 验证
-./deploy-posthog.sh verify
+# 查看部署状态
+kubectl get pods -n voiceassistant-prod
+kubectl get pods -n voiceassistant-infra
 ```
 
-### 选项2: 自托管PostHog
+部署脚本会自动完成以下步骤：
+
+1. 检查依赖工具（kubectl、helm、istioctl）
+2. 安装 Istio（如果未安装）
+3. 创建命名空间和基础配置
+4. 部署基础设施服务
+5. 配置 Istio 路由和安全策略
+6. 部署应用服务
+7. 验证部署状态
+
+### 选项参数
 
 ```bash
-# 1. 编辑配置
-vim posthog-deployment.yaml
-# 更新: Secret密码、域名
+# 跳过 Istio 安装（如果已安装）
+./scripts/deploy-k8s.sh --skip-istio
 
-# 2. 部署PostHog
-./deploy-posthog.sh self-hosted
+# 跳过基础设施部署（如果已部署）
+./scripts/deploy-k8s.sh --skip-infra
 
-# 3. 部署Model Router
-./deploy-posthog.sh model-router
-
-# 4. 验证
-./deploy-posthog.sh verify
+# 仅验证部署状态
+./scripts/deploy-k8s.sh --verify-only
 ```
 
-## 📦 部署架构
+## 📦 分步部署
 
-```
-┌─────────────────────────────────────────────┐
-│         Kubernetes Cluster                  │
-├─────────────────────────────────────────────┤
-│                                             │
-│  ┌──────────────────────────────────────┐  │
-│  │  Namespace: voicehelper-prod         │  │
-│  │  ┌──────────────────────────────┐    │  │
-│  │  │  Model Router (3+ replicas)  │────┼──┼─> PostHog
-│  │  │  - PostHog SDK 集成          │    │  │
-│  │  │  - A/B Testing               │    │  │
-│  │  │  - Feature Flags             │    │  │
-│  │  └──────────────────────────────┘    │  │
-│  │  - ConfigMap                         │  │
-│  │  - Secret                            │  │
-│  │  - HPA                               │  │
-│  │  - Service                           │  │
-│  │  - Ingress                           │  │
-│  └──────────────────────────────────────┘  │
-│                                             │
-│  ┌──────────────────────────────────────┐  │
-│  │  Namespace: posthog (自托管)         │  │
-│  │  ┌──────────────────────────────┐    │  │
-│  │  │  PostHog Web (2 replicas)    │    │  │
-│  │  │  PostHog Worker (2 replicas) │    │  │
-│  │  │  PostgreSQL                  │    │  │
-│  │  │  Redis                       │    │  │
-│  │  │  ClickHouse                  │    │  │
-│  │  └──────────────────────────────┘    │  │
-│  └──────────────────────────────────────┘  │
-│                                             │
-└─────────────────────────────────────────────┘
-```
+如果需要更精细的控制，可以分步部署：
 
-## 🔧 配置说明
-
-### PostHog自托管
-
-需要配置的密钥（`posthog-deployment.yaml`）:
-
-```yaml
-stringData:
-  POSTHOG_DB_PASSWORD: "your-strong-password"      # PostgreSQL密码
-  CLICKHOUSE_PASSWORD: "your-clickhouse-password"  # ClickHouse密码
-  SECRET_KEY: "your-secret-key-min-32-chars"      # Django Secret Key (至少32字符)
-```
-
-生成强密码:
+### 1. 部署基础配置
 
 ```bash
-# PostgreSQL密码
-openssl rand -base64 32
-
-# ClickHouse密码
-openssl rand -base64 32
-
-# Secret Key
-openssl rand -base64 48
+kubectl apply -f deploy-all.yaml
+kubectl apply -f istio/namespace.yaml
 ```
 
-需要配置的域名:
+### 2. 部署基础设施
 
-```yaml
-# ConfigMap
-SITE_URL: "https://posthog.your-domain.com"
+```bash
+# 核心存储
+kubectl apply -f infrastructure/postgres.yaml
+kubectl apply -f infrastructure/redis.yaml
+kubectl apply -f infrastructure/nacos.yaml
+kubectl apply -f infrastructure/milvus.yaml
 
-# Ingress
-spec:
-  rules:
-  - host: posthog.your-domain.com
+# 可选：搜索和分析
+kubectl apply -f infrastructure/elasticsearch.yaml
+kubectl apply -f infrastructure/clickhouse.yaml
+
+# 可选：消息队列
+kubectl apply -f infrastructure/kafka.yaml
+
+# 可选：监控
+kubectl apply -f infrastructure/prometheus-grafana.yaml
+kubectl apply -f infrastructure/jaeger.yaml
+kubectl apply -f infrastructure/alertmanager.yaml
+
+# 等待基础设施就绪
+kubectl wait --for=condition=ready pod -l app=postgres -n voiceassistant-infra --timeout=300s
+kubectl wait --for=condition=ready pod -l app=redis -n voiceassistant-infra --timeout=300s
+kubectl wait --for=condition=ready pod -l app=nacos -n voiceassistant-infra --timeout=300s
 ```
 
-### PostHog云服务
+### 3. 配置 Istio
 
-只需配置API Key:
-
-```yaml
-stringData:
-  POSTHOG_API_KEY: "phc_YOUR_API_KEY"  # 从PostHog控制台获取
+```bash
+kubectl apply -f istio/gateway.yaml
+kubectl apply -f istio/virtual-service.yaml
+kubectl apply -f istio/destination-rule.yaml
+kubectl apply -f istio/security.yaml
+kubectl apply -f istio/telemetry.yaml
+kubectl apply -f istio/traffic-management.yaml
 ```
 
-### Model Router
+### 4. 部署应用服务
 
-需要配置的内容（`model-router-deployment.yaml`）:
+```bash
+# Go 服务
+kubectl apply -f services/go/identity-service.yaml
+kubectl apply -f services/go/conversation-service.yaml
+kubectl apply -f services/go/knowledge-service.yaml
+kubectl apply -f services/go/ai-orchestrator.yaml
+kubectl apply -f services/go/notification-service.yaml
+kubectl apply -f services/go/analytics-service.yaml
 
-1. **镜像地址**:
-```yaml
-image: your-registry/model-router:latest
+# Python AI 服务
+kubectl apply -f services/python/agent-engine.yaml
+kubectl apply -f services/python/rag-engine.yaml
+kubectl apply -f services/python/voice-engine.yaml
+kubectl apply -f services/python/model-adapter.yaml
+kubectl apply -f services/python/retrieval-service.yaml
+kubectl apply -f services/python/indexing-service.yaml
+kubectl apply -f services/python/multimodal-engine.yaml
+kubectl apply -f services/python/vector-store-adapter.yaml
 ```
-
-2. **PostHog配置**:
-```yaml
-# ConfigMap
-POSTHOG_ENABLED: "true"
-POSTHOG_HOST: "http://posthog-web.posthog.svc.cluster.local:8000"  # 自托管
-# 或: https://app.posthog.com  # 云服务
-
-# Secret
-POSTHOG_API_KEY: "phc_YOUR_API_KEY"
-```
-
-3. **数据库配置**:
-```yaml
-DB_HOST: "postgres-service.voicehelper-prod.svc.cluster.local"
-DB_PORT: "5432"
-DB_NAME: "model_router"
-DB_USER: "model_router"
-DB_PASSWORD: "your-db-password"
-```
-
-4. **LLM API Keys**:
-```yaml
-OPENAI_API_KEY: "sk-..."
-ANTHROPIC_API_KEY: "sk-ant-..."
-```
-
-## 📊 资源需求
-
-### PostHog自托管
-
-| 组件 | 副本数 | CPU | 内存 | 存储 |
-|------|--------|-----|------|------|
-| PostgreSQL | 1 | 500m-1 | 512Mi-2Gi | 20Gi |
-| Redis | 1 | 250m-500m | 256Mi-1Gi | 5Gi |
-| ClickHouse | 1 | 1-4 | 2Gi-8Gi | 50Gi |
-| PostHog Web | 2 | 500m-2 | 1Gi-4Gi | - |
-| PostHog Worker | 2 | 500m-2 | 1Gi-4Gi | - |
-| **总计** | **7** | **3-10** | **5-20Gi** | **75Gi** |
-
-### Model Router
-
-| 组件 | 副本数 | CPU | 内存 |
-|------|--------|-----|------|
-| Model Router | 3-10 (HPA) | 500m-2 | 512Mi-2Gi |
 
 ## 🔍 验证部署
 
+### 检查服务状态
+
 ```bash
-# 检查所有资源
-kubectl get all -n posthog
-kubectl get all -n voicehelper-prod
+# 查看所有服务
+kubectl get all -n voiceassistant-prod
+kubectl get all -n voiceassistant-infra
 
-# 检查Pod状态
-kubectl get pods -n posthog
-kubectl get pods -n voicehelper-prod -l app=model-router
+# 查看 Istio 配置
+kubectl get gateway,virtualservice,destinationrule -n voiceassistant-prod
 
-# 查看日志
-kubectl logs -n posthog -l app=posthog-web -f
-kubectl logs -n voicehelper-prod -l app=model-router -f
+# 查看 HPA 状态
+kubectl get hpa -n voiceassistant-prod
+```
+
+### 测试服务连通性
+
+```bash
+# 获取 Ingress Gateway 地址
+export INGRESS_HOST=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+export INGRESS_PORT=$(kubectl -n istio-system get service istio-ingressgateway -o jsonpath='{.spec.ports[?(@.name=="http2")].port}')
 
 # 测试健康检查
-kubectl exec -it -n voicehelper-prod \
-  $(kubectl get pod -n voicehelper-prod -l app=model-router -o jsonpath='{.items[0].metadata.name}') \
-  -- curl http://localhost:8080/health
+curl http://${INGRESS_HOST}:${INGRESS_PORT}/health
 
-# 查看HPA状态
-kubectl get hpa -n voicehelper-prod
-
-# 查看Ingress
-kubectl get ingress -n posthog
-kubectl get ingress -n voicehelper-prod
+# 测试 API
+curl http://${INGRESS_HOST}:${INGRESS_PORT}/api/v1/health
 ```
 
-## 🔄 常用操作
-
-### 扩容/缩容
+### 访问监控面板
 
 ```bash
-# Model Router手动扩容
-kubectl scale deployment model-router -n voicehelper-prod --replicas=5
+# 使用脚本一键启动所有面板
+./scripts/monitoring-dashboard.sh all
 
-# PostHog扩容
-kubectl scale deployment posthog-web -n posthog --replicas=4
-kubectl scale deployment posthog-worker -n posthog --replicas=4
+# 或单独启动
+./scripts/monitoring-dashboard.sh grafana    # http://localhost:3000
+./scripts/monitoring-dashboard.sh kiali      # http://localhost:20001
+./scripts/monitoring-dashboard.sh jaeger     # http://localhost:16686
+./scripts/monitoring-dashboard.sh prometheus # http://localhost:9090
+./scripts/monitoring-dashboard.sh nacos      # http://localhost:8848
 ```
+
+## ⚙️ 配置管理
 
 ### 更新配置
 
 ```bash
-# 更新ConfigMap后重启
-kubectl rollout restart deployment/model-router -n voicehelper-prod
+# 修改 ConfigMap
+kubectl edit configmap agent-engine-config -n voiceassistant-prod
 
-# 更新Secret后重启
-kubectl rollout restart deployment/model-router -n voicehelper-prod
+# 重启服务应用配置
+kubectl rollout restart deployment agent-engine -n voiceassistant-prod
 ```
 
-### 查看指标
+### 更新 Secret
 
 ```bash
-# 端口转发到Prometheus指标端点
-kubectl port-forward -n voicehelper-prod svc/model-router 9090:9090
+# 修改 Secret
+kubectl edit secret agent-engine-secret -n voiceassistant-prod
 
-# 访问 http://localhost:9090/metrics
+# 重启服务
+kubectl rollout restart deployment agent-engine -n voiceassistant-prod
 ```
 
-### 故障排查
+## 🔄 升级和回滚
+
+### 滚动升级
 
 ```bash
-# 查看Pod详情
-kubectl describe pod -n voicehelper-prod <pod-name>
+# 更新镜像
+kubectl set image deployment/agent-engine \
+  agent-engine=ghcr.io/voiceassistant/agent-engine:1.1.0 \
+  -n voiceassistant-prod
 
-# 进入容器
-kubectl exec -it -n voicehelper-prod <pod-name> -- /bin/sh
-
-# 查看事件
-kubectl get events -n voicehelper-prod --sort-by='.lastTimestamp'
-
-# 查看日志（最近100行）
-kubectl logs -n voicehelper-prod <pod-name> --tail=100
+# 查看升级进度
+kubectl rollout status deployment/agent-engine -n voiceassistant-prod
 ```
 
-## 📈 监控
-
-PostHog提供了内置的监控面板:
-
-1. 访问PostHog控制台
-2. 进入 **Settings** → **System Status**
-3. 查看:
-   - 事件摄入率
-   - 查询性能
-   - 存储使用情况
-   - Worker状态
-
-Model Router指标（Prometheus格式）:
-
-- `model_router_requests_total` - 总请求数
-- `model_router_request_duration_seconds` - 请求延迟
-- `model_router_ab_test_exposures_total` - 实验曝光数
-- `posthog_events_sent_total` - 发送到PostHog的事件数
-
-## 🔐 安全
-
-### Secret管理
-
-建议使用外部Secret管理工具:
-
-- **Sealed Secrets**: 加密Secret存储在Git
-- **External Secrets Operator**: 从外部系统同步
-- **Vault**: HashiCorp Vault集成
-
-### 网络策略
-
-限制Pod间通信:
+### 回滚
 
 ```bash
-kubectl apply -f - <<YAML
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: model-router-netpol
-  namespace: voicehelper-prod
-spec:
-  podSelector:
-    matchLabels:
-      app: model-router
-  policyTypes:
-  - Egress
-  egress:
-  - to:
-    - namespaceSelector:
-        matchLabels:
-          name: posthog
-YAML
+# 查看历史版本
+kubectl rollout history deployment/agent-engine -n voiceassistant-prod
+
+# 回滚到上一版本
+kubectl rollout undo deployment/agent-engine -n voiceassistant-prod
+
+# 回滚到指定版本
+kubectl rollout undo deployment/agent-engine --to-revision=2 -n voiceassistant-prod
+```
+
+## 📊 扩缩容
+
+### 手动扩容
+
+```bash
+# 扩容到 5 个副本
+kubectl scale deployment agent-engine --replicas=5 -n voiceassistant-prod
+```
+
+### 自动扩容（HPA）
+
+```bash
+# 查看 HPA 状态
+kubectl get hpa -n voiceassistant-prod
+
+# 修改 HPA 配置
+kubectl edit hpa agent-engine-hpa -n voiceassistant-prod
+```
+
+## 🔐 安全配置
+
+### 更新 TLS 证书
+
+```bash
+# 创建 TLS Secret
+kubectl create secret tls voiceassistant-tls-cert \
+  --cert=path/to/cert.pem \
+  --key=path/to/key.pem \
+  -n voiceassistant-prod
+```
+
+### 配置 Network Policy
+
+所有服务已配置默认的 Network Policy，限制跨命名空间访问。
+
+### 审计日志
+
+```bash
+# 查看 API Server 审计日志
+kubectl logs -n kube-system kube-apiserver-<node> | grep audit
+```
+
+## 🛠️ 故障排查
+
+### 常见问题
+
+#### Pod 无法启动
+
+```bash
+# 查看 Pod 详情
+kubectl describe pod <pod-name> -n voiceassistant-prod
+
+# 查看日志
+kubectl logs <pod-name> -n voiceassistant-prod
+
+# 查看 Istio Sidecar 日志
+kubectl logs <pod-name> -c istio-proxy -n voiceassistant-prod
+```
+
+#### 服务间通信失败
+
+```bash
+# 检查 Istio 配置
+istioctl analyze -n voiceassistant-prod
+
+# 查看服务路由
+kubectl exec <pod-name> -n voiceassistant-prod -c istio-proxy -- \
+  pilot-agent request GET config_dump
+
+# 测试连通性
+kubectl exec -it <pod-name> -n voiceassistant-prod -- \
+  curl http://target-service:8080/health
+```
+
+#### 性能问题
+
+```bash
+# 查看资源使用
+kubectl top pods -n voiceassistant-prod
+kubectl top nodes
+
+# 查看 Istio 指标
+kubectl port-forward -n istio-system svc/prometheus 9090:9090
+# 访问 http://localhost:9090
+```
+
+详细故障排查请参考：[Runbook](../../docs/runbook/index.md)
+
+## 💾 备份与恢复
+
+```bash
+# 使用备份脚本
+./scripts/backup-restore.sh backup-all
+
+# 备份特定服务
+./scripts/backup-restore.sh backup-postgres
+./scripts/backup-restore.sh backup-redis
+
+# 恢复
+./scripts/backup-restore.sh restore-postgres backups/postgres_*.sql.gz
+
+# 清理旧备份（保留 30 天）
+./scripts/backup-restore.sh cleanup 30
+```
+
+## 📈 监控和告警
+
+### Prometheus 查询
+
+```bash
+# 服务可用性
+up{job="kubernetes-pods"}
+
+# 错误率
+sum(rate(istio_requests_total{response_code=~"5.."}[5m]))
+/
+sum(rate(istio_requests_total[5m]))
+
+# P95 延迟
+histogram_quantile(0.95,
+  rate(istio_request_duration_milliseconds_bucket[5m])
+)
+```
+
+### Grafana Dashboard
+
+预配置的 Dashboard：
+
+- Kubernetes 集群概览
+- Istio 服务网格
+- 应用服务指标
+- 基础设施监控
+
+## 🧹 清理
+
+### 删除应用服务
+
+```bash
+# 删除所有应用
+kubectl delete namespace voiceassistant-prod
+
+# 保留基础设施
+kubectl delete deployment --all -n voiceassistant-prod
+```
+
+### 完全卸载
+
+```bash
+# 删除所有资源
+kubectl delete namespace voiceassistant-prod
+kubectl delete namespace voiceassistant-infra
+
+# 卸载 Istio
+istioctl uninstall --purge -y
+kubectl delete namespace istio-system
 ```
 
 ## 📚 相关文档
 
-- [详细部署指南](./POSTHOG_K8S_DEPLOYMENT_GUIDE.md)
-- [PostHog官方文档](https://posthog.com/docs)
-- [PostHog Kubernetes部署](https://posthog.com/docs/self-host/deploy/kubernetes)
-- [Model Router集成说明](../../cmd/model-router/POSTHOG_INTEGRATION.md)
-
-## ❓ 常见问题
-
-### Q: 自托管还是云服务？
-
-**云服务**适合:
-- 快速开始（5分钟）
-- 中小规模（< 100万事件/月）
-- 不想管理基础设施
-
-**自托管**适合:
-- 数据隐私要求高
-- 大规模部署（> 100万事件/月）
-- 需要完全控制
-
-### Q: 部署失败怎么办？
-
-```bash
-# 1. 查看Pod状态
-kubectl get pods -n posthog
-kubectl get pods -n voicehelper-prod
-
-# 2. 查看详细信息
-kubectl describe pod -n posthog <pod-name>
-
-# 3. 查看日志
-kubectl logs -n posthog <pod-name>
-
-# 4. 常见问题:
-# - 持久化存储未就绪
-# - 内存不足
-# - 镜像拉取失败
-```
-
-### Q: 如何升级？
-
-```bash
-# 升级PostHog
-kubectl set image deployment/posthog-web -n posthog \
-  posthog=posthog/posthog:1.45.0
-
-# 升级Model Router
-kubectl set image deployment/model-router -n voicehelper-prod \
-  model-router=your-registry/model-router:v2.0.0
-
-# 回滚
-kubectl rollout undo deployment/model-router -n voicehelper-prod
-```
+- [架构概览](../../docs/arch/overview.md)
+- [运维手册](../../docs/runbook/index.md)
+- [SLO 目标](../../docs/nfr/slo.md)
+- [基础设施详情](./infrastructure/README.md)
+- [API 文档](../../api/openapi.yaml)
 
 ## 🆘 获取帮助
 
-- GitHub Issues: https://github.com/your-org/voice-assistant/issues
-- PostHog社区: https://posthog.com/community
-- PostHog Slack: https://posthog.com/slack
+- 技术支持：support@voiceassistant.com
+- 架构师：architect@voiceassistant.com
+- On-Call：+86-xxx-xxxx-xxxx
+- Issue：https://github.com/voiceassistant/VoiceAssistant/issues
 
 ---
 
-**开始部署企业级A/B测试平台！🚀**
+**维护者**: DevOps & SRE 团队
+**最后更新**: 2024-01-XX

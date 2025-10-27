@@ -9,7 +9,7 @@ opentelemetry:
 
   # Collector 地址
   collector:
-    address: "otel-collector.voicehelper.svc.cluster.local:4317"
+    address: "otel-collector.voiceassistant.svc.cluster.local:4317"
     request_timeout: 3 # 秒
     request_headers:
       Authorization: "Bearer ${VAULT:secret/otel#token}"
@@ -18,7 +18,7 @@ opentelemetry:
   resource:
     service.name: "apisix-gateway"
     service.version: "v2.0.0"
-    service.namespace: "voicehelper"
+    service.namespace: "voiceassistant"
     deployment.environment: "${ENV:prod}"
 
   # 采样器配置
@@ -172,7 +172,7 @@ sampling_strategies:
   tenant_based_sampling:
     enabled: true
     rules:
-      - tenant_id: "voicehelper-internal"
+      - tenant_id: "voiceassistant-internal"
         sample_rate: 1.0 # 内部租户全采样
       - tenant_id: "premium-*"
         sample_rate: 0.5 # 高级租户 50% 采样
@@ -185,7 +185,7 @@ exporters:
   # gRPC 导出器
   otlp_grpc:
     enabled: true
-    endpoint: "otel-collector.voicehelper.svc.cluster.local:4317"
+    endpoint: "otel-collector.voiceassistant.svc.cluster.local:4317"
     compression: gzip
     timeout: 10 # 秒
     retry:
@@ -197,20 +197,20 @@ exporters:
   # HTTP 导出器
   otlp_http:
     enabled: false
-    endpoint: "http://otel-collector.voicehelper.svc.cluster.local:4318/v1/traces"
+    endpoint: "http://otel-collector.voiceassistant.svc.cluster.local:4318/v1/traces"
     compression: gzip
     timeout: 10
 
   # Jaeger 导出器
   jaeger:
     enabled: false
-    agent_host: "jaeger-agent.voicehelper.svc.cluster.local"
+    agent_host: "jaeger-agent.voiceassistant.svc.cluster.local"
     agent_port: 6831
 
   # Zipkin 导出器
   zipkin:
     enabled: false
-    endpoint: "http://zipkin.voicehelper.svc.cluster.local:9411/api/v2/spans"
+    endpoint: "http://zipkin.voiceassistant.svc.cluster.local:9411/api/v2/spans"
 
 #
 # 处理器
@@ -243,7 +243,7 @@ processors:
           value: "kubernetes"
           action: upsert
         - key: k8s.cluster.name
-          value: "voicehelper-prod"
+          value: "voiceassistant-prod"
           action: upsert
 
 #
@@ -328,7 +328,7 @@ metrics:
   enabled: true
 
   # 指标端点
-  endpoint: "http://otel-collector.voicehelper.svc.cluster.local:8888/metrics"
+  endpoint: "http://otel-collector.voiceassistant.svc.cluster.local:8888/metrics"
 
   # 指标包括
   include:
@@ -349,6 +349,6 @@ health_check:
 # 可观测性仪表盘
 #
 dashboards:
-  jaeger_ui: "http://jaeger.voicehelper.svc.cluster.local:16686"
-  grafana_tempo: "http://grafana.voicehelper.svc.cluster.local:3000/explore"
-  zipkin_ui: "http://zipkin.voicehelper.svc.cluster.local:9411/zipkin"
+  jaeger_ui: "http://jaeger.voiceassistant.svc.cluster.local:16686"
+  grafana_tempo: "http://grafana.voiceassistant.svc.cluster.local:3000/explore"
+  zipkin_ui: "http://zipkin.voiceassistant.svc.cluster.local:9411/zipkin"

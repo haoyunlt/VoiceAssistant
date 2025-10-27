@@ -303,8 +303,8 @@ export PORT=8080
 ### 生产环境
 
 ```bash
-export DB_HOST=postgres.voicehelper.svc.cluster.local
-export CLICKHOUSE_ADDR=clickhouse.voicehelper.svc.cluster.local:9000
+export DB_HOST=postgres.voiceassistant.svc.cluster.local
+export CLICKHOUSE_ADDR=clickhouse.voiceassistant.svc.cluster.local:9000
 export PORT=8080
 ```
 

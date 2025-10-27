@@ -4,10 +4,10 @@
 package main
 
 import (
-	"conversation-service/internal/biz"
-	"conversation-service/internal/data"
-	"conversation-service/internal/server"
-	"conversation-service/internal/service"
+	"voiceassistant/cmd/conversation-service/internal/biz"
+	"voiceassistant/cmd/conversation-service/internal/data"
+	"voiceassistant/cmd/conversation-service/internal/server"
+	"voiceassistant/cmd/conversation-service/internal/service"
 
 	"github.com/google/wire"
 )

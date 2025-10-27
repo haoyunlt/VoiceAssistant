@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
 COPY --from=builder /app/conversation-service .
-COPY --from=builder /app/../../configs/app/conversation-service.yaml /etc/voicehelper/conversation-service.yaml
+COPY --from=builder /app/../../configs/app/conversation-service.yaml /etc/voiceassistant/conversation-service.yaml
 
 EXPOSE 9001 8001
 

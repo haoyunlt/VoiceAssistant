@@ -1,0 +1,184 @@
+---
+# VoiceAssistant 全服务部署脚本
+# 此文件用于快速部署所有服务到 Kubernetes + Istio
+
+# 1. 创建命名空间
+apiVersion: v1
+kind: List
+items:
+  # 命名空间
+  - apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: voiceassistant-prod
+      labels:
+        name: voiceassistant-prod
+        environment: production
+        istio-injection: enabled
+
+  - apiVersion: v1
+    kind: Namespace
+    metadata:
+      name: voiceassistant-infra
+      labels:
+        name: voiceassistant-infra
+        environment: production
+
+  # 2. 服务账号
+  - apiVersion: v1
+    kind: ServiceAccount
+    metadata:
+      name: voiceassistant-sa
+      namespace: voiceassistant-prod
+
+  # 3. RBAC权限
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: Role
+    metadata:
+      name: voiceassistant-role
+      namespace: voiceassistant-prod
+    rules:
+      - apiGroups: [""]
+        resources: ["configmaps", "secrets"]
+        verbs: ["get", "list", "watch"]
+      - apiGroups: [""]
+        resources: ["pods"]
+        verbs: ["get", "list"]
+
+  - apiVersion: rbac.authorization.k8s.io/v1
+    kind: RoleBinding
+    metadata:
+      name: voiceassistant-rolebinding
+      namespace: voiceassistant-prod
+    subjects:
+      - kind: ServiceAccount
+        name: voiceassistant-sa
+        namespace: voiceassistant-prod
+    roleRef:
+      kind: Role
+      name: voiceassistant-role
+      apiGroup: rbac.authorization.k8s.io
+
+  # 4. Network Policy
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: default-deny-all
+      namespace: voiceassistant-prod
+    spec:
+      podSelector: {}
+      policyTypes:
+        - Ingress
+        - Egress
+
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-same-namespace
+      namespace: voiceassistant-prod
+    spec:
+      podSelector: {}
+      policyTypes:
+        - Ingress
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: voiceassistant-prod
+
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-from-istio
+      namespace: voiceassistant-prod
+    spec:
+      podSelector: {}
+      policyTypes:
+        - Ingress
+      ingress:
+        - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+
+  - apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
+      name: allow-to-infra
+      namespace: voiceassistant-prod
+    spec:
+      podSelector: {}
+      policyTypes:
+        - Egress
+      egress:
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: voiceassistant-infra
+        - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+          ports:
+            - protocol: UDP
+              port: 53
+
+  # 5. Resource Quotas
+  - apiVersion: v1
+    kind: ResourceQuota
+    metadata:
+      name: compute-quota
+      namespace: voiceassistant-prod
+    spec:
+      hard:
+        requests.cpu: "100"
+        requests.memory: "200Gi"
+        limits.cpu: "200"
+        limits.memory: "400Gi"
+        persistentvolumeclaims: "50"
+
+  - apiVersion: v1
+    kind: LimitRange
+    metadata:
+      name: limit-range
+      namespace: voiceassistant-prod
+    spec:
+      limits:
+        - max:
+            cpu: "4"
+            memory: "8Gi"
+          min:
+            cpu: "100m"
+            memory: "128Mi"
+          default:
+            cpu: "500m"
+            memory: "512Mi"
+          defaultRequest:
+            cpu: "250m"
+            memory: "256Mi"
+          type: Container
+
+  # 6. Priority Classes
+  - apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+      name: high-priority
+    value: 1000
+    globalDefault: false
+    description: "高优先级服务 (AI核心服务)"
+
+  - apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+      name: medium-priority
+    value: 500
+    globalDefault: true
+    description: "中等优先级服务 (常规业务服务)"
+
+  - apiVersion: scheduling.k8s.io/v1
+    kind: PriorityClass
+    metadata:
+      name: low-priority
+    value: 100
+    globalDefault: false
+    description: "低优先级服务 (后台任务)"

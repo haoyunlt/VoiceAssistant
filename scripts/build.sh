@@ -2,14 +2,14 @@
 
 set -euo pipefail
 
-# Build script for VoiceHelper services
+# Build script for VoiceAssistant services
 # Usage: ./scripts/build.sh [go|python|frontend|all]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 BUILD_TYPE="${1:-all}"
 
-echo "==> Building VoiceHelper services (type: ${BUILD_TYPE})"
+echo "==> Building VoiceAssistant services (type: ${BUILD_TYPE})"
 
 # Build Go services
 build_go() {
@@ -29,7 +29,7 @@ build_go() {
         echo "  -> Building ${service}..."
         docker build \
             -f "${PROJECT_ROOT}/deployments/docker/Dockerfile.go-service" \
-            -t "voicehelper/${service}:latest" \
+            -t "voiceassistant/${service}:latest" \
             --build-arg SERVICE_NAME="${service}" \
             "${PROJECT_ROOT}"
     done
@@ -55,7 +55,7 @@ build_python() {
         echo "  -> Building ${service}..."
         docker build \
             -f "${PROJECT_ROOT}/deployments/docker/Dockerfile.python-service" \
-            -t "voicehelper/${service}:latest" \
+            -t "voiceassistant/${service}:latest" \
             --build-arg SERVICE_NAME="${service}" \
             "${PROJECT_ROOT}"
     done
@@ -71,14 +71,14 @@ build_frontend() {
     echo "  -> Building web platform..."
     docker build \
         -f "${PROJECT_ROOT}/platforms/web/Dockerfile" \
-        -t "voicehelper/web:latest" \
+        -t "voiceassistant/web:latest" \
         "${PROJECT_ROOT}/platforms/web"
     
     # Build Admin
     echo "  -> Building admin platform..."
     docker build \
         -f "${PROJECT_ROOT}/platforms/admin/Dockerfile" \
-        -t "voicehelper/admin:latest" \
+        -t "voiceassistant/admin:latest" \
         "${PROJECT_ROOT}/platforms/admin"
     
     echo "✓ Frontend built successfully"

@@ -1,0 +1,127 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-store-adapter-config
+  namespace: voiceassistant-prod
+  labels:
+    app: vector-store-adapter
+data:
+  APP_NAME: "vector-store-adapter"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8013"
+  WORKERS: "4"
+  # Milvus
+  MILVUS_HOST: "milvus.voiceassistant-infra.svc.cluster.local"
+  MILVUS_PORT: "19530"
+  # 连接池配置
+  POOL_SIZE: "10"
+  MAX_OVERFLOW: "20"
+  POOL_TIMEOUT: "30"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vector-store-adapter-secret
+  namespace: voiceassistant-prod
+type: Opaque
+stringData:
+  MILVUS_USER: "root"
+  MILVUS_PASSWORD: "Milvus"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vector-store-adapter
+  namespace: voiceassistant-prod
+  labels:
+    app: vector-store-adapter
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vector-store-adapter
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: vector-store-adapter
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8013"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: vector-store-adapter-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-for-milvus
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z $MILVUS_HOST $MILVUS_PORT; do echo waiting for milvus; sleep 2; done']
+        envFrom:
+        - configMapRef:
+            name: vector-store-adapter-config
+      containers:
+      - name: vector-store-adapter
+        image: ghcr.io/voiceassistant/vector-store-adapter:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8013
+          name: http
+        envFrom:
+        - configMapRef:
+            name: vector-store-adapter-config
+        env:
+        - name: MILVUS_USER
+          valueFrom:
+            secretKeyRef:
+              name: vector-store-adapter-secret
+              key: MILVUS_USER
+        - name: MILVUS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: vector-store-adapter-secret
+              key: MILVUS_PASSWORD
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vector-store-adapter
+  namespace: voiceassistant-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: vector-store-adapter
+  ports:
+  - port: 8013
+    targetPort: 8013
+    name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vector-store-adapter-sa
+  namespace: voiceassistant-prod
+

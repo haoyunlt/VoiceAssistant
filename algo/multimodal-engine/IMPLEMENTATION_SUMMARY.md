@@ -359,7 +359,7 @@ OCR_USE_GPU: true # 如果有 GPU
 
 VISION_PROVIDER: gpt4v
 VISION_MODEL: gpt-4-vision-preview
-MODEL_ADAPTER_ENDPOINT: http://model-adapter.voicehelper.svc.cluster.local:8006
+MODEL_ADAPTER_ENDPOINT: http://model-adapter.voiceassistant.svc.cluster.local:8006
 
 MAX_IMAGE_SIZE: 4096
 OCR_CONFIDENCE_THRESHOLD: 0.5

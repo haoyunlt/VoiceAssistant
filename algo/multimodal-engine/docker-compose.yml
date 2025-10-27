@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/multimodal-engine:latest
+    image: voiceassistant/multimodal-engine:latest
     container_name: multimodal-engine
     ports:
       - "8016:8016"
@@ -22,7 +22,7 @@ services:
       - redis
       - minio
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test:
@@ -48,7 +48,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -64,7 +64,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: server /data --console-address ":9001"
 
@@ -74,5 +74,5 @@ volumes:
   multimodal-cache:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

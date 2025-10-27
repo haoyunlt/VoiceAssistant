@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"analytics-service/internal/service"
+	"voiceassistant/cmd/analytics-service/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

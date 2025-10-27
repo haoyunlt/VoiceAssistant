@@ -54,7 +54,7 @@
   "template_id": "tmpl_123",
   "variables": {
     "user_name": "John Doe",
-    "service_name": "VoiceHelper"
+    "service_name": "VoiceAssistant"
   },
   "priority": "normal"
 }
@@ -133,7 +133,7 @@ notification:
       port: 587
       username: ${EMAIL_USERNAME}
       password: ${EMAIL_PASSWORD}
-      from: noreply@voicehelper.com
+      from: noreply@voiceassistant.com
 
     sms:
       provider: twilio

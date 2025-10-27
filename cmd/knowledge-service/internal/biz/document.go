@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"voice-assistant/cmd/knowledge-service/internal/service"
+	"voiceassistant/cmd/knowledge-service/internal/service"
 )
 
 // DocumentUseCase 文档用例

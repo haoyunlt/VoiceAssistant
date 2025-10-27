@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/notification-service:latest
+    image: voiceassistant/notification-service:latest
     container_name: notification-service
     ports:
       - "9005:9005"  # gRPC port
@@ -15,9 +15,9 @@ services:
       - LOG_LEVEL=info
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=voicehelper
-      - POSTGRES_PASSWORD=voicehelper123
-      - POSTGRES_DB=voicehelper
+      - POSTGRES_USER=voiceassistant
+      - POSTGRES_PASSWORD=voiceassistant123
+      - POSTGRES_DB=voiceassistant
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - KAFKA_BROKERS=kafka:9092
@@ -27,7 +27,7 @@ services:
       - redis
       - kafka
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8005/health"]
@@ -40,16 +40,16 @@ services:
     image: postgres:15-alpine
     container_name: notification-postgres
     environment:
-      - POSTGRES_USER=voicehelper
-      - POSTGRES_PASSWORD=voicehelper123
-      - POSTGRES_DB=voicehelper
+      - POSTGRES_USER=voiceassistant
+      - POSTGRES_PASSWORD=voiceassistant123
+      - POSTGRES_DB=voiceassistant
     ports:
       - "5437:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ../../migrations/postgres:/docker-entrypoint-initdb.d
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
 
   redis:
@@ -60,7 +60,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -79,7 +79,7 @@ services:
     volumes:
       - kafka-data:/bitnami/kafka
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
 
 volumes:
@@ -88,5 +88,5 @@ volumes:
   kafka-data:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

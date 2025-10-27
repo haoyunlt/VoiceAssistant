@@ -2,7 +2,7 @@
 
 ## 概述
 
-Knowledge Service 是 VoiceHelper 平台的知识管理服务，负责知识库管理、文档处理、文本分块和向量化。
+Knowledge Service 是 VoiceAssistant 平台的知识管理服务，负责知识库管理、文档处理、文本分块和向量化。
 
 ## 核心功能
 
@@ -208,7 +208,7 @@ server:
 data:
   database:
     driver: postgres
-    source: postgres://voicehelper:voicehelper_dev@localhost:5432/voicehelper?sslmode=disable
+    source: postgres://voiceassistant:voiceassistant_dev@localhost:5432/voiceassistant?sslmode=disable
 
 trace:
   endpoint: http://localhost:4318
@@ -227,7 +227,7 @@ make init
 2. **运行数据库迁移**
 
 ```bash
-psql -U voicehelper -d voicehelper -f migrations/postgres/003_knowledge.sql
+psql -U voiceassistant -d voiceassistant -f migrations/postgres/003_knowledge.sql
 ```
 
 3. **生成 Wire 代码**
@@ -409,7 +409,7 @@ WITH (lists = 100);
 
 ## 开发团队
 
-- **Maintainer**: VoiceHelper Team
+- **Maintainer**: VoiceAssistant Team
 - **Created**: 2025-10-26
 - **Version**: v1.0.0
 

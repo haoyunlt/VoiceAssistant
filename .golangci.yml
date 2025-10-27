@@ -1,0 +1,187 @@
+# GolangCI-Lint Configuration
+# 用于检测未使用代码、死代码和其他代码质量问题
+
+run:
+  timeout: 5m
+  tests: true
+  build-tags:
+    - integration
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+    - deployments
+    - scripts
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_gen\\.go$"
+    - "wire_gen\\.go$"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+linters:
+  enable:
+    # 未使用代码检测（核心）
+    - unused # 检测未使用的常量、变量、函数和类型
+    - deadcode # 检测死代码
+    - unparam # 检测未使用的函数参数
+    - ineffassign # 检测无效的赋值
+    - varcheck # 检测未使用的全局变量和常量
+    - structcheck # 检测未使用的结构体字段
+
+    # 代码质量
+    - gofmt # 格式化检查
+    - goimports # Import 检查
+    - govet # Go 官方 vet 工具
+    - errcheck # 检查未处理的错误
+    - staticcheck # 静态分析
+    - gosimple # 简化代码建议
+    - goconst # 检测可以提取为常量的重复字符串
+    - misspell # 拼写检查
+
+    # 性能
+    - prealloc # 检测可以预分配的 slice
+
+    # 错误处理
+    - errorlint # 错误处理最佳实践
+    - wrapcheck # 检查错误是否被正确包装
+
+    # 代码风格
+    - stylecheck # 代码风格检查
+    - revive # 替代 golint
+    - gocyclo # 圈复杂度检查
+    - funlen # 函数长度检查
+    - gocognit # 认知复杂度检查
+
+  disable:
+    - typecheck # 由编译器处理
+    - exhaustive # 穷尽性检查（可能太严格）
+    - exhaustruct # 结构体字段初始化检查（太严格）
+
+  fast: false
+
+linters-settings:
+  # 未使用代码检测配置
+  unused:
+    check-exported: true # 检查导出的函数/类型
+    field-writes-are-uses: true
+    post-statements-are-reads: true
+    exported-fields-are-used: true
+    parameters-are-used: true
+    local-variables-are-used: true
+
+  unparam:
+    check-exported: true # 检查导出函数的未使用参数
+
+  # 死代码检测
+  deadcode:
+    test: true # 在测试代码中也检查
+
+  # 圈复杂度
+  gocyclo:
+    min-complexity: 15
+
+  # 函数长度
+  funlen:
+    lines: 100
+    statements: 50
+
+  # 认知复杂度
+  gocognit:
+    min-complexity: 20
+
+  # 错误检查
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (io.Closer).Close
+      - (*database/sql.Rows).Close
+
+  # 代码风格
+  revive:
+    rules:
+      - name: unused-parameter
+        severity: warning
+      - name: unused-receiver
+        severity: warning
+      - name: unreachable-code
+        severity: warning
+      - name: var-naming
+        severity: warning
+      - name: context-as-argument
+        severity: warning
+
+  # 静态检查
+  staticcheck:
+    checks:
+      - all
+      - -SA1019 # 暂时忽略弃用警告
+
+  # 常量检测
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+    ignore-tests: true
+
+issues:
+  # 最大问题数量，0 表示无限制
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  # 排除规则
+  exclude-rules:
+    # 排除测试文件中的某些检查
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - funlen
+        - gocognit
+        - dupl
+
+    # 排除 wire.go 文件（依赖注入使用）
+    - path: wire\.go
+      linters:
+        - unused
+        - deadcode
+
+    # 排除 main.go 中的某些检查（可能有未使用的导入用于 side effects）
+    - path: main\.go
+      linters:
+        - unused
+
+    # 排除 proto 生成的文件
+    - path: \.pb\.go
+      linters:
+        - all
+
+    # 排除特定的常见误报
+    - text: "should have a package comment"
+      linters:
+        - revive
+
+    - text: "ST1000:"
+      linters:
+        - stylecheck
+
+  # 独立检查每个目录
+  new: false
+
+  # 修复模式（仅显示可以自动修复的问题）
+  fix: false
+
+# 严重性配置
+severity:
+  default-severity: warning
+  case-sensitive: false
+  rules:
+    - linters:
+        - unused
+        - deadcode
+        - unparam
+      severity: error # 未使用代码标记为错误

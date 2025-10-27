@@ -23,10 +23,10 @@ clean:
 	find . -type d -name "*.egg-info" -exec rm -rf {} +
 
 docker-build:
-	docker build -t voicehelper/model-adapter:latest .
+	docker build -t voiceassistant/model-adapter:latest .
 
 docker-run:
-	docker run -p 8005:8005 --env-file .env voicehelper/model-adapter:latest
+	docker run -p 8005:8005 --env-file .env voiceassistant/model-adapter:latest
 
 dev:
 	uvicorn main:app --reload --host 0.0.0.0 --port 8005 --log-level debug

@@ -5,7 +5,7 @@
 #
 # 说明:
 # - 所有服务路由前缀: /api/v1/{service}
-# - 上游地址: {service}.voicehelper.svc.cluster.local:9000 (gRPC)
+# - 上游地址: {service}.voiceassistant.svc.cluster.local:9000 (gRPC)
 # - WebSocket: /ws/*
 # - 健康检查: /health
 #
@@ -25,7 +25,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        identity-service.voicehelper.svc.cluster.local:9000: 1
+        identity-service.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: identity-service
@@ -70,7 +70,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        conversation-service.voicehelper.svc.cluster.local:9000: 1
+        conversation-service.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: conversation-service
@@ -100,7 +100,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        conversation-service.voicehelper.svc.cluster.local:8080: 1
+        conversation-service.voiceassistant.svc.cluster.local:8080: 1
       scheme: http
     plugins:
       jwt-auth: {}
@@ -126,7 +126,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        knowledge-service.voicehelper.svc.cluster.local:9000: 1
+        knowledge-service.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: knowledge-service
@@ -161,7 +161,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        ai-orchestrator.voicehelper.svc.cluster.local:9000: 1
+        ai-orchestrator.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: ai-orchestrator
@@ -197,7 +197,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        model-router.voicehelper.svc.cluster.local:9000: 1
+        model-router.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: model-router
@@ -225,7 +225,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        notification-service.voicehelper.svc.cluster.local:9000: 1
+        notification-service.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: notification-service
@@ -251,7 +251,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        analytics-service.voicehelper.svc.cluster.local:9000: 1
+        analytics-service.voiceassistant.svc.cluster.local:9000: 1
       scheme: grpc
       discovery_type: consul
       service_name: analytics-service
@@ -281,7 +281,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        agent-engine.voicehelper.svc.cluster.local:8000: 1
+        agent-engine.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       jwt-auth: {}
@@ -308,7 +308,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        rag-engine.voicehelper.svc.cluster.local:8000: 1
+        rag-engine.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       jwt-auth: {}
@@ -329,7 +329,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        indexing-service.voicehelper.svc.cluster.local:8000: 1
+        indexing-service.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       # 内部服务，使用 API Key 认证
@@ -351,7 +351,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        retrieval-service.voicehelper.svc.cluster.local:8000: 1
+        retrieval-service.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       jwt-auth: {}
@@ -384,7 +384,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        voice-engine.voicehelper.svc.cluster.local:8000: 1
+        voice-engine.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       jwt-auth: {}
@@ -410,7 +410,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        multimodal-engine.voicehelper.svc.cluster.local:8000: 1
+        multimodal-engine.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       jwt-auth: {}
@@ -430,7 +430,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        model-adapter.voicehelper.svc.cluster.local:8000: 1
+        model-adapter.voiceassistant.svc.cluster.local:8000: 1
       scheme: http
     plugins:
       key-auth:
@@ -451,7 +451,7 @@ routes:
     upstream:
       type: roundrobin
       nodes:
-        identity-service.voicehelper.svc.cluster.local:8080: 1
+        identity-service.voiceassistant.svc.cluster.local:8080: 1
     plugins:
       # 不需要认证
       limit-req:
@@ -578,9 +578,9 @@ consumers:
 # SSL 证书
 #
 ssl:
-  - id: voicehelper-ssl
-    cert: ${FILE:/etc/apisix/ssl/voicehelper.crt}
-    key: ${FILE:/etc/apisix/ssl/voicehelper.key}
+  - id: voiceassistant-ssl
+    cert: ${FILE:/etc/apisix/ssl/voiceassistant.crt}
+    key: ${FILE:/etc/apisix/ssl/voiceassistant.key}
     snis:
-      - "*.voicehelper.ai"
-      - "voicehelper.ai"
+      - "*.voiceassistant.ai"
+      - "voiceassistant.ai"

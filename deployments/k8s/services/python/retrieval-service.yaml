@@ -1,0 +1,215 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: retrieval-service-config
+  namespace: voiceassistant-prod
+  labels:
+    app: retrieval-service
+data:
+  APP_NAME: "retrieval-service"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8012"
+  WORKERS: "4"
+  # Nacos
+  NACOS_SERVER_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  # Redis
+  REDIS_HOST: "redis.voiceassistant-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "5"
+  # Milvus
+  MILVUS_HOST: "milvus.voiceassistant-infra.svc.cluster.local"
+  MILVUS_PORT: "19530"
+  # Elasticsearch
+  ES_HOST: "elasticsearch.voiceassistant-infra.svc.cluster.local"
+  ES_PORT: "9200"
+  # 检索配置
+  TOP_K: "10"
+  RERANK_TOP_K: "5"
+  HYBRID_ALPHA: "0.5"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: retrieval-service-secret
+  namespace: voiceassistant-prod
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+  MILVUS_USER: "root"
+  MILVUS_PASSWORD: "Milvus"
+  ES_USER: "elastic"
+  ES_PASSWORD: "changeme"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: retrieval-service
+  namespace: voiceassistant-prod
+  labels:
+    app: retrieval-service
+    version: v1
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: retrieval-service
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: retrieval-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8012"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: retrieval-service-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-for-milvus
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z $MILVUS_HOST $MILVUS_PORT; do echo waiting for milvus; sleep 2; done']
+        envFrom:
+        - configMapRef:
+            name: retrieval-service-config
+      containers:
+      - name: retrieval-service
+        image: ghcr.io/voiceassistant/retrieval-service:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8012
+          name: http
+        envFrom:
+        - configMapRef:
+            name: retrieval-service-config
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-service-secret
+              key: REDIS_PASSWORD
+        - name: MILVUS_USER
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-service-secret
+              key: MILVUS_USER
+        - name: MILVUS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-service-secret
+              key: MILVUS_PASSWORD
+        - name: ES_USER
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-service-secret
+              key: ES_USER
+        - name: ES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: retrieval-service-secret
+              key: ES_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8012
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8012
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/app/.cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      terminationGracePeriodSeconds: 60
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retrieval-service
+  namespace: voiceassistant-prod
+  labels:
+    app: retrieval-service
+spec:
+  type: ClusterIP
+  selector:
+    app: retrieval-service
+  ports:
+  - port: 8012
+    targetPort: 8012
+    name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: retrieval-service-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: retrieval-service-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: retrieval-service
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: retrieval-service-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: retrieval-service
+

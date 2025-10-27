@@ -158,7 +158,7 @@ func getNotification(c *gin.Context) {
 		"notification_id": notifID,
 		"type":            "email",
 		"recipient":       "user@example.com",
-		"subject":         "Welcome to VoiceHelper",
+		"subject":         "Welcome to VoiceAssistant",
 		"status":          "delivered",
 		"sent_at":         time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 		"delivered_at":    time.Now().Add(-55 * time.Minute).Format(time.RFC3339),

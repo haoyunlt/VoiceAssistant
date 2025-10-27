@@ -44,7 +44,7 @@ func DefaultConsulConfig() *ConsulConfig {
 	return &ConsulConfig{
 		Address: "localhost:8500",
 		Scheme:  "http",
-		Tags:    []string{"voicehelper"},
+		Tags:    []string{"voiceassistant"},
 		Meta:    make(map[string]string),
 	}
 }

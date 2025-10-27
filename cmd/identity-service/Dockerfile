@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -27,7 +27,7 @@ WORKDIR /root/
 COPY --from=builder /app/identity-service .
 
 # 复制配置文件
-COPY --from=builder /app/../../configs/app/identity-service.yaml /etc/voicehelper/identity-service.yaml
+COPY --from=builder /app/../../configs/app/identity-service.yaml /etc/voiceassistant/identity-service.yaml
 
 # 暴露端口
 EXPOSE 9000 8000

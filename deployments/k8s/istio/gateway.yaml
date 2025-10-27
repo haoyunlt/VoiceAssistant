@@ -1,0 +1,66 @@
+---
+# Istio Gateway - 外部流量入口
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: voiceassistant-gateway
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    istio: ingressgateway  # 使用默认的Istio Ingress Gateway
+  servers:
+  # HTTP (重定向到HTTPS)
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.voiceassistant.com"
+    - "api.voiceassistant.com"
+    tls:
+      httpsRedirect: true
+  
+  # HTTPS
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - "*.voiceassistant.com"
+    - "api.voiceassistant.com"
+    tls:
+      mode: SIMPLE
+      credentialName: voiceassistant-tls-cert  # TLS证书Secret
+  
+  # gRPC
+  - port:
+      number: 9000
+      name: grpc
+      protocol: GRPC
+    hosts:
+    - "grpc.voiceassistant.com"
+    tls:
+      mode: SIMPLE
+      credentialName: voiceassistant-tls-cert
+
+---
+# WebSocket Gateway (语音流式传输)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: voiceassistant-ws-gateway
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https-ws
+      protocol: HTTPS
+    hosts:
+    - "ws.voiceassistant.com"
+    tls:
+      mode: SIMPLE
+      credentialName: voiceassistant-tls-cert
+

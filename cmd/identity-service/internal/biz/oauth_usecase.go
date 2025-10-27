@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/VoiceAssistant/cmd/identity-service/internal/domain"
+	"voiceassistant/cmd/identity-service/internal/domain"
 )
 
 var (
@@ -55,7 +55,7 @@ func (uc *OAuthUsecase) LoginWithOAuth(
 	ctx context.Context,
 	provider domain.OAuthProvider,
 	code string,
-) (*AuthTokenPair, error) {
+) (*TokenPair, error) {
 	// 1. 根据provider获取用户信息
 	var oauthUser *domain.OAuthUserInfo
 	var err error
@@ -108,7 +108,7 @@ func (uc *OAuthUsecase) LoginWithOAuth(
 	}
 
 	// 3. 生成Token
-	tokenPair, err := uc.authUC.generateTokenPair(user)
+	tokenPair, err := uc.authUC.GenerateTokenPair(user)
 	if err != nil {
 		return nil, fmt.Errorf("generate token: %w", err)
 	}
@@ -138,12 +138,15 @@ func (uc *OAuthUsecase) createUserFromOAuth(
 	}
 
 	// 4. 创建用户
-	user := domain.NewUser(
+	user, err := domain.NewUser(
 		email,
 		randomPassword,
 		oauthUser.Name,
 		tenant.ID,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
+	}
 	user.AvatarURL = oauthUser.AvatarURL
 
 	if err := uc.userRepo.Create(ctx, user); err != nil {

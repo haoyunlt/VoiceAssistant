@@ -59,14 +59,17 @@ func (s *Saga) Execute(ctx context.Context) error {
 	for i, step := range s.steps {
 		// 创建带超时的context
 		stepCtx := ctx
+		cancel := func() {} // 默认空函数，避免nil调用
+
 		if step.Timeout > 0 {
-			var cancel context.CancelFunc
 			stepCtx, cancel = context.WithTimeout(ctx, step.Timeout)
-			defer cancel()
 		}
 
 		// 执行步骤
 		err := step.Execute(stepCtx)
+
+		// 立即释放context资源，避免泄漏
+		cancel()
 
 		// 回调
 		if s.onStepComplete != nil {
@@ -103,16 +106,19 @@ func (s *Saga) compensate(ctx context.Context, lastSuccessIndex int) error {
 
 		// 创建带超时的context
 		compensateCtx := ctx
+		cancel := func() {}
+
 		if step.Timeout > 0 {
-			var cancel context.CancelFunc
 			compensateCtx, cancel = context.WithTimeout(ctx, step.Timeout)
-			defer cancel()
 		}
 
 		// 执行补偿
 		if err := step.Compensate(compensateCtx); err != nil {
 			errs = append(errs, fmt.Errorf("compensation for step '%s' failed: %w", step.Name, err))
 		}
+
+		// 立即释放context资源
+		cancel()
 	}
 
 	if len(errs) > 0 {

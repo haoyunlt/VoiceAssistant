@@ -1,7 +1,9 @@
 """工具服务 - 增强版with真实检索集成"""
+import ast
 import asyncio
 import json
 import logging
+import operator
 import os
 import sys
 from pathlib import Path
@@ -149,17 +151,74 @@ class ToolService:
     # ==================== 内置工具实现 ====================
 
     def _calculator_tool(self, expression: str) -> str:
-        """计算器工具"""
+        """
+        计算器工具 - 使用AST安全求值
+        避免eval()的安全风险
+        """
         try:
-            # 安全的数学表达式求值
-            # 只允许基本数学操作
-            allowed_chars = set("0123456789+-*/().% ")
-            if not all(c in allowed_chars for c in expression):
-                return "Error: Invalid characters in expression. Only numbers and basic operators are allowed."
+            # 定义允许的操作符
+            allowed_operators = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+                ast.FloorDiv: operator.floordiv,
+                ast.Mod: operator.mod,
+                ast.Pow: operator.pow,
+                ast.USub: operator.neg,
+                ast.UAdd: operator.pos,
+            }
 
-            result = eval(expression, {"__builtins__": {}}, {})
+            def eval_node(node):
+                """递归求值AST节点"""
+                if isinstance(node, ast.Constant):  # Python 3.8+
+                    if isinstance(node.value, (int, float)):
+                        return node.value
+                    else:
+                        raise ValueError(f"Unsupported constant type: {type(node.value)}")
+
+                elif isinstance(node, ast.Num):  # Python 3.7 兼容
+                    return node.n
+
+                elif isinstance(node, ast.BinOp):
+                    op_func = allowed_operators.get(type(node.op))
+                    if not op_func:
+                        raise ValueError(f"Unsupported binary operation: {type(node.op).__name__}")
+                    left = eval_node(node.left)
+                    right = eval_node(node.right)
+                    return op_func(left, right)
+
+                elif isinstance(node, ast.UnaryOp):
+                    op_func = allowed_operators.get(type(node.op))
+                    if not op_func:
+                        raise ValueError(f"Unsupported unary operation: {type(node.op).__name__}")
+                    operand = eval_node(node.operand)
+                    return op_func(operand)
+
+                else:
+                    raise ValueError(f"Unsupported expression type: {type(node).__name__}")
+
+            # 解析表达式
+            tree = ast.parse(expression, mode='eval')
+            result = eval_node(tree.body)
+
+            # 检查结果是否有效
+            if not isinstance(result, (int, float)):
+                return f"Error: Result must be a number, got {type(result)}"
+
             return str(result)
+
+        except SyntaxError as e:
+            logger.warning(f"Calculator syntax error: {e}")
+            return f"Syntax error: {str(e)}"
+        except ZeroDivisionError:
+            logger.warning("Calculator division by zero")
+            return "Error: Division by zero"
+        except ValueError as e:
+            logger.warning(f"Calculator value error: {e}")
+            return f"Error: {str(e)}"
         except Exception as e:
+            logger.error(f"Calculator unexpected error: {e}", exc_info=True)
             return f"Calculation error: {str(e)}"
 
     async def _knowledge_base_tool(self, query: str) -> str:

@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voiceassistant-prod
+  labels:
+    name: voiceassistant-prod
+    environment: production
+    istio-injection: enabled  # 自动注入Istio sidecar
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voiceassistant-dev
+  labels:
+    name: voiceassistant-dev
+    environment: development
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voiceassistant-infra
+  labels:
+    name: voiceassistant-infra
+    environment: production
+    # 基础设施服务不注入sidecar
+

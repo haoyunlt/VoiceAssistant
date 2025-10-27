@@ -1,0 +1,291 @@
+---
+# Jaeger 分布式追踪（独立部署）
+# 如果使用 Istio，可以使用 Istio 自带的 Jaeger
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jaeger-config
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+data:
+  sampling-strategies.json: |
+    {
+      "default_strategy": {
+        "type": "probabilistic",
+        "param": 0.1
+      },
+      "service_strategies": [
+        {
+          "service": "ai-orchestrator",
+          "type": "probabilistic",
+          "param": 0.5
+        },
+        {
+          "service": "agent-engine",
+          "type": "probabilistic",
+          "param": 0.5
+        },
+        {
+          "service": "rag-engine",
+          "type": "probabilistic",
+          "param": 0.3
+        }
+      ]
+    }
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-collector
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+    component: collector
+spec:
+  type: ClusterIP
+  ports:
+    - port: 14268
+      targetPort: 14268
+      name: http
+    - port: 14250
+      targetPort: 14250
+      name: grpc
+    - port: 9411
+      targetPort: 9411
+      name: zipkin
+  selector:
+    app: jaeger
+    component: collector
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-query
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+    component: query
+spec:
+  type: ClusterIP
+  ports:
+    - port: 16686
+      targetPort: 16686
+      name: ui
+    - port: 16687
+      targetPort: 16687
+      name: admin
+  selector:
+    app: jaeger
+    component: query
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jaeger-agent
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+    component: agent
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 5775
+      targetPort: 5775
+      protocol: UDP
+      name: zipkin-compact
+    - port: 6831
+      targetPort: 6831
+      protocol: UDP
+      name: jaeger-compact
+    - port: 6832
+      targetPort: 6832
+      protocol: UDP
+      name: jaeger-binary
+    - port: 5778
+      targetPort: 5778
+      name: http
+  selector:
+    app: jaeger
+    component: agent
+
+---
+# Jaeger Collector
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-collector
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+    component: collector
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: jaeger
+      component: collector
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: collector
+    spec:
+      containers:
+        - name: jaeger-collector
+          image: jaegertracing/jaeger-collector:1.51
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 14268
+              name: http
+            - containerPort: 14250
+              name: grpc
+            - containerPort: 9411
+              name: zipkin
+          env:
+            - name: SPAN_STORAGE_TYPE
+              value: "elasticsearch"
+            - name: ES_SERVER_URLS
+              value: "http://elasticsearch.voiceassistant-infra:9200"
+            - name: ES_INDEX_PREFIX
+              value: "jaeger"
+            - name: COLLECTOR_ZIPKIN_HOST_PORT
+              value: ":9411"
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 14269
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 14269
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+---
+# Jaeger Query
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jaeger-query
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+    component: query
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jaeger
+      component: query
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: query
+    spec:
+      containers:
+        - name: jaeger-query
+          image: jaegertracing/jaeger-query:1.51
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 16686
+              name: ui
+            - containerPort: 16687
+              name: admin
+          env:
+            - name: SPAN_STORAGE_TYPE
+              value: "elasticsearch"
+            - name: ES_SERVER_URLS
+              value: "http://elasticsearch.voiceassistant-infra:9200"
+            - name: ES_INDEX_PREFIX
+              value: "jaeger"
+            - name: QUERY_BASE_PATH
+              value: "/"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 16687
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 16687
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+---
+# Jaeger Agent (DaemonSet - 每个节点一个)
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: jaeger-agent
+  namespace: voiceassistant-infra
+  labels:
+    app: jaeger
+    component: agent
+spec:
+  selector:
+    matchLabels:
+      app: jaeger
+      component: agent
+  template:
+    metadata:
+      labels:
+        app: jaeger
+        component: agent
+    spec:
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      containers:
+        - name: jaeger-agent
+          image: jaegertracing/jaeger-agent:1.51
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5775
+              protocol: UDP
+              name: zipkin-compact
+            - containerPort: 6831
+              protocol: UDP
+              name: jaeger-compact
+            - containerPort: 6832
+              protocol: UDP
+              name: jaeger-binary
+            - containerPort: 5778
+              name: http
+          env:
+            - name: REPORTER_GRPC_HOST_PORT
+              value: "jaeger-collector:14250"
+          args:
+            - --reporter.grpc.host-port=jaeger-collector:14250
+            - --reporter.type=grpc
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

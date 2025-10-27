@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
 COPY --from=builder /app/ai-orchestrator .
-COPY --from=builder /app/../../configs/app/ai-orchestrator.yaml /etc/voicehelper/ai-orchestrator.yaml
+COPY --from=builder /app/../../configs/app/ai-orchestrator.yaml /etc/voiceassistant/ai-orchestrator.yaml
 
 EXPOSE 9003 8003
 

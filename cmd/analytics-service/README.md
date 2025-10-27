@@ -191,7 +191,7 @@ document_retrieval_stats
 analytics:
   clickhouse:
     host: clickhouse:9000
-    database: voicehelper
+    database: voiceassistant
     username: default
     password: ${CLICKHOUSE_PASSWORD}
     connection_pool_size: 10

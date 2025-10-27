@@ -4,10 +4,10 @@
 package main
 
 import (
-	"analytics-service/internal/biz"
-	"analytics-service/internal/data"
-	"analytics-service/internal/server"
-	"analytics-service/internal/service"
+	"voiceassistant/cmd/analytics-service/internal/biz"
+	"voiceassistant/cmd/analytics-service/internal/data"
+	"voiceassistant/cmd/analytics-service/internal/server"
+	"voiceassistant/cmd/analytics-service/internal/service"
 
 	"github.com/google/wire"
 )

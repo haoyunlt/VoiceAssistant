@@ -274,7 +274,7 @@ python3 -c "from faster_whisper import WhisperModel; WhisperModel('base')"
 
 - [Voice Engine README](README.md)
 - [Sprint 执行指南](../../SPRINT_EXECUTION_GUIDE.md)
-- [VoiceHelper 迁移计划](../../VOICEHELPER_MIGRATION_PLAN.md)
+- [VoiceAssistant 迁移计划](../../VOICEASSISTANT_MIGRATION_PLAN.md)
 - [API 文档](http://localhost:8001/docs)
 
 ---

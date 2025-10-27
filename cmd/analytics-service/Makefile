@@ -34,7 +34,7 @@ clean:
 
 # Docker
 docker-build:
-	docker build -t voicehelper/$(SERVICE_NAME):latest -f ../../deployments/docker/Dockerfile.go-service .
+	docker build -t voiceassistant/$(SERVICE_NAME):latest -f ../../deployments/docker/Dockerfile.go-service .
 
 docker-run:
 	docker run -d \
@@ -42,4 +42,4 @@ docker-run:
 		--name $(SERVICE_NAME) \
 		-e DB_HOST=postgres \
 		-e CLICKHOUSE_ADDR=clickhouse:9000 \
-		voicehelper/$(SERVICE_NAME):latest
+		voiceassistant/$(SERVICE_NAME):latest

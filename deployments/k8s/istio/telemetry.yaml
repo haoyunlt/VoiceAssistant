@@ -1,0 +1,97 @@
+---
+# Istio Telemetry 配置 - OpenTelemetry集成
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: default
+  namespace: voiceassistant-prod
+spec:
+  # Tracing配置
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 10.0  # 10%采样率(生产环境)
+    customTags:
+      environment:
+        literal:
+          value: production
+      cluster:
+        literal:
+          value: voiceassistant-prod
+  
+  # Metrics配置
+  metrics:
+  - providers:
+    - name: prometheus
+    overrides:
+    # 请求指标
+    - match:
+        metric: REQUEST_COUNT
+      tagOverrides:
+        destination_service_name:
+          value: destination.service.name
+        request_protocol:
+          value: request.protocol
+    # 请求时长
+    - match:
+        metric: REQUEST_DURATION
+      tagOverrides:
+        destination_service_name:
+          value: destination.service.name
+    # TCP指标
+    - match:
+        metric: TCP_OPENED_CONNECTIONS
+      tagOverrides:
+        destination_service_name:
+          value: destination.service.name
+  
+  # Access Logging
+  accessLogging:
+  - providers:
+    - name: envoy
+    filter:
+      expression: response.code >= 400  # 只记录错误日志
+
+---
+# 开发环境 - 更高采样率
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: default
+  namespace: voiceassistant-dev
+spec:
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 100.0  # 开发环境100%采样
+    customTags:
+      environment:
+        literal:
+          value: development
+  accessLogging:
+  - providers:
+    - name: envoy
+
+---
+# 关键服务增强追踪
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: ai-services-telemetry
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      component: ai-engine  # agent-engine, rag-engine, model-adapter
+  tracing:
+  - providers:
+    - name: jaeger
+    randomSamplingPercentage: 50.0  # AI服务50%采样
+    customTags:
+      service_type:
+        literal:
+          value: ai-processing
+      slo_target:
+        literal:
+          value: "2.5s"
+

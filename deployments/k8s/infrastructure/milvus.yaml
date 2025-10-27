@@ -1,0 +1,362 @@
+---
+# Milvus Standalone部署
+# 生产环境建议使用Milvus Cluster模式
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: milvus-config
+  namespace: voiceassistant-infra
+  labels:
+    app: milvus
+data:
+  milvus.yaml: |
+    etcd:
+      endpoints:
+        - etcd:2379
+    minio:
+      address: minio
+      port: 9000
+      accessKeyID: minioadmin
+      secretAccessKey: minioadmin
+      useSSL: false
+      bucketName: milvus-bucket
+      rootPath: file
+    
+    common:
+      chanNamePrefix:
+        cluster: by-dev
+        rootCoordTimeTick: rootcoord-timetick
+        rootCoordStatistics: rootcoord-statistics
+        rootCoordDml: rootcoord-dml
+        rootCoordDelta: rootcoord-delta
+        search: search
+        searchResult: searchResult
+        queryTimeTick: queryTimeTick
+        queryNodeStats: query-node-stats
+        msgStream: msgstream
+        cmd: cmd
+    
+    log:
+      level: info
+      file:
+        rootPath: /var/lib/milvus/logs
+    
+    rootCoord:
+      address: localhost
+      port: 53100
+      dmlChannelNum: 16
+      maxPartitionNum: 4096
+      minSegmentSizeToEnableIndex: 1024
+    
+    proxy:
+      port: 19530
+      internalPort: 19529
+    
+    queryCoord:
+      address: localhost
+      port: 19531
+      autoHandoff: true
+      autoBalance: true
+    
+    queryNode:
+      cacheSize: 32
+      port: 21123
+      stats:
+        publishInterval: 1000
+    
+    indexCoord:
+      address: localhost
+      port: 31000
+    
+    indexNode:
+      port: 21121
+    
+    dataCoord:
+      address: localhost
+      port: 13333
+    
+    dataNode:
+      port: 21124
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: milvus
+  namespace: voiceassistant-infra
+  labels:
+    app: milvus
+spec:
+  type: ClusterIP
+  ports:
+  - port: 19530
+    targetPort: 19530
+    name: milvus
+  - port: 9091
+    targetPort: 9091
+    name: metrics
+  selector:
+    app: milvus
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: milvus
+  namespace: voiceassistant-infra
+  labels:
+    app: milvus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: milvus
+  template:
+    metadata:
+      labels:
+        app: milvus
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+      - name: wait-for-etcd
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z etcd 2379; do echo waiting for etcd; sleep 2; done']
+      - name: wait-for-minio
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z minio 9000; do echo waiting for minio; sleep 2; done']
+      containers:
+      - name: milvus
+        image: milvusdb/milvus:v2.3.3
+        imagePullPolicy: IfNotPresent
+        command:
+        - milvus
+        - run
+        - standalone
+        ports:
+        - containerPort: 19530
+          name: milvus
+        - containerPort: 9091
+          name: metrics
+        env:
+        - name: ETCD_ENDPOINTS
+          value: "etcd:2379"
+        - name: MINIO_ADDRESS
+          value: "minio:9000"
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9091
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9091
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: milvus-data
+          mountPath: /var/lib/milvus
+        - name: milvus-config
+          mountPath: /milvus/configs/milvus.yaml
+          subPath: milvus.yaml
+      volumes:
+      - name: milvus-config
+        configMap:
+          name: milvus-config
+      - name: milvus-data
+        persistentVolumeClaim:
+          claimName: milvus-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: milvus-pvc
+  namespace: voiceassistant-infra
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+
+---
+# Etcd for Milvus
+apiVersion: v1
+kind: Service
+metadata:
+  name: etcd
+  namespace: voiceassistant-infra
+spec:
+  ports:
+  - port: 2379
+    targetPort: 2379
+    name: client
+  - port: 2380
+    targetPort: 2380
+    name: peer
+  selector:
+    app: etcd
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: etcd
+  namespace: voiceassistant-infra
+spec:
+  serviceName: etcd
+  replicas: 1
+  selector:
+    matchLabels:
+      app: etcd
+  template:
+    metadata:
+      labels:
+        app: etcd
+    spec:
+      containers:
+      - name: etcd
+        image: quay.io/coreos/etcd:v3.5.10
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 2379
+          name: client
+        - containerPort: 2380
+          name: peer
+        env:
+        - name: ETCD_NAME
+          value: "etcd0"
+        - name: ETCD_DATA_DIR
+          value: "/etcd-data"
+        - name: ETCD_ADVERTISE_CLIENT_URLS
+          value: "http://etcd:2379"
+        - name: ETCD_LISTEN_CLIENT_URLS
+          value: "http://0.0.0.0:2379"
+        - name: ETCD_LISTEN_PEER_URLS
+          value: "http://0.0.0.0:2380"
+        - name: ETCD_INITIAL_ADVERTISE_PEER_URLS
+          value: "http://etcd:2380"
+        - name: ETCD_INITIAL_CLUSTER
+          value: "etcd0=http://etcd:2380"
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        volumeMounts:
+        - name: etcd-data
+          mountPath: /etcd-data
+  volumeClaimTemplates:
+  - metadata:
+      name: etcd-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# MinIO for Milvus
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: voiceassistant-infra
+spec:
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: api
+  - port: 9001
+    targetPort: 9001
+    name: console
+  selector:
+    app: minio
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: voiceassistant-infra
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      containers:
+      - name: minio
+        image: minio/minio:RELEASE.2023-11-20T22-40-07Z
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/bash
+        - -c
+        args:
+        - minio server /data --console-address :9001
+        ports:
+        - containerPort: 9000
+          name: api
+        - containerPort: 9001
+          name: console
+        env:
+        - name: MINIO_ROOT_USER
+          value: "minioadmin"
+        - name: MINIO_ROOT_PASSWORD
+          value: "minioadmin"
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        volumeMounts:
+        - name: minio-data
+          mountPath: /data
+      volumes:
+      - name: minio-data
+        persistentVolumeClaim:
+          claimName: minio-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: voiceassistant-infra
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+

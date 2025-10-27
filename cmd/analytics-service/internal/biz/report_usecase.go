@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"analytics-service/internal/domain"
+	"voiceassistant/cmd/analytics-service/internal/domain"
 )
 
 // ReportUsecase 报表用例

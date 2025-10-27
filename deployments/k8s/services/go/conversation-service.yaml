@@ -1,0 +1,201 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conversation-service-config
+  namespace: voiceassistant-prod
+  labels:
+    app: conversation-service
+data:
+  APP_NAME: "conversation-service"
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  HTTP_PORT: "8080"
+  GRPC_PORT: "9001"
+  METRICS_PORT: "9090"
+  DB_HOST: "postgres.voiceassistant-infra.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "conversation"
+  DB_SSL_MODE: "disable"
+  REDIS_ADDR: "redis.voiceassistant-infra.svc.cluster.local:6379"
+  NACOS_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  IDENTITY_SERVICE_URL: "identity-service.voiceassistant-prod.svc.cluster.local:9000"
+  KNOWLEDGE_SERVICE_URL: "knowledge-service.voiceassistant-prod.svc.cluster.local:9000"
+  AI_ORCHESTRATOR_URL: "ai-orchestrator.voiceassistant-prod.svc.cluster.local:9003"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: conversation-service-secret
+  namespace: voiceassistant-prod
+  labels:
+    app: conversation-service
+type: Opaque
+stringData:
+  DB_PASSWORD: "changeme"
+  REDIS_PASSWORD: ""
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversation-service
+  namespace: voiceassistant-prod
+  labels:
+    app: conversation-service
+    version: v1
+    component: core
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: conversation-service
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: conversation-service
+        version: v1
+        component: core
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: conversation-service-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z $DB_HOST $DB_PORT; do echo waiting for postgres; sleep 2; done']
+        envFrom:
+        - configMapRef:
+            name: conversation-service-config
+      containers:
+      - name: conversation-service
+        image: ghcr.io/voiceassistant/conversation-service:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 9001
+          name: grpc
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: conversation-service-config
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: conversation-service-secret
+              key: DB_PASSWORD
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: conversation-service-secret
+              key: REDIS_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      terminationGracePeriodSeconds: 30
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: conversation-service
+  namespace: voiceassistant-prod
+  labels:
+    app: conversation-service
+spec:
+  type: ClusterIP
+  selector:
+    app: conversation-service
+  ports:
+  - port: 8080
+    targetPort: 8080
+    name: http
+  - port: 9001
+    targetPort: 9001
+    name: grpc
+  - port: 9090
+    targetPort: 9090
+    name: metrics
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: conversation-service-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: conversation-service-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: conversation-service
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: conversation-service-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: conversation-service
+

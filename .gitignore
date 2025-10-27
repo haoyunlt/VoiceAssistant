@@ -29,6 +29,11 @@ go.work.sum
 # Dependency directories
 vendor/
 
+# Analysis reports
+.reports/
+unused-code-report.md
+unused-*-report.md
+
 # Go build cache
 .cache/
 

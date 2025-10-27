@@ -71,7 +71,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Multimodal Engine Service",
     version="1.0.0",
-    description="Multimodal Understanding Engine for VoiceHelper",
+    description="Multimodal Understanding Engine for VoiceAssistant",
     lifespan=lifespan,
 )
 

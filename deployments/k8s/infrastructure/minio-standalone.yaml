@@ -1,0 +1,224 @@
+---
+# MinIO 对象存储（独立部署）
+# 用于文档、图片、视频等文件存储
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: minio-config
+  namespace: voiceassistant-infra
+  labels:
+    app: minio
+data:
+  # 初始化脚本
+  initialize.sh: |
+    #!/bin/sh
+    set -e
+
+    # 等待MinIO启动
+    sleep 10
+
+    # 创建bucket
+    mc alias set local http://localhost:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+
+    # 创建应用所需的bucket
+    mc mb --ignore-existing local/documents
+    mc mb --ignore-existing local/multimodal
+    mc mb --ignore-existing local/milvus-bucket
+    mc mb --ignore-existing local/backups
+
+    # 设置bucket策略（根据需要调整）
+    mc anonymous set download local/documents
+
+    echo "MinIO initialization complete"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: minio-secret
+  namespace: voiceassistant-infra
+  labels:
+    app: minio
+type: Opaque
+stringData:
+  MINIO_ROOT_USER: "minioadmin"
+  MINIO_ROOT_PASSWORD: "minioadmin123"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: voiceassistant-infra
+  labels:
+    app: minio
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: 9000
+      name: api
+    - port: 9001
+      targetPort: 9001
+      name: console
+  selector:
+    app: minio
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minio
+  namespace: voiceassistant-infra
+  labels:
+    app: minio
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      initContainers:
+        # MinIO Client for initialization
+        - name: mc-init
+          image: minio/mc:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # 等待MinIO启动
+              until curl -f http://localhost:9000/minio/health/live; do
+                echo "Waiting for MinIO..."
+                sleep 2
+              done
+
+              # 配置mc
+              mc alias set local http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+
+              # 创建buckets
+              mc mb --ignore-existing local/documents
+              mc mb --ignore-existing local/multimodal
+              mc mb --ignore-existing local/milvus-bucket
+              mc mb --ignore-existing local/backups
+
+              echo "MinIO buckets initialized"
+          envFrom:
+            - secretRef:
+                name: minio-secret
+      containers:
+        - name: minio
+          image: minio/minio:RELEASE.2023-11-20T22-40-07Z
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - minio server /data --console-address :9001
+          ports:
+            - containerPort: 9000
+              name: api
+            - containerPort: 9001
+              name: console
+          envFrom:
+            - secretRef:
+                name: minio-secret
+          env:
+            - name: MINIO_PROMETHEUS_AUTH_TYPE
+              value: "public"
+            - name: MINIO_UPDATE
+              value: "off"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 1000m
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /minio/health/live
+              port: 9000
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /minio/health/ready
+              port: 9000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+          volumeMounts:
+            - name: minio-data
+              mountPath: /data
+      volumes:
+        - name: minio-data
+          persistentVolumeClaim:
+            claimName: minio-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: minio-pvc
+  namespace: voiceassistant-infra
+  labels:
+    app: minio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 200Gi
+
+---
+# MinIO Client Job（用于初始化和管理）
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-setup
+  namespace: voiceassistant-infra
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:latest
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -c
+            - |
+              # 等待MinIO就绪
+              until curl -f http://minio:9000/minio/health/ready; do
+                echo "Waiting for MinIO..."
+                sleep 5
+              done
+
+              # 配置mc
+              mc alias set minio http://minio:9000 $MINIO_ROOT_USER $MINIO_ROOT_PASSWORD
+
+              # 创建buckets
+              mc mb --ignore-existing minio/documents
+              mc mb --ignore-existing minio/multimodal
+              mc mb --ignore-existing minio/milvus-bucket
+              mc mb --ignore-existing minio/backups
+
+              # 设置生命周期策略（可选）
+              # mc ilm add minio/backups --expiry-days 30
+
+              # 设置版本控制（可选）
+              # mc version enable minio/documents
+
+              echo "MinIO setup complete"
+          envFrom:
+            - secretRef:
+                name: minio-secret

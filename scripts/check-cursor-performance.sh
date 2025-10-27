@@ -58,7 +58,7 @@ INDEXED_FILES=$(find . -type f \
     -not -name "*_PLAN.md" \
     -not -name "*_SUMMARY.md" \
     -not -name "*_REPORT.md" \
-    -not -name "VOICEHELPER_MIGRATION_*.md" \
+    -not -name "VOICEASSISTANT_MIGRATION_*.md" \
     2>/dev/null | wc -l | tr -d ' ')
 
 REDUCTION_RATE=$(echo "scale=1; ($TOTAL_FILES - $INDEXED_FILES) * 100 / $TOTAL_FILES" | bc)
@@ -76,7 +76,7 @@ LARGE_DOCS=$(find . -maxdepth 1 -type f \
     -or -name "*_PLAN.md" \
     -or -name "*_SUMMARY.md" \
     -or -name "*_REPORT.md" \
-    -or -name "VOICEHELPER_MIGRATION_*.md" \) \
+    -or -name "VOICEASSISTANT_MIGRATION_*.md" \) \
     2>/dev/null | wc -l | tr -d ' ')
 
 if [ "$LARGE_DOCS" -gt 0 ]; then
@@ -86,7 +86,7 @@ if [ "$LARGE_DOCS" -gt 0 ]; then
         -or -name "*_PLAN.md" \
         -or -name "*_SUMMARY.md" \
         -or -name "*_REPORT.md" \
-        -or -name "VOICEHELPER_MIGRATION_*.md" \) \
+        -or -name "VOICEASSISTANT_MIGRATION_*.md" \) \
         -exec basename {} \; 2>/dev/null | head -5 | sed 's/^/      - /'
     if [ "$LARGE_DOCS" -gt 5 ]; then
         echo "      ..."

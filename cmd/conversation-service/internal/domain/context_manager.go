@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// ContextManager 上下文管理器
-type ContextManager struct {
+// ContextManagerImpl 上下文管理器实现
+type ContextManagerImpl struct {
 	messageRepo    MessageRepository
 	contextRepo    ContextRepository
 	maxTokens      int
@@ -23,8 +23,8 @@ type ContextOptions struct {
 	Priority      string // recent, relevant, mixed
 }
 
-// ConversationContext 对话上下文
-type ConversationContext struct {
+// ManagedContext 管理的对话上下文
+type ManagedContext struct {
 	ConversationID    string
 	Messages          []*Message
 	CompressedSummary string
@@ -39,8 +39,8 @@ func NewContextManager(
 	messageRepo MessageRepository,
 	contextRepo ContextRepository,
 	maxTokens int,
-) *ContextManager {
-	return &ContextManager{
+) *ContextManagerImpl {
+	return &ContextManagerImpl{
 		messageRepo:    messageRepo,
 		contextRepo:    contextRepo,
 		maxTokens:      maxTokens,
@@ -49,11 +49,11 @@ func NewContextManager(
 }
 
 // GetContext 获取上下文（智能策略）
-func (m *ContextManager) GetContext(
+func (m *ContextManagerImpl) GetContext(
 	ctx context.Context,
 	conversationID string,
 	options *ContextOptions,
-) (*ConversationContext, error) {
+) (*ManagedContext, error) {
 	if options == nil {
 		options = &ContextOptions{
 			MaxMessages:   20,
@@ -85,7 +85,7 @@ func (m *ContextManager) GetContext(
 	}
 
 	// 5. 构建上下文
-	contextData := &ConversationContext{
+	contextData := &ManagedContext{
 		ConversationID: conversationID,
 		Messages:       messages,
 		TotalTokens:    totalTokens,
@@ -101,7 +101,7 @@ func (m *ContextManager) GetContext(
 }
 
 // UpdateContext 更新上下文（增量）
-func (m *ContextManager) UpdateContext(
+func (m *ContextManagerImpl) UpdateContext(
 	ctx context.Context,
 	conversationID string,
 	newMessage *Message,
@@ -130,7 +130,7 @@ func (m *ContextManager) UpdateContext(
 }
 
 // CompressContext 压缩上下文（长对话优化）
-func (m *ContextManager) CompressContext(
+func (m *ContextManagerImpl) CompressContext(
 	ctx context.Context,
 	conversationID string,
 ) error {
@@ -140,7 +140,7 @@ func (m *ContextManager) CompressContext(
 }
 
 // estimateTokens 估算Token数（简单实现）
-func (m *ContextManager) estimateTokens(messages []*Message) int {
+func (m *ContextManagerImpl) estimateTokens(messages []*Message) int {
 	total := 0
 	for _, msg := range messages {
 		// 英文约 4 字符 = 1 token，中文约 1.5 字符 = 1 token
@@ -151,7 +151,7 @@ func (m *ContextManager) estimateTokens(messages []*Message) int {
 }
 
 // trimMessages 裁剪消息以适应Token限制
-func (m *ContextManager) trimMessages(messages []*Message, maxTokens int) []*Message {
+func (m *ContextManagerImpl) trimMessages(messages []*Message, maxTokens int) []*Message {
 	if len(messages) == 0 {
 		return messages
 	}
@@ -174,12 +174,12 @@ func (m *ContextManager) trimMessages(messages []*Message, maxTokens int) []*Mes
 }
 
 // isValid 检查缓存的上下文是否有效
-func (m *ContextManager) isValid(context *ConversationContext) bool {
+func (m *ContextManagerImpl) isValid(context *ManagedContext) bool {
 	// 缓存5分钟内有效
 	return time.Since(context.GeneratedAt) < 5*time.Minute
 }
 
 // SetStrategy 设置窗口策略
-func (m *ContextManager) SetStrategy(strategy WindowStrategy) {
+func (m *ContextManagerImpl) SetStrategy(strategy WindowStrategy) {
 	m.windowStrategy = strategy
 }

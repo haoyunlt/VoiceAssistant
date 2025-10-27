@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"voiceassistant/conversation-service/internal/domain"
-	"conversation-service/internal/service"
+	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voiceassistant/cmd/conversation-service/internal/service"
 
 	"github.com/gin-gonic/gin"
 )

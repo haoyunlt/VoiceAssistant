@@ -19,7 +19,7 @@ class Neo4jClient:
         self,
         uri: str = "bolt://localhost:7687",
         user: str = "neo4j",
-        password: str = "voicehelper",
+        password: str = "voiceassistant",
         database: str = "neo4j"
     ):
         """

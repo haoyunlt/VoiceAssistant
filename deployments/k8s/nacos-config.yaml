@@ -1,0 +1,352 @@
+# Kubernetes 配置 - Nacos 集成
+# 包含 ConfigMap 和 Deployment 示例
+
+---
+# Nacos 连接配置 - ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nacos-config
+  namespace: voice-assistant
+data:
+  NACOS_SERVER_ADDR: "nacos.voice-assistant.svc.cluster.local"
+  NACOS_SERVER_PORT: "8848"
+  NACOS_NAMESPACE: "production"
+  NACOS_GROUP: "VoiceAssistant"
+  CONFIG_MODE: "nacos"
+
+---
+# Nacos 认证凭据 - Secret
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nacos-credentials
+  namespace: voice-assistant
+type: Opaque
+stringData:
+  username: "admin"
+  password: "your-secure-password"
+
+---
+# Go 服务部署示例 - Conversation Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: conversation-service
+  namespace: voice-assistant
+  labels:
+    app: conversation-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: conversation-service
+  template:
+    metadata:
+      labels:
+        app: conversation-service
+    spec:
+      containers:
+        - name: conversation-service
+          image: voice-assistant/conversation-service:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            # 配置模式（可通过环境变量切换）
+            - name: CONFIG_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: CONFIG_MODE
+
+            # Nacos 配置中心连接信息
+            - name: NACOS_SERVER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_SERVER_ADDR
+            - name: NACOS_SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_SERVER_PORT
+            - name: NACOS_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_NAMESPACE
+            - name: NACOS_GROUP
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_GROUP
+            - name: NACOS_DATA_ID
+              value: "conversation-service.yaml"
+
+            # Nacos 认证
+            - name: NACOS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-credentials
+                  key: username
+            - name: NACOS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-credentials
+                  key: password
+
+            # 本地配置文件路径（Nacos 连接配置）
+            - name: CONFIG_PATH
+              value: "/etc/config/conversation-service.yaml"
+
+            # 数据库连接（可由环境变量覆盖）
+            - name: DB_HOST
+              value: "postgres.voice-assistant.svc.cluster.local"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-credentials
+                  key: password
+
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: conversation-service-local-config
+
+---
+# 本地配置 ConfigMap（用于 Nacos 连接配置）
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: conversation-service-local-config
+  namespace: voice-assistant
+data:
+  conversation-service.yaml: |
+    # Nacos 配置中心连接配置
+    nacos:
+      server_addr: "nacos.voice-assistant.svc.cluster.local"
+      server_port: 8848
+      namespace: "production"
+      group: "VoiceAssistant"
+      data_id: "conversation-service.yaml"
+      log_dir: "/tmp/nacos/log"
+      cache_dir: "/tmp/nacos/cache"
+      log_level: "info"
+      timeout_ms: 5000
+
+    # 以下配置在 Nacos 模式下会被配置中心的配置覆盖
+    # 本地模式下使用这些配置
+    server:
+      http:
+        addr: 0.0.0.0:8080
+        timeout: 30s
+
+---
+# Python 服务部署示例 - Agent Engine
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-engine
+  namespace: voice-assistant
+  labels:
+    app: agent-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: agent-engine
+  template:
+    metadata:
+      labels:
+        app: agent-engine
+    spec:
+      containers:
+        - name: agent-engine
+          image: voice-assistant/agent-engine:latest
+          ports:
+            - containerPort: 8003
+              name: http
+          env:
+            # 配置模式
+            - name: CONFIG_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: CONFIG_MODE
+
+            # Nacos 配置
+            - name: NACOS_SERVER_ADDR
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_SERVER_ADDR
+            - name: NACOS_SERVER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_SERVER_PORT
+            - name: NACOS_NAMESPACE
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_NAMESPACE
+            - name: NACOS_GROUP
+              valueFrom:
+                configMapKeyRef:
+                  name: nacos-config
+                  key: NACOS_GROUP
+            - name: NACOS_DATA_ID
+              value: "agent-engine.yaml"
+            - name: NACOS_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-credentials
+                  key: username
+            - name: NACOS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: nacos-credentials
+                  key: password
+
+            # 本地配置文件路径
+            - name: CONFIG_PATH
+              value: "/etc/config/agent-engine.yaml"
+
+            # 服务配置
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8003"
+
+          volumeMounts:
+            - name: config
+              mountPath: /etc/config
+              readOnly: true
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8003
+            initialDelaySeconds: 30
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8003
+            initialDelaySeconds: 10
+            periodSeconds: 5
+
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "200m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: agent-engine-local-config
+
+---
+# Agent Engine 本地配置 ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-engine-local-config
+  namespace: voice-assistant
+data:
+  agent-engine.yaml: |
+    # Nacos 配置中心连接配置
+    nacos:
+      server_addr: "nacos.voice-assistant.svc.cluster.local"
+      server_port: 8848
+      namespace: "production"
+      group: "VoiceAssistant"
+      data_id: "agent-engine.yaml"
+
+    # 本地配置（Nacos 模式下会被覆盖）
+    service:
+      name: "agent-engine"
+      host: "0.0.0.0"
+      port: 8003
+
+---
+# 本地配置模式部署（用于对比和回退）
+# 通过修改 ConfigMap 中的 CONFIG_MODE 切换模式
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-mode-config
+  namespace: voice-assistant
+data:
+  CONFIG_MODE: "local"
+
+---
+# 使用说明
+#
+# 1. 创建命名空间：
+#    kubectl create namespace voice-assistant
+#
+# 2. 部署 Nacos（可选，如果没有现成的）：
+#    kubectl apply -f nacos-deployment.yaml
+#
+# 3. 应用配置：
+#    kubectl apply -f nacos-config.yaml
+#
+# 4. 查看服务状态：
+#    kubectl get pods -n voice-assistant
+#    kubectl logs -n voice-assistant deployment/conversation-service
+#
+# 5. 切换配置模式：
+#    # 切换到本地模式
+#    kubectl patch configmap nacos-config -n voice-assistant \
+#      -p '{"data":{"CONFIG_MODE":"local"}}'
+#
+#    # 切换到 Nacos 模式
+#    kubectl patch configmap nacos-config -n voice-assistant \
+#      -p '{"data":{"CONFIG_MODE":"nacos"}}'
+#
+#    # 重启 Pod 使配置生效
+#    kubectl rollout restart deployment/conversation-service -n voice-assistant
+#
+# 6. 验证配置模式：
+#    kubectl exec -n voice-assistant deployment/conversation-service -- \
+#      env | grep CONFIG_MODE

@@ -1,6 +1,7 @@
 """
 Elasticsearch Service - 完整实现
 BM25 全文检索服务
+增强版：连接池、重试机制、资源管理
 """
 
 import logging
@@ -8,15 +9,28 @@ import os
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from elasticsearch import AsyncElasticsearch
+from elasticsearch import AsyncElasticsearch, ConnectionError, TransportError
 
 logger = logging.getLogger(__name__)
 
 
 class ElasticsearchService:
-    """Elasticsearch 服务"""
+    """Elasticsearch 服务 - 增强版"""
 
-    def __init__(self):
+    def __init__(
+        self,
+        max_retries: int = 3,
+        timeout: int = 30,
+        maxsize: int = 25
+    ):
+        """
+        初始化 Elasticsearch 服务
+
+        Args:
+            max_retries: 最大重试次数
+            timeout: 请求超时（秒）
+            maxsize: 每个节点的连接池大小
+        """
         es_host = os.getenv('ELASTICSEARCH_HOST', 'localhost')
         es_port = int(os.getenv('ELASTICSEARCH_PORT', 9200))
 
@@ -27,10 +41,33 @@ class ElasticsearchService:
                 'scheme': 'http'
             }],
             verify_certs=False,
-            request_timeout=30
+            request_timeout=timeout,
+            max_retries=max_retries,
+            retry_on_timeout=True,
+            # 连接池配置
+            maxsize=maxsize,
         )
 
-        self.index_prefix = "voicehelper"
+        self.index_prefix = "voiceassistant"
+        self._is_closed = False
+
+        logger.info(
+            f"Elasticsearch service initialized: host={es_host}:{es_port} "
+            f"max_retries={max_retries} timeout={timeout}s pool_size={maxsize}"
+        )
+
+    async def __aenter__(self):
+        """异步上下文管理器入口"""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """异步上下文管理器退出"""
+        await self.close()
+
+    def _check_closed(self):
+        """检查服务是否已关闭"""
+        if self._is_closed:
+            raise RuntimeError("ElasticsearchService is closed")
 
     async def create_index(
         self,
@@ -46,12 +83,17 @@ class ElasticsearchService:
             kb_id: 知识库 ID
             settings: 自定义设置
         """
+        self._check_closed()
         index_name = self._get_index_name(tenant_id, kb_id)
 
-        # 检查索引是否已存在
-        if await self.client.indices.exists(index=index_name):
-            logger.info(f"Index {index_name} already exists")
-            return
+        try:
+            # 检查索引是否已存在
+            if await self.client.indices.exists(index=index_name):
+                logger.info(f"Index {index_name} already exists")
+                return
+        except (ConnectionError, TransportError) as e:
+            logger.error(f"Failed to check index existence: {e}")
+            raise
 
         # 定义映射
         mappings = {
@@ -167,7 +209,7 @@ class ElasticsearchService:
         min_score: float = None
     ) -> List[Dict]:
         """
-        BM25 搜索
+        BM25 搜索 - 带自动重试
 
         Args:
             tenant_id: 租户 ID
@@ -180,11 +222,16 @@ class ElasticsearchService:
         Returns:
             List[Dict]: 检索结果
         """
+        self._check_closed()
         index_name = self._get_index_name(tenant_id, kb_id)
 
-        # 检查索引是否存在
-        if not await self.client.indices.exists(index=index_name):
-            logger.warning(f"Index {index_name} does not exist")
+        try:
+            # 检查索引是否存在
+            if not await self.client.indices.exists(index=index_name):
+                logger.warning(f"Index {index_name} does not exist")
+                return []
+        except (ConnectionError, TransportError) as e:
+            logger.error(f"Failed to check index existence: {e}")
             return []
 
         # 构建查询
@@ -232,14 +279,20 @@ class ElasticsearchService:
         if min_score:
             query_body["min_score"] = min_score
 
-        # 执行搜索
+        # 执行搜索（AsyncElasticsearch 内置重试机制）
         try:
             response = await self.client.search(
                 index=index_name,
                 body=query_body
             )
+        except ConnectionError as e:
+            logger.error(f"Elasticsearch connection error: {e}", exc_info=True)
+            return []
+        except TransportError as e:
+            logger.error(f"Elasticsearch transport error: {e}", exc_info=True)
+            return []
         except Exception as e:
-            logger.error(f"Search failed: {e}")
+            logger.error(f"Search failed with unexpected error: {e}", exc_info=True)
             return []
 
         # 提取结果
@@ -372,8 +425,16 @@ class ElasticsearchService:
             return {}
 
     async def close(self):
-        """关闭客户端"""
-        await self.client.close()
+        """关闭客户端 - 确保资源清理"""
+        if not self._is_closed:
+            try:
+                await self.client.close()
+                self._is_closed = True
+                logger.info("Elasticsearch client closed successfully")
+            except Exception as e:
+                logger.error(f"Error closing Elasticsearch client: {e}", exc_info=True)
+                # 即使关闭失败也标记为已关闭
+                self._is_closed = True
 
     def _get_index_name(self, tenant_id: str, kb_id: str) -> str:
         """生成索引名称"""

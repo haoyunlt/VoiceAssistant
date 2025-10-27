@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"notification-service/internal/domain"
+	"voiceassistant/cmd/notification-service/internal/domain"
 )
 
 type InAppSender struct {

@@ -1,0 +1,221 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-engine-config
+  namespace: voiceassistant-prod
+  labels:
+    app: agent-engine
+data:
+  APP_NAME: "agent-engine"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8003"
+  WORKERS: "4"
+  # Nacos配置
+  NACOS_SERVER_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  NACOS_NAMESPACE: "production"
+  NACOS_GROUP: "DEFAULT_GROUP"
+  # Redis配置
+  REDIS_HOST: "redis.voiceassistant-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "1"
+  # 关联服务
+  RAG_ENGINE_URL: "http://rag-engine.voiceassistant-prod.svc.cluster.local:8006"
+  MODEL_ADAPTER_URL: "http://model-adapter.voiceassistant-prod.svc.cluster.local:8005"
+  RETRIEVAL_SERVICE_URL: "http://retrieval-service.voiceassistant-prod.svc.cluster.local:8012"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: agent-engine-secret
+  namespace: voiceassistant-prod
+  labels:
+    app: agent-engine
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+  OPENAI_API_KEY: "sk-..."
+  ANTHROPIC_API_KEY: "sk-ant-..."
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: agent-engine
+    version: v1
+    component: ai-engine
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: agent-engine
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: agent-engine
+        version: v1
+        component: ai-engine
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8003"
+        prometheus.io/path: "/metrics"
+        sidecar.istio.io/inject: "true"
+        # Python应用优化
+        sidecar.istio.io/proxyCPU: "100m"
+        sidecar.istio.io/proxyMemory: "256Mi"
+    spec:
+      serviceAccountName: agent-engine-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-for-redis
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z $REDIS_HOST $REDIS_PORT; do echo waiting for redis; sleep 2; done']
+        envFrom:
+        - configMapRef:
+            name: agent-engine-config
+      containers:
+      - name: agent-engine
+        image: ghcr.io/voiceassistant/agent-engine:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8003
+          name: http
+          protocol: TCP
+        envFrom:
+        - configMapRef:
+            name: agent-engine-config
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: agent-engine-secret
+              key: REDIS_PASSWORD
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-engine-secret
+              key: OPENAI_API_KEY
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: agent-engine-secret
+              key: ANTHROPIC_API_KEY
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false  # Python需要写临时文件
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/app/.cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      terminationGracePeriodSeconds: 60
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: agent-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: agent-engine
+  ports:
+  - port: 8003
+    targetPort: 8003
+    protocol: TCP
+    name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: agent-engine-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: agent-engine-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: agent-engine
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: agent-engine-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: agent-engine
+

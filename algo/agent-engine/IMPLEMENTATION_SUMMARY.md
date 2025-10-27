@@ -2,7 +2,7 @@
 
 ## 服务概述
 
-**Agent Engine**（Agent 执行引擎）是 VoiceHelper 平台的核心 AI 服务之一，负责智能 Agent 的任务执行、工具调用和多步推理。
+**Agent Engine**（Agent 执行引擎）是 VoiceAssistant 平台的核心 AI 服务之一，负责智能 Agent 的任务执行、工具调用和多步推理。
 
 ## 核心功能
 
@@ -382,9 +382,9 @@ docker run -p 8003:8003 agent-engine
 
 ## 联系方式
 
-- 团队: VoiceHelper AI Team
-- 邮箱: dev@voicehelper.ai
-- 文档: https://docs.voicehelper.ai
+- 团队: VoiceAssistant AI Team
+- 邮箱: dev@voiceassistant.ai
+- 文档: https://docs.voiceassistant.ai
 
 ---
 

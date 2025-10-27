@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
 COPY --from=builder /app/notification-service .
-COPY --from=builder /app/../../configs/app/notification-service.yaml /etc/voicehelper/notification-service.yaml
+COPY --from=builder /app/../../configs/app/notification-service.yaml /etc/voiceassistant/notification-service.yaml
 
 EXPOSE 9005 8005
 

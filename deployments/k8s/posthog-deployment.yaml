@@ -61,7 +61,7 @@ metadata:
   name: posthog-config
   namespace: posthog
 data:
-  SITE_URL: "http://posthog.voicehelper.local"  # 修改为你的域名
+  SITE_URL: "http://posthog.voiceassistant.local"  # 修改为你的域名
   DISABLE_SECURE_SSL_REDIRECT: "true"
   IS_BEHIND_PROXY: "true"
   TRUST_ALL_PROXIES: "true"
@@ -423,10 +423,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - posthog.voicehelper.com  # 修改为你的域名
+    - posthog.voiceassistant.com  # 修改为你的域名
     secretName: posthog-tls
   rules:
-  - host: posthog.voicehelper.com  # 修改为你的域名
+  - host: posthog.voiceassistant.com  # 修改为你的域名
     http:
       paths:
       - path: /

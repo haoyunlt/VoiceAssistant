@@ -9,7 +9,7 @@
 
 ## 核心职责
 
-AI Orchestrator 是 VoiceHelper 平台的**核心编排引擎**，负责：
+AI Orchestrator 是 VoiceAssistant 平台的**核心编排引擎**，负责：
 
 1. **任务管理**: 创建、调度、执行、取消 AI 任务
 2. **流程编排**: 协调多个 AI 服务完成复杂任务
@@ -446,7 +446,7 @@ server:
 data:
   database:
     driver: postgres
-    source: postgres://voicehelper:voicehelper_dev@localhost:5432/voicehelper?sslmode=disable
+    source: postgres://voiceassistant:voiceassistant_dev@localhost:5432/voiceassistant?sslmode=disable
 
 trace:
   endpoint: http://localhost:4318 # OpenTelemetry Collector
@@ -584,7 +584,7 @@ go test -tags=integration ./...
 docker-compose up postgres redis
 
 # 运行迁移
-psql -U voicehelper -d voicehelper -f migrations/postgres/004_ai_orchestrator.sql
+psql -U voiceassistant -d voiceassistant -f migrations/postgres/004_ai_orchestrator.sql
 
 # 启动服务
 make run
@@ -670,7 +670,7 @@ service Orchestrator {
 
 ## 总结
 
-AI Orchestrator 是 VoiceHelper 平台的**核心编排引擎**，通过 DDD 分层架构实现了：
+AI Orchestrator 是 VoiceAssistant 平台的**核心编排引擎**，通过 DDD 分层架构实现了：
 
 ✅ **任务管理**: 完整的任务生命周期管理
 ✅ **流程编排**: 灵活的 Pipeline 模式
@@ -691,5 +691,5 @@ AI Orchestrator 是 VoiceHelper 平台的**核心编排引擎**，通过 DDD 分
 ---
 
 **版本**: v1.0.0
-**作者**: VoiceHelper Team
+**作者**: VoiceAssistant Team
 **日期**: 2025-10-26

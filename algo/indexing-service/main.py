@@ -92,7 +92,7 @@ async def lifespan(app: FastAPI):
 # 创建 FastAPI 应用
 app = FastAPI(
     title="Indexing Service",
-    description="VoiceHelper 文档索引构建服务",
+    description="VoiceAssistant 文档索引构建服务",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -153,7 +153,7 @@ async def root():
     return {
         "service": "indexing-service",
         "version": "2.0.0",
-        "description": "VoiceHelper Document Indexing Service",
+        "description": "VoiceAssistant Document Indexing Service",
     }
 
 

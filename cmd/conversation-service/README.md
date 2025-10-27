@@ -42,7 +42,7 @@ export DB_HOST=localhost
 export DB_PORT=5432
 export DB_USER=postgres
 export DB_PASSWORD=postgres
-export DB_NAME=voicehelper
+export DB_NAME=voiceassistant
 export PORT=8080
 ```
 
@@ -203,7 +203,7 @@ GET /api/v1/messages/:id?user_id=xxx
 | `DB_PORT`     | PostgreSQL 端口 | 5432        |
 | `DB_USER`     | 数据库用户      | postgres    |
 | `DB_PASSWORD` | 数据库密码      | postgres    |
-| `DB_NAME`     | 数据库名        | voicehelper |
+| `DB_NAME`     | 数据库名        | voiceassistant |
 | `PORT`        | 服务端口        | 8080        |
 
 ## 架构设计

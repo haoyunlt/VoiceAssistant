@@ -31,10 +31,10 @@ proto:
 		$(PROTO_PATH)/*.proto
 
 docker-build:
-	docker build -t voicehelper/$(SERVICE_NAME):latest -f ../../deployments/docker/Dockerfile.go-service --build-arg SERVICE=$(SERVICE_NAME) ../..
+	docker build -t voiceassistant/$(SERVICE_NAME):latest -f ../../deployments/docker/Dockerfile.go-service --build-arg SERVICE=$(SERVICE_NAME) ../..
 
 docker-run:
-	docker run -p 8000:8000 -p 9000:9000 voicehelper/$(SERVICE_NAME):latest
+	docker run -p 8000:8000 -p 9000:9000 voiceassistant/$(SERVICE_NAME):latest
 
 lint:
 	golangci-lint run

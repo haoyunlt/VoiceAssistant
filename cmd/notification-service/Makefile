@@ -21,7 +21,7 @@ wire:
 	cd cmd/$(SERVICE_NAME) && wire
 
 docker-build:
-	docker build -t voicehelper/$(SERVICE_NAME):latest -f ../../deployments/docker/Dockerfile.go-service --build-arg SERVICE=$(SERVICE_NAME) ../..
+	docker build -t voiceassistant/$(SERVICE_NAME):latest -f ../../deployments/docker/Dockerfile.go-service --build-arg SERVICE=$(SERVICE_NAME) ../..
 
 lint:
 	golangci-lint run

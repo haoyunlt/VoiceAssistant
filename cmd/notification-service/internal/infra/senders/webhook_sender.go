@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"notification-service/internal/domain"
+	"voiceassistant/cmd/notification-service/internal/domain"
 )
 
 type WebhookSender struct {
@@ -48,7 +48,7 @@ func (s *WebhookSender) Send(notification *domain.Notification) error {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "VoiceHelper-Notification/1.0")
+	req.Header.Set("User-Agent", "VoiceAssistant-Notification/1.0")
 
 	resp, err := s.client.Do(req)
 	if err != nil {

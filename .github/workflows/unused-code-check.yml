@@ -1,0 +1,230 @@
+name: Unused Code Detection
+
+on:
+  # 定期扫描（每周一早上 8 点）
+  schedule:
+    - cron: "0 8 * * 1"
+
+  # 手动触发
+  workflow_dispatch:
+
+  # PR 到 main/develop 分支时触发
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "**.go"
+      - "**.py"
+      - ".golangci.yml"
+      - "pyproject.toml"
+      - ".github/workflows/unused-code-check.yml"
+
+jobs:
+  detect-unused-go:
+    name: Detect Unused Go Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run golangci-lint (unused detection)
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: >
+            --timeout=10m
+            --enable=unused,deadcode,unparam,ineffassign,varcheck,structcheck
+            --out-format=colored-line-number
+            --issues-exit-code=0
+          only-new-issues: false
+
+      - name: Generate detailed unused report
+        run: |
+          echo "## Go Unused Code Report" > unused-go-report.md
+          echo "" >> unused-go-report.md
+          echo "生成时间: $(date)" >> unused-go-report.md
+          echo "" >> unused-go-report.md
+
+          # 运行 golangci-lint 并保存结果
+          golangci-lint run \
+            --enable=unused,deadcode,unparam \
+            --out-format=github-actions \
+            --issues-exit-code=0 | tee -a unused-go-report.md || true
+
+      - name: Upload Go unused report
+        uses: actions/upload-artifact@v3
+        with:
+          name: unused-go-report
+          path: unused-go-report.md
+          retention-days: 30
+
+  detect-unused-python:
+    name: Detect Unused Python Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install analysis tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff vulture pylint
+
+      - name: Run Ruff (unused detection)
+        run: |
+          echo "## Python Ruff Analysis" > unused-python-report.md
+          echo "" >> unused-python-report.md
+          ruff check algo/ \
+            --select F401,F841,ARG \
+            --output-format=text | tee -a unused-python-report.md || true
+
+      - name: Run Vulture (dead code detection)
+        run: |
+          echo "" >> unused-python-report.md
+          echo "## Python Vulture Dead Code Analysis" >> unused-python-report.md
+          echo "" >> unused-python-report.md
+          vulture algo/ \
+            --min-confidence 80 \
+            --sort-by-size | tee -a unused-python-report.md || true
+
+      - name: Upload Python unused report
+        uses: actions/upload-artifact@v3
+        with:
+          name: unused-python-report
+          path: unused-python-report.md
+          retention-days: 30
+
+  comprehensive-analysis:
+    name: Comprehensive Unused Code Analysis
+    runs-on: ubuntu-latest
+    needs: [detect-unused-go, detect-unused-python]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Download Go report
+        uses: actions/download-artifact@v3
+        with:
+          name: unused-go-report
+
+      - name: Download Python report
+        uses: actions/download-artifact@v3
+        with:
+          name: unused-python-report
+
+      - name: Run comprehensive analysis script
+        run: |
+          if [ -f scripts/analyze-unused-code.py ]; then
+            python3 scripts/analyze-unused-code.py > comprehensive-report.md
+          else
+            echo "Analysis script not found, using basic reports"
+            cat unused-go-report.md unused-python-report.md > comprehensive-report.md
+          fi
+
+      - name: Upload comprehensive report
+        uses: actions/upload-artifact@v3
+        with:
+          name: comprehensive-unused-report
+          path: comprehensive-report.md
+          retention-days: 90
+
+      - name: Create Issue if unused code detected
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('comprehensive-report.md', 'utf8');
+
+            // 检查是否有未使用代码
+            if (report.includes('unused') || report.includes('dead code')) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '📊 Weekly Unused Code Report - ' + new Date().toISOString().split('T')[0],
+                body: '## Unused Code Detection Report\n\n' +
+                      '本周的未使用代码检测完成。\n\n' +
+                      '详细报告请查看 [Artifacts](' + context.payload.repository.html_url + '/actions/runs/' + context.runId + ')\n\n' +
+                      '### 建议\n' +
+                      '1. 检查报告中的未使用代码\n' +
+                      '2. 确认是否为死代码或预留功能\n' +
+                      '3. 创建清理任务\n\n' +
+                      '### 快速预览\n\n```\n' + report.substring(0, 2000) + '\n```',
+                labels: ['code-quality', 'tech-debt', 'automated']
+              });
+            }
+
+  pr-comment:
+    name: Comment on PR
+    runs-on: ubuntu-latest
+    needs: [detect-unused-go, detect-unused-python]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Download reports
+        uses: actions/download-artifact@v3
+
+      - name: Comment PR with summary
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '## 🔍 Unused Code Check Results\n\n';
+
+            try {
+              const goReport = fs.readFileSync('unused-go-report/unused-go-report.md', 'utf8');
+              const pyReport = fs.readFileSync('unused-python-report/unused-python-report.md', 'utf8');
+
+              comment += '### Go Code\n\n';
+              if (goReport.includes('unused') || goReport.includes('deadcode')) {
+                comment += '⚠️ 发现未使用的 Go 代码\n\n';
+                comment += '<details><summary>查看详情</summary>\n\n```\n' +
+                           goReport.substring(0, 1000) + '\n```\n\n</details>\n\n';
+              } else {
+                comment += '✅ 未发现明显的未使用 Go 代码\n\n';
+              }
+
+              comment += '### Python Code\n\n';
+              if (pyReport.includes('unused') || pyReport.includes('Unused')) {
+                comment += '⚠️ 发现未使用的 Python 代码\n\n';
+                comment += '<details><summary>查看详情</summary>\n\n```\n' +
+                           pyReport.substring(0, 1000) + '\n```\n\n</details>\n\n';
+              } else {
+                comment += '✅ 未发现明显的未使用 Python 代码\n\n';
+              }
+
+              comment += '\n完整报告请查看 [Actions Artifacts](' +
+                        context.payload.repository.html_url + '/actions/runs/' + context.runId + ')';
+            } catch (e) {
+              comment += '❌ 无法读取检测报告\n\n' + e.message;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });

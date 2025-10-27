@@ -1,16 +1,16 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: voicehelper-prod
+  name: voiceassistant-prod
   labels:
-    name: voicehelper-prod
+    name: voiceassistant-prod
     environment: production
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: voicehelper-dev
+  name: voiceassistant-dev
   labels:
-    name: voicehelper-dev
+    name: voiceassistant-dev
     environment: development
 

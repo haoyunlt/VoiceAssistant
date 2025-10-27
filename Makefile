@@ -18,13 +18,15 @@ proto-gen: ## 生成protobuf代码
 
 build-go: ## 编译Go服务
 	@echo "🔨 编译Go服务..."
-	@cd cmd/knowledge-service && go build -o ../../bin/knowledge-service
-	@cd cmd/conversation-service && go build -o ../../bin/conversation-service
-	@cd cmd/identity-service && go build -o ../../bin/identity-service
-	@cd cmd/ai-orchestrator && go build -o ../../bin/ai-orchestrator
-	@cd cmd/analytics-service && go build -o ../../bin/analytics-service
-	@cd cmd/model-router && go build -o ../../bin/model-router
-	@cd cmd/notification-service && go build -o ../../bin/notification-service
+	@mkdir -p bin
+	@go build -o bin/knowledge-service ./cmd/knowledge-service
+	@go build -o bin/conversation-service ./cmd/conversation-service
+	@go build -o bin/identity-service ./cmd/identity-service
+	@go build -o bin/ai-orchestrator ./cmd/ai-orchestrator
+	@go build -o bin/analytics-service ./cmd/analytics-service
+	@go build -o bin/model-router ./cmd/model-router
+	@go build -o bin/notification-service ./cmd/notification-service
+	@echo "✅ Go服务编译完成"
 
 build-docker: ## 构建Docker镜像
 	@echo "🐳 构建Docker镜像..."
@@ -44,6 +46,35 @@ logs: ## 查看日志
 ps: ## 查看服务状态
 	@docker-compose ps
 
+# ==================
+# Code Quality
+# ==================
+lint-go: ## Go代码检查
+	@echo "🔍 Go代码检查..."
+	@golangci-lint run ./...
+
+lint-python: ## Python代码检查
+	@echo "🔍 Python代码检查..."
+	@ruff check algo/
+
+lint: lint-go lint-python ## 全部代码检查
+
+check-unused: ## 检测未使用代码
+	@echo "🔍 检测未使用代码..."
+	@./scripts/check-unused-code.sh
+
+check-unused-fix: ## 检测并自动修复未使用代码
+	@echo "🔧 检测并自动修复..."
+	@./scripts/check-unused-code.sh --fix
+
+analyze-unused: ## 生成详细未使用代码报告
+	@echo "📊 生成详细分析报告..."
+	@python3 scripts/analyze-unused-code.py unused-code-report.md
+	@echo "✅ 报告已生成: unused-code-report.md"
+
+# ==================
+# Cleanup
+# ==================
 clean: ## 清理
 	@echo "🧹 清理..."
 	@rm -rf bin/
@@ -67,9 +98,9 @@ dev-retrieval: ## 开发模式运行Retrieval Service
 # 数据库迁移
 migrate-up: ## 执行数据库迁移
 	@echo "📊 执行数据库迁移..."
-	@psql -h localhost -U voicehelper -d voicehelper -f migrations/postgres/001_init.sql
-	@psql -h localhost -U voicehelper -d voicehelper -f migrations/postgres/002_conversations.sql
-	@psql -h localhost -U voicehelper -d voicehelper -f migrations/postgres/003_knowledge.sql
+	@psql -h localhost -U voiceassistant -d voiceassistant -f migrations/postgres/001_init.sql
+	@psql -h localhost -U voiceassistant -d voiceassistant -f migrations/postgres/002_conversations.sql
+	@psql -h localhost -U voiceassistant -d voiceassistant -f migrations/postgres/003_knowledge.sql
 
 # Lint相关
 lint-python: ## Python代码检查

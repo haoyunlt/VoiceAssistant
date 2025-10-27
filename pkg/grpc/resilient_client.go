@@ -180,4 +180,3 @@ func (p *ServiceClientPool) CloseAll() {
 	}
 	p.clients = make(map[string]*ResilientClient)
 }
-

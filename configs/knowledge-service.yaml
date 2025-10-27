@@ -1,3 +1,17 @@
+# Nacos 配置中心连接配置（可选）
+nacos:
+  server_addr: "localhost"
+  server_port: 8848
+  namespace: ""
+  group: "VoiceAssistant"
+  data_id: "knowledge-service.yaml"
+  username: ""
+  password: ""
+  log_dir: "/tmp/nacos/log"
+  cache_dir: "/tmp/nacos/cache"
+  log_level: "info"
+  timeout_ms: 5000
+
 server:
   http:
     addr: 0.0.0.0:8000
@@ -9,7 +23,7 @@ server:
 data:
   database:
     driver: postgres
-    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=knowledge
+    source: postgresql://voiceassistant:password@postgres:5432/voiceassistant?sslmode=disable&search_path=knowledge
   redis:
     addr: redis:6379
     db: 2
@@ -17,7 +31,7 @@ data:
     endpoint: minio:9000
     access_key: minioadmin
     secret_key: minioadmin
-    bucket: voicehelper-documents
+    bucket: voiceassistant-documents
     use_ssl: false
 
 kafka:
@@ -39,4 +53,3 @@ observability:
   logging:
     level: info
     format: json
-

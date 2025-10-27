@@ -1,0 +1,55 @@
+# Agent Engine 配置文件
+
+# Nacos 配置中心连接配置（可选）
+# 当 CONFIG_MODE=nacos 时使用
+nacos:
+  server_addr: "localhost"
+  server_port: 8848
+  namespace: ""
+  group: "VoiceAssistant"
+  data_id: "agent-engine.yaml"
+  username: ""
+  password: ""
+
+# 服务配置
+service:
+  name: "agent-engine"
+  host: "0.0.0.0"
+  port: 8003
+  workers: 1
+  reload: false
+
+# Milvus 配置
+milvus:
+  host: "localhost"
+  port: 19530
+
+# Embedding 服务配置
+embedding:
+  service_url: "http://localhost:8002"
+
+# 记忆配置
+memory:
+  collection_name: "agent_memory"
+  time_decay_half_life_days: 30
+  auto_save_to_long_term: true
+  long_term_importance_threshold: 0.6
+
+# LLM 配置
+llm:
+  provider: "openai"
+  model: "gpt-4"
+  temperature: 0.7
+  max_tokens: 2000
+  api_key: "${OPENAI_API_KEY}"
+
+# Agent 配置
+agent:
+  max_steps: 10
+  default_mode: "react"
+  tool_timeout_seconds: 30
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

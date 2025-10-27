@@ -27,7 +27,7 @@ format: ## Format code
 	ruff check --fix .
 
 docker-build: ## Build Docker image
-	docker build -t voicehelper/retrieval-service:latest .
+	docker build -t voiceassistant/retrieval-service:latest .
 
 docker-run: ## Run Docker container
 	docker run -d \
@@ -35,7 +35,7 @@ docker-run: ## Run Docker container
 		--name retrieval-service \
 		-e MILVUS_HOST=host.docker.internal \
 		-e ELASTICSEARCH_HOST=host.docker.internal \
-		voicehelper/retrieval-service:latest
+		voiceassistant/retrieval-service:latest
 
 clean: ## Clean up
 	find . -type d -name "__pycache__" -exec rm -rf {} +

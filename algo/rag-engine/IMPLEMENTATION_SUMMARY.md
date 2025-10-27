@@ -2,7 +2,7 @@
 
 ## 服务概述
 
-**RAG Engine**（检索增强生成引擎）是 VoiceHelper 平台的核心 AI 服务，负责完整的 RAG 流程编排。
+**RAG Engine**（检索增强生成引擎）是 VoiceAssistant 平台的核心 AI 服务，负责完整的 RAG 流程编排。
 
 ## 核心功能
 

@@ -1,14 +1,14 @@
 openapi: 3.0.3
 info:
-  title: VoiceHelper AI API
+  title: VoiceAssistant AI API
   description: |
-    VoiceHelper AI 客服语音助手平台 API
+    VoiceAssistant AI 客服语音助手平台 API
     
     基于 GraphRAG + Multi-Agent 的云原生语音客服平台。
   version: v2.0.0
   contact:
-    name: VoiceHelper Team
-    email: dev@voicehelper.ai
+    name: VoiceAssistant Team
+    email: dev@voiceassistant.ai
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
@@ -16,7 +16,7 @@ info:
 servers:
   - url: http://localhost:9080
     description: Local development
-  - url: https://api.voicehelper.ai
+  - url: https://api.voiceassistant.ai
     description: Production
 
 tags:
@@ -169,7 +169,7 @@ components:
         file_url:
           type: string
           format: uri
-          example: "https://storage.voicehelper.ai/doc_123.pdf"
+          example: "https://storage.voiceassistant.ai/doc_123.pdf"
         metadata:
           type: object
         created_at:

@@ -91,7 +91,7 @@ vim model-router-deployment.yaml
 kubectl apply -f model-router-deployment.yaml
 
 # 4. 查看状态
-kubectl get pods -n voicehelper-prod -l app=model-router -w
+kubectl get pods -n voiceassistant-prod -l app=model-router -w
 ```
 
 ## 验证部署
@@ -99,11 +99,11 @@ kubectl get pods -n voicehelper-prod -l app=model-router -w
 ```bash
 # 检查Pod状态
 kubectl get pods -n posthog
-kubectl get pods -n voicehelper-prod -l app=model-router
+kubectl get pods -n voiceassistant-prod -l app=model-router
 
 # 测试PostHog连接
-kubectl exec -it -n voicehelper-prod \
-  $(kubectl get pod -n voicehelper-prod -l app=model-router -o jsonpath='{.items[0].metadata.name}') \
+kubectl exec -it -n voiceassistant-prod \
+  $(kubectl get pod -n voiceassistant-prod -l app=model-router -o jsonpath='{.items[0].metadata.name}') \
   -- curl -v $POSTHOG_HOST/_health
 
 # 访问PostHog控制台
@@ -115,10 +115,10 @@ kubectl exec -it -n voicehelper-prod \
 ```bash
 # 查看日志
 kubectl logs -n posthog -l app=posthog-web -f
-kubectl logs -n voicehelper-prod -l app=model-router -f
+kubectl logs -n voiceassistant-prod -l app=model-router -f
 
 # 查看指标
-kubectl port-forward -n voicehelper-prod svc/model-router 9090:9090
+kubectl port-forward -n voiceassistant-prod svc/model-router 9090:9090
 # 访问 http://localhost:9090/metrics
 ```
 
@@ -152,10 +152,10 @@ kubectl get all -n posthog
 kubectl rollout restart deployment/posthog-web -n posthog
 
 # 扩容Model Router
-kubectl scale deployment model-router -n voicehelper-prod --replicas=5
+kubectl scale deployment model-router -n voiceassistant-prod --replicas=5
 
 # 查看HPA状态
-kubectl get hpa -n voicehelper-prod
+kubectl get hpa -n voiceassistant-prod
 
 # 备份PostgreSQL
 kubectl exec -n posthog <postgres-pod> -- \

@@ -9,7 +9,7 @@ server:
 data:
   database:
     driver: postgres
-    source: postgres://voicehelper:voicehelper_dev@localhost:5432/voicehelper?sslmode=disable
+    source: postgres://voiceassistant:voiceassistant_dev@localhost:5432/voiceassistant?sslmode=disable
 
 trace:
   endpoint: http://localhost:4318

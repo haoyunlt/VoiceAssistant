@@ -150,7 +150,7 @@ milvus:
 pgvector:
   host: ${PGVECTOR_HOST:localhost}
   port: ${PGVECTOR_PORT:5432}
-  database: ${PGVECTOR_DATABASE:voicehelper}
+  database: ${PGVECTOR_DATABASE:voiceassistant}
 
 defaults:
   backend: milvus

@@ -1,0 +1,112 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analytics-service-config
+  namespace: voiceassistant-prod
+  labels:
+    app: analytics-service
+data:
+  APP_NAME: "analytics-service"
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  HTTP_PORT: "9007"
+  METRICS_PORT: "9090"
+  # ClickHouse for analytics
+  CLICKHOUSE_HOST: "clickhouse.voiceassistant-infra.svc.cluster.local"
+  CLICKHOUSE_PORT: "9000"
+  CLICKHOUSE_DB: "analytics"
+  REDIS_ADDR: "redis.voiceassistant-infra.svc.cluster.local:6379"
+  KAFKA_BROKERS: "kafka.voiceassistant-infra.svc.cluster.local:9092"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analytics-service-secret
+  namespace: voiceassistant-prod
+type: Opaque
+stringData:
+  CLICKHOUSE_USER: "default"
+  CLICKHOUSE_PASSWORD: "changeme"
+  REDIS_PASSWORD: ""
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: voiceassistant-prod
+  labels:
+    app: analytics-service
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: analytics-service
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: analytics-service
+        version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: analytics-service-sa
+      containers:
+      - name: analytics-service
+        image: ghcr.io/voiceassistant/analytics-service:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9007
+          name: http
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: analytics-service-config
+        env:
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            secretKeyRef:
+              name: analytics-service-secret
+              key: CLICKHOUSE_USER
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: analytics-service-secret
+              key: CLICKHOUSE_PASSWORD
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: analytics-service
+  namespace: voiceassistant-prod
+spec:
+  type: ClusterIP
+  selector:
+    app: analytics-service
+  ports:
+  - port: 9007
+    targetPort: 9007
+    name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: analytics-service-sa
+  namespace: voiceassistant-prod
+

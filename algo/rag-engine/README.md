@@ -2,7 +2,7 @@
 
 ## 概述
 
-RAG Engine 是 VoiceHelper 平台的检索增强生成引擎，负责：
+RAG Engine 是 VoiceAssistant 平台的检索增强生成引擎，负责：
 
 - **查询理解**：查询扩展、关键词提取
 - **检索增强**：调用检索服务获取相关文档

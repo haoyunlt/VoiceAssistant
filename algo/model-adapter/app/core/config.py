@@ -91,7 +91,7 @@ class Settings(BaseSettings):
 
     # 数据库配置（如需持久化）
     DATABASE_URL: str = Field(
-        default="postgresql://voicehelper:voicehelper_dev@localhost:5432/voicehelper",
+        default="postgresql://voiceassistant:voiceassistant_dev@localhost:5432/voiceassistant",
         env="DATABASE_URL",
     )
 

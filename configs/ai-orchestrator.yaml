@@ -1,3 +1,17 @@
+# Nacos 配置中心连接配置（可选）
+nacos:
+  server_addr: "localhost"
+  server_port: 8848
+  namespace: ""
+  group: "VoiceAssistant"
+  data_id: "ai-orchestrator.yaml"
+  username: ""
+  password: ""
+  log_dir: "/tmp/nacos/log"
+  cache_dir: "/tmp/nacos/cache"
+  log_level: "info"
+  timeout_ms: 5000
+
 server:
   http:
     addr: 0.0.0.0:8000
@@ -37,4 +51,3 @@ observability:
   logging:
     level: info
     format: json
-

@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/agent-engine:latest
+    image: voiceassistant/agent-engine:latest
     container_name: agent-engine
     ports:
       - "8010:8010"
@@ -21,7 +21,7 @@ services:
     depends_on:
       - redis
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8010/health')"]
@@ -40,7 +40,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -48,5 +48,5 @@ volumes:
   redis-data:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

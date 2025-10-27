@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/posthog/posthog-go"
-	"voiceassistant/model-router/internal/domain"
+	"voiceassistant/cmd/model-router/internal/domain"
 )
 
 // PostHogABTestingService PostHog A/B测试服务

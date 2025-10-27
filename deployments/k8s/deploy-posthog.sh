@@ -123,7 +123,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: model-router-posthog-config
-  namespace: voicehelper-prod
+  namespace: voiceassistant-prod
 data:
   POSTHOG_ENABLED: "true"
   POSTHOG_HOST: "$POSTHOG_HOST"
@@ -132,7 +132,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: model-router-posthog-secret
-  namespace: voicehelper-prod
+  namespace: voiceassistant-prod
 type: Opaque
 stringData:
   POSTHOG_API_KEY: "$POSTHOG_API_KEY"
@@ -146,7 +146,7 @@ deploy_model_router() {
     log_info "部署Model Router..."
     
     # 创建命名空间
-    kubectl create namespace voicehelper-prod --dry-run=client -o yaml | kubectl apply -f -
+    kubectl create namespace voiceassistant-prod --dry-run=client -o yaml | kubectl apply -f -
     
     # 检查镜像配置
     log_warn "请确保已经更新 model-router-deployment.yaml 中的以下配置:"
@@ -167,11 +167,11 @@ deploy_model_router() {
     
     # 等待Pod就绪
     log_info "等待Model Router Pod就绪..."
-    kubectl wait --for=condition=ready pod -l app=model-router -n voicehelper-prod --timeout=300s || true
+    kubectl wait --for=condition=ready pod -l app=model-router -n voiceassistant-prod --timeout=300s || true
     
     # 检查状态
     log_info "Model Router部署状态:"
-    kubectl get pods -n voicehelper-prod -l app=model-router
+    kubectl get pods -n voiceassistant-prod -l app=model-router
     
     log_info "✅ Model Router部署完成!"
 }
@@ -190,19 +190,19 @@ verify_deployment() {
     fi
     
     # 检查Model Router
-    if kubectl get namespace voicehelper-prod &> /dev/null; then
+    if kubectl get namespace voiceassistant-prod &> /dev/null; then
         log_info "Model Router Pod状态:"
-        kubectl get pods -n voicehelper-prod -l app=model-router
+        kubectl get pods -n voiceassistant-prod -l app=model-router
         
         log_info "Model Router Service状态:"
-        kubectl get svc -n voicehelper-prod -l app=model-router
+        kubectl get svc -n voiceassistant-prod -l app=model-router
         
         # 测试连接
-        POD_NAME=$(kubectl get pod -n voicehelper-prod -l app=model-router -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+        POD_NAME=$(kubectl get pod -n voiceassistant-prod -l app=model-router -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
         
         if [[ -n "$POD_NAME" ]]; then
             log_info "测试PostHog连接..."
-            kubectl exec -n voicehelper-prod $POD_NAME -- env | grep POSTHOG || true
+            kubectl exec -n voiceassistant-prod $POD_NAME -- env | grep POSTHOG || true
         fi
     fi
     

@@ -19,10 +19,10 @@ class MinioClient:
     def __init__(
         self,
         endpoint: str = "localhost:9000",
-        access_key: str = "voicehelper",
-        secret_key: str = "voicehelper_dev_password",
+        access_key: str = "voiceassistant",
+        secret_key: str = "voiceassistant_dev_password",
         secure: bool = False,
-        bucket_name: str = "voicehelper-documents"
+        bucket_name: str = "voiceassistant-documents"
     ):
         """
         初始化 MinIO 客户端

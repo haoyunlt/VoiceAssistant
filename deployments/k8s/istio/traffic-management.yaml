@@ -1,0 +1,149 @@
+---
+# Circuit Breaker - 熔断配置
+# 全局默认熔断策略
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: global-circuit-breaker
+  namespace: voiceassistant-prod
+spec:
+  host: "*.voiceassistant-prod.svc.cluster.local"
+  trafficPolicy:
+    outlierDetection:
+      consecutiveErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+
+---
+# Retry Policy - AI服务专用重试策略
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: ai-services-retry
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - agent-engine
+  - rag-engine
+  - model-adapter
+  http:
+  - route:
+    - destination:
+        host: agent-engine
+    retries:
+      attempts: 2
+      perTryTimeout: 60s
+      retryOn: 5xx,reset,connect-failure,refused-stream,retriable-status-codes
+      retryRemoteLocalities: true
+
+---
+# Fault Injection - 混沌工程(仅用于测试)
+# 注意：生产环境应该注释掉或删除此配置
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: chaos-testing
+  namespace: voiceassistant-dev
+spec:
+  hosts:
+  - agent-engine
+  http:
+  - match:
+    - headers:
+        x-chaos-test:
+          exact: "true"
+    fault:
+      delay:
+        percentage:
+          value: 10.0
+        fixedDelay: 5s
+      abort:
+        percentage:
+          value: 5.0
+        httpStatus: 503
+    route:
+    - destination:
+        host: agent-engine
+
+---
+# Rate Limiting - 请求限流
+apiVersion: networking.istio.io/v1beta1
+kind: EnvoyFilter
+metadata:
+  name: rate-limit-filter
+  namespace: voiceassistant-prod
+spec:
+  workloadSelector:
+    labels:
+      app: ai-orchestrator
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: envoy.filters.network.http_connection_manager
+            subFilter:
+              name: envoy.filters.http.router
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_ratelimit
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          value:
+            stat_prefix: http_local_rate_limiter
+            token_bucket:
+              max_tokens: 1000
+              tokens_per_fill: 1000
+              fill_interval: 60s
+            filter_enabled:
+              runtime_key: local_rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: local_rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+
+---
+# Timeout Configuration - 统一超时策略
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: timeout-policy
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - "*"
+  http:
+  # 短超时服务 (Identity, Auth)
+  - match:
+    - sourceLabels:
+        app: identity-service
+    timeout: 10s
+  
+  # 中等超时服务 (Conversation, Knowledge)
+  - match:
+    - sourceLabels:
+        app: conversation-service
+    timeout: 30s
+  
+  # 长超时服务 (AI Processing)
+  - match:
+    - sourceLabels:
+        component: ai-engine
+    timeout: 120s
+  
+  # 超长超时服务 (Voice Streaming)
+  - match:
+    - sourceLabels:
+        app: voice-engine
+    timeout: 3600s
+

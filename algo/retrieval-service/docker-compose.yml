@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/retrieval-service:latest
+    image: voiceassistant/retrieval-service:latest
     container_name: retrieval-service
     ports:
       - "8012:8012"
@@ -21,7 +21,7 @@ services:
       - milvus
       - redis
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test:
@@ -51,7 +51,7 @@ services:
       - etcd
       - minio
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     volumes:
       - milvus-data:/var/lib/milvus
@@ -67,7 +67,7 @@ services:
       - "2381:2379"
       - "2382:2380"
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     volumes:
       - etcd-data:/etcd
@@ -84,7 +84,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: server /data --console-address ":9001"
 
@@ -96,7 +96,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -107,5 +107,5 @@ volumes:
   redis-data:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

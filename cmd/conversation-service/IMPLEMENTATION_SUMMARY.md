@@ -333,18 +333,18 @@ export DB_HOST=localhost
 export DB_PORT=5432
 export DB_USER=postgres
 export DB_PASSWORD=postgres
-export DB_NAME=voicehelper
+export DB_NAME=voiceassistant
 export PORT=8080
 ```
 
 ### 生产环境
 
 ```bash
-export DB_HOST=postgres.voicehelper.svc.cluster.local
+export DB_HOST=postgres.voiceassistant.svc.cluster.local
 export DB_PORT=5432
-export DB_USER=voicehelper
+export DB_USER=voiceassistant
 export DB_PASSWORD=${DB_PASSWORD_FROM_VAULT}
-export DB_NAME=voicehelper
+export DB_NAME=voiceassistant
 export PORT=8080
 ```
 

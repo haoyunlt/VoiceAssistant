@@ -9,7 +9,7 @@
 
 ## 核心职责
 
-Knowledge Service 是 VoiceHelper 平台的**知识管理服务**，负责：
+Knowledge Service 是 VoiceAssistant 平台的**知识管理服务**，负责：
 
 1. **知识库管理**: 创建、配置、状态管理知识库
 2. **文档管理**: 上传、处理、删除文档
@@ -691,7 +691,7 @@ CREATE INDEX ON knowledge.chunks USING hnsw (embedding_vector vector_cosine_ops)
 
 ## 总结
 
-Knowledge Service 是 VoiceHelper 平台的**知识管理核心**，通过 DDD 分层架构实现了：
+Knowledge Service 是 VoiceAssistant 平台的**知识管理核心**，通过 DDD 分层架构实现了：
 
 ✅ **完整的知识库管理**: 创建、配置、状态管理
 ✅ **灵活的文档处理**: 多格式支持、状态追踪
@@ -711,5 +711,5 @@ Knowledge Service 是 VoiceHelper 平台的**知识管理核心**，通过 DDD �
 ---
 
 **版本**: v1.0.0
-**作者**: VoiceHelper Team
+**作者**: VoiceAssistant Team
 **日期**: 2025-10-26

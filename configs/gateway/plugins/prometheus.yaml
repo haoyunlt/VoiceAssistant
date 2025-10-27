@@ -284,13 +284,13 @@ dashboards:
   # Grafana 仪表盘ID
   grafana:
     - id: apisix-overview
-      url: http://grafana.voicehelper.svc.cluster.local:3000/d/apisix-overview
+      url: http://grafana.voiceassistant.svc.cluster.local:3000/d/apisix-overview
 
     - id: apisix-service-performance
-      url: http://grafana.voicehelper.svc.cluster.local:3000/d/apisix-service
+      url: http://grafana.voiceassistant.svc.cluster.local:3000/d/apisix-service
 
     - id: apisix-business-metrics
-      url: http://grafana.voicehelper.svc.cluster.local:3000/d/apisix-business
+      url: http://grafana.voiceassistant.svc.cluster.local:3000/d/apisix-business
 
 #
 # 采样配置

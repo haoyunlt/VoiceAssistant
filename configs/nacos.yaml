@@ -1,0 +1,84 @@
+# Nacos 配置中心连接配置
+# 此文件用于配置 Nacos 连接参数，实际的服务配置存储在 Nacos 中
+
+nacos:
+  # Nacos 服务器地址
+  server_addr: "localhost"
+  # Nacos 服务器端口
+  server_port: 8848
+
+  # 命名空间 ID（可选，默认为 public）
+  # 用于多环境隔离：dev/test/staging/prod
+  namespace: ""
+
+  # 配置分组（可选，默认为 DEFAULT_GROUP）
+  # 用于业务分组或服务分组
+  group: "DEFAULT_GROUP"
+
+  # 配置 DataID（可选，默认为 {服务名}.yaml）
+  # 如果不指定，将自动使用服务名作为 DataID
+  data_id: ""
+
+  # 认证信息（如果 Nacos 启用了鉴权）
+  username: ""
+  password: ""
+
+  # 日志目录（可选）
+  log_dir: "/tmp/nacos/log"
+
+  # 缓存目录（可选）
+  cache_dir: "/tmp/nacos/cache"
+
+  # 日志级别：debug/info/warn/error（可选，默认 info）
+  log_level: "info"
+
+  # 超时时间（毫秒，可选，默认 5000）
+  timeout_ms: 5000
+# ==========================================
+# 环境变量覆盖说明
+# ==========================================
+# 以下环境变量可以覆盖配置文件中的值：
+#
+# CONFIG_MODE           - 配置模式：local（本地）或 nacos（配置中心）
+# NACOS_SERVER_ADDR     - Nacos 服务器地址
+# NACOS_SERVER_PORT     - Nacos 服务器端口
+# NACOS_NAMESPACE       - 命名空间 ID
+# NACOS_GROUP           - 配置分组
+# NACOS_DATA_ID         - 配置 DataID
+# NACOS_USERNAME        - 认证用户名
+# NACOS_PASSWORD        - 认证密码
+#
+# 示例：
+# export CONFIG_MODE=nacos
+# export NACOS_SERVER_ADDR=nacos.example.com
+# export NACOS_NAMESPACE=production
+# export NACOS_GROUP=VoiceAssistant
+# export NACOS_USERNAME=admin
+# export NACOS_PASSWORD=admin123
+
+# ==========================================
+# 多环境配置示例
+# ==========================================
+
+# 开发环境
+# nacos:
+#   server_addr: "localhost"
+#   server_port: 8848
+#   namespace: "dev"
+#   group: "VoiceAssistant"
+
+# 测试环境
+# nacos:
+#   server_addr: "nacos-test.internal"
+#   server_port: 8848
+#   namespace: "test"
+#   group: "VoiceAssistant"
+
+# 生产环境
+# nacos:
+#   server_addr: "nacos.prod.internal"
+#   server_port: 8848
+#   namespace: "prod"
+#   group: "VoiceAssistant"
+#   username: "prod-user"
+#   password: "${NACOS_PASSWORD}"  # 从环境变量读取

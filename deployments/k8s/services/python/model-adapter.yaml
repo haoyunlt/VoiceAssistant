@@ -1,0 +1,219 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: model-adapter-config
+  namespace: voiceassistant-prod
+  labels:
+    app: model-adapter
+data:
+  APP_NAME: "model-adapter"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8005"
+  WORKERS: "4"
+  # Nacos
+  NACOS_SERVER_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  # Redis缓存
+  REDIS_HOST: "redis.voiceassistant-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "4"
+  # LLM配置
+  DEFAULT_MODEL: "gpt-4"
+  MAX_TOKENS: "4096"
+  TEMPERATURE: "0.7"
+  TIMEOUT_SECONDS: "180"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: model-adapter-secret
+  namespace: voiceassistant-prod
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+  # 各家LLM API密钥
+  OPENAI_API_KEY: "sk-..."
+  ANTHROPIC_API_KEY: "sk-ant-..."
+  ZHIPU_API_KEY: ""
+  DASHSCOPE_API_KEY: ""
+  BAIDU_API_KEY: ""
+  BAIDU_SECRET_KEY: ""
+  MOONSHOT_API_KEY: ""
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-adapter
+  namespace: voiceassistant-prod
+  labels:
+    app: model-adapter
+    version: v1
+    component: ai-engine
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: model-adapter
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: model-adapter
+        version: v1
+        component: ai-engine
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8005"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: model-adapter-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: model-adapter
+        image: ghcr.io/voiceassistant/model-adapter:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8005
+          name: http
+        envFrom:
+        - configMapRef:
+            name: model-adapter-config
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: REDIS_PASSWORD
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: OPENAI_API_KEY
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: ANTHROPIC_API_KEY
+        - name: ZHIPU_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: ZHIPU_API_KEY
+        - name: DASHSCOPE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: DASHSCOPE_API_KEY
+        - name: BAIDU_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: BAIDU_API_KEY
+        - name: BAIDU_SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: model-adapter-secret
+              key: BAIDU_SECRET_KEY
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8005
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/app/.cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      terminationGracePeriodSeconds: 60
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: model-adapter
+  namespace: voiceassistant-prod
+  labels:
+    app: model-adapter
+spec:
+  type: ClusterIP
+  selector:
+    app: model-adapter
+  ports:
+  - port: 8005
+    targetPort: 8005
+    name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: model-adapter-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: model-adapter-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: model-adapter
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: model-adapter-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: model-adapter
+

@@ -33,7 +33,7 @@ tenant:
     {
       "error": "tenant_quota_exceeded",
       "message": "Your organization's rate limit has been exceeded.",
-      "contact": "support@voicehelper.ai"
+      "contact": "support@voiceassistant.ai"
     }
 
 #
@@ -128,7 +128,7 @@ quota:
 # Redis 配置 (用于分布式限流)
 #
 redis:
-  host: redis.voicehelper.svc.cluster.local
+  host: redis.voiceassistant.svc.cluster.local
   port: 6379
   database: 2
   password: ${VAULT:secret/redis#password}
@@ -184,11 +184,11 @@ whitelist:
     - "192.168.0.0/16"  # 本地网络
 
   users:
-    - "admin@voicehelper.ai"
-    - "system@voicehelper.ai"
+    - "admin@voiceassistant.ai"
+    - "system@voiceassistant.ai"
 
   tenants:
-    - "voicehelper-internal"
+    - "voiceassistant-internal"
 
 #
 # 黑名单 (直接拒绝)

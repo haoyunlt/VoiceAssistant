@@ -1,0 +1,122 @@
+# Cursor Performance Optimization - Ignore Rules
+# 排除不需要索引的文件和目录，提升 Cursor 性能
+
+# ============================================
+# Dependencies & Virtual Environments
+# ============================================
+node_modules/
+.venv/
+venv/
+env/
+.env/
+vendor/
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
+*.egg-info/
+
+# ============================================
+# Build & Distribution
+# ============================================
+dist/
+build/
+.next/
+.nuxt/
+out/
+target/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.dylib
+*.exe
+*.o
+*.a
+
+# ============================================
+# Generated Code & Protobuf
+# ============================================
+*.pb.go
+*_pb2.py
+*_pb2_grpc.py
+*.pb.ts
+*.pb.js
+
+# ============================================
+# IDE & Editor
+# ============================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+*.bak
+*.tmp
+*.temp
+
+# ============================================
+# Logs & Data
+# ============================================
+*.log
+logs/
+milvus_data/
+qdrant_data/
+kafka_data/
+clickhouse_data/
+redis_data/
+postgres_data/
+*.sqlite
+*.db
+
+# ============================================
+# Test & Coverage
+# ============================================
+.coverage
+coverage/
+htmlcov/
+.pytest_cache/
+*.coverprofile
+*.test
+*.out
+
+# ============================================
+# Kubernetes & Docker
+# ============================================
+*.tar
+*.gz
+*.zip
+.kube/
+
+# ============================================
+# Binary & Compiled
+# ============================================
+bin/ai-orchestrator
+bin/analytics-service
+bin/model-router
+bin/notification-service
+bin/*
+
+# ============================================
+# Git & Version Control
+# ============================================
+.git/
+.gitignore
+
+# ============================================
+# Monitoring & Metrics
+# ============================================
+*.pprof
+*.prof
+
+# ============================================
+# Cache & Temp Files
+# ============================================
+.cache/
+tmp/
+temp/
+*.cache

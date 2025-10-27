@@ -1,0 +1,214 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-orchestrator-config
+  namespace: voiceassistant-prod
+  labels:
+    app: ai-orchestrator
+data:
+  APP_NAME: "ai-orchestrator"
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  HTTP_PORT: "9003"
+  GRPC_PORT: "9103"
+  METRICS_PORT: "9090"
+  REDIS_ADDR: "redis.voiceassistant-infra.svc.cluster.local:6379"
+  NACOS_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  # AI服务地址
+  AGENT_ENGINE_URL: "agent-engine.voiceassistant-prod.svc.cluster.local:8003"
+  RAG_ENGINE_URL: "rag-engine.voiceassistant-prod.svc.cluster.local:8006"
+  MODEL_ADAPTER_URL: "model-adapter.voiceassistant-prod.svc.cluster.local:8005"
+  VOICE_ENGINE_URL: "voice-engine.voiceassistant-prod.svc.cluster.local:8002"
+  RETRIEVAL_SERVICE_URL: "retrieval-service.voiceassistant-prod.svc.cluster.local:8012"
+  # SLO配置
+  SLO_TARGET_MS: "2500"
+  MAX_TIMEOUT_S: "120"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ai-orchestrator-secret
+  namespace: voiceassistant-prod
+  labels:
+    app: ai-orchestrator
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-orchestrator
+  namespace: voiceassistant-prod
+  labels:
+    app: ai-orchestrator
+    version: v1
+    component: ai-engine
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ai-orchestrator
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: ai-orchestrator
+        version: v1
+        component: ai-engine
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        sidecar.istio.io/inject: "true"
+        # 增加资源限制以支持AI处理
+        sidecar.istio.io/proxyCPU: "100m"
+        sidecar.istio.io/proxyMemory: "256Mi"
+    spec:
+      serviceAccountName: ai-orchestrator-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-for-redis
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z redis.voiceassistant-infra.svc.cluster.local 6379; do echo waiting for redis; sleep 2; done']
+      containers:
+      - name: ai-orchestrator
+        image: ghcr.io/voiceassistant/ai-orchestrator:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9003
+          name: http
+        - containerPort: 9103
+          name: grpc
+        - containerPort: 9090
+          name: metrics
+        envFrom:
+        - configMapRef:
+            name: ai-orchestrator-config
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ai-orchestrator-secret
+              key: REDIS_PASSWORD
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 9003
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+      terminationGracePeriodSeconds: 60
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-orchestrator
+  namespace: voiceassistant-prod
+  labels:
+    app: ai-orchestrator
+spec:
+  type: ClusterIP
+  selector:
+    app: ai-orchestrator
+  ports:
+  - port: 9003
+    targetPort: 9003
+    name: http
+  - port: 9103
+    targetPort: 9103
+    name: grpc
+  - port: 9090
+    targetPort: 9090
+    name: metrics
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ai-orchestrator-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ai-orchestrator-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ai-orchestrator
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+      - type: Pods
+        value: 4
+        periodSeconds: 15
+      selectPolicy: Max
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ai-orchestrator-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: ai-orchestrator
+

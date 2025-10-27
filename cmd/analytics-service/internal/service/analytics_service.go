@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"analytics-service/internal/biz"
-	"analytics-service/internal/domain"
+	"voiceassistant/cmd/analytics-service/internal/biz"
+	"voiceassistant/cmd/analytics-service/internal/domain"
 )
 
 // AnalyticsService 分析服务实现

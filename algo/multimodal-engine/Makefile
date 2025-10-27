@@ -27,7 +27,7 @@ format: ## Format code
 	ruff check --fix .
 
 docker-build: ## Build Docker image
-	docker build -t voicehelper/multimodal-engine:latest .
+	docker build -t voiceassistant/multimodal-engine:latest .
 
 docker-run: ## Run Docker container
 	docker run -d \
@@ -35,7 +35,7 @@ docker-run: ## Run Docker container
 		--name multimodal-engine \
 		-e OCR_PROVIDER=paddleocr \
 		-e VISION_PROVIDER=gpt4v \
-		voicehelper/multimodal-engine:latest
+		voiceassistant/multimodal-engine:latest
 
 clean: ## Clean up
 	find . -type d -name "__pycache__" -exec rm -rf {} +

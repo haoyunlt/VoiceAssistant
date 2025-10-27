@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/voice-engine:latest
+    image: voiceassistant/voice-engine:latest
     container_name: voice-engine
     ports:
       - "8015:8015"
@@ -20,7 +20,7 @@ services:
     depends_on:
       - redis
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test:
@@ -46,7 +46,7 @@ services:
     volumes:
       - redis-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: redis-server --appendonly yes
 
@@ -55,5 +55,5 @@ volumes:
   voice-cache:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

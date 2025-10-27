@@ -1,0 +1,212 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-engine-config
+  namespace: voiceassistant-prod
+  labels:
+    app: rag-engine
+data:
+  APP_NAME: "rag-engine"
+  APP_ENV: "production"
+  LOG_LEVEL: "INFO"
+  PORT: "8006"
+  WORKERS: "4"
+  # Nacos
+  NACOS_SERVER_ADDR: "nacos.voiceassistant-infra.svc.cluster.local:8848"
+  # Redis
+  REDIS_HOST: "redis.voiceassistant-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "2"
+  # Milvus
+  MILVUS_HOST: "milvus.voiceassistant-infra.svc.cluster.local"
+  MILVUS_PORT: "19530"
+  # 关联服务
+  RETRIEVAL_SERVICE_URL: "http://retrieval-service.voiceassistant-prod.svc.cluster.local:8012"
+  MODEL_ADAPTER_URL: "http://model-adapter.voiceassistant-prod.svc.cluster.local:8005"
+  # RAG配置
+  EMBEDDING_MODEL: "bge-large-zh-v1.5"
+  CHUNK_SIZE: "512"
+  CHUNK_OVERLAP: "50"
+  TOP_K: "5"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rag-engine-secret
+  namespace: voiceassistant-prod
+type: Opaque
+stringData:
+  REDIS_PASSWORD: ""
+  MILVUS_USER: "root"
+  MILVUS_PASSWORD: "Milvus"
+  OPENAI_API_KEY: "sk-..."
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: rag-engine
+    version: v1
+    component: ai-engine
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: rag-engine
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: rag-engine
+        version: v1
+        component: ai-engine
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8006"
+        sidecar.istio.io/inject: "true"
+    spec:
+      serviceAccountName: rag-engine-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      initContainers:
+      - name: wait-for-milvus
+        image: busybox:1.35
+        command: ['sh', '-c', 'until nc -z $MILVUS_HOST $MILVUS_PORT; do echo waiting for milvus; sleep 2; done']
+        envFrom:
+        - configMapRef:
+            name: rag-engine-config
+      containers:
+      - name: rag-engine
+        image: ghcr.io/voiceassistant/rag-engine:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8006
+          name: http
+        envFrom:
+        - configMapRef:
+            name: rag-engine-config
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rag-engine-secret
+              key: REDIS_PASSWORD
+        - name: MILVUS_USER
+          valueFrom:
+            secretKeyRef:
+              name: rag-engine-secret
+              key: MILVUS_USER
+        - name: MILVUS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rag-engine-secret
+              key: MILVUS_PASSWORD
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: rag-engine-secret
+              key: OPENAI_API_KEY
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8006
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 1000m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /home/app/.cache
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      terminationGracePeriodSeconds: 60
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: rag-engine
+spec:
+  type: ClusterIP
+  selector:
+    app: rag-engine
+  ports:
+  - port: 8006
+    targetPort: 8006
+    name: http
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: rag-engine-sa
+  namespace: voiceassistant-prod
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: rag-engine-hpa
+  namespace: voiceassistant-prod
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: rag-engine
+  minReplicas: 3
+  maxReplicas: 15
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: rag-engine-pdb
+  namespace: voiceassistant-prod
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: rag-engine
+

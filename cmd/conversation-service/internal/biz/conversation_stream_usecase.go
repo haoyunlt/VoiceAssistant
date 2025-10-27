@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/VoiceAssistant/cmd/conversation-service/internal/domain"
+	"voiceassistant/cmd/conversation-service/internal/domain"
 )
 
 // MessageChunk 消息片段

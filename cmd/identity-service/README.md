@@ -177,7 +177,7 @@ make migrate-up
 检查数据库配置和网络连接：
 
 ```bash
-psql -h localhost -U voicehelper -d voicehelper
+psql -h localhost -U voiceassistant -d voiceassistant
 ```
 
 ### JWT Token 无效

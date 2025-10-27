@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: voicehelper/indexing-service:latest
+    image: voiceassistant/indexing-service:latest
     container_name: indexing-service
     ports:
       - "8011:8011"
@@ -19,9 +19,9 @@ services:
       - MILVUS_PORT=19530
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=voicehelper
-      - POSTGRES_PASSWORD=voicehelper123
-      - POSTGRES_DB=voicehelper
+      - POSTGRES_USER=voiceassistant
+      - POSTGRES_PASSWORD=voiceassistant123
+      - POSTGRES_DB=voiceassistant
       - KAFKA_BROKERS=kafka:9092
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
@@ -30,7 +30,7 @@ services:
       - postgres
       - kafka
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     healthcheck:
       test:
@@ -60,7 +60,7 @@ services:
       - etcd
       - minio
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     volumes:
       - milvus-data:/var/lib/milvus
@@ -76,7 +76,7 @@ services:
       - "2379:2379"
       - "2380:2380"
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     volumes:
       - etcd-data:/etcd
@@ -93,7 +93,7 @@ services:
     volumes:
       - minio-data:/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
     command: server /data --console-address ":9001"
 
@@ -101,15 +101,15 @@ services:
     image: postgres:15-alpine
     container_name: indexing-postgres
     environment:
-      - POSTGRES_USER=voicehelper
-      - POSTGRES_PASSWORD=voicehelper123
-      - POSTGRES_DB=voicehelper
+      - POSTGRES_USER=voiceassistant
+      - POSTGRES_PASSWORD=voiceassistant123
+      - POSTGRES_DB=voiceassistant
     ports:
       - "5438:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
 
   kafka:
@@ -127,7 +127,7 @@ services:
     volumes:
       - kafka-data:/bitnami/kafka
     networks:
-      - voicehelper-network
+      - voiceassistant-network
     restart: unless-stopped
 
 volumes:
@@ -138,5 +138,5 @@ volumes:
   kafka-data:
 
 networks:
-  voicehelper-network:
+  voiceassistant-network:
     driver: bridge

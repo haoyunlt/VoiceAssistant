@@ -1,0 +1,217 @@
+---
+# API Gateway Virtual Service - 统一入口路由
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: api-gateway
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - "api.voiceassistant.com"
+  gateways:
+  - voiceassistant-gateway
+  http:
+  # Identity Service
+  - match:
+    - uri:
+        prefix: "/api/v1/auth"
+    - uri:
+        prefix: "/api/v1/users"
+    route:
+    - destination:
+        host: identity-service
+        port:
+          number: 8080
+    timeout: 10s
+    retries:
+      attempts: 3
+      perTryTimeout: 3s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+  
+  # Conversation Service
+  - match:
+    - uri:
+        prefix: "/api/v1/conversations"
+    - uri:
+        prefix: "/api/v1/messages"
+    route:
+    - destination:
+        host: conversation-service
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 2
+      perTryTimeout: 10s
+  
+  # Knowledge Service
+  - match:
+    - uri:
+        prefix: "/api/v1/knowledge"
+    - uri:
+        prefix: "/api/v1/documents"
+    route:
+    - destination:
+        host: knowledge-service
+        port:
+          number: 8080
+    timeout: 60s
+  
+  # AI Orchestrator (主要AI处理)
+  - match:
+    - uri:
+        prefix: "/api/v1/ai"
+    route:
+    - destination:
+        host: ai-orchestrator
+        port:
+          number: 9003
+    timeout: 120s
+  
+  # Voice Engine (WebSocket和HTTP)
+  - match:
+    - uri:
+        prefix: "/api/v1/voice"
+    route:
+    - destination:
+        host: voice-engine
+        port:
+          number: 8002
+    timeout: 300s
+    websocketUpgrade: true
+  
+  # Health Check
+  - match:
+    - uri:
+        exact: "/health"
+    route:
+    - destination:
+        host: ai-orchestrator
+        port:
+          number: 9003
+
+---
+# WebSocket Virtual Service (语音流式)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: voice-ws
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - "ws.voiceassistant.com"
+  gateways:
+  - voiceassistant-ws-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/ws/voice"
+    route:
+    - destination:
+        host: voice-engine
+        port:
+          number: 8002
+    timeout: 3600s  # 1小时超时
+    websocketUpgrade: true
+
+---
+# gRPC Virtual Service
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: grpc-services
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - "grpc.voiceassistant.com"
+  gateways:
+  - voiceassistant-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/identity.IdentityService"
+    route:
+    - destination:
+        host: identity-service
+        port:
+          number: 9000
+  
+  - match:
+    - uri:
+        prefix: "/knowledge.KnowledgeService"
+    route:
+    - destination:
+        host: knowledge-service
+        port:
+          number: 9000
+  
+  - match:
+    - uri:
+        prefix: "/model.ModelRouter"
+    route:
+    - destination:
+        host: model-router
+        port:
+          number: 9004
+
+---
+# Internal Service Mesh 路由 (服务间调用)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: agent-engine-internal
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - agent-engine
+  http:
+  - route:
+    - destination:
+        host: agent-engine
+        port:
+          number: 8003
+        subset: v1
+      weight: 100
+    timeout: 120s
+    retries:
+      attempts: 2
+      perTryTimeout: 60s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: rag-engine-internal
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - rag-engine
+  http:
+  - route:
+    - destination:
+        host: rag-engine
+        port:
+          number: 8006
+        subset: v1
+      weight: 100
+    timeout: 60s
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: model-adapter-internal
+  namespace: voiceassistant-prod
+spec:
+  hosts:
+  - model-adapter
+  http:
+  - route:
+    - destination:
+        host: model-adapter
+        port:
+          number: 8005
+        subset: v1
+      weight: 100
+    timeout: 180s
+

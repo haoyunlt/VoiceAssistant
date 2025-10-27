@@ -83,7 +83,7 @@ GET /collections/{collection_name}/count?backend=milvus
 
 - `PGVECTOR_HOST`: PostgreSQL 主机（默认：localhost）
 - `PGVECTOR_PORT`: PostgreSQL 端口（默认：5432）
-- `PGVECTOR_DATABASE`: 数据库名称（默认：voicehelper）
+- `PGVECTOR_DATABASE`: 数据库名称（默认：voiceassistant）
 - `PGVECTOR_USER`: PostgreSQL 用户（默认：postgres）
 - `PGVECTOR_PASSWORD`: PostgreSQL 密码
 

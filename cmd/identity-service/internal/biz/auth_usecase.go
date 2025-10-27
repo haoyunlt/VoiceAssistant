@@ -141,7 +141,7 @@ func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) 
 			ExpiresAt: jwt.NewNumericDate(accessTokenExpiry),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "voicehelper-identity",
+			Issuer:    "voiceassistant-identity",
 			Subject:   user.ID,
 		},
 	}
@@ -161,7 +161,7 @@ func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) 
 			ExpiresAt: jwt.NewNumericDate(refreshTokenExpiry),
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
-			Issuer:    "voicehelper-identity",
+			Issuer:    "voiceassistant-identity",
 			Subject:   user.ID,
 		},
 	}

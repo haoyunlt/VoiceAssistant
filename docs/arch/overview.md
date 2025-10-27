@@ -1,364 +1,334 @@
-# VoiceAssistant 微服务架构概览
+# VoiceAssistant 架构概览
 
-## 系统架构
-
-VoiceAssistant 是一个基于微服务架构的 AI 语音助手平台，采用 Go 和 Python 混合技术栈，支持大规模并发和高可用性。
-
-### 架构组件图
+## 系统架构图
 
 ```mermaid
 graph TB
-    %% 客户端层
-    Client[客户端/Web/移动端] --> Gateway[API Gateway<br/>APISIX]
-
-    %% API网关层
-    Gateway --> LB{负载均衡<br/>服务发现}
-
-    %% Go核心服务
-    LB --> Identity[Identity Service<br/>认证授权]
-    LB --> Conversation[Conversation Service<br/>会话管理]
-    LB --> Knowledge[Knowledge Service<br/>知识管理]
-    LB --> Orchestrator[AI Orchestrator<br/>任务编排]
-    LB --> ModelRouter[Model Router<br/>模型路由]
-    LB --> Notification[Notification Service<br/>通知服务]
-    LB --> Analytics[Analytics Service<br/>分析服务]
-
-    %% Python AI引擎
-    Orchestrator --> Agent[Agent Engine<br/>智能体引擎]
-    Orchestrator --> RAG[RAG Engine<br/>检索增强生成]
-    Orchestrator --> Voice[Voice Engine<br/>语音处理]
-    Orchestrator --> Multimodal[Multimodal Engine<br/>多模态处理]
-
-    %% AI基础服务
-    RAG --> Retrieval[Retrieval Service<br/>检索服务]
-    RAG --> ModelAdapter[Model Adapter<br/>模型适配]
-    Knowledge --> Indexing[Indexing Service<br/>索引服务]
-    Retrieval --> VectorStore[Vector Store Adapter<br/>向量存储适配]
-
-    %% 数据存储层
-    Identity --> DB[(PostgreSQL<br/>关系数据库)]
-    Conversation --> DB
-    Knowledge --> DB
-    VectorStore --> Milvus[(Milvus<br/>向量数据库)]
-    Agent --> Redis[(Redis<br/>缓存/会话)]
-
-    %% 服务发现与配置
-    LB --> Consul[Consul<br/>服务发现]
-    Gateway --> Consul
-
-    %% 消息队列
-    Notification --> Kafka[Kafka/NATS<br/>消息队列]
-    Analytics --> Kafka
-
-    %% 可观测性
-    Gateway -.-> Prometheus[Prometheus<br/>指标]
-    Identity -.-> Prometheus
-    Conversation -.-> Prometheus
-    Gateway -.-> Jaeger[Jaeger<br/>追踪]
-    Identity -.-> Jaeger
-
-    %% 存储
-    Voice --> MinIO[(MinIO<br/>对象存储)]
-    Multimodal --> MinIO
-
-    style Gateway fill:#ff6b6b
-    style Orchestrator fill:#4ecdc4
-    style Agent fill:#95e1d3
-    style RAG fill:#95e1d3
-    style DB fill:#ffd93d
-    style Milvus fill:#ffd93d
-    style Redis fill:#ffd93d
-```
-
-### 关键时序图
-
-#### 1. 语音对话流程
-
-```mermaid
-sequenceDiagram
-    participant C as 客户端
-    participant G as API Gateway
-    participant Conv as Conversation Service
-    participant Orch as AI Orchestrator
-    participant Voice as Voice Engine
-    participant Agent as Agent Engine
-    participant RAG as RAG Engine
-    participant Model as Model Adapter
-
-    C->>G: 1. 发送语音 (WebSocket)
-    G->>Conv: 2. 创建会话
-    Conv-->>G: 会话ID
-
-    G->>Orch: 3. 提交语音任务
-    Orch->>Voice: 4. ASR转文本
-    Voice-->>Orch: 文本内容
-
-    Orch->>Agent: 5. 智能体处理
-    Agent->>RAG: 6. 检索相关知识
-    RAG-->>Agent: 知识上下文
-
-    Agent->>Model: 7. LLM生成回复
-    Model-->>Agent: 生成内容
-    Agent-->>Orch: 处理结果
-
-    Orch->>Voice: 8. TTS语音合成
-    Voice-->>Orch: 语音文件
-    Orch-->>G: 9. 返回结果
-    G-->>C: 10. 推送语音 (Stream)
-
-    G->>Conv: 11. 保存对话历史
-```
-
-#### 2. RAG 检索-重排流程
-
-```mermaid
-sequenceDiagram
-    participant C as 客户端
-    participant RAG as RAG Engine
-    participant Retrieval as Retrieval Service
-    participant Vector as Vector Store Adapter
-    participant Milvus as Milvus
-    participant Elastic as Elasticsearch
-    participant Model as Model Adapter
-
-    C->>RAG: 1. 查询请求
-
-    RAG->>RAG: 2. 查询改写
-
-    par 混合检索
-        RAG->>Retrieval: 3a. 向量检索请求
-        Retrieval->>Vector: 向量化查询
-        Vector->>Milvus: 相似度搜索
-        Milvus-->>Vector: Top-K结果
-        Vector-->>Retrieval: 向量结果
-    and
-        RAG->>Retrieval: 3b. 全文检索请求
-        Retrieval->>Elastic: BM25搜索
-        Elastic-->>Retrieval: 全文结果
+    subgraph "外部访问"
+        Client[客户端]
+        WebApp[Web应用]
     end
 
-    Retrieval->>Retrieval: 4. 结果合并 (RRF)
-    Retrieval->>Model: 5. LLM重排序
-    Model-->>Retrieval: 重排结果
-    Retrieval-->>RAG: 6. Top-N文档
+    subgraph "Istio Service Mesh"
+        Gateway[Istio Gateway]
 
-    RAG->>RAG: 7. 上下文构建
-    RAG->>Model: 8. LLM生成答案
-    Model-->>RAG: 生成结果
+        subgraph "API Gateway Layer"
+            IstioProxy[Envoy Proxy]
+        end
 
-    RAG-->>C: 9. 带引用的答案
-```
+        subgraph "Go Services"
+            Identity[Identity Service<br/>认证/授权]
+            Conversation[Conversation Service<br/>对话管理]
+            Knowledge[Knowledge Service<br/>知识管理]
+            AIOrch[AI Orchestrator<br/>AI编排]
+            ModelRouter[Model Router<br/>模型路由]
+            Notification[Notification Service<br/>通知]
+            Analytics[Analytics Service<br/>分析]
+        end
 
-#### 3. 工具调用流程
-
-```mermaid
-sequenceDiagram
-    participant Agent as Agent Engine
-    participant Model as Model Adapter
-    participant Tools as Tool Service
-    participant External as 外部API/服务
-    participant Memory as Memory Store
-
-    Agent->>Model: 1. 用户请求分析
-    Model-->>Agent: 需要调用工具
-
-    Agent->>Agent: 2. 工具选择与参数提取
-
-    loop 工具调用循环 (最多10步)
-        Agent->>Tools: 3. 调用工具
-        Tools->>External: 4. 执行外部调用
-        External-->>Tools: 执行结果
-        Tools-->>Agent: 5. 工具返回
-
-        Agent->>Memory: 6. 保存执行记录
-
-        Agent->>Model: 7. 判断是否继续
-        Model-->>Agent: 决策 (继续/完成)
-
-        opt 需要继续
-            Agent->>Agent: 8. 计划下一步
+        subgraph "Python AI Services"
+            Agent[Agent Engine<br/>智能体引擎]
+            RAG[RAG Engine<br/>检索增强]
+            Voice[Voice Engine<br/>语音处理]
+            ModelAdapter[Model Adapter<br/>模型适配]
+            Retrieval[Retrieval Service<br/>检索服务]
+            Indexing[Indexing Service<br/>索引服务]
+            Multimodal[Multimodal Engine<br/>多模态]
+            VectorAdapter[Vector Store Adapter<br/>向量存储适配]
         end
     end
 
-    Agent->>Model: 9. 生成最终回复
-    Model-->>Agent: 回复内容
+    subgraph "基础设施服务"
+        Postgres[(PostgreSQL<br/>关系数据库)]
+        Redis[(Redis<br/>缓存)]
+        Milvus[(Milvus<br/>向量数据库)]
+        ES[(Elasticsearch<br/>全文搜索)]
+        Nacos[Nacos<br/>配置中心]
+        MinIO[(MinIO<br/>对象存储)]
+    end
 
-    Agent->>Memory: 10. 保存完整对话
+    subgraph "可观测性"
+        Prometheus[Prometheus<br/>指标]
+        Grafana[Grafana<br/>可视化]
+        Jaeger[Jaeger<br/>链路追踪]
+        Kiali[Kiali<br/>服务网格]
+    end
+
+    subgraph "外部服务"
+        LLM[LLM APIs<br/>OpenAI/Claude等]
+        Azure[Azure Speech<br/>语音服务]
+    end
+
+    Client --> Gateway
+    WebApp --> Gateway
+    Gateway --> IstioProxy
+
+    IstioProxy --> Identity
+    IstioProxy --> Conversation
+    IstioProxy --> Knowledge
+    IstioProxy --> AIOrch
+    IstioProxy --> Voice
+
+    Identity --> Postgres
+    Identity --> Redis
+
+    Conversation --> Postgres
+    Conversation --> Redis
+    Conversation --> AIOrch
+
+    Knowledge --> Postgres
+    Knowledge --> Retrieval
+    Knowledge --> Indexing
+
+    AIOrch --> Agent
+    AIOrch --> RAG
+    AIOrch --> ModelRouter
+
+    Agent --> RAG
+    Agent --> ModelAdapter
+
+    RAG --> Retrieval
+    RAG --> Milvus
+
+    Retrieval --> Milvus
+    Retrieval --> ES
+    Retrieval --> VectorAdapter
+
+    Indexing --> Milvus
+    Indexing --> MinIO
+
+    ModelAdapter --> LLM
+    Voice --> Azure
+
+    VectorAdapter --> Milvus
+
+    Identity -.配置.-> Nacos
+    Conversation -.配置.-> Nacos
+    Knowledge -.配置.-> Nacos
+    Agent -.配置.-> Nacos
+
+    Identity -.指标.-> Prometheus
+    Conversation -.指标.-> Prometheus
+    AIOrch -.指标.-> Prometheus
+    Agent -.指标.-> Prometheus
+
+    Prometheus --> Grafana
+    Jaeger -.追踪.-> Identity
+    Jaeger -.追踪.-> Conversation
+    Jaeger -.追踪.-> AIOrch
 ```
 
-## 技术栈
+## 关键时序图
 
-### 后端服务
+### 1. 语音对话流程
 
-- **Go 服务**: Kratos 框架, Gin, gRPC, GORM
-- **Python 服务**: FastAPI, LangChain, LangGraph
-- **API 网关**: Apache APISIX
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Gateway
+    participant Voice
+    participant AIOrch
+    participant Agent
+    participant RAG
+    participant ModelAdapter
+    participant LLM
 
-### 数据存储
+    Client->>Gateway: WebSocket连接
+    Gateway->>Voice: 建立语音流
 
-- **关系数据库**: PostgreSQL (pgvector 扩展)
-- **向量数据库**: Milvus
-- **缓存**: Redis
-- **消息队列**: Kafka / NATS
-- **对象存储**: MinIO
+    Client->>Voice: 语音数据流
+    Voice->>Voice: VAD检测
+    Voice->>Voice: ASR转文字
+
+    Voice->>AIOrch: 文本消息
+    AIOrch->>Agent: 处理请求
+
+    Agent->>RAG: 检索上下文
+    RAG-->>Agent: 相关知识
+
+    Agent->>ModelAdapter: LLM推理
+    ModelAdapter->>LLM: API调用
+    LLM-->>ModelAdapter: 响应
+    ModelAdapter-->>Agent: 生成结果
+
+    Agent-->>AIOrch: 处理结果
+    AIOrch-->>Voice: 文本响应
+
+    Voice->>Voice: TTS合成
+    Voice->>Client: 语音流输出
+```
+
+### 2. RAG 检索-重排流程
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant RAG
+    participant Retrieval
+    participant VectorStore
+    participant ES
+    participant Rerank
+
+    Agent->>RAG: 查询请求
+    RAG->>RAG: 查询重写/扩展
+
+    par 并行检索
+        RAG->>Retrieval: 向量检索
+        Retrieval->>VectorStore: 语义搜索
+        VectorStore-->>Retrieval: Top-K结果
+    and
+        RAG->>Retrieval: 关键词检索
+        Retrieval->>ES: BM25搜索
+        ES-->>Retrieval: Top-K结果
+    end
+
+    Retrieval->>Retrieval: 混合融合
+    Retrieval->>Rerank: 重排序
+    Rerank-->>Retrieval: 精排结果
+
+    Retrieval-->>RAG: 最终Top-N
+    RAG->>RAG: 构建上下文
+    RAG-->>Agent: 增强上下文
+```
+
+### 3. 工具调用流程
+
+```mermaid
+sequenceDiagram
+    participant Agent
+    participant PlanExecutor
+    participant ToolService
+    participant ExternalAPI
+    participant Memory
+
+    Agent->>PlanExecutor: 复杂任务
+    PlanExecutor->>PlanExecutor: 任务分解
+
+    loop 执行计划步骤
+        PlanExecutor->>ToolService: 调用工具
+        ToolService->>ExternalAPI: 外部API
+        ExternalAPI-->>ToolService: 结果
+        ToolService-->>PlanExecutor: 执行结果
+
+        PlanExecutor->>Memory: 存储中间结果
+        PlanExecutor->>PlanExecutor: 评估是否继续
+    end
+
+    PlanExecutor-->>Agent: 最终结果
+    Agent->>Memory: 更新上下文
+```
+
+## 核心组件说明
+
+### Go 服务层
+
+- **Identity Service** ([`cmd/identity-service/`](../../cmd/identity-service/))
+
+  - JWT 认证/授权
+  - 用户管理
+  - RBAC 权限控制
+
+- **Conversation Service** ([`cmd/conversation-service/`](../../cmd/conversation-service/))
+
+  - 对话会话管理
+  - 消息持久化
+  - 上下文压缩
+
+- **Knowledge Service** ([`cmd/knowledge-service/`](../../cmd/knowledge-service/))
+
+  - 知识库管理
+  - 文档管理
+  - 向量索引协调
+
+- **AI Orchestrator** ([`cmd/ai-orchestrator/`](../../cmd/ai-orchestrator/))
+  - AI 服务编排
+  - 请求路由
+  - 服务聚合
+
+### Python AI 服务层
+
+- **Agent Engine** ([`algo/agent-engine/`](../../algo/agent-engine/))
+
+  - ReAct/Plan-Execute 智能体
+  - 工具调用
+  - 多智能体协作
+
+- **RAG Engine** ([`algo/rag-engine/`](../../algo/rag-engine/))
+
+  - 检索增强生成
+  - 查询重写
+  - 上下文构建
+
+- **Voice Engine** ([`algo/voice-engine/`](../../algo/voice-engine/))
+
+  - VAD 语音检测
+  - ASR 语音识别
+  - TTS 语音合成
+
+- **Model Adapter** ([`algo/model-adapter/`](../../algo/model-adapter/))
+  - 统一 LLM 接口
+  - 多模型适配（OpenAI/Claude/通义等）
+  - 流式响应
 
 ### 基础设施
 
-- **容器编排**: Kubernetes
-- **服务发现**: Consul
-- **配置管理**: Nacos (可选)
-- **负载均衡**: APISIX + K8s Service
-
-### 可观测性
-
-- **指标**: Prometheus + Grafana
-- **追踪**: Jaeger / OpenTelemetry
-- **日志**: ELK Stack / Loki
-- **监控**: Grafana Dashboards
-
-### AI/ML
-
-- **LLM**: OpenAI, Anthropic, 本地模型
-- **Embedding**: BGE-M3, OpenAI Ada
-- **语音**: ASR/TTS 引擎集成
-
-## 核心特性
-
-### 1. 高可用性
-
-- ✅ N+1 冗余部署
-- ✅ 自动故障转移
-- ✅ 金丝雀发布
-- ✅ 健康检查与自动恢复
-
-### 2. 高性能
-
-- ✅ API 网关 P95 延迟 < 200ms
-- ✅ 流式响应 TTFB < 300ms
-- ✅ 端到端 QA < 2.5s
-- ✅ 支持 1000+ RPS 基准
-
-### 3. 可扩展性
-
-- ✅ 水平扩展支持
-- ✅ HPA 自动伸缩
-- ✅ 微服务解耦设计
-- ✅ 插件化架构
-
-### 4. 弹性容错
-
-- ✅ 断路器模式
-- ✅ 指数退避重试
-- ✅ 限流与降级
-- ✅ 超时控制
-
-### 5. 安全性
-
-- ✅ JWT 认证
-- ✅ RBAC 权限控制
-- ✅ 数据加密
-- ✅ PII 脱敏
-- ✅ 审计日志
-
-### 6. 可观测性
-
-- ✅ OpenTelemetry 全链路追踪
-- ✅ Prometheus 指标采集
-- ✅ 统一日志聚合
-- ✅ SLO/Error Budget 监控
-
-## 服务清单
-
-### Go 服务 (7 个)
-
-| 服务                 | 职责               | 端口                      | 语言 |
-| -------------------- | ------------------ | ------------------------- | ---- |
-| identity-service     | 用户认证与授权     | 9000 (gRPC) / 8080 (HTTP) | Go   |
-| conversation-service | 会话管理           | 8080                      | Go   |
-| knowledge-service    | 知识库管理         | 9000 (gRPC) / 8080 (HTTP) | Go   |
-| ai-orchestrator      | AI 任务编排        | 9003                      | Go   |
-| model-router         | 模型路由与负载均衡 | 9004                      | Go   |
-| notification-service | 通知服务           | 9006                      | Go   |
-| analytics-service    | 分析服务           | 9007                      | Go   |
-
-### Python 服务 (9 个)
-
-| 服务                       | 职责         | 端口 | 语言   |
-| -------------------------- | ------------ | ---- | ------ |
-| agent-engine               | 智能体引擎   | 8003 | Python |
-| rag-engine                 | 检索增强生成 | 8006 | Python |
-| retrieval-service          | 检索服务     | 8012 | Python |
-| indexing-service           | 文档索引     | 8004 | Python |
-| model-adapter              | 模型适配器   | 8005 | Python |
-| vector-store-adapter       | 向量存储适配 | 8003 | Python |
-| voice-engine               | 语音处理     | 8002 | Python |
-| multimodal-engine          | 多模态处理   | 8007 | Python |
-| knowledge-service (Python) | 知识图谱服务 | 8010 | Python |
+- **Nacos**: 配置中心和服务发现
+- **PostgreSQL**: 业务数据持久化
+- **Redis**: 缓存和会话存储
+- **Milvus**: 向量数据库
+- **Elasticsearch**: 全文检索
+- **MinIO**: 对象存储（文档、多媒体）
 
 ## 部署架构
 
-### Kubernetes 部署
+### Kubernetes + Istio
 
-```
-Namespace: voiceassistant
-├── Go Services (Deployments)
-│   ├── identity-service (3 replicas, HPA)
-│   ├── conversation-service (3 replicas, HPA)
-│   └── ...
-├── Python Services (Deployments)
-│   ├── agent-engine (3 replicas, HPA)
-│   ├── rag-engine (3 replicas, HPA)
-│   └── ...
-├── Infrastructure
-│   ├── PostgreSQL (StatefulSet, 3 replicas)
-│   ├── Redis (StatefulSet, 3 replicas)
-│   ├── Milvus (StatefulSet)
-│   ├── Consul (StatefulSet, 3 replicas)
-│   └── Kafka (StatefulSet, 3 replicas)
-└── Observability
-    ├── Prometheus (StatefulSet)
-    ├── Grafana (Deployment)
-    └── Jaeger (Deployment)
-```
+- **命名空间隔离**:
 
-## NFR (非功能需求)
+  - `voiceassistant-prod`: 应用服务
+  - `voiceassistant-infra`: 基础设施
+  - `istio-system`: Istio 组件
 
-### 性能指标
+- **流量管理**:
 
-- API Gateway P95 延迟: **< 200ms**
-- 流式 TTFB: **< 300ms**
-- 端到端 QA: **< 2.5s**
-- 基准 RPS: **1000+**
+  - Istio Gateway 统一入口
+  - VirtualService 路由规则
+  - DestinationRule 负载均衡
 
-### 可用性
+- **安全**:
 
-- SLA: **≥ 99.9%**
-- 核心服务: **N+1 冗余**
-- 故障恢复: **自动 + 金丝雀**
+  - mTLS 服务间加密
+  - JWT 认证
+  - RBAC 授权策略
+  - Network Policy 网络隔离
 
-### 可观测性
+- **可观测性**:
+  - Prometheus 指标采集
+  - Jaeger 分布式追踪
+  - Grafana 可视化
+  - Kiali 服务网格监控
 
-- 追踪: **OpenTelemetry 全链路**
-- 指标: **Prometheus + Grafana**
-- SLO/Error Budget: **实时监控**
+## NFR 指标
 
-### 安全性
+| 指标            | 目标值  | 当前值 | 状态   |
+| --------------- | ------- | ------ | ------ |
+| API Gateway P95 | < 200ms | -      | 待测试 |
+| TTFB (Stream)   | < 300ms | -      | 待测试 |
+| E2E QA          | < 2.5s  | -      | 待测试 |
+| 可用性          | ≥ 99.9% | -      | 待测试 |
+| 并发 RPS        | ≥ 1000  | -      | 待测试 |
 
-- 认证: **JWT + OAuth2**
-- 授权: **RBAC 最小权限**
-- 数据: **KMS 加密 + PII 脱敏**
-- 合规: **GDPR/CCPA 审计日志**
+## 扩展性
 
-### 成本
+- **水平扩展**: HPA 自动扩缩容
+- **垂直扩展**: VPA 资源调整
+- **数据库**: 读写分离、分片
+- **缓存**: Redis 集群、多级缓存
+- **向量库**: Milvus 分布式集群
 
-- 请求级 Token 计费
-- 模型/Embedding/召回/重排拆分
-- 预算告警与自动降级
+## 参考链接
 
-## 链接
-
-- [源码入口](../../)
-- [API 文档](../../api/)
-- [运行手册](../runbook/index.md)
-- [SLO 指标](../nfr/slo.md)
-- [变更日志](../../CHANGELOG.md)
+- [部署指南](../../deployments/k8s/README.md)
+- [Runbook](../runbook/index.md)
+- [API 文档](../../api/openapi.yaml)
+- [SLO 目标](../nfr/slo.md)

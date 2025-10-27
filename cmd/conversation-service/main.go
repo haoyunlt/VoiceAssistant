@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"conversation-service/internal/data"
+	"voiceassistant/cmd/conversation-service/internal/data"
 	"voiceassistant/pkg/config"
 )
 
@@ -15,7 +15,7 @@ func main() {
 		Port:     config.GetEnvAsInt("DB_PORT", 5432),
 		User:     config.GetEnv("DB_USER", "postgres"),
 		Password: config.GetEnv("DB_PASSWORD", "postgres"),
-		Database: config.GetEnv("DB_NAME", "voicehelper"),
+		Database: config.GetEnv("DB_NAME", "voiceassistant"),
 	}
 
 	// 初始化应用（使用 Wire 生成的代码）

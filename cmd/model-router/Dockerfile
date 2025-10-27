@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN apk --no-cache add ca-certificates tzdata
 WORKDIR /root/
 
 COPY --from=builder /app/model-router .
-COPY --from=builder /app/../../configs/app/model-router.yaml /etc/voicehelper/model-router.yaml
+COPY --from=builder /app/../../configs/app/model-router.yaml /etc/voiceassistant/model-router.yaml
 
 EXPOSE 9004 8004
 

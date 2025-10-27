@@ -1,0 +1,142 @@
+---
+# mTLS配置 - 服务间加密通信
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: voiceassistant-prod
+spec:
+  mtls:
+    mode: STRICT  # 强制mTLS
+
+---
+# 开发环境宽松模式
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: voiceassistant-dev
+spec:
+  mtls:
+    mode: PERMISSIVE  # 允许明文和mTLS
+
+---
+# 基础设施服务不强制mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: infra-services
+  namespace: voiceassistant-infra
+spec:
+  mtls:
+    mode: PERMISSIVE
+
+---
+# Authorization Policy - Identity Service
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: identity-service-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: identity-service
+  action: ALLOW
+  rules:
+  # 允许来自网关的请求
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+  # 允许内部服务调用
+  - from:
+    - source:
+        namespaces: ["voiceassistant-prod"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/auth/*", "/api/v1/users/*"]
+
+---
+# Authorization Policy - AI Orchestrator
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ai-orchestrator-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: ai-orchestrator
+  action: ALLOW
+  rules:
+  # 允许认证用户请求
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+    when:
+    - key: request.auth.claims[sub]
+      notValues: [""]
+  # 允许内部服务间调用
+  - from:
+    - source:
+        namespaces: ["voiceassistant-prod"]
+
+---
+# Authorization Policy - Conversation Service
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: conversation-service-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: conversation-service
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+  - from:
+    - source:
+        namespaces: ["voiceassistant-prod"]
+
+---
+# Authorization Policy - 拒绝未认证的外部访问
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-external-unauthenticated
+  namespace: voiceassistant-prod
+spec:
+  action: DENY
+  rules:
+  - from:
+    - source:
+        notNamespaces: ["voiceassistant-prod", "istio-system"]
+    to:
+    - operation:
+        paths: ["/api/v1/*"]
+    when:
+    - key: request.auth.claims[sub]
+      notValues: ["*"]
+
+---
+# Request Authentication - JWT验证
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: ai-orchestrator
+  jwtRules:
+  - issuer: "https://identity.voiceassistant.com"
+    jwksUri: "https://identity.voiceassistant.com/.well-known/jwks.json"
+    audiences:
+    - "voiceassistant-api"
+    forwardOriginalToken: true
+

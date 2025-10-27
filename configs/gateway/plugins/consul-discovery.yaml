@@ -11,15 +11,15 @@
 consul:
   # Consul 服务器地址
   servers:
-    - "consul-server-1.voicehelper.svc.cluster.local:8500"
-    - "consul-server-2.voicehelper.svc.cluster.local:8500"
-    - "consul-server-3.voicehelper.svc.cluster.local:8500"
+    - "consul-server-1.voiceassistant.svc.cluster.local:8500"
+    - "consul-server-2.voiceassistant.svc.cluster.local:8500"
+    - "consul-server-3.voiceassistant.svc.cluster.local:8500"
 
   # 数据中心
   datacenter: "dc1"
 
   # 命名空间 (Consul Enterprise)
-  namespace: "voicehelper"
+  namespace: "voiceassistant"
 
   # Token (ACL 认证)
   token: ${VAULT:secret/consul#token}

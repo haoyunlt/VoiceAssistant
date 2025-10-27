@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VoiceAssistant/cmd/notification-service/internal/domain"
+	"voiceassistant/cmd/notification-service/internal/domain"
 )
 
 // NotificationChannel 通知渠道

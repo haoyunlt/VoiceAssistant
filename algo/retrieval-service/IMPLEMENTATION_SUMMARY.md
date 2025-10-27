@@ -306,9 +306,9 @@ vector_docs, bm25_docs = await asyncio.gather(vector_task, bm25_task)
 ### 生产环境配置
 
 ```yaml
-MILVUS_HOST: milvus.voicehelper.svc.cluster.local
+MILVUS_HOST: milvus.voiceassistant.svc.cluster.local
 MILVUS_PORT: 19530
-ELASTICSEARCH_HOST: elasticsearch.voicehelper.svc.cluster.local
+ELASTICSEARCH_HOST: elasticsearch.voiceassistant.svc.cluster.local
 ELASTICSEARCH_PORT: 9200
 
 VECTOR_TOP_K: 50

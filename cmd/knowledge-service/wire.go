@@ -8,6 +8,9 @@ package main
 import (
 	"voiceassistant/cmd/knowledge-service/internal/biz"
 	"voiceassistant/cmd/knowledge-service/internal/data"
+	"voiceassistant/cmd/knowledge-service/internal/infrastructure/event"
+	"voiceassistant/cmd/knowledge-service/internal/infrastructure/security"
+	"voiceassistant/cmd/knowledge-service/internal/infrastructure/storage"
 	"voiceassistant/cmd/knowledge-service/internal/server"
 	"voiceassistant/cmd/knowledge-service/internal/service"
 
@@ -17,13 +20,24 @@ import (
 )
 
 // wireApp init kratos application.
-func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
+func wireApp(c *Config, logger log.Logger) (*kratos.App, func(), error) {
 	panic(wire.Build(
+		// Config conversion
+		provideDataConfig,
+
+		// Infrastructure layer
+		storage.NewMinIOClient,
+		security.NewClamAVScanner,
+		wire.Bind(new(security.VirusScanner), new(*security.ClamAVScanner)),
+		event.NewKafkaPublisher,
+		wire.Bind(new(event.EventPublisher), new(*event.KafkaPublisher)),
+
 		// Data layer
 		data.NewDB,
 		data.NewData,
 		data.NewKnowledgeBaseRepo,
 		data.NewDocumentRepo,
+		wire.Bind(new(biz.DocumentRepository), new(*data.DocumentRepository)),
 		data.NewChunkRepo,
 
 		// Business logic layer
@@ -42,31 +56,7 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 	))
 }
 
-// Config is application config.
-type Config struct {
-	Server ServerConf
-	Data   DataConf
-}
-
-// ServerConf is server config.
-type ServerConf struct {
-	HTTP HTTPConf
-	GRPC GRPCConf
-}
-
-type HTTPConf struct {
-	Network string
-	Addr    string
-	Timeout string
-}
-
-type GRPCConf struct {
-	Network string
-	Addr    string
-	Timeout string
-}
-
-// DataConf is data config.
-type DataConf struct {
-	Database data.Config
+// provideDataConfig converts main Config to data.Config
+func provideDataConfig(c *Config) *data.Config {
+	return &c.Data.Database
 }

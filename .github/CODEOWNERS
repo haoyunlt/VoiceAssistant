@@ -1,0 +1,15 @@
+# Code Owners for VoiceAssistant Project
+# 代码审查负责人配置
+
+# 代码质量配置文件
+/.golangci.yml @tech-lead
+/pyproject.toml @tech-lead
+/.github/workflows/unused-code-check.yml @tech-lead @devops
+
+# 代码质量文档
+/docs/code-quality/ @tech-lead
+/CODE_REVIEW_*.md @tech-lead
+
+# 脚本
+/scripts/check-unused-code.sh @devops
+/scripts/analyze-unused-code.py @tech-lead

@@ -17,14 +17,7 @@ const (
 	CapabilityStreaming ModelCapability = "streaming"
 )
 
-// ModelProvider 模型提供商
-type ModelProvider string
-
-const (
-	ProviderOpenAI ModelProvider = "openai"
-	ProviderClaude ModelProvider = "claude"
-	ProviderZhipu  ModelProvider = "zhipu"
-)
+// Note: ModelProvider is defined in model.go
 
 // ModelInfo 模型信息
 type ModelInfo struct {
@@ -45,9 +38,11 @@ type ModelInfo struct {
 	OutputPrice float64 `json:"output_price"` // 输出价格
 
 	// 性能指标
-	AvgLatency   time.Duration `json:"avg_latency"`  // 平均延迟
-	ErrorRate    float64       `json:"error_rate"`   // 错误率
-	Availability float64       `json:"availability"` // 可用性 (0-1)
+	AvgLatency          time.Duration `json:"avg_latency"`          // 平均延迟
+	ErrorRate           float64       `json:"error_rate"`           // 错误率
+	Availability        float64       `json:"availability"`         // 可用性 (0-1)
+	Available           bool          `json:"available"`            // 是否可用
+	ConsecutiveFailures int           `json:"consecutive_failures"` // 连续失败次数
 
 	// 状态
 	Enabled   bool      `json:"enabled"`    // 是否启用
@@ -100,7 +95,7 @@ func (r *ModelRegistry) initDefaultModels() {
 		// OpenAI GPT-3.5
 		{
 			ModelID:         "openai-gpt-3.5-turbo",
-			Provider:        ProviderOpenAI,
+			Provider:        ModelProviderOpenAI,
 			ModelName:       "gpt-3.5-turbo",
 			DisplayName:     "GPT-3.5 Turbo",
 			Description:     "Fast and cost-effective model for most tasks",
@@ -119,7 +114,7 @@ func (r *ModelRegistry) initDefaultModels() {
 		// OpenAI GPT-3.5-16k
 		{
 			ModelID:         "openai-gpt-3.5-turbo-16k",
-			Provider:        ProviderOpenAI,
+			Provider:        ModelProviderOpenAI,
 			ModelName:       "gpt-3.5-turbo-16k",
 			DisplayName:     "GPT-3.5 Turbo 16K",
 			Description:     "Extended context window version",
@@ -138,7 +133,7 @@ func (r *ModelRegistry) initDefaultModels() {
 		// OpenAI GPT-4
 		{
 			ModelID:         "openai-gpt-4",
-			Provider:        ProviderOpenAI,
+			Provider:        ModelProviderOpenAI,
 			ModelName:       "gpt-4",
 			DisplayName:     "GPT-4",
 			Description:     "Most capable model for complex tasks",
@@ -157,7 +152,7 @@ func (r *ModelRegistry) initDefaultModels() {
 		// Claude 3 Sonnet
 		{
 			ModelID:         "claude-3-sonnet",
-			Provider:        ProviderClaude,
+			Provider:        ModelProviderAnthropic,
 			ModelName:       "claude-3-sonnet-20240229",
 			DisplayName:     "Claude 3 Sonnet",
 			Description:     "Balanced performance and speed",
@@ -176,7 +171,7 @@ func (r *ModelRegistry) initDefaultModels() {
 		// Claude 3 Opus
 		{
 			ModelID:         "claude-3-opus",
-			Provider:        ProviderClaude,
+			Provider:        ModelProviderAnthropic,
 			ModelName:       "claude-3-opus-20240229",
 			DisplayName:     "Claude 3 Opus",
 			Description:     "Most intelligent model for complex tasks",
@@ -195,7 +190,7 @@ func (r *ModelRegistry) initDefaultModels() {
 		// 智谱 GLM-4
 		{
 			ModelID:         "zhipu-glm-4",
-			Provider:        ProviderZhipu,
+			Provider:        ModelProviderLocal,
 			ModelName:       "glm-4",
 			DisplayName:     "GLM-4",
 			Description:     "中文优化的大模型",
@@ -385,5 +380,5 @@ func (m *ModelInfo) MarkUnhealthy(reason string) {
 
 // UpdateLatency 更新延迟
 func (m *ModelInfo) UpdateLatency(latency time.Duration) {
-	m.AvgLatency = latency.Milliseconds()
+	m.AvgLatency = latency
 }

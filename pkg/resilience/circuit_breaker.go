@@ -265,4 +265,3 @@ func (cb *CircuitBreaker) Reset() {
 	cb.successCount = 0
 	cb.lastStateTime = time.Now()
 }
-
