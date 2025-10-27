@@ -1,24 +1,27 @@
-"""向量数据库服务（Milvus）"""
+"""向量数据库服务 - 使用统一VectorStoreClient"""
 import logging
+import sys
+from pathlib import Path
 from typing import Any, Dict, List
 
 from app.core.config import settings
+
+# 添加common目录到Python路径
+common_path = Path(__file__).parent.parent.parent.parent / "common"
+if str(common_path) not in sys.path:
+    sys.path.insert(0, str(common_path))
+
+from vector_store_client import VectorStoreClient
 
 logger = logging.getLogger(__name__)
 
 
 class VectorService:
-    """向量数据库服务"""
+    """向量数据库服务 - 使用统一VectorStoreClient"""
 
     def __init__(self):
-        # 实际应该初始化Milvus连接
-        # from pymilvus import connections, Collection
-        # connections.connect(
-        #     host=settings.MILVUS_HOST,
-        #     port=settings.MILVUS_PORT,
-        # )
-        # self.collection = Collection(settings.MILVUS_COLLECTION)
-        pass
+        # 使用统一的VectorStoreClient
+        self.client = VectorStoreClient()
 
     async def insert_vectors(
         self,
@@ -27,7 +30,7 @@ class VectorService:
         embeddings: List[List[float]],
     ) -> int:
         """
-        插入向量到Milvus
+        插入向量到向量存储
 
         Args:
             document_id: 文档ID
@@ -48,8 +51,8 @@ class VectorService:
                     "embedding": embedding,
                 })
 
-            # 实际应该调用Milvus API
-            # self.collection.insert(data)
+            # 使用统一客户端插入
+            await self.client.insert_batch(data)
 
             logger.info(f"Inserted {len(data)} vectors for document {document_id}")
             return len(data)
@@ -66,9 +69,8 @@ class VectorService:
             document_id: 文档ID
         """
         try:
-            # 实际应该调用Milvus API
-            # expr = f'document_id == "{document_id}"'
-            # self.collection.delete(expr)
+            # 使用统一客户端删除
+            await self.client.delete_by_document(document_id)
 
             logger.info(f"Deleted vectors for document: {document_id}")
 
@@ -94,19 +96,15 @@ class VectorService:
             相似文本块列表
         """
         try:
-            # 实际应该调用Milvus API
-            # results = self.collection.search(
-            #     data=[query_vector],
-            #     anns_field="embedding",
-            #     param={"metric_type": "IP", "params": {"ef": 128}},
-            #     limit=top_k,
-            #     expr=build_expr(filters),
-            # )
+            # 使用统一客户端搜索
+            results = await self.client.search(
+                query_vector=query_vector,
+                top_k=top_k,
+                filters=filters,
+            )
 
-            logger.info(f"Searched similar vectors, top_k={top_k}")
-
-            # Mock实现
-            return []
+            logger.info(f"Searched similar vectors, top_k={top_k}, found {len(results)} results")
+            return results
 
         except Exception as e:
             logger.error(f"Failed to search vectors: {e}", exc_info=True)

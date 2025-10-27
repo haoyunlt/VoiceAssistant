@@ -3,19 +3,19 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"conversation-service/internal/data"
+	"voiceassistant/pkg/config"
 )
 
 func main() {
-	// 加载配置
+	// 加载配置（使用统一配置工具）
 	dbConfig := &data.DBConfig{
-		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     getEnvAsInt("DB_PORT", 5432),
-		User:     getEnv("DB_USER", "postgres"),
-		Password: getEnv("DB_PASSWORD", "postgres"),
-		Database: getEnv("DB_NAME", "voicehelper"),
+		Host:     config.GetEnv("DB_HOST", "localhost"),
+		Port:     config.GetEnvAsInt("DB_PORT", 5432),
+		User:     config.GetEnv("DB_USER", "postgres"),
+		Password: config.GetEnv("DB_PASSWORD", "postgres"),
+		Database: config.GetEnv("DB_NAME", "voicehelper"),
 	}
 
 	// 初始化应用（使用 Wire 生成的代码）
@@ -25,30 +25,10 @@ func main() {
 	}
 
 	// 启动服务器
-	addr := fmt.Sprintf(":%s", getEnv("PORT", "8080"))
+	addr := fmt.Sprintf(":%s", config.GetEnv("PORT", "8080"))
 	log.Printf("Starting Conversation Service on %s", addr)
 
 	if err := httpServer.Start(addr); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
-}
-
-// getEnv 获取环境变量
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
-// getEnvAsInt 获取整型环境变量
-func getEnvAsInt(key string, defaultValue int) int {
-	valueStr := getEnv(key, "")
-	if valueStr == "" {
-		return defaultValue
-	}
-
-	var value int
-	fmt.Sscanf(valueStr, "%d", &value)
-	return value
 }

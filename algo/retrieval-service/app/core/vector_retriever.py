@@ -1,10 +1,18 @@
 """向量检索器 - 基于 Milvus"""
 
 import logging
+import sys
+from pathlib import Path
 from typing import Dict, List
 
 from app.core.embedder import BGE_M3_Embedder
-from app.infrastructure.vector_store_client import VectorStoreClient
+
+# 添加common目录到Python路径
+common_path = Path(__file__).parent.parent.parent.parent / "common"
+if str(common_path) not in sys.path:
+    sys.path.insert(0, str(common_path))
+
+from vector_store_client import VectorStoreClient
 
 logger = logging.getLogger(__name__)
 

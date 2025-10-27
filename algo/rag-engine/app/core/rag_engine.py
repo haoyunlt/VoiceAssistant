@@ -4,14 +4,22 @@ RAG Engine Core - 检索增强生成核心引擎
 
 import json
 import logging
+import sys
 import time
+from pathlib import Path
 from typing import AsyncIterator, Dict, List, Optional
 
 from app.core.context_builder import ContextBuilder
 from app.core.prompt_generator import PromptGenerator
 from app.core.query_rewriter import QueryRewriter
-from app.infrastructure.llm_client import LLMClient
 from app.infrastructure.retrieval_client import RetrievalClient
+
+# 使用统一LLM客户端
+common_path = Path(__file__).parent.parent.parent.parent / "common"
+if str(common_path) not in sys.path:
+    sys.path.insert(0, str(common_path))
+
+from llm_client import UnifiedLLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +66,8 @@ class RAGEngine:
         # 初始化 Prompt 生成器
         self.prompt_generator = PromptGenerator()
 
-        # 初始化 LLM 客户端
-        self.llm_client = LLMClient()
-        await self.llm_client.initialize()
+        # 初始化统一LLM客户端
+        self.llm_client = UnifiedLLMClient()
 
         logger.info("RAG Engine initialized successfully")
 
