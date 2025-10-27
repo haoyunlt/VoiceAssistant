@@ -1,15 +1,23 @@
-# Cursor Performance Optimization - Ignore Rules
-# 排除不需要索引的文件和目录，提升 Cursor 性能
+# ==============================================================================
+# Cursor AI Performance Optimization - Ignore Rules
+# 排除不需要 AI 索引的文件和目录，提升 Cursor 性能与响应速度
+# 原则：忽略依赖、构建产物、数据文件，保留源码、配置、文档
+# ==============================================================================
 
 # ============================================
-# Dependencies & Virtual Environments
+# Dependencies & Package Managers
 # ============================================
 node_modules/
+.pnpm-store/
+.yarn/
+.npm/
+
+# Python virtual environments
 .venv/
 venv/
 env/
+ENV/
 .env/
-vendor/
 __pycache__/
 .mypy_cache/
 .pytest_cache/
@@ -17,6 +25,11 @@ __pycache__/
 .tox/
 .nox/
 *.egg-info/
+.Python
+
+# Go dependencies
+vendor/
+go.work.sum
 
 # ============================================
 # Build & Distribution
@@ -36,87 +49,164 @@ target/
 *.exe
 *.o
 *.a
+*.wasm
 
 # ============================================
-# Generated Code & Protobuf
+# Generated Code (可根据需要调整)
 # ============================================
+# Protobuf generated files
 *.pb.go
 *_pb2.py
 *_pb2_grpc.py
 *.pb.ts
 *.pb.js
 
+# OpenAPI/Swagger generated
+api/generated/
+
 # ============================================
 # IDE & Editor
 # ============================================
 .idea/
-.vscode/
+.vscode/settings.json
+.vscode/launch.json
 *.swp
 *.swo
+*.swn
 *~
 .DS_Store
+Thumbs.db
 *.bak
 *.tmp
 *.temp
+.history/
 
 # ============================================
-# Logs & Data
+# Logs & Runtime Data
 # ============================================
 *.log
 logs/
+*.out
+*.pid
+
+# ============================================
+# Data Directories (大文件、数据库存储)
+# ============================================
 milvus_data/
 qdrant_data/
 kafka_data/
 clickhouse_data/
 redis_data/
 postgres_data/
+mysql_data/
+mongodb_data/
+minio_data/
+faiss_index/
+chroma_db/
+
+# Database files
 *.sqlite
+*.sqlite3
 *.db
+*.db-shm
+*.db-wal
 
 # ============================================
 # Test & Coverage
 # ============================================
 .coverage
+.coverage.*
 coverage/
 htmlcov/
 .pytest_cache/
 *.coverprofile
 *.test
-*.out
+test-results/
+.testcache/
 
 # ============================================
-# Kubernetes & Docker
+# Docker & Kubernetes Data
 # ============================================
 *.tar
+*.tar.gz
 *.gz
 *.zip
+*.rar
 .kube/
 
 # ============================================
 # Binary & Compiled
 # ============================================
-bin/ai-orchestrator
-bin/analytics-service
-bin/model-router
-bin/notification-service
-bin/*
+bin/
+!bin/.gitkeep
 
 # ============================================
-# Git & Version Control
+# Git Internal
 # ============================================
 .git/
-.gitignore
 
 # ============================================
-# Monitoring & Metrics
+# Monitoring & Profiling
 # ============================================
 *.pprof
 *.prof
+*.trace
 
 # ============================================
-# Cache & Temp Files
+# Cache & Temp
 # ============================================
 .cache/
 tmp/
 temp/
 *.cache
+.turbo/
+.parcel-cache/
+
+# ============================================
+# AI/ML Large Files
+# ============================================
+# Model checkpoints (通常很大，无需索引)
+*.ckpt
+*.h5
+*.hdf5
+*.safetensors
+*.pt
+*.pth
+models/checkpoints/
+wandb/
+mlruns/
+
+# ============================================
+# Documentation Build Output
+# ============================================
+docs/_build/
+docs/.doctrees/
+site/
+
+# ============================================
+# Backup & Archive
+# ============================================
+*.backup
+*.old
+*.orig
+*~
+
+# ============================================
+# Flink & Stream Processing
+# ============================================
+flink-checkpoints/
+flink-savepoints/
+
+# ============================================
+# Local Dev Data
+# ============================================
+dev_data/
+test_data/
+sandbox/
+nacos_config_cache/
+
+# ============================================
+# CI/CD Artifacts
+# ============================================
+ci-artifacts/
+.gitlab-ci-local/

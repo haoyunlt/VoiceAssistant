@@ -1,421 +1,261 @@
-# ========================
-# VoiceHelper AI Platform
-# ========================
+# ==============================================================================
+# VoiceAssistant Platform - Git Ignore Rules
+# AI 客服与语音助手平台 - 版本控制忽略配置
+# ==============================================================================
 
-# ==================
+# ============================================
+# Environment & Secrets
+# ============================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+secrets/
+.secrets/
+*.secret
+
+# ============================================
+# Dependencies
+# ============================================
 # Go
-# ==================
-# Binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-bin/
-dist/
-
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool
-*.out
-coverage.txt
-coverage.html
-
-# Go workspace file
+vendor/
 go.work
 go.work.sum
 
-# Dependency directories
-vendor/
-
-# Analysis reports
-.reports/
-unused-code-report.md
-unused-*-report.md
-
-# Go build cache
-.cache/
-
-# Wire generated files
-wire_gen.go
-
-# ==================
 # Python
-# ==================
-# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-*.pyo
-*.pyd
-
-# C extensions
-*.so
-
-# Distribution / packaging
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
+*.so
 *.egg
-MANIFEST
-
-# PyInstaller
-*.manifest
-*.spec
-
-# Installer logs
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+ENV/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.nox/
 pip-log.txt
 pip-delete-this-directory.txt
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.hypothesis/
-.pytest_cache/
-pytestdebug.log
-
-# Virtual environments
-.env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-.python-version
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# Celery
-celerybeat-schedule
-celerybeat.pid
-
-# Environments
-.env.local
-.env.*.local
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# Poetry
-poetry.lock
-
-# ==================
-# Node.js / Next.js
-# ==================
-# Dependencies
+# Node.js
 node_modules/
-.pnp
-.pnp.js
-
-# Testing
-coverage/
-
-# Next.js
-.next/
-out/
-.vercel
-
-# Production
-build/
-
-# Misc
-.DS_Store
-*.pem
-
-# Debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+.yarn/
+.npm/
 
-# Lock files (team should decide on one package manager)
-# Uncomment the ones you want to ignore:
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml
+# ============================================
+# Build Outputs & Binaries
+# ============================================
+# Go binaries
+bin/
+!bin/.gitkeep
+*.exe
+*.exe~
+*.test
+*.out
 
-# Turbo
-.turbo
+# Python
+*.pyc
+*.pyo
+*.pyd
 
-# ==================
-# IDEs & Editors
-# ==================
-# VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-*.code-workspace
+# Shared libraries
+*.so
+*.dylib
+*.dll
 
-# JetBrains IDEs
+# Archives
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+
+# ============================================
+# Generated Code
+# ============================================
+# Protobuf generated files (可根据策略调整)
+# *.pb.go
+# *_pb2.py
+# *_pb2_grpc.py
+# *.pb.ts
+# *.pb.js
+
+# Swagger/OpenAPI generated
+# api/generated/
+
+# ============================================
+# IDE & Editor
+# ============================================
 .idea/
-*.iml
-*.iws
-*.ipr
-.idea_modules/
-
-# Vim
+.vscode/
 *.swp
 *.swo
+*.swn
 *~
-.*.swp
-.*.swo
-
-# Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-
-# Sublime Text
-*.sublime-project
-*.sublime-workspace
-
-# ==================
-# OS
-# ==================
-# macOS
 .DS_Store
-.AppleDouble
-.LSOverride
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-
-# Windows
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
-*.lnk
+*.bak
+*.tmp
+*.temp
+.history/
+*.code-workspace
 
-# Linux
-*~
+# ============================================
+# Logs & Runtime Data
+# ============================================
+*.log
+logs/
+*.out
+*.pid
+*.seed
+*.pid.lock
 
-# ==================
-# Docker
-# ==================
-# Docker compose override (for local dev)
+# ============================================
+# Test & Coverage
+# ============================================
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+*.coverprofile
+.testcache/
+test-results/
+*.test
+
+# ============================================
+# Database & Storage
+# ============================================
+# Local data directories
+milvus_data/
+qdrant_data/
+kafka_data/
+clickhouse_data/
+redis_data/
+postgres_data/
+mysql_data/
+mongodb_data/
+minio_data/
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+
+# ============================================
+# Docker & Container
+# ============================================
+.docker/
 docker-compose.override.yml
 .dockerignore
 
-# ==================
+# ============================================
 # Kubernetes
-# ==================
-# Helm
-*.tgz
+# ============================================
+*.kubeconfig
+.kube/
+k8s-secrets.yaml
 
-# Kustomize
-kustomization.yaml
+# ============================================
+# Monitoring & Profiling
+# ============================================
+*.pprof
+*.prof
+*.trace
 
-# ==================
-# Infrastructure
-# ==================
-# Terraform
-*.tfstate
-*.tfstate.*
-*.tfvars
-.terraform/
-.terraform.lock.hcl
-crash.log
-crash.*.log
-
-# Secrets
-secrets/
-*.key
-*.pem
-*.crt
-*.p12
-*.pfx
-
-# ==================
-# Configuration & Secrets
-# ==================
-# Environment files
-.env
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Config overrides
-*-local.yaml
-*-local.yml
-*-override.yaml
-*-override.yml
-configs/*-local.yaml
-configs/*-local.yml
-
-# Credentials
-credentials.json
-service-account.json
-*.credentials
-
-# ==================
-# Databases
-# ==================
-# PostgreSQL
-*.sql.backup
-
-# SQLite
-*.db
-*.sqlite
-*.sqlite3
-
-# ==================
-# Logs
-# ==================
-logs/
-*.log
-log/
-*.log.*
-
-# ==================
-# Temporary Files
-# ==================
+# ============================================
+# Cache & Temp
+# ============================================
+.cache/
 tmp/
 temp/
-.tmp/
-*.tmp
-*.bak
-*.backup
-*.orig
+*.cache
+.turbo/
+.parcel-cache/
+.next/
+.nuxt/
+out/
 
-# ==================
+# ============================================
+# OS & System
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ============================================
+# Backup & Lock Files
+# ============================================
+*.backup
+*.bak
+*.old
+*.orig
+*~
+.#*
+\#*#
+package-lock.json.backup
+
+# ============================================
 # AI/ML Specific
-# ==================
-# Model files (usually large, should be in S3/MinIO)
+# ============================================
+# Model files (large files should use Git LFS)
+*.ckpt
 *.h5
 *.hdf5
-*.ckpt
-*.pth
-*.pt
-*.bin
-*.pb
-*.onnx
-models/
-checkpoints/
+*.safetensors
+models/checkpoints/
+wandb/
+mlruns/
 
-# Vector DB data (local development)
-milvus_data/
-qdrant_data/
+# Vector databases
+faiss_index/
+chroma_db/
 
-# Datasets
-data/
-datasets/
-*.csv
-*.parquet
-*.arrow
-
-# ==================
-# Generated Files
-# ==================
-# Proto generated files (commit these if team decides to)
-# Uncomment if you want to ignore generated proto files
-# api/gen/
-# *_pb2.py
-# *_pb2_grpc.py
-# *.pb.go
-
-# API documentation generated
-api/docs/generated/
-
-# ==================
-# Testing
-# ==================
-# Test outputs
-test-results/
-test-reports/
-.testcache/
-
-# E2E test artifacts
-screenshots/
-videos/
-playwright-report/
-test-results/
-
-# ==================
-# Monitoring & Observability
-# ==================
-# Jaeger, Prometheus local data
-jaeger_data/
-prometheus_data/
-grafana_data/
-
-# ==================
-# CI/CD
-# ==================
-.gitlab-ci-local/
-
-# ==================
+# ============================================
 # Project Specific
-# ==================
-# Flink checkpoints and savepoints
+# ============================================
+# Flink checkpoints
 flink-checkpoints/
 flink-savepoints/
 
-# Kafka data (local development)
-kafka_data/
-zookeeper_data/
+# Nacos local config cache
+nacos_config_cache/
 
-# ClickHouse data (local development)
-clickhouse_data/
+# Local dev data
+dev_data/
+test_data/
+sandbox/
 
-# Redis data (local development)
-redis_data/
+# Documentation build
+docs/_build/
+docs/.doctrees/
+site/
 
-# MinIO data (local development)
-minio_data/
-
-# Local build artifacts
-.build/
-.artifacts/
-
-# Code generation artifacts
-.gen/
+# ============================================
+# CI/CD Artifacts
+# ============================================
+.gitlab-ci-local/
+.github-actions-local/
+ci-artifacts/
