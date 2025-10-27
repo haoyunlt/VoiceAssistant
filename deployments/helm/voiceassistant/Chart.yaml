@@ -1,0 +1,27 @@
+apiVersion: v2
+name: voiceassistant
+description: Voice Assistant Microservices Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - voice
+  - ai
+  - chatbot
+  - microservices
+maintainers:
+  - name: VoiceAssistant Team
+    email: team@voiceassistant.com
+dependencies:
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: "17.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: consul
+    version: "1.x.x"
+    repository: https://helm.releases.hashicorp.com
+    condition: consul.enabled
