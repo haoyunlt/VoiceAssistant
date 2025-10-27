@@ -36,14 +36,23 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// AuthConfig 认证配置
+type AuthConfig struct {
+	JWTSecret          string
+	AccessTokenExpiry  string // 如 "1h"
+	RefreshTokenExpiry string // 如 "168h" (7天)
+}
+
 // AuthUsecase 认证用例
 type AuthUsecase struct {
-	userRepo       domain.UserRepository
-	tenantRepo     domain.TenantRepository
-	tokenBlacklist TokenBlacklist
-	auditLogSvc    *AuditLogService
-	jwtSecret      string
-	log            *log.Helper
+	userRepo            domain.UserRepository
+	tenantRepo          domain.TenantRepository
+	tokenBlacklist      TokenBlacklist
+	auditLogSvc         *AuditLogService
+	config              *AuthConfig
+	accessTokenExpiry   time.Duration
+	refreshTokenExpiry  time.Duration
+	log                 *log.Helper
 }
 
 // NewAuthUsecase 创建认证用例
@@ -52,16 +61,29 @@ func NewAuthUsecase(
 	tenantRepo domain.TenantRepository,
 	tokenBlacklist TokenBlacklist,
 	auditLogSvc *AuditLogService,
-	jwtSecret string,
+	config *AuthConfig,
 	logger log.Logger,
 ) *AuthUsecase {
+	// 解析 Token 过期时间，如果解析失败则使用默认值
+	accessExpiry, err := time.ParseDuration(config.AccessTokenExpiry)
+	if err != nil || accessExpiry == 0 {
+		accessExpiry = 1 * time.Hour // 默认 1 小时
+	}
+
+	refreshExpiry, err := time.ParseDuration(config.RefreshTokenExpiry)
+	if err != nil || refreshExpiry == 0 {
+		refreshExpiry = 7 * 24 * time.Hour // 默认 7 天
+	}
+
 	return &AuthUsecase{
-		userRepo:       userRepo,
-		tenantRepo:     tenantRepo,
-		tokenBlacklist: tokenBlacklist,
-		auditLogSvc:    auditLogSvc,
-		jwtSecret:      jwtSecret,
-		log:            log.NewHelper(logger),
+		userRepo:           userRepo,
+		tenantRepo:         tenantRepo,
+		tokenBlacklist:     tokenBlacklist,
+		auditLogSvc:        auditLogSvc,
+		config:             config,
+		accessTokenExpiry:  accessExpiry,
+		refreshTokenExpiry: refreshExpiry,
+		log:                log.NewHelper(logger),
 	}
 }
 
@@ -130,8 +152,8 @@ func (uc *AuthUsecase) Login(ctx context.Context, email, password string) (*Toke
 // GenerateTokenPair 生成 Token 对
 func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) {
 	now := time.Now()
-	accessTokenExpiry := now.Add(1 * time.Hour)       // Access Token 1小时
-	refreshTokenExpiry := now.Add(7 * 24 * time.Hour) // Refresh Token 7天
+	accessTokenExpiry := now.Add(uc.accessTokenExpiry)
+	refreshTokenExpiry := now.Add(uc.refreshTokenExpiry)
 
 	// Access Token
 	accessClaims := Claims{
@@ -149,7 +171,7 @@ func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) 
 	}
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	accessTokenString, err := accessToken.SignedString([]byte(uc.jwtSecret))
+	accessTokenString, err := accessToken.SignedString([]byte(uc.config.JWTSecret))
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +191,7 @@ func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) 
 	}
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refreshTokenString, err := refreshToken.SignedString([]byte(uc.jwtSecret))
+	refreshTokenString, err := refreshToken.SignedString([]byte(uc.config.JWTSecret))
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +199,7 @@ func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) 
 	return &TokenPair{
 		AccessToken:  accessTokenString,
 		RefreshToken: refreshTokenString,
-		ExpiresIn:    3600, // 1小时，单位：秒
+		ExpiresIn:    int64(uc.accessTokenExpiry.Seconds()),
 	}, nil
 }
 
@@ -185,7 +207,7 @@ func (uc *AuthUsecase) GenerateTokenPair(user *domain.User) (*TokenPair, error) 
 func (uc *AuthUsecase) VerifyToken(ctx context.Context, tokenString string) (*Claims, error) {
 	// 1. 解析Token
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(uc.jwtSecret), nil
+		return []byte(uc.config.JWTSecret), nil
 	})
 
 	if err != nil {

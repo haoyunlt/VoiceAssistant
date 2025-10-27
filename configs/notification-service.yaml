@@ -1,0 +1,22 @@
+server:
+  http:
+    addr: ":8005"
+    timeout: 30
+  grpc:
+    addr: ":9005"
+    timeout: 30
+
+data:
+  database:
+    driver: postgres
+    source: "host=localhost port=5432 user=voiceassistant password=voiceassistant dbname=notification_service sslmode=disable"
+  redis:
+    addr: "localhost:6379"
+    password: ""
+    db: 0
+
+notification:
+  max_retries: 3
+  retry_interval: 2
+  email_from: "noreply@voiceassistant.com"
+  sms_provider: "mock"

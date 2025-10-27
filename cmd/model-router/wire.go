@@ -42,16 +42,48 @@ var ProviderSet = wire.NewSet(
 	service.NewModelRouterService,
 
 	// Server
-	server.NewHTTPServer,
+	provideHTTPServer,
 	server.NewGRPCServer,
 	server.NewABTestHandler,
 )
 
 // provideModelRegistry 提供模型注册表
-func provideModelRegistry(logger log.Logger) *domain.ModelRegistry {
+func provideModelRegistry(cfg *Config, logger log.Logger) *domain.ModelRegistry {
 	registry := domain.NewModelRegistry(logger)
-	// TODO: 从配置文件加载模型
+
+	// 从配置文件加载模型
+	if cfg.Models.ConfigPath != "" {
+		if err := loadModelsFromConfig(cfg.Models.ConfigPath, registry); err != nil {
+			log.NewHelper(logger).Warnf("Failed to load models from config: %v", err)
+		}
+	}
+
 	return registry
+}
+
+// provideHTTPServer 提供 HTTP 服务器
+func provideHTTPServer(
+	service *service.ModelRouterService,
+	logger log.Logger,
+	cfg *Config,
+) *server.HTTPServer {
+	return server.NewHTTPServer(service, logger, cfg.Server.HTTP.Addr)
+}
+
+// loadModelsFromConfig 从配置文件加载模型
+func loadModelsFromConfig(path string, registry *domain.ModelRegistry) error {
+	models, err := domain.LoadModelsFromFile(path)
+	if err != nil {
+		return err
+	}
+
+	for _, model := range models {
+		if err := registry.Register(model); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {

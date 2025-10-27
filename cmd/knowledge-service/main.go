@@ -10,8 +10,6 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"github.com/go-kratos/kratos/v2/transport/http"
-
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -76,23 +74,12 @@ func main() {
 	defer cleanup()
 
 	// 启动应用
-	log.NewHelper(logger).Info("starting knowledge-service...")
+	helper := log.NewHelper(logger)
+	helper.Infof("starting %s version %s...", Name, Version)
+	helper.Infof("http server: %s, grpc server: %s", conf.Server.HTTP.Addr, conf.Server.GRPC.Addr)
+
 	if err := app.Run(); err != nil {
+		helper.Errorf("failed to run app: %v", err)
 		panic(err)
 	}
-}
-
-// 加载YAML配置
-func loadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	var conf Config
-	if err := yaml.Unmarshal(data, &conf); err != nil {
-		return nil, err
-	}
-
-	return &conf, nil
 }

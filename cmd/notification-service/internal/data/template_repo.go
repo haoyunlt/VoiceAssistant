@@ -1,86 +1,117 @@
 package data
 
 import (
+	"context"
 	"time"
-
-	"gorm.io/gorm"
-
 	"voiceassistant/cmd/notification-service/internal/domain"
+
+	"github.com/go-kratos/kratos/v2/log"
+	"gorm.io/gorm"
 )
 
 type templateRepo struct {
-	db *gorm.DB
+	db  *gorm.DB
+	log *log.Helper
 }
 
-func NewTemplateRepository(db *gorm.DB) domain.TemplateRepository {
-	return &templateRepo{db: db}
-}
-
-func (r *templateRepo) GetByName(tenantID, name string) (*domain.Template, error) {
-	var template domain.Template
-	err := r.db.Where("tenant_id = ? AND name = ? AND enabled = ?", tenantID, name, true).
-		First(&template).Error
-	if err != nil {
-		return nil, err
+// NewTemplateRepository creates a new template repository
+func NewTemplateRepository(data *Data, logger log.Logger) domain.TemplateRepository {
+	return &templateRepo{
+		db:  data.db,
+		log: log.NewHelper(logger),
 	}
-	return &template, nil
 }
 
-func (r *templateRepo) GetByID(id string) (*domain.Template, error) {
-	var template domain.Template
-	err := r.db.Where("id = ?", id).First(&template).Error
-	if err != nil {
-		return nil, err
-	}
-	return &template, nil
-}
-
-func (r *templateRepo) Create(template *domain.Template) error {
+// Create creates a new template
+func (r *templateRepo) Create(ctx context.Context, template *domain.Template) error {
 	template.CreatedAt = time.Now()
 	template.UpdatedAt = time.Now()
-	return r.db.Create(template).Error
+
+	if err := r.db.WithContext(ctx).Create(template).Error; err != nil {
+		r.log.WithContext(ctx).Errorf("failed to create template: %v", err)
+		return err
+	}
+	return nil
 }
 
-func (r *templateRepo) Update(template *domain.Template) error {
+// Update updates a template
+func (r *templateRepo) Update(ctx context.Context, template *domain.Template) error {
 	template.UpdatedAt = time.Now()
-	return r.db.Save(template).Error
+
+	if err := r.db.WithContext(ctx).Save(template).Error; err != nil {
+		r.log.WithContext(ctx).Errorf("failed to update template: %v", err)
+		return err
+	}
+	return nil
 }
 
-func (r *templateRepo) GetByTenantID(tenantID string) ([]*domain.Template, error) {
+// GetByID gets a template by ID
+func (r *templateRepo) GetByID(ctx context.Context, id string) (*domain.Template, error) {
+	var template domain.Template
+
+	err := r.db.WithContext(ctx).Where("id = ?", id).First(&template).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		r.log.WithContext(ctx).Errorf("failed to get template by ID: %v", err)
+		return nil, err
+	}
+	return &template, nil
+}
+
+// GetByTenantID gets templates by tenant ID
+func (r *templateRepo) GetByTenantID(ctx context.Context, tenantID string) ([]*domain.Template, error) {
 	var templates []*domain.Template
-	err := r.db.Where("tenant_id = ?", tenantID).Find(&templates).Error
-	return templates, err
+
+	err := r.db.WithContext(ctx).
+		Where("tenant_id = ?", tenantID).
+		Order("updated_at DESC").
+		Find(&templates).Error
+	if err != nil {
+		r.log.WithContext(ctx).Errorf("failed to get templates by tenant ID: %v", err)
+		return nil, err
+	}
+	return templates, nil
 }
 
-func (r *templateRepo) Delete(id string) error {
-	return r.db.Delete(&domain.Template{}, "id = ?", id).Error
-}
-
-func (r *templateRepo) List(tenantID string, notificationType *string, page, pageSize int) ([]*domain.Template, int64, error) {
+// ListByTenant lists templates by tenant with pagination
+func (r *templateRepo) ListByTenant(
+	ctx context.Context,
+	tenantID string,
+	offset, limit int,
+) ([]*domain.Template, int64, error) {
 	var templates []*domain.Template
 	var total int64
 
-	query := r.db.Model(&domain.Template{})
-
-	if tenantID != "" {
-		query = query.Where("tenant_id = ?", tenantID)
-	}
-	if notificationType != nil {
-		query = query.Where("type = ?", *notificationType)
-	}
+	query := r.db.WithContext(ctx).Model(&domain.Template{}).
+		Where("tenant_id = ?", tenantID)
 
 	// Count total
 	if err := query.Count(&total).Error; err != nil {
+		r.log.WithContext(ctx).Errorf("failed to count templates: %v", err)
 		return nil, 0, err
 	}
 
 	// Pagination
-	offset := (page - 1) * pageSize
-	if err := query.Offset(offset).Limit(pageSize).
+	if err := query.
+		Offset(offset).
+		Limit(limit).
 		Order("updated_at DESC").
 		Find(&templates).Error; err != nil {
+		r.log.WithContext(ctx).Errorf("failed to list templates: %v", err)
 		return nil, 0, err
 	}
 
 	return templates, total, nil
+}
+
+// Delete deletes a template
+func (r *templateRepo) Delete(ctx context.Context, id string) error {
+	err := r.db.WithContext(ctx).Delete(&domain.Template{}, "id = ?", id).Error
+	if err != nil {
+		r.log.WithContext(ctx).Errorf("failed to delete template: %v", err)
+		return err
+	}
+	return nil
 }

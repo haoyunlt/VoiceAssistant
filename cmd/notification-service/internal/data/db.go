@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"time"
+	"voiceassistant/cmd/notification-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/driver/postgres"
@@ -10,18 +11,20 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 )
 
+// Config is the database configuration
 type Config struct {
-	Driver string
-	Source string
+	Driver string `json:"driver"`
+	Source string `json:"source"`
 }
 
+// NewDB creates a new database connection
 func NewDB(conf *Config, logger log.Logger) (*gorm.DB, error) {
 	logHelper := log.NewHelper(logger)
-	logHelper.Infof("connecting to database: %s", conf.Driver)
+	logHelper.Infof("connecting to database: driver=%s", conf.Driver)
 
 	var dialector gorm.Dialector
 	switch conf.Driver {
-	case "postgres":
+	case "postgres", "postgresql":
 		dialector = postgres.Open(conf.Source)
 	default:
 		return nil, fmt.Errorf("unsupported database driver: %s", conf.Driver)
@@ -38,6 +41,7 @@ func NewDB(conf *Config, logger log.Logger) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	// Configure connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, err
@@ -46,6 +50,15 @@ func NewDB(conf *Config, logger log.Logger) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	logHelper.Info("database connected successfully")
+	// Auto migrate tables
+	if err := db.AutoMigrate(
+		&domain.Notification{},
+		&domain.Template{},
+	); err != nil {
+		logHelper.Errorf("failed to auto migrate: %v", err)
+		return nil, err
+	}
+
+	logHelper.Info("database connected and migrated successfully")
 	return db, nil
 }

@@ -1,0 +1,35 @@
+# Identity Service Configuration Example
+
+server:
+  http:
+    network: tcp
+    addr: :8000
+    timeout: 30s
+  grpc:
+    network: tcp
+    addr: :9000
+    timeout: 30s
+
+data:
+  database:
+    driver: postgres
+    source: "host=localhost port=5432 user=voiceassistant password=password dbname=voiceassistant sslmode=disable"
+  redis:
+    addr: localhost:6379
+    password: ""
+    db: 0
+    pool_size: 10
+    min_idle_conns: 5
+    read_timeout: 3s
+    write_timeout: 3s
+
+auth:
+  jwt_secret: "your-secret-key-here-change-in-production"
+  access_token_expiry: "1h"      # Access Token 有效期：1小时
+  refresh_token_expiry: "168h"   # Refresh Token 有效期：7天
+  password_policy:
+    min_length: 8
+    require_upper: true
+    require_lower: true
+    require_digit: true
+    require_special: false

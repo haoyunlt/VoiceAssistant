@@ -33,10 +33,20 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 		wire.Bind(new(biz.TokenBlacklist), new(*data.TokenBlacklistService)),
 
 		// Data layer
+		ProvideDataConfig,
 		data.NewDB,
 		data.NewData,
 		data.NewUserRepo,
 		data.NewTenantRepo,
+
+		// Audit Log Service
+		biz.NewAuditLogService,
+
+		// Provide Auth Config
+		ProvideAuthConfig,
+
+		// OAuth Usecase (placeholder for now)
+		biz.NewOAuthUsecase,
 
 		// Business logic layer
 		biz.NewUserUsecase,
@@ -47,10 +57,44 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 		service.NewIdentityService,
 
 		// Server layer
+		ProvideHTTPConfig,
+		ProvideGRPCConfig,
 		server.NewGRPCServer,
 		server.NewHTTPServer,
 
 		// App
 		newApp,
 	))
+}
+
+// ProvideJWTSecret provides JWT secret from config
+func ProvideJWTSecret(cfg *Config) string {
+	return cfg.Auth.JWTSecret
+}
+
+// ProvideAuthConfig provides auth config
+func ProvideAuthConfig(cfg *Config) *biz.AuthConfig {
+	return &biz.AuthConfig{
+		JWTSecret:          cfg.Auth.JWTSecret,
+		AccessTokenExpiry:  cfg.Auth.AccessTokenExpiry,
+		RefreshTokenExpiry: cfg.Auth.RefreshTokenExpiry,
+	}
+}
+
+// ProvideHTTPConfig provides HTTP server config
+func ProvideHTTPConfig(cfg *Config) *server.HTTPConfig {
+	return &server.HTTPConfig{
+		Network: cfg.Server.HTTP.Network,
+		Addr:    cfg.Server.HTTP.Addr,
+		Timeout: cfg.Server.HTTP.Timeout,
+	}
+}
+
+// ProvideGRPCConfig provides gRPC server config
+func ProvideGRPCConfig(cfg *Config) *server.GRPCConfig {
+	return &server.GRPCConfig{
+		Network: cfg.Server.GRPC.Network,
+		Addr:    cfg.Server.GRPC.Addr,
+		Timeout: cfg.Server.GRPC.Timeout,
+	}
 }

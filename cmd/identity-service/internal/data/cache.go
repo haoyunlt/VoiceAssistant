@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"voiceassistant/cmd/identity-service/internal/domain"
 )
 
@@ -337,7 +337,7 @@ func NewCacheManager(redis *redis.Client) *CacheManager {
 	}
 }
 
-// ClearAll 清空所有缓存 (仅用于测试)
+// ClearAll 清空所有缓存 (仅用于测试，使用 SCAN 而非 KEYS)
 func (m *CacheManager) ClearAll(ctx context.Context) error {
 	patterns := []string{
 		userCachePrefix + "*",
@@ -347,15 +347,33 @@ func (m *CacheManager) ClearAll(ctx context.Context) error {
 	}
 
 	for _, pattern := range patterns {
-		keys, err := m.User.redis.Keys(ctx, pattern).Result()
+		if err := m.deleteKeysByPattern(ctx, pattern); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// deleteKeysByPattern 使用 SCAN 删除匹配模式的所有键（避免 KEYS 阻塞）
+func (m *CacheManager) deleteKeysByPattern(ctx context.Context, pattern string) error {
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := m.User.redis.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
-			return fmt.Errorf("redis keys error: %w", err)
+			return fmt.Errorf("redis scan error: %w", err)
 		}
 
 		if len(keys) > 0 {
 			if err := m.User.redis.Del(ctx, keys...).Err(); err != nil {
 				return fmt.Errorf("redis del error: %w", err)
 			}
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			break
 		}
 	}
 
@@ -370,37 +388,43 @@ type CacheStats struct {
 	TokenCount      int64
 }
 
-// GetStats 获取缓存统计信息
+// GetStats 获取缓存统计信息 (使用 SCAN 而非 KEYS 避免阻塞)
 func (m *CacheManager) GetStats(ctx context.Context) (*CacheStats, error) {
 	stats := &CacheStats{}
 
-	// 统计用户缓存数量
-	userKeys, err := m.User.redis.Keys(ctx, userCachePrefix+"*").Result()
-	if err != nil {
-		return nil, fmt.Errorf("redis keys error: %w", err)
-	}
-	stats.UserCount = int64(len(userKeys))
+	// 使用 SCAN 统计用户缓存数量
+	stats.UserCount = m.countKeysByPattern(ctx, userCachePrefix+"*")
 
 	// 统计租户缓存数量
-	tenantKeys, err := m.Tenant.redis.Keys(ctx, tenantCachePrefix+"*").Result()
-	if err != nil {
-		return nil, fmt.Errorf("redis keys error: %w", err)
-	}
-	stats.TenantCount = int64(len(tenantKeys))
+	stats.TenantCount = m.countKeysByPattern(ctx, tenantCachePrefix+"*")
 
 	// 统计权限缓存数量
-	permKeys, err := m.Permission.redis.Keys(ctx, permissionCachePrefix+"*").Result()
-	if err != nil {
-		return nil, fmt.Errorf("redis keys error: %w", err)
-	}
-	stats.PermissionCount = int64(len(permKeys))
+	stats.PermissionCount = m.countKeysByPattern(ctx, permissionCachePrefix+"*")
 
 	// 统计 Token 缓存数量
-	tokenKeys, err := m.Token.redis.Keys(ctx, tokenCachePrefix+"*").Result()
-	if err != nil {
-		return nil, fmt.Errorf("redis keys error: %w", err)
-	}
-	stats.TokenCount = int64(len(tokenKeys))
+	stats.TokenCount = m.countKeysByPattern(ctx, tokenCachePrefix+"*")
 
 	return stats, nil
+}
+
+// countKeysByPattern 使用 SCAN 统计匹配模式的键数量（避免 KEYS 阻塞）
+func (m *CacheManager) countKeysByPattern(ctx context.Context, pattern string) int64 {
+	var count int64
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := m.User.redis.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return count // 出错时返回已统计的数量
+		}
+
+		count += int64(len(keys))
+		cursor = nextCursor
+
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return count
 }

@@ -17,8 +17,16 @@ type VirusScanner interface {
 
 // ClamAVScanner ClamAV病毒扫描器
 type ClamAVScanner struct {
-	host string
-	port int
+	host    string
+	port    int
+	timeout time.Duration
+}
+
+// ClamAVConfig ClamAV配置
+type ClamAVConfig struct {
+	Host    string
+	Port    int
+	Timeout time.Duration
 }
 
 // ScanResult 扫描结果
@@ -29,10 +37,15 @@ type ScanResult struct {
 }
 
 // NewClamAVScanner 创建ClamAV扫描器
-func NewClamAVScanner(host string, port int) *ClamAVScanner {
+func NewClamAVScanner(config ClamAVConfig) *ClamAVScanner {
+	timeout := config.Timeout
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
 	return &ClamAVScanner{
-		host: host,
-		port: port,
+		host:    config.Host,
+		port:    config.Port,
+		timeout: timeout,
 	}
 }
 
@@ -68,7 +81,7 @@ func (s *ClamAVScanner) Scan(ctx context.Context, reader io.Reader) (*ScanResult
 // connect 连接到ClamAV
 func (s *ClamAVScanner) connect(ctx context.Context) (net.Conn, error) {
 	dialer := &net.Dialer{
-		Timeout: 10 * time.Second,
+		Timeout: s.timeout,
 	}
 
 	conn, err := dialer.DialContext(ctx, "tcp", fmt.Sprintf("%s:%d", s.host, s.port))
@@ -125,7 +138,7 @@ func (s *ClamAVScanner) streamFile(conn net.Conn, reader io.Reader) error {
 // readResponse 读取扫描响应
 func (s *ClamAVScanner) readResponse(conn net.Conn) (*ScanResult, error) {
 	// 设置读取超时
-	conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	conn.SetReadDeadline(time.Now().Add(s.timeout))
 
 	response := make([]byte, 1024)
 	n, err := conn.Read(response)

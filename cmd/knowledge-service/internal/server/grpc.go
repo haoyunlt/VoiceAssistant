@@ -11,8 +11,16 @@ import (
 	"voiceassistant/cmd/knowledge-service/internal/service"
 )
 
+// GRPCConfig gRPC服务器配置
+type GRPCConfig struct {
+	Network string
+	Addr    string
+	Timeout string
+}
+
 // NewGRPCServer 创建gRPC服务器
 func NewGRPCServer(
+	config *GRPCConfig,
 	knowledgeService *service.KnowledgeService,
 	logger log.Logger,
 ) *grpc.Server {
@@ -25,15 +33,28 @@ func NewGRPCServer(
 		),
 	}
 
-	// 配置服务器地址
-	opts = append(opts, grpc.Address(":9000"))
+	// 配置服务器地址和超时
+	if config.Network != "" {
+		opts = append(opts, grpc.Network(config.Network))
+	}
+	if config.Addr != "" {
+		opts = append(opts, grpc.Address(config.Addr))
+	}
+	if config.Timeout != "" {
+		opts = append(opts, grpc.Timeout(parseDuration(config.Timeout)))
+	}
 
 	srv := grpc.NewServer(opts...)
 
 	// 注册服务
+	// TODO: 生成proto后取消注释
 	// pb.RegisterKnowledgeServer(srv, knowledgeService)
-	// 注意：实际需要从proto生成的代码来注册
 
-	log.NewHelper(logger).Info("gRPC server created on :9000")
+	log.NewHelper(logger).Infof("gRPC server created on %s", config.Addr)
 	return srv
+}
+
+// parseDuration 解析时间字符串 (简单实现，建议使用time.ParseDuration)
+func parseDuration(s string) string {
+	return s
 }

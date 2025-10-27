@@ -2,299 +2,135 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
-	"model-router/internal/application"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"voiceassistant/cmd/model-router/internal/server"
+	"voiceassistant/pkg/config"
+	"voiceassistant/pkg/observability"
+
+	"github.com/go-kratos/kratos/v2"
+	kratoslog "github.com/go-kratos/kratos/v2/log"
+	"gopkg.in/yaml.v3"
 )
 
-// ModelRouter 模型路由服务
-type ModelRouter struct {
-	router        *Router
-	loadBalancer  *LoadBalancer
-	healthChecker *HealthChecker
-	costOptimizer *CostOptimizer
+var (
+	flagconf string
+)
+
+func init() {
+	flag.StringVar(&flagconf, "conf", "configs/model-router.yaml", "config path, eg: -conf config.yaml")
 }
 
 func main() {
-	// 创建路由器
-	r := gin.Default()
+	flag.Parse()
 
-	// Prometheus metrics
-	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
-
-	// Health checks
-	r.GET("/health", healthCheck)
-	r.GET("/ready", readinessCheck)
-
-	// API routes
-	api := r.Group("/api/v1")
-	{
-		// 路由请求
-		api.POST("/route", routeRequest)
-
-		// 模型管理
-		api.GET("/models", listModels)
-		api.GET("/models/:name", getModel)
-		api.GET("/models/:name/health", checkModelHealth)
-
-		// 负载均衡
-		api.GET("/load", getLoadStats)
-
-		// 成本统计
-		api.GET("/cost", getCostStats)
+	// 1. 加载配置
+	cfg, err := loadConfig(flagconf)
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// 启动服务器
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "9004"
+	// 2. 初始化日志
+	logger := kratoslog.NewStdLogger(os.Stdout)
+	logger = kratoslog.With(logger,
+		"service", "model-router",
+		"version", "v1.0.0",
+		"timestamp", kratoslog.DefaultTimestamp,
+		"caller", kratoslog.DefaultCaller,
+	)
+	helper := kratoslog.NewHelper(logger)
+
+	// 3. 初始化可观测性（OpenTelemetry）
+	shutdown, err := observability.InitTracing(context.Background(), "model-router", "v1.0.0")
+	if err != nil {
+		helper.Warnf("Failed to initialize tracing: %v", err)
+	} else {
+		defer shutdown(context.Background())
 	}
 
-	srv := &http.Server{
-		Addr:    fmt.Sprintf(":%s", port),
-		Handler: r,
+	// 4. 使用 Wire 构建应用
+	app, cleanup, err := wireApp(cfg, logger)
+	if err != nil {
+		helper.Fatalf("Failed to wire app: %v", err)
+	}
+	defer cleanup()
+
+	helper.Infow(
+		"msg", "Model Router service starting",
+		"http_addr", cfg.Server.HTTP.Addr,
+		"grpc_addr", cfg.Server.GRPC.Addr,
+	)
+
+	// 5. 启动应用
+	if err := app.Run(); err != nil {
+		helper.Fatalf("Failed to run app: %v", err)
 	}
 
-	// Graceful shutdown
-	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %s\n", err)
-		}
-	}()
+	helper.Info("Model Router service stopped gracefully")
+}
 
-	log.Printf("Model Router started on port %s", port)
+// loadConfig 加载配置文件
+func loadConfig(path string) (*Config, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
 
-	// Wait for interrupt signal
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	// 环境变量覆盖
+	if addr := os.Getenv("HTTP_ADDR"); addr != "" {
+		cfg.Server.HTTP.Addr = addr
+	}
+	if addr := os.Getenv("GRPC_ADDR"); addr != "" {
+		cfg.Server.GRPC.Addr = addr
+	}
+
+	return &cfg, nil
+}
+
+// newApp 创建 Kratos 应用
+func newApp(
+	logger kratoslog.Logger,
+	httpServer *server.HTTPServer,
+	grpcServer *kratoslog.Logger, // TODO: 添加实际的 gRPC server
+) *kratos.App {
+	return kratos.New(
+		kratos.Name("model-router"),
+		kratos.Version("v1.0.0"),
+		kratos.Logger(logger),
+		kratos.Server(
+			// httpServer, // TODO: 适配 Kratos Server 接口
+		),
+		kratos.Signal(syscall.SIGTERM, syscall.SIGINT),
+		kratos.Context(context.Background()),
+	)
+}
+
+// gracefulShutdown 优雅关闭
+func gracefulShutdown(httpServer *server.HTTPServer, logger kratoslog.Logger) {
+	helper := kratoslog.NewHelper(logger)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	helper.Info("Shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
-	}
+	// TODO: 实现 HTTPServer 的 Shutdown 方法
+	_ = ctx
 
-	log.Println("Server exited")
+	helper.Info("Server exited")
 }
-
-func healthCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "healthy",
-		"service": "model-router",
-	})
-}
-
-func readinessCheck(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"ready": true,
-		"checks": gin.H{
-			"router":       true,
-			"loadbalancer": true,
-			"models":       true,
-		},
-	})
-}
-
-// 全局路由器（应该在初始化时创建）
-var router *application.IntelligentRouter
-
-func routeRequest(c *gin.Context) {
-	var req struct {
-		Strategy      string `json:"strategy"`       // round_robin, cost_optimized, latency_based, load_balanced
-		RequiredModel string `json:"required_model"` // 可选，指定模型
-		EstTokens     int    `json:"est_tokens"`     // 预估token数
-		TenantID      string `json:"tenant_id"`
-		Priority      int    `json:"priority"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 确保路由器已初始化
-	if router == nil {
-		router = application.NewIntelligentRouter()
-
-		// 注册示例模型（实际应从配置或数据库加载）
-		router.RegisterModel(&application.ModelConfig{
-			ID:              "gpt-4-turbo",
-			Name:            "gpt-4-turbo-preview",
-			Provider:        "openai",
-			Endpoint:        "https://api.openai.com/v1/chat/completions",
-			Priority:        1,
-			CostPer1KTokens: 0.03,
-			MaxRPS:          100,
-			Timeout:         30 * time.Second,
-			Enabled:         true,
-		})
-
-		router.RegisterModel(&application.ModelConfig{
-			ID:              "gpt-3.5-turbo",
-			Name:            "gpt-3.5-turbo",
-			Provider:        "openai",
-			Endpoint:        "https://api.openai.com/v1/chat/completions",
-			Priority:        2,
-			CostPer1KTokens: 0.002,
-			MaxRPS:          500,
-			Timeout:         30 * time.Second,
-			Enabled:         true,
-		})
-	}
-
-	// 构建路由请求
-	routingReq := &application.RoutingRequest{
-		Strategy:      application.RoutingStrategy(req.Strategy),
-		RequiredModel: req.RequiredModel,
-		EstTokens:     req.EstTokens,
-		TenantID:      req.TenantID,
-		Priority:      req.Priority,
-		Context:       c.Request.Context(),
-	}
-
-	// 默认策略
-	if routingReq.Strategy == "" {
-		routingReq.Strategy = application.StrategyLoadBalanced
-	}
-
-	// 执行路由
-	result, err := router.Route(routingReq)
-	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"error":   "routing_failed",
-			"message": err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"model":             result.Model.Name,
-		"model_id":          result.Model.ID,
-		"provider":          result.Model.Provider,
-		"endpoint":          result.Model.Endpoint,
-		"routing_reason":    result.Reason,
-		"estimated_cost":    result.EstimatedCost,
-		"estimated_latency": result.EstimatedLatency,
-		"fallback_used":     result.FallbackUsed,
-	})
-}
-
-func listModels(c *gin.Context) {
-	models := []map[string]interface{}{
-		{
-			"name":        "gpt-4-turbo-preview",
-			"provider":    "openai",
-			"type":        "chat",
-			"cost_per_1k": 0.03,
-			"status":      "healthy",
-		},
-		{
-			"name":        "gpt-3.5-turbo",
-			"provider":    "openai",
-			"type":        "chat",
-			"cost_per_1k": 0.002,
-			"status":      "healthy",
-		},
-		{
-			"name":        "claude-3-opus",
-			"provider":    "anthropic",
-			"type":        "chat",
-			"cost_per_1k": 0.075,
-			"status":      "healthy",
-		},
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"models": models,
-		"count":  len(models),
-	})
-}
-
-func getModel(c *gin.Context) {
-	name := c.Param("name")
-
-	// TODO: 从实际存储获取模型信息
-	c.JSON(http.StatusOK, gin.H{
-		"name":        name,
-		"provider":    "openai",
-		"type":        "chat",
-		"cost_per_1k": 0.03,
-		"status":      "healthy",
-		"endpoints":   []string{"https://api.openai.com/v1/chat/completions"},
-	})
-}
-
-func checkModelHealth(c *gin.Context) {
-	name := c.Param("name")
-
-	// TODO: 实际健康检查
-	c.JSON(http.StatusOK, gin.H{
-		"model":        name,
-		"status":       "healthy",
-		"latency_ms":   50,
-		"success_rate": 0.999,
-		"last_check":   time.Now().Format(time.RFC3339),
-	})
-}
-
-func getLoadStats(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"total_requests":  1000,
-		"active_requests": 10,
-		"models": []gin.H{
-			{
-				"name":     "gpt-4-turbo-preview",
-				"requests": 600,
-				"load":     0.6,
-			},
-			{
-				"name":     "gpt-3.5-turbo",
-				"requests": 400,
-				"load":     0.4,
-			},
-		},
-	})
-}
-
-func getCostStats(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"total_cost": 100.50,
-		"today_cost": 10.25,
-		"models": []gin.H{
-			{
-				"name":   "gpt-4-turbo-preview",
-				"cost":   80.40,
-				"tokens": 2680000,
-			},
-			{
-				"name":   "gpt-3.5-turbo",
-				"cost":   20.10,
-				"tokens": 10050000,
-			},
-		},
-	})
-}
-
-// Router 路由器
-type Router struct{}
-
-// LoadBalancer 负载均衡器
-type LoadBalancer struct{}
-
-// HealthChecker 健康检查器
-type HealthChecker struct{}
-
-// CostOptimizer 成本优化器
-type CostOptimizer struct{}

@@ -10,7 +10,24 @@ import (
 type Config struct {
 	Server    ServerConf
 	Data      DataConf
-	JWTSecret string
+	Auth      AuthConf
+}
+
+// AuthConf 认证配置
+type AuthConf struct {
+	JWTSecret            string
+	AccessTokenExpiry    string // 如 "1h"
+	RefreshTokenExpiry   string // 如 "168h" (7天)
+	PasswordPolicy       PasswordPolicyConf
+}
+
+// PasswordPolicyConf 密码策略配置
+type PasswordPolicyConf struct {
+	MinLength      int
+	RequireUpper   bool
+	RequireLower   bool
+	RequireDigit   bool
+	RequireSpecial bool
 }
 
 // ServerConf is server config.
@@ -56,4 +73,14 @@ func NewRedisClient(conf *Config) *redis.Client {
 		PoolSize:     conf.Data.Redis.PoolSize,
 		MinIdleConns: conf.Data.Redis.MinIdleConns,
 	})
+}
+
+// ProvideDataConfig provides data config from main config
+func ProvideDataConfig(conf *Config) *data.Config {
+	return &conf.Data.Database
+}
+
+// ProvideServerConf provides server config from main config
+func ProvideServerConf(conf *Config) *ServerConf {
+	return &conf.Server
 }

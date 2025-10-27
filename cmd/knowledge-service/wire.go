@@ -22,8 +22,13 @@ import (
 // wireApp init kratos application.
 func wireApp(c *Config, logger log.Logger) (*kratos.App, func(), error) {
 	panic(wire.Build(
-		// Config conversion
+		// Config conversion providers
 		provideDataConfig,
+		provideStorageConfig,
+		provideEventConfig,
+		provideSecurityConfig,
+		provideHTTPConfig,
+		provideGRPCConfig,
 
 		// Infrastructure layer
 		storage.NewMinIOClient,
@@ -59,4 +64,50 @@ func wireApp(c *Config, logger log.Logger) (*kratos.App, func(), error) {
 // provideDataConfig converts main Config to data.Config
 func provideDataConfig(c *Config) *data.Config {
 	return &c.Data.Database
+}
+
+// provideStorageConfig converts main Config to storage.MinIOConfig
+func provideStorageConfig(c *Config) storage.MinIOConfig {
+	return storage.MinIOConfig{
+		Endpoint:        c.Storage.Endpoint,
+		AccessKeyID:     c.Storage.AccessKeyID,
+		SecretAccessKey: c.Storage.SecretAccessKey,
+		BucketName:      c.Storage.BucketName,
+		UseSSL:          c.Storage.UseSSL,
+	}
+}
+
+// provideEventConfig converts main Config to event.EventPublisherConfig
+func provideEventConfig(c *Config) event.EventPublisherConfig {
+	return event.EventPublisherConfig{
+		Brokers: c.Event.Brokers,
+		Topic:   c.Event.Topic,
+	}
+}
+
+// provideSecurityConfig converts main Config to security.ClamAVConfig
+func provideSecurityConfig(c *Config) security.ClamAVConfig {
+	return security.ClamAVConfig{
+		Host:    c.Security.ClamAV.Host,
+		Port:    c.Security.ClamAV.Port,
+		Timeout: c.Security.ClamAV.Timeout,
+	}
+}
+
+// provideHTTPConfig converts main Config to server.HTTPConfig
+func provideHTTPConfig(c *Config) *server.HTTPConfig {
+	return &server.HTTPConfig{
+		Network: c.Server.HTTP.Network,
+		Addr:    c.Server.HTTP.Addr,
+		Timeout: c.Server.HTTP.Timeout.String(),
+	}
+}
+
+// provideGRPCConfig converts main Config to server.GRPCConfig
+func provideGRPCConfig(c *Config) *server.GRPCConfig {
+	return &server.GRPCConfig{
+		Network: c.Server.GRPC.Network,
+		Addr:    c.Server.GRPC.Addr,
+		Timeout: c.Server.GRPC.Timeout.String(),
+	}
 }

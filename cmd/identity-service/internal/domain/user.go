@@ -35,6 +35,16 @@ type User struct {
 
 // NewUser 创建新用户
 func NewUser(email, password, username, tenantID string) (*User, error) {
+	// 验证邮箱格式
+	if err := ValidateEmail(email); err != nil {
+		return nil, err
+	}
+
+	// 验证密码强度
+	if err := ValidatePassword(password, DefaultPasswordPolicy); err != nil {
+		return nil, err
+	}
+
 	// 生成用户ID
 	id := "usr_" + uuid.New().String()
 
@@ -67,6 +77,11 @@ func (u *User) VerifyPassword(password string) bool {
 
 // UpdatePassword 更新密码
 func (u *User) UpdatePassword(newPassword string) error {
+	// 验证新密码强度
+	if err := ValidatePassword(newPassword, DefaultPasswordPolicy); err != nil {
+		return err
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return err

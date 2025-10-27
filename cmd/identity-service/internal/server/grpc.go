@@ -1,6 +1,8 @@
 package server
 
 import (
+	"time"
+
 	pb "voiceassistant/api/proto/identity/v1"
 	"voiceassistant/cmd/identity-service/internal/service"
 
@@ -12,8 +14,16 @@ import (
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 )
 
+// GRPCConfig gRPC server configuration
+type GRPCConfig struct {
+	Network string
+	Addr    string
+	Timeout string
+}
+
 // NewGRPCServer creates a new gRPC server.
 func NewGRPCServer(
+	cfg *GRPCConfig,
 	identityService *service.IdentityService,
 	logger log.Logger,
 ) *grpc.Server {
@@ -26,8 +36,21 @@ func NewGRPCServer(
 		),
 	}
 
-	// Configure server options
-	opts = append(opts, grpc.Address(":9000"))
+	// Configure server options from config
+	if cfg.Network != "" {
+		opts = append(opts, grpc.Network(cfg.Network))
+	}
+	if cfg.Addr != "" {
+		opts = append(opts, grpc.Address(cfg.Addr))
+	} else {
+		opts = append(opts, grpc.Address(":9000")) // fallback default
+	}
+	if cfg.Timeout != "" {
+		timeout, err := time.ParseDuration(cfg.Timeout)
+		if err == nil {
+			opts = append(opts, grpc.Timeout(timeout))
+		}
+	}
 
 	srv := grpc.NewServer(opts...)
 

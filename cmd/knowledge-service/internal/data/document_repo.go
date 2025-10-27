@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+	"voiceassistant/cmd/knowledge-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"voiceassistant/cmd/knowledge-service/internal/domain"
 	"gorm.io/gorm"
 )
 
@@ -45,7 +45,7 @@ type DocumentRepository struct {
 }
 
 // NewDocumentRepo 创建文档仓储
-func NewDocumentRepo(data *Data, logger log.Logger) domain.DocumentRepository {
+func NewDocumentRepo(data *Data, logger log.Logger) *DocumentRepository {
 	return &DocumentRepository{
 		data: data,
 		log:  log.NewHelper(logger),
@@ -67,8 +67,8 @@ func (r *DocumentRepository) Create(ctx context.Context, doc *domain.Document) e
 	return nil
 }
 
-// GetByID 根据ID获取文档
-func (r *DocumentRepository) GetByID(ctx context.Context, id string) (*domain.Document, error) {
+// FindByID 根据ID获取文档
+func (r *DocumentRepository) FindByID(ctx context.Context, id string) (*domain.Document, error) {
 	var po DocumentPO
 	if err := r.data.db.WithContext(ctx).Where("id = ?", id).First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -109,23 +109,13 @@ func (r *DocumentRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// ListByKnowledgeBase 获取知识库的文档列表
-func (r *DocumentRepository) ListByKnowledgeBase(
+// FindByKnowledgeBaseID 获取知识库的文档列表
+func (r *DocumentRepository) FindByKnowledgeBaseID(
 	ctx context.Context,
 	kbID string,
-	offset, limit int,
-) ([]*domain.Document, int64, error) {
+	limit, offset int,
+) ([]*domain.Document, error) {
 	var pos []DocumentPO
-	var total int64
-
-	// 查询总数
-	if err := r.data.db.WithContext(ctx).
-		Model(&DocumentPO{}).
-		Where("knowledge_base_id = ? AND status != ?", kbID, domain.DocumentStatusDeleted).
-		Count(&total).Error; err != nil {
-		r.log.Errorf("failed to count documents: %v", err)
-		return nil, 0, err
-	}
 
 	// 查询列表
 	if err := r.data.db.WithContext(ctx).
@@ -135,7 +125,7 @@ func (r *DocumentRepository) ListByKnowledgeBase(
 		Limit(limit).
 		Find(&pos).Error; err != nil {
 		r.log.Errorf("failed to list documents: %v", err)
-		return nil, 0, err
+		return nil, err
 	}
 
 	docs := make([]*domain.Document, 0, len(pos))
@@ -148,7 +138,21 @@ func (r *DocumentRepository) ListByKnowledgeBase(
 		docs = append(docs, doc)
 	}
 
-	return docs, total, nil
+	return docs, nil
+}
+
+// CountByKnowledgeBaseID 统计知识库的文档数量
+func (r *DocumentRepository) CountByKnowledgeBaseID(ctx context.Context, kbID string) (int64, error) {
+	var count int64
+	if err := r.data.db.WithContext(ctx).
+		Model(&DocumentPO{}).
+		Where("knowledge_base_id = ? AND status != ?", kbID, domain.DocumentStatusDeleted).
+		Count(&count).Error; err != nil {
+		r.log.Errorf("failed to count documents: %v", err)
+		return 0, err
+	}
+
+	return count, nil
 }
 
 // ListByStatus 根据状态获取文档列表
@@ -182,20 +186,6 @@ func (r *DocumentRepository) ListByStatus(
 	return docs, nil
 }
 
-// CountByKnowledgeBase 统计知识库的文档数量
-func (r *DocumentRepository) CountByKnowledgeBase(ctx context.Context, kbID string) (int64, error) {
-	var count int64
-	if err := r.data.db.WithContext(ctx).
-		Model(&DocumentPO{}).
-		Where("knowledge_base_id = ? AND status != ?", kbID, domain.DocumentStatusDeleted).
-		Count(&count).Error; err != nil {
-		r.log.Errorf("failed to count documents: %v", err)
-		return 0, err
-	}
-
-	return count, nil
-}
-
 // toDocumentPO 转换为持久化对象
 func (r *DocumentRepository) toDocumentPO(doc *domain.Document) (*DocumentPO, error) {
 	metadataJSON, _ := json.Marshal(doc.Metadata)
@@ -227,7 +217,10 @@ func (r *DocumentRepository) toDocumentPO(doc *domain.Document) (*DocumentPO, er
 func (r *DocumentRepository) toDomainDocument(po *DocumentPO) (*domain.Document, error) {
 	var metadata map[string]interface{}
 	if po.Metadata != "" {
-		json.Unmarshal([]byte(po.Metadata), &metadata)
+		if err := json.Unmarshal([]byte(po.Metadata), &metadata); err != nil {
+			r.log.Warnf("failed to unmarshal document metadata: %v", err)
+			metadata = make(map[string]interface{})
+		}
 	}
 
 	return &domain.Document{

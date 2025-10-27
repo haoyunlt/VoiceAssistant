@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/uuid"
 	"voiceassistant/cmd/knowledge-service/internal/domain"
 	"voiceassistant/cmd/knowledge-service/internal/infrastructure/event"
@@ -28,23 +29,29 @@ type DocumentRepository interface {
 // DocumentUsecase 文档用例
 type DocumentUsecase struct {
 	repo           DocumentRepository
+	kbUsecase      *KnowledgeBaseUsecase
 	storageClient  *storage.MinIOClient
 	virusScanner   security.VirusScanner
 	eventPublisher *event.EventPublisher
+	log            *log.Helper
 }
 
 // NewDocumentUsecase 创建文档用例
 func NewDocumentUsecase(
 	repo DocumentRepository,
+	kbUsecase *KnowledgeBaseUsecase,
 	storageClient *storage.MinIOClient,
 	virusScanner security.VirusScanner,
 	eventPublisher *event.EventPublisher,
+	logger log.Logger,
 ) *DocumentUsecase {
 	return &DocumentUsecase{
 		repo:           repo,
+		kbUsecase:      kbUsecase,
 		storageClient:  storageClient,
 		virusScanner:   virusScanner,
 		eventPublisher: eventPublisher,
+		log:            log.NewHelper(logger),
 	}
 }
 
@@ -301,7 +308,24 @@ func (uc *DocumentUsecase) BatchDeleteDocuments(ctx context.Context, documentIDs
 	failedIDs := []string{}
 
 	for _, docID := range documentIDs {
-		err := uc.DeleteDocument(ctx, docID, userID)
+		// 检查文档权限
+		doc, err := uc.repo.FindByID(ctx, docID)
+		if err != nil {
+			uc.log.Errorf("Failed to find document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 检查知识库权限
+		_, err = uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID)
+		if err != nil {
+			uc.log.Errorf("No permission for document %s: %v", docID, err)
+			failedIDs = append(failedIDs, docID)
+			continue
+		}
+
+		// 删除文档
+		err = uc.DeleteDocument(ctx, docID)
 		if err != nil {
 			uc.log.Errorf("Failed to delete document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -328,7 +352,7 @@ func (uc *DocumentUsecase) BatchUpdateDocumentStatus(ctx context.Context, docume
 		}
 
 		// 检查知识库权限
-		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID)
 		if err != nil {
 			uc.log.Errorf("No permission for document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -356,7 +380,7 @@ func (uc *DocumentUsecase) BatchUpdateDocumentStatus(ctx context.Context, docume
 // BatchMoveDocuments 批量移动文档到另一个知识库
 func (uc *DocumentUsecase) BatchMoveDocuments(ctx context.Context, documentIDs []string, targetKBID, userID string) (int, []string, error) {
 	// 检查目标知识库是否存在和权限
-	targetKB, err := uc.kbUsecase.GetKnowledgeBase(ctx, targetKBID, userID)
+	targetKB, err := uc.kbUsecase.GetKnowledgeBase(ctx, targetKBID)
 	if err != nil {
 		return 0, documentIDs, fmt.Errorf("目标知识库不存在或无权限: %w", err)
 	}
@@ -378,7 +402,7 @@ func (uc *DocumentUsecase) BatchMoveDocuments(ctx context.Context, documentIDs [
 		}
 
 		// 检查源知识库权限
-		sourceKB, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		sourceKB, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID)
 		if err != nil || sourceKB == nil {
 			uc.log.Errorf("No permission for document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -416,7 +440,7 @@ func (uc *DocumentUsecase) BatchExportDocuments(ctx context.Context, documentIDs
 		}
 
 		// 检查知识库权限
-		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID)
 		if err != nil || kb == nil {
 			uc.log.Errorf("No permission for document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -424,7 +448,7 @@ func (uc *DocumentUsecase) BatchExportDocuments(ctx context.Context, documentIDs
 		}
 
 		// 生成临时下载链接（有效期1小时）
-		downloadURL, err := uc.storageClient.GeneratePresignedURL(ctx, doc.StoragePath, 3600)
+		downloadURL, err := uc.storageClient.GetPresignedURL(ctx, doc.StoragePath, time.Hour)
 		if err != nil {
 			uc.log.Errorf("Failed to generate download URL for document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -452,7 +476,7 @@ func (uc *DocumentUsecase) BatchReprocessDocuments(ctx context.Context, document
 		}
 
 		// 检查知识库权限
-		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID, userID)
+		kb, err := uc.kbUsecase.GetKnowledgeBase(ctx, doc.KnowledgeBaseID)
 		if err != nil || kb == nil {
 			uc.log.Errorf("No permission for document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -468,7 +492,17 @@ func (uc *DocumentUsecase) BatchReprocessDocuments(ctx context.Context, document
 			uc.log.Errorf("Failed to reprocess document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
 		} else {
-			// TODO: 发布文档处理事件到Kafka
+			// 发布文档上传事件，触发重新处理
+			_ = uc.eventPublisher.PublishDocumentUploaded(ctx, &event.DocumentUploadedEvent{
+				DocumentID:      doc.ID,
+				TenantID:        doc.TenantID,
+				UserID:          doc.UploadedBy,
+				KnowledgeBaseID: doc.KnowledgeBaseID,
+				Filename:        doc.FileName,
+				FileSize:        doc.FileSize,
+				ContentType:     string(doc.FileType),
+				StoragePath:     doc.FilePath,
+			})
 			successCount++
 		}
 	}

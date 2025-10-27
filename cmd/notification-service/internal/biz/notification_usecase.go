@@ -4,76 +4,42 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
-
 	"voiceassistant/cmd/notification-service/internal/domain"
-)
 
-// NotificationChannel 通知渠道
-type NotificationChannel string
-
-const (
-	ChannelEmail     NotificationChannel = "email"
-	ChannelSMS       NotificationChannel = "sms"
-	ChannelWebSocket NotificationChannel = "websocket"
-	ChannelWebhook   NotificationChannel = "webhook"
-)
-
-// NotificationPriority 通知优先级
-type NotificationPriority string
-
-const (
-	PriorityLow      NotificationPriority = "low"
-	PriorityMedium   NotificationPriority = "medium"
-	PriorityHigh     NotificationPriority = "high"
-	PriorityCritical NotificationPriority = "critical"
+	"github.com/go-kratos/kratos/v2/log"
 )
 
 // NotificationRequest 通知请求
 type NotificationRequest struct {
 	TenantID    string
 	UserID      string
-	Channel     NotificationChannel
-	Priority    NotificationPriority
+	Recipient   string // email address, phone number, etc.
+	Channel     domain.NotificationChannel
+	Priority    domain.NotificationPriority
 	TemplateID  string
 	Variables   map[string]interface{}
 	Title       string
 	Content     string
-	Metadata    map[string]string
+	Metadata    domain.MetadataMap
 	ScheduledAt *time.Time // 定时发送
-}
-
-// Notification 通知
-type Notification struct {
-	ID        string
-	TenantID  string
-	UserID    string
-	Channel   NotificationChannel
-	Priority  NotificationPriority
-	Title     string
-	Content   string
-	Status    string // pending, sending, sent, failed
-	SentAt    *time.Time
-	ReadAt    *time.Time
-	Metadata  map[string]string
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 // EmailProvider 邮件提供商接口
 type EmailProvider interface {
-	SendEmail(to, subject, body string) error
+	SendEmail(ctx context.Context, to, subject, body string) error
 }
 
 // SMSProvider 短信提供商接口
 type SMSProvider interface {
-	SendSMS(to, content string) error
+	SendSMS(ctx context.Context, to, content string) error
 }
 
 // WebSocketManager WebSocket管理器接口
 type WebSocketManager interface {
-	SendToUser(userID string, message interface{}) error
-	BroadcastToTenant(tenantID string, message interface{}) error
+	SendToUser(ctx context.Context, userID string, message interface{}) error
+	BroadcastToTenant(ctx context.Context, tenantID string, message interface{}) error
 }
 
 // NotificationUsecase 通知用例
@@ -83,6 +49,7 @@ type NotificationUsecase struct {
 	emailProvider    EmailProvider
 	smsProvider      SMSProvider
 	wsManager        WebSocketManager
+	log              *log.Helper
 }
 
 // NewNotificationUsecase 创建通知用例
@@ -92,6 +59,7 @@ func NewNotificationUsecase(
 	emailProvider EmailProvider,
 	smsProvider SMSProvider,
 	wsManager WebSocketManager,
+	logger log.Logger,
 ) *NotificationUsecase {
 	return &NotificationUsecase{
 		notificationRepo: notificationRepo,
@@ -99,14 +67,34 @@ func NewNotificationUsecase(
 		emailProvider:    emailProvider,
 		smsProvider:      smsProvider,
 		wsManager:        wsManager,
+		log:              log.NewHelper(logger),
 	}
 }
 
-// SendNotification 发送通知
+// SendNotification 发送通知（简化版）
 func (uc *NotificationUsecase) SendNotification(
 	ctx context.Context,
+	channel domain.NotificationChannel,
+	tenantID, userID, recipient, subject, content string,
+) (*domain.Notification, error) {
+	req := &NotificationRequest{
+		TenantID:  tenantID,
+		UserID:    userID,
+		Recipient: recipient,
+		Channel:   channel,
+		Priority:  domain.PriorityMedium,
+		Title:     subject,
+		Content:   content,
+		Metadata:  make(domain.MetadataMap),
+	}
+	return uc.SendNotificationWithRequest(ctx, req)
+}
+
+// SendNotificationWithRequest 发送通知（完整版）
+func (uc *NotificationUsecase) SendNotificationWithRequest(
+	ctx context.Context,
 	req *NotificationRequest,
-) (*Notification, error) {
+) (*domain.Notification, error) {
 	// 1. 渲染内容（如果使用模板）
 	title := req.Title
 	content := req.Content
@@ -114,7 +102,12 @@ func (uc *NotificationUsecase) SendNotification(
 	if req.TemplateID != "" {
 		template, err := uc.templateRepo.GetByID(ctx, req.TemplateID)
 		if err != nil {
+			uc.log.WithContext(ctx).Errorf("failed to get template: %v", err)
 			return nil, fmt.Errorf("get template: %w", err)
+		}
+
+		if template == nil {
+			return nil, fmt.Errorf("template not found: %s", req.TemplateID)
 		}
 
 		title, err = uc.renderTemplate(template.Title, req.Variables)
@@ -129,97 +122,124 @@ func (uc *NotificationUsecase) SendNotification(
 	}
 
 	// 2. 创建通知记录
-	notification := &Notification{
-		ID:        generateID(),
-		TenantID:  req.TenantID,
-		UserID:    req.UserID,
-		Channel:   req.Channel,
-		Priority:  req.Priority,
-		Title:     title,
-		Content:   content,
-		Status:    "pending",
-		Metadata:  req.Metadata,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+	notification := domain.NewNotification(
+		req.TenantID,
+		req.UserID,
+		req.Recipient,
+		req.Channel,
+		req.Priority,
+		title,
+		content,
+	)
+
+	// Set metadata
+	if req.Metadata != nil {
+		notification.Metadata = req.Metadata
 	}
 
+	// Validate
+	if err := notification.Validate(); err != nil {
+		uc.log.WithContext(ctx).Errorf("invalid notification: %v", err)
+		return nil, fmt.Errorf("validate notification: %w", err)
+	}
+
+	// Save to database
 	if err := uc.notificationRepo.Create(ctx, notification); err != nil {
+		uc.log.WithContext(ctx).Errorf("failed to create notification: %v", err)
 		return nil, fmt.Errorf("create notification: %w", err)
 	}
+
+	uc.log.WithContext(ctx).Infof("created notification: %s for user: %s", notification.ID, notification.UserID)
 
 	// 3. 如果是定时发送，加入队列
 	if req.ScheduledAt != nil && req.ScheduledAt.After(time.Now()) {
 		// TODO: 加入定时任务队列
+		uc.log.WithContext(ctx).Infof("notification %s scheduled for %v", notification.ID, req.ScheduledAt)
 		return notification, nil
 	}
 
-	// 4. 立即发送
-	go uc.sendNotificationAsync(context.Background(), notification)
+	// 4. 立即发送（异步）
+	go uc.sendNotificationAsync(notification)
 
 	return notification, nil
 }
 
 // sendNotificationAsync 异步发送通知
-func (uc *NotificationUsecase) sendNotificationAsync(
-	ctx context.Context,
-	notification *Notification,
-) {
+func (uc *NotificationUsecase) sendNotificationAsync(notification *domain.Notification) {
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "notification_id", notification.ID)
+
+	uc.log.WithContext(ctx).Infof("sending notification %s via %s", notification.ID, notification.Channel)
+
 	// 更新状态为发送中
-	notification.Status = "sending"
-	uc.notificationRepo.Update(ctx, notification)
+	notification.Status = domain.StatusSending
+	if err := uc.notificationRepo.Update(ctx, notification); err != nil {
+		uc.log.WithContext(ctx).Errorf("failed to update notification status: %v", err)
+	}
 
 	var err error
+	maxRetries := 3
 
-	// 根据渠道发送
-	switch notification.Channel {
-	case ChannelEmail:
-		err = uc.sendEmail(notification)
-	case ChannelSMS:
-		err = uc.sendSMS(notification)
-	case ChannelWebSocket:
-		err = uc.sendWebSocket(notification)
-	default:
-		err = errors.New("unsupported channel")
+	// 重试机制
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// 根据渠道发送
+		switch notification.Channel {
+		case domain.ChannelEmail:
+			err = uc.sendEmail(ctx, notification)
+		case domain.ChannelSMS:
+			err = uc.sendSMS(ctx, notification)
+		case domain.ChannelWebSocket, domain.ChannelInApp:
+			err = uc.sendWebSocket(ctx, notification)
+		default:
+			err = fmt.Errorf("unsupported channel: %s", notification.Channel)
+		}
+
+		if err == nil {
+			break
+		}
+
+		uc.log.WithContext(ctx).Warnf("attempt %d failed: %v", attempt, err)
+		notification.IncrementAttempts()
+
+		if attempt < maxRetries {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
 	}
 
 	// 更新状态
 	if err != nil {
-		notification.Status = "failed"
-		notification.Metadata["error"] = err.Error()
+		notification.MarkAsFailed(err)
+		uc.log.WithContext(ctx).Errorf("failed to send notification after %d attempts: %v", maxRetries, err)
 	} else {
-		notification.Status = "sent"
-		now := time.Now()
-		notification.SentAt = &now
+		notification.MarkAsSent()
+		uc.log.WithContext(ctx).Infof("notification sent successfully: %s", notification.ID)
 	}
 
-	notification.UpdatedAt = time.Now()
-	uc.notificationRepo.Update(ctx, notification)
+	if err := uc.notificationRepo.Update(ctx, notification); err != nil {
+		uc.log.WithContext(ctx).Errorf("failed to update notification: %v", err)
+	}
 }
 
 // sendEmail 发送邮件
-func (uc *NotificationUsecase) sendEmail(notification *Notification) error {
-	// 获取用户邮箱
-	email := notification.Metadata["email"]
-	if email == "" {
-		return errors.New("email not provided")
+func (uc *NotificationUsecase) sendEmail(ctx context.Context, notification *domain.Notification) error {
+	if notification.Recipient == "" {
+		return errors.New("email recipient not provided")
 	}
 
-	return uc.emailProvider.SendEmail(email, notification.Title, notification.Content)
+	return uc.emailProvider.SendEmail(ctx, notification.Recipient, notification.Title, notification.Content)
 }
 
 // sendSMS 发送短信
-func (uc *NotificationUsecase) sendSMS(notification *Notification) error {
-	// 获取用户手机号
-	phone := notification.Metadata["phone"]
-	if phone == "" {
-		return errors.New("phone not provided")
+func (uc *NotificationUsecase) sendSMS(ctx context.Context, notification *domain.Notification) error {
+	if notification.Recipient == "" {
+		return errors.New("phone number not provided")
 	}
 
-	return uc.smsProvider.SendSMS(phone, notification.Content)
+	return uc.smsProvider.SendSMS(ctx, notification.Recipient, notification.Content)
 }
 
 // sendWebSocket 发送WebSocket通知
-func (uc *NotificationUsecase) sendWebSocket(notification *Notification) error {
+func (uc *NotificationUsecase) sendWebSocket(ctx context.Context, notification *domain.Notification) error {
 	message := map[string]interface{}{
 		"id":       notification.ID,
 		"title":    notification.Title,
@@ -228,7 +248,7 @@ func (uc *NotificationUsecase) sendWebSocket(notification *Notification) error {
 		"metadata": notification.Metadata,
 	}
 
-	return uc.wsManager.SendToUser(notification.UserID, message)
+	return uc.wsManager.SendToUser(ctx, notification.UserID, message)
 }
 
 // GetUserNotifications 获取用户通知
@@ -236,7 +256,7 @@ func (uc *NotificationUsecase) GetUserNotifications(
 	ctx context.Context,
 	userID string,
 	limit, offset int,
-) ([]*Notification, error) {
+) ([]*domain.Notification, error) {
 	return uc.notificationRepo.GetByUserID(ctx, userID, limit, offset)
 }
 
@@ -250,14 +270,16 @@ func (uc *NotificationUsecase) MarkAsRead(
 		return err
 	}
 
+	if notification == nil {
+		return errors.New("notification not found")
+	}
+
 	// 权限检查
 	if notification.UserID != userID {
 		return errors.New("unauthorized")
 	}
 
-	now := time.Now()
-	notification.ReadAt = &now
-	notification.UpdatedAt = now
+	notification.MarkAsRead()
 
 	return uc.notificationRepo.Update(ctx, notification)
 }
@@ -277,19 +299,32 @@ func (uc *NotificationUsecase) SendBulkNotification(
 	userIDs []string,
 	req *NotificationRequest,
 ) error {
+	uc.log.WithContext(ctx).Infof("sending bulk notification to %d users", len(userIDs))
+
 	// 为每个用户创建通知
-	for _, userID := range userIDs {
-		req.UserID = userID
-		req.TenantID = tenantID
+	for _, uid := range userIDs {
+		// Create a copy of the request for each user
+		userReq := &NotificationRequest{
+			TenantID:    tenantID,
+			UserID:      uid,
+			Recipient:   req.Recipient,
+			Channel:     req.Channel,
+			Priority:    req.Priority,
+			TemplateID:  req.TemplateID,
+			Variables:   req.Variables,
+			Title:       req.Title,
+			Content:     req.Content,
+			Metadata:    req.Metadata,
+			ScheduledAt: req.ScheduledAt,
+		}
 
 		// 异步发送
-		go func(userID string) {
-			_, err := uc.SendNotification(context.Background(), req)
+		go func(userID string, request *NotificationRequest) {
+			_, err := uc.SendNotificationWithRequest(context.Background(), request)
 			if err != nil {
-				// 记录错误但不中断流程
-				// logger.Errorf("Failed to send notification to user %s: %v", userID, err)
+				uc.log.Errorf("failed to send notification to user %s: %v", userID, err)
 			}
-		}(userID)
+		}(uid, userReq)
 	}
 
 	return nil
@@ -301,22 +336,11 @@ func (uc *NotificationUsecase) renderTemplate(
 	variables map[string]interface{},
 ) (string, error) {
 	// 简单的变量替换
-	// 实际应该使用更强大的模板引擎（如text/template）
+	// 生产环境应该使用更强大的模板引擎（如text/template）
 	result := template
 	for key, value := range variables {
 		placeholder := fmt.Sprintf("{{%s}}", key)
-		result = replaceAll(result, placeholder, fmt.Sprintf("%v", value))
+		result = strings.ReplaceAll(result, placeholder, fmt.Sprintf("%v", value))
 	}
 	return result, nil
-}
-
-// generateID 生成ID
-func generateID() string {
-	return fmt.Sprintf("notif_%d", time.Now().UnixNano())
-}
-
-// replaceAll 替换所有
-func replaceAll(s, old, new string) string {
-	// 简化实现
-	return s
 }
