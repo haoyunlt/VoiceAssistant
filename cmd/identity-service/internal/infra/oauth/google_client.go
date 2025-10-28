@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"voiceassistant/cmd/identity-service/internal/domain"
+	"voicehelper/cmd/identity-service/internal/domain"
 )
 
 // GoogleClient Google OAuth客户端

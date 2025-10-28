@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"time"
-	"voiceassistant/cmd/analytics-service/internal/domain"
+	"voicehelper/cmd/analytics-service/internal/domain"
 
 	"gorm.io/gorm"
 )

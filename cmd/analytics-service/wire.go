@@ -4,12 +4,12 @@
 package main
 
 import (
-	"voiceassistant/cmd/analytics-service/internal/app"
-	"voiceassistant/cmd/analytics-service/internal/biz"
-	"voiceassistant/cmd/analytics-service/internal/conf"
-	"voiceassistant/cmd/analytics-service/internal/data"
-	"voiceassistant/cmd/analytics-service/internal/server"
-	"voiceassistant/cmd/analytics-service/internal/service"
+	"voicehelper/cmd/analytics-service/internal/app"
+	"voicehelper/cmd/analytics-service/internal/biz"
+	"voicehelper/cmd/analytics-service/internal/conf"
+	"voicehelper/cmd/analytics-service/internal/data"
+	"voicehelper/cmd/analytics-service/internal/server"
+	"voicehelper/cmd/analytics-service/internal/service"
 
 	"github.com/google/wire"
 	"go.uber.org/zap"

@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"voiceassistant/cmd/model-router/internal/data"
+	"voicehelper/cmd/model-router/internal/data"
 )
 
 // Config 应用配置

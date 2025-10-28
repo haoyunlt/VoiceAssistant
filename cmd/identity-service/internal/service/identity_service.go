@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"voiceassistant/cmd/identity-service/internal/biz"
-	"voiceassistant/cmd/identity-service/internal/domain"
+	"voicehelper/cmd/identity-service/internal/biz"
+	"voicehelper/cmd/identity-service/internal/domain"
 
-	pb "voiceassistant/api/proto/identity/v1"
+	pb "voicehelper/api/proto/identity/v1"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/emptypb"

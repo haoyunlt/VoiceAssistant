@@ -2,7 +2,7 @@ package server
 
 import (
 	"net/http"
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/domain"
 
 	"github.com/gin-gonic/gin"
 )

@@ -75,7 +75,7 @@ server:
 data:
   database:
     driver: postgres
-    source: "host=localhost port=5432 user=voiceassistant password=voiceassistant dbname=notification_service sslmode=disable"
+    source: "host=localhost port=5432 user=voicehelper password=voicehelper dbname=notification_service sslmode=disable"
   redis:
     addr: "localhost:6379"
     password: ""
@@ -101,8 +101,8 @@ go mod download
 ```bash
 docker run -d \
   --name notification-postgres \
-  -e POSTGRES_USER=voiceassistant \
-  -e POSTGRES_PASSWORD=voiceassistant \
+  -e POSTGRES_USER=voicehelper \
+  -e POSTGRES_PASSWORD=voicehelper \
   -e POSTGRES_DB=notification_service \
   -p 5432:5432 \
   postgres:14
@@ -142,7 +142,7 @@ curl -X POST http://localhost:8005/api/v1/notifications \
     "channel": "email",
     "priority": "high",
     "title": "Welcome",
-    "content": "Welcome to VoiceAssistant!"
+    "content": "Welcome to VoiceHelper!"
   }'
 ```
 

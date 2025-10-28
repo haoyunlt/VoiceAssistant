@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"voiceassistant/cmd/identity-service/internal/domain"
-	pkgErrors "voiceassistant/pkg/errors"
+	"voicehelper/cmd/identity-service/internal/domain"
+	pkgErrors "voicehelper/pkg/errors"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/golang-jwt/jwt/v5"

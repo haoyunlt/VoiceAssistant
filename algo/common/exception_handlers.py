@@ -13,14 +13,14 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .exceptions import (
-    VoiceAssistantError,
-    get_http_status_code,
-    ServiceTimeoutError,
-    ServiceUnavailableError,
-    ResourceNotFoundError,
-    ValidationError,
     AuthenticationError,
     AuthorizationError,
+    ResourceNotFoundError,
+    ServiceTimeoutError,
+    ServiceUnavailableError,
+    ValidationError,
+    VoiceHelperError,
+    get_http_status_code,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,10 +34,8 @@ def register_exception_handlers(app: FastAPI):
         app: FastAPI 应用实例
     """
 
-    @app.exception_handler(VoiceAssistantError)
-    async def voice_assistant_exception_handler(
-        request: Request, exc: VoiceAssistantError
-    ):
+    @app.exception_handler(VoiceHelperError)
+    async def voice_assistant_exception_handler(request: Request, exc: VoiceHelperError):
         """处理自定义业务异常"""
         status_code = get_http_status_code(exc)
 
@@ -75,9 +73,7 @@ def register_exception_handlers(app: FastAPI):
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(
-        request: Request, exc: RequestValidationError
-    ):
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
         """处理请求验证错误（Pydantic）"""
         logger.warning(
             f"Validation error: {exc}",
@@ -98,9 +94,7 @@ def register_exception_handlers(app: FastAPI):
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(
-        request: Request, exc: StarletteHTTPException
-    ):
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         """处理 HTTP 异常"""
         logger.warning(
             f"HTTP exception: {exc.status_code} - {exc.detail}",
@@ -135,6 +129,7 @@ def register_exception_handlers(app: FastAPI):
         # 从追踪中获取 trace_id（如果有）
         try:
             from .telemetry import get_current_span
+
             span = get_current_span()
             trace_id = span.get_span_context().trace_id if span.is_recording() else None
         except Exception:

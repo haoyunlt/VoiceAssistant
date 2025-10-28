@@ -3,7 +3,7 @@ package infra
 import (
 	"context"
 	"fmt"
-	"voiceassistant/cmd/notification-service/internal/biz"
+	"voicehelper/cmd/notification-service/internal/biz"
 
 	"github.com/go-kratos/kratos/v2/log"
 )

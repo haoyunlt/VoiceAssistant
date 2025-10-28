@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"voiceassistant/cmd/conversation-service/internal/biz"
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/biz"
+	"voicehelper/cmd/conversation-service/internal/domain"
 )
 
 // ConversationService 对话服务实现

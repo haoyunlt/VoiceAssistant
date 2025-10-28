@@ -1,7 +1,7 @@
 package main
 
 import (
-	"voiceassistant/cmd/identity-service/internal/data"
+	"voicehelper/cmd/identity-service/internal/data"
 
 	"github.com/redis/go-redis/v9"
 )

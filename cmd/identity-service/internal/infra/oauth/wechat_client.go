@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"voiceassistant/cmd/identity-service/internal/domain"
+	"voicehelper/cmd/identity-service/internal/domain"
 )
 
 // WechatClient 微信OAuth客户端

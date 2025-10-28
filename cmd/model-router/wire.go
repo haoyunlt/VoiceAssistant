@@ -4,12 +4,12 @@
 package main
 
 import (
-	"voiceassistant/cmd/model-router/internal/application"
-	"voiceassistant/cmd/model-router/internal/data"
-	"voiceassistant/cmd/model-router/internal/domain"
-	"voiceassistant/cmd/model-router/internal/infrastructure"
-	"voiceassistant/cmd/model-router/internal/server"
-	"voiceassistant/cmd/model-router/internal/service"
+	"voicehelper/cmd/model-router/internal/application"
+	"voicehelper/cmd/model-router/internal/data"
+	"voicehelper/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/infrastructure"
+	"voicehelper/cmd/model-router/internal/server"
+	"voicehelper/cmd/model-router/internal/service"
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"

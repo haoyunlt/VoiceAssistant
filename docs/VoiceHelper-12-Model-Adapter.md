@@ -1,8 +1,8 @@
-# VoiceAssistant - 12 - Model Adapter
+# VoiceHelper - 12 - Model Adapter
 
 ## 模块概览
 
-Model Adapter（模型适配器）是 VoiceAssistant 系统中的**统一 LLM 访问层**，为上游服务（AI Orchestrator、Agent Engine、RAG Engine）提供标准化的大模型调用接口。该服务屏蔽了不同 LLM 提供商的 API 差异，实现了协议转换、成本计算、请求缓存、流式处理等核心能力，支持 OpenAI、Claude、智谱 AI、通义千问、百度文心等多个主流模型提供商。
+Model Adapter（模型适配器）是 VoiceHelper 系统中的**统一 LLM 访问层**，为上游服务（AI Orchestrator、Agent Engine、RAG Engine）提供标准化的大模型调用接口。该服务屏蔽了不同 LLM 提供商的 API 差异，实现了协议转换、成本计算、请求缓存、流式处理等核心能力，支持 OpenAI、Claude、智谱 AI、通义千问、百度文心等多个主流模型提供商。
 
 **核心定位**：作为系统与外部大模型服务之间的**抽象层和适配层**，Model Adapter 解决了多模型提供商集成的复杂性问题，使上游服务可以通过统一接口访问不同的大模型，降低了集成成本和切换成本。
 

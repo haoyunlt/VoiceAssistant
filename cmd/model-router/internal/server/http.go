@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"voiceassistant/cmd/model-router/internal/service"
+	"voicehelper/cmd/model-router/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-kratos/kratos/v2/log"

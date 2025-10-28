@@ -188,7 +188,7 @@ auth:
 data:
   database:
     driver: postgres
-    source: "host=localhost port=5432 user=postgres password=password dbname=voiceassistant sslmode=disable"
+    source: "host=localhost port=5432 user=postgres password=password dbname=voicehelper sslmode=disable"
 
   redis:
     addr: localhost:6379
@@ -356,4 +356,4 @@ go vet ./...
 
 ## License
 
-Copyright © 2025 VoiceAssistant Team
+Copyright © 2025 VoiceHelper Team

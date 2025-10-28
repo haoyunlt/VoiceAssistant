@@ -1,8 +1,8 @@
-# VoiceAssistant - 19 - 最佳实践与实战案例
+# VoiceHelper - 19 - 最佳实践与实战案例
 
 ## 概述
 
-本文档汇总了 VoiceAssistant 平台在实际开发和生产环境中的最佳实践、实战经验和具体案例。这些实践经过验证，可以显著提升系统性能、稳定性和用户体验。
+本文档汇总了 VoiceHelper 平台在实际开发和生产环境中的最佳实践、实战经验和具体案例。这些实践经过验证，可以显著提升系统性能、稳定性和用户体验。
 
 ## 框架使用示例
 
@@ -84,14 +84,14 @@ if __name__ == "__main__":
     user_msg = send_message(
         conversation_id=conv['id'],
         user_id="user_123",
-        content="你好，请介绍一下VoiceAssistant的主要功能"
+        content="你好，请介绍一下VoiceHelper的主要功能"
     )
     print(f"用户消息: {user_msg['content']}")
 
     # 获取AI回复
     ai_response = get_ai_response(
         conversation_id=conv['id'],
-        user_message="你好，请介绍一下VoiceAssistant的主要功能"
+        user_message="你好，请介绍一下VoiceHelper的主要功能"
     )
     print(f"AI回复: {ai_response['reply']}")
     print(f"引用来源: {len(ai_response.get('citations', []))} 条")
@@ -334,7 +334,7 @@ if __name__ == "__main__":
     execute_agent_task(
         task="""
         帮我完成以下任务:
-        1. 从知识库中搜索关于VoiceAssistant的介绍
+        1. 从知识库中搜索关于VoiceHelper的介绍
         2. 总结其核心功能（不超过200字）
         3. 生成一份产品宣传文案
         """,
@@ -474,7 +474,7 @@ if __name__ == "__main__":
         user_id=user_id,
         tenant_id=tenant_id,
         name="产品文档",
-        description="VoiceAssistant产品相关文档"
+        description="VoiceHelper产品相关文档"
     )
     print(f"知识库创建成功: {collection['id']}")
 
@@ -492,7 +492,7 @@ if __name__ == "__main__":
         # 执行RAG查询
         result = rag_query(
             collection_ids=[collection['id']],
-            query="VoiceAssistant支持哪些语音识别语言？",
+            query="VoiceHelper支持哪些语音识别语言？",
             user_id=user_id,
             top_k=5
         )
@@ -1050,7 +1050,7 @@ async def main():
     # 场景1: 产品咨询
     response1 = await bot.handle_user_message(
         user_id, tenant_id,
-        "VoiceAssistant支持哪些语音识别语言？"
+        "VoiceHelper支持哪些语音识别语言？"
     )
     print(f"Bot: {response1}")
 

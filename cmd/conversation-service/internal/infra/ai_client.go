@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	pb "voiceassistant/api/proto/ai-orchestrator/v1"
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	pb "voicehelper/api/proto/ai-orchestrator/v1"
+	"voicehelper/cmd/conversation-service/internal/domain"
 )
 
 // AIClient AI Orchestrator 客户端

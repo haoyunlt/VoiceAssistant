@@ -52,7 +52,7 @@ nacos:
 # export CONFIG_MODE=nacos
 # export NACOS_SERVER_ADDR=nacos.example.com
 # export NACOS_NAMESPACE=production
-# export NACOS_GROUP=VoiceAssistant
+# export NACOS_GROUP=VoiceHelper
 # export NACOS_USERNAME=admin
 # export NACOS_PASSWORD=admin123
 
@@ -65,20 +65,20 @@ nacos:
 #   server_addr: "localhost"
 #   server_port: 8848
 #   namespace: "dev"
-#   group: "VoiceAssistant"
+#   group: "VoiceHelper"
 
 # 测试环境
 # nacos:
 #   server_addr: "nacos-test.internal"
 #   server_port: 8848
 #   namespace: "test"
-#   group: "VoiceAssistant"
+#   group: "VoiceHelper"
 
 # 生产环境
 # nacos:
 #   server_addr: "nacos.prod.internal"
 #   server_port: 8848
 #   namespace: "prod"
-#   group: "VoiceAssistant"
+#   group: "VoiceHelper"
 #   username: "prod-user"
 #   password: "${NACOS_PASSWORD}"  # 从环境变量读取

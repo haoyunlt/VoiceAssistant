@@ -10,11 +10,11 @@ import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-	"voiceassistant/cmd/notification-service/internal/biz"
-	"voiceassistant/cmd/notification-service/internal/data"
-	"voiceassistant/cmd/notification-service/internal/infra"
-	"voiceassistant/cmd/notification-service/internal/server"
-	"voiceassistant/cmd/notification-service/internal/service"
+	"voicehelper/cmd/notification-service/internal/biz"
+	"voicehelper/cmd/notification-service/internal/data"
+	"voicehelper/cmd/notification-service/internal/infra"
+	"voicehelper/cmd/notification-service/internal/server"
+	"voicehelper/cmd/notification-service/internal/service"
 )
 
 // Injectors from wire.go:

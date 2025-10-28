@@ -1,8 +1,8 @@
-# VoiceAssistant - 17 - 共享组件 - Middleware, Resilience
+# VoiceHelper - 17 - 共享组件 - Middleware, Resilience
 
 ## 模块概览
 
-本文档介绍 VoiceAssistant 平台的 Middleware（中间件）和 Resilience（弹性）组件。这些组件作为平台的基础设施层，为所有服务提供统一的认证授权、限流熔断、重试降级等能力，是保障系统稳定性、安全性和高可用性的核心组件。
+本文档介绍 VoiceHelper 平台的 Middleware（中间件）和 Resilience（弹性）组件。这些组件作为平台的基础设施层，为所有服务提供统一的认证授权、限流熔断、重试降级等能力，是保障系统稳定性、安全性和高可用性的核心组件。
 
 ### 职责范围
 

@@ -1,24 +1,24 @@
 apiVersion: v2
 name: identity-service
-description: VoiceAssistant Identity Service - 用户认证与租户管理服务
+description: VoiceHelper Identity Service - 用户认证与租户管理服务
 type: application
 version: 2.0.0
 appVersion: "v2.0.0"
 
 keywords:
-  - voiceassistant
+  - voicehelper
   - identity
   - authentication
   - authorization
   - kratos
 
 maintainers:
-  - name: VoiceAssistant Team
+  - name: VoiceHelper Team
     email: team@voiceassistant.ai
 
-home: https://github.com/voiceassistant/voiceassistant
+home: https://github.com/voicehelper/voicehelper
 
 sources:
-  - https://github.com/voiceassistant/voiceassistant
+  - https://github.com/voicehelper/voicehelper
 
 dependencies: []

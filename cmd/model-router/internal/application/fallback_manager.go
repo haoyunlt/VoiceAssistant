@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"voiceassistant/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/domain"
 )
 
 // FallbackRule 降级规则

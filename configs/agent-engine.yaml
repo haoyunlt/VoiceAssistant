@@ -6,7 +6,7 @@ nacos:
   server_addr: "localhost"
   server_port: 8848
   namespace: ""
-  group: "VoiceAssistant"
+  group: "VoiceHelper"
   data_id: "agent-engine.yaml"
   username: ""
   password: ""

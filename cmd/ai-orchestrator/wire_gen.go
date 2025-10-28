@@ -9,11 +9,11 @@ package main
 import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
-	"voiceassistant/cmd/ai-orchestrator/internal/biz"
-	"voiceassistant/cmd/ai-orchestrator/internal/data"
-	"voiceassistant/cmd/ai-orchestrator/internal/domain"
-	"voiceassistant/cmd/ai-orchestrator/internal/server"
-	"voiceassistant/cmd/ai-orchestrator/internal/service"
+	"voicehelper/cmd/ai-orchestrator/internal/biz"
+	"voicehelper/cmd/ai-orchestrator/internal/data"
+	"voicehelper/cmd/ai-orchestrator/internal/domain"
+	"voicehelper/cmd/ai-orchestrator/internal/server"
+	"voicehelper/cmd/ai-orchestrator/internal/service"
 )
 
 import (

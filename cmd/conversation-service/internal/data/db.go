@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"voiceassistant/pkg/database"
+	"voicehelper/pkg/database"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"

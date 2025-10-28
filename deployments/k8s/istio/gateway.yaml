@@ -13,7 +13,7 @@ metadata:
     app: istio-ingressgateway
     version: v3.0
   annotations:
-    description: "Main gateway for VoiceAssistant platform (replaces APISIX)"
+    description: "Main gateway for VoiceHelper platform (replaces APISIX)"
 spec:
   selector:
     istio: ingressgateway # 使用默认的Istio Ingress Gateway

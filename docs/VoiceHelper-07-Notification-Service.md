@@ -1,8 +1,8 @@
-# VoiceAssistant - 07 - Notification Service
+# VoiceHelper - 07 - Notification Service
 
 ## 模块概览
 
-Notification Service（通知服务）是 VoiceAssistant 平台的消息通知中心，负责处理系统通知、事件分发和多渠道消息推送。该服务基于 Kratos 微服务框架和 DDD（领域驱动设计）架构，支持邮件、短信、WebSocket、WebHook、站内信等多种通知渠道，提供模板管理、定时发送、批量推送、重试机制等完整功能，为用户提供及时、可靠的消息通知体验。
+Notification Service（通知服务）是 VoiceHelper 平台的消息通知中心，负责处理系统通知、事件分发和多渠道消息推送。该服务基于 Kratos 微服务框架和 DDD（领域驱动设计）架构，支持邮件、短信、WebSocket、WebHook、站内信等多种通知渠道，提供模板管理、定时发送、批量推送、重试机制等完整功能，为用户提供及时、可靠的消息通知体验。
 
 ### 技术栈
 
@@ -858,7 +858,7 @@ func (s *WebHookSender) Send(notification *Notification) error {
 
     req, _ := http.NewRequestWithContext(ctx, "POST", webhookURL, payloadBytes)
     req.Header.Set("Content-Type", "application/json")
-    req.Header.Set("User-Agent", "VoiceAssistant-Notification/1.0")
+    req.Header.Set("User-Agent", "VoiceHelper-Notification/1.0")
     req.Header.Set("X-Signature", signature)
 
     resp, err := s.httpClient.Do(req)
@@ -2589,9 +2589,9 @@ sequenceDiagram
     "template_id": "tmpl_welcome",  // 可选，使用模板
     "variables": {  // 模板变量
         "user_name": "张三",
-        "product_name": "VoiceAssistant"
+        "product_name": "VoiceHelper"
     },
-    "title": "欢迎使用VoiceAssistant",  // 不使用模板时必填
+    "title": "欢迎使用VoiceHelper",  // 不使用模板时必填
     "content": "欢迎您注册...",  // 不使用模板时必填
     "metadata": {  // 额外信息
         "email": "user@example.com",
@@ -3032,7 +3032,7 @@ SMTP_FROM=noreply@example.com
 # 阿里云短信配置
 ALIYUN_SMS_ACCESS_KEY_ID=your_access_key
 ALIYUN_SMS_ACCESS_KEY_SECRET=your_secret
-ALIYUN_SMS_SIGN_NAME=VoiceAssistant
+ALIYUN_SMS_SIGN_NAME=VoiceHelper
 ALIYUN_SMS_TEMPLATE_CODE=SMS_123456789
 ```
 
@@ -3067,7 +3067,7 @@ channels:
     aliyun:
       access_key_id: ${ALIYUN_SMS_ACCESS_KEY_ID}
       access_key_secret: ${ALIYUN_SMS_ACCESS_KEY_SECRET}
-      sign_name: VoiceAssistant
+      sign_name: VoiceHelper
     tencent:
       app_id: ${TENCENT_SMS_APP_ID}
       app_key: ${TENCENT_SMS_APP_KEY}

@@ -12,7 +12,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	eventsv1 "voiceassistant/api/proto/events/v1"
+	eventsv1 "voicehelper/api/proto/events/v1"
 )
 
 // Publisher 事件发布器接口

@@ -3,7 +3,7 @@ nacos:
   server_addr: "localhost"
   server_port: 8848
   namespace: ""
-  group: "VoiceAssistant"
+  group: "VoiceHelper"
   data_id: "knowledge-service.yaml"
   username: ""
   password: ""
@@ -23,7 +23,7 @@ server:
 data:
   database:
     driver: postgres
-    source: postgresql://voiceassistant:password@postgres:5432/voiceassistant?sslmode=disable&search_path=knowledge
+    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=knowledge
   redis:
     addr: redis:6379
     db: 2
@@ -31,7 +31,7 @@ data:
     endpoint: minio:9000
     access_key: minioadmin
     secret_key: minioadmin
-    bucket: voiceassistant-documents
+    bucket: voicehelper-documents
     use_ssl: false
 
 # 存储配置

@@ -2,7 +2,7 @@
 
 ## 概述
 
-Agent Engine 是 VoiceAssistant 平台的 AI Agent 执行引擎，负责：
+Agent Engine 是 VoiceHelper 平台的 AI Agent 执行引擎，负责：
 
 - **Agent 任务执行**：基于 ReAct 模式的智能任务执行
 - **工具调用**：管理和执行各种工具（计算器、搜索、知识库等）

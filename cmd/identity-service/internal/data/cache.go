@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
-	"voiceassistant/cmd/identity-service/internal/domain"
+	"voicehelper/cmd/identity-service/internal/domain"
 )
 
 const (

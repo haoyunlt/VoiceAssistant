@@ -3,8 +3,8 @@ package data
 import (
 	"context"
 	"time"
-	"voiceassistant/cmd/model-router/internal/domain"
-	"voiceassistant/cmd/model-router/internal/infrastructure"
+	"voicehelper/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/infrastructure"
 
 	"github.com/go-kratos/kratos/v2/log"
 )

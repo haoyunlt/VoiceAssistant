@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"voiceassistant/cmd/notification-service/internal/biz"
-	"voiceassistant/cmd/notification-service/internal/domain"
+	"voicehelper/cmd/notification-service/internal/biz"
+	"voicehelper/cmd/notification-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/timestamppb"

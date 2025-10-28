@@ -1,8 +1,8 @@
-# VoiceAssistant 源码剖析文档
+# VoiceHelper 源码剖析文档
 
 ## 文档概述
 
-本文档集是 VoiceAssistant 项目的完整源码剖析文档，严格按照《源码剖析通用需求清单.md》的规范编写，旨在帮助开发者由浅入深地精通整个项目的源代码逻辑。
+本文档集是 VoiceHelper 项目的完整源码剖析文档，严格按照《源码剖析通用需求清单.md》的规范编写，旨在帮助开发者由浅入深地精通整个项目的源代码逻辑。
 
 ### 文档特点
 
@@ -19,8 +19,8 @@
 
 | 文档                                                             | 说明                                           | 状态 |
 | ---------------------------------------------------------------- | ---------------------------------------------- | ---- |
-| [00-总览](VoiceAssistant-00-总览.md)                             | 系统整体架构、技术栈、全局时序图、模块交互关系 | ✅   |
-| [19-最佳实践与实战案例](VoiceAssistant-19-最佳实践与实战案例.md) | 框架使用示例、实战经验、性能优化、故障处理案例 | ✅   |
+| [00-总览](VoiceHelper-00-总览.md)                             | 系统整体架构、技术栈、全局时序图、模块交互关系 | ✅   |
+| [19-最佳实践与实战案例](VoiceHelper-19-最佳实践与实战案例.md) | 框架使用示例、实战经验、性能优化、故障处理案例 | ✅   |
 
 **阅读建议**：新员工必读，建立整体认知。
 
@@ -32,16 +32,16 @@
 
 | 文档                                                                 | 说明                                     | 状态 | 质量       |
 | -------------------------------------------------------------------- | ---------------------------------------- | ---- | ---------- |
-| [01-AI-Orchestrator](VoiceAssistant-01-AI-Orchestrator.md)           | AI 任务编排、智能路由、多引擎协调        | ✅   | ⭐⭐⭐⭐⭐ |
-| [02-Conversation-Service](VoiceAssistant-02-Conversation-Service.md) | 对话管理、消息存储、上下文管理、流式推送 | ✅   | ⭐⭐⭐⭐⭐ |
-| [03-Identity-Service](VoiceAssistant-03-Identity-Service.md)         | 认证授权、JWT、RBAC、租户管理            | ✅   | ⭐⭐⭐⭐⭐ |
-| [04-Knowledge-Service](VoiceAssistant-04-Knowledge-Service.md)       | 文档管理、集合管理、版本控制             | ✅   | ⭐⭐⭐⭐   |
+| [01-AI-Orchestrator](VoiceHelper-01-AI-Orchestrator.md)           | AI 任务编排、智能路由、多引擎协调        | ✅   | ⭐⭐⭐⭐⭐ |
+| [02-Conversation-Service](VoiceHelper-02-Conversation-Service.md) | 对话管理、消息存储、上下文管理、流式推送 | ✅   | ⭐⭐⭐⭐⭐ |
+| [03-Identity-Service](VoiceHelper-03-Identity-Service.md)         | 认证授权、JWT、RBAC、租户管理            | ✅   | ⭐⭐⭐⭐⭐ |
+| [04-Knowledge-Service](VoiceHelper-04-Knowledge-Service.md)       | 文档管理、集合管理、版本控制             | ✅   | ⭐⭐⭐⭐   |
 
 #### 路由与管理服务
 
 | 文档                                                 | 说明                                                  | 状态 | 质量       |
 | ---------------------------------------------------- | ----------------------------------------------------- | ---- | ---------- |
-| [05-Model-Router](VoiceAssistant-05-Model-Router.md) | **新增** LLM 多策略路由、负载均衡、故障转移、熔断保护 | ✅   | ⭐⭐⭐⭐⭐ |
+| [05-Model-Router](VoiceHelper-05-Model-Router.md) | **新增** LLM 多策略路由、负载均衡、故障转移、熔断保护 | ✅   | ⭐⭐⭐⭐⭐ |
 | 06-Analytics-Service                                 | 数据分析、实时统计、报表生成                          | 📝   | -          |
 | 07-Notification-Service                              | 多渠道通知、模板管理、通知队列                        | 📝   | -          |
 
@@ -59,8 +59,8 @@
 
 | 文档                                                 | 说明                                                 | 状态 | 质量       |
 | ---------------------------------------------------- | ---------------------------------------------------- | ---- | ---------- |
-| [08-Agent-Engine](VoiceAssistant-08-Agent-Engine.md) | **新增** ReAct/Plan-Execute 详解、工具注册、记忆管理 | ✅   | ⭐⭐⭐⭐⭐ |
-| [09-RAG-Engine](VoiceAssistant-09-RAG-Engine.md)     | **新增** 查询改写、混合检索、Self-RAG、引用追踪      | ✅   | ⭐⭐⭐⭐⭐ |
+| [08-Agent-Engine](VoiceHelper-08-Agent-Engine.md) | **新增** ReAct/Plan-Execute 详解、工具注册、记忆管理 | ✅   | ⭐⭐⭐⭐⭐ |
+| [09-RAG-Engine](VoiceHelper-09-RAG-Engine.md)     | **新增** 查询改写、混合检索、Self-RAG、引用追踪      | ✅   | ⭐⭐⭐⭐⭐ |
 | 10-Voice-Engine                                      | ASR/TTS、VAD 检测、WebSocket 流式处理                | 📝   | -          |
 | 11-Multimodal-Engine                                 | 图像识别、OCR、视频分析                              | 📝   | -          |
 
@@ -105,10 +105,10 @@
 
 ### 🎯 快速入门（新员工）
 
-1. [00-总览](VoiceAssistant-00-总览.md) - 理解整体架构
-2. [01-AI-Orchestrator](VoiceAssistant-01-AI-Orchestrator.md) - 理解 AI 任务如何被编排
-3. [08-Agent-Engine](VoiceAssistant-08-Agent-Engine.md) - 理解 Agent 如何自主执行任务
-4. [09-RAG-Engine](VoiceAssistant-09-RAG-Engine.md) - 理解 RAG 如何生成答案
+1. [00-总览](VoiceHelper-00-总览.md) - 理解整体架构
+2. [01-AI-Orchestrator](VoiceHelper-01-AI-Orchestrator.md) - 理解 AI 任务如何被编排
+3. [08-Agent-Engine](VoiceHelper-08-Agent-Engine.md) - 理解 Agent 如何自主执行任务
+4. [09-RAG-Engine](VoiceHelper-09-RAG-Engine.md) - 理解 RAG 如何生成答案
 
 **预计阅读时间**：4-6 小时
 **效果**：建立整体认知，理解核心 AI 能力
@@ -117,30 +117,30 @@
 
 #### 理解 AI 能力实现
 
-1. [08-Agent-Engine](VoiceAssistant-08-Agent-Engine.md) - ReAct/Plan-Execute 详细实现
-2. [09-RAG-Engine](VoiceAssistant-09-RAG-Engine.md) - 查询改写、Self-RAG 详细实现
+1. [08-Agent-Engine](VoiceHelper-08-Agent-Engine.md) - ReAct/Plan-Execute 详细实现
+2. [09-RAG-Engine](VoiceHelper-09-RAG-Engine.md) - 查询改写、Self-RAG 详细实现
 3. 13-Retrieval-Service（待完善） - 混合检索和重排序
 4. 14-Indexing-Service（待完善） - 文档解析和向量化
 
 #### 理解服务架构
 
-1. [00-总览](VoiceAssistant-00-总览.md) - 整体架构和服务关系
-2. [01-AI-Orchestrator](VoiceAssistant-01-AI-Orchestrator.md) - AI 任务编排和路由
-3. [02-Conversation-Service](VoiceAssistant-02-Conversation-Service.md) - 对话管理和上下文
-4. [05-Model-Router](VoiceAssistant-05-Model-Router.md) - LLM 路由和负载均衡
+1. [00-总览](VoiceHelper-00-总览.md) - 整体架构和服务关系
+2. [01-AI-Orchestrator](VoiceHelper-01-AI-Orchestrator.md) - AI 任务编排和路由
+3. [02-Conversation-Service](VoiceHelper-02-Conversation-Service.md) - 对话管理和上下文
+4. [05-Model-Router](VoiceHelper-05-Model-Router.md) - LLM 路由和负载均衡
 
 #### 理解认证授权
 
-1. [03-Identity-Service](VoiceAssistant-03-Identity-Service.md) - JWT 和 RBAC 详解
+1. [03-Identity-Service](VoiceHelper-03-Identity-Service.md) - JWT 和 RBAC 详解
 2. 16-共享组件-Auth-Cache-Config（待完善） - 认证组件详解
 
 ### 🛠️ 问题排查（运维/SRE）
 
 #### 性能问题
 
-1. [00-总览](VoiceAssistant-00-总览.md) - 查看性能指标和关键路径
-2. [05-Model-Router](VoiceAssistant-05-Model-Router.md) - 查看路由策略和性能优化
-3. [19-最佳实践与实战案例](VoiceAssistant-19-最佳实践与实战案例.md) - 查看性能优化案例
+1. [00-总览](VoiceHelper-00-总览.md) - 查看性能指标和关键路径
+2. [05-Model-Router](VoiceHelper-05-Model-Router.md) - 查看路由策略和性能优化
+3. [19-最佳实践与实战案例](VoiceHelper-19-最佳实践与实战案例.md) - 查看性能优化案例
 
 #### 功能问题
 
@@ -151,7 +151,7 @@
 
 #### 监控告警
 
-1. [19-最佳实践与实战案例](VoiceAssistant-19-最佳实践与实战案例.md) - 查看故障处理案例
+1. [19-最佳实践与实战案例](VoiceHelper-19-最佳实践与实战案例.md) - 查看故障处理案例
 2. 18-共享组件-Events-Monitoring（待完善） - 查看监控组件详解
 
 ---
@@ -167,14 +167,14 @@
 - 功能扩展和性能优化
 - 架构评审和技术分享
 
-- VoiceAssistant-00-总览.md
-- VoiceAssistant-01-AI-Orchestrator.md
-- VoiceAssistant-02-Conversation-Service.md
-- VoiceAssistant-03-Identity-Service.md
-- VoiceAssistant-05-Model-Router.md ⭐️ 新增 ⭐️
-- VoiceAssistant-08-Agent-Engine.md ⭐️ 新增 ⭐️
-- VoiceAssistant-09-RAG-Engine.md ⭐️ 新增 ⭐️
-- VoiceAssistant-19-最佳实践与实战案例.md
+- VoiceHelper-00-总览.md
+- VoiceHelper-01-AI-Orchestrator.md
+- VoiceHelper-02-Conversation-Service.md
+- VoiceHelper-03-Identity-Service.md
+- VoiceHelper-05-Model-Router.md ⭐️ 新增 ⭐️
+- VoiceHelper-08-Agent-Engine.md ⭐️ 新增 ⭐️
+- VoiceHelper-09-RAG-Engine.md ⭐️ 新增 ⭐️
+- VoiceHelper-19-最佳实践与实战案例.md
 
 ### 📝 待完善文档
 
@@ -182,26 +182,26 @@
 
 **极高优先级**（RAG 核心依赖）：
 
-- VoiceAssistant-13-Retrieval-Service.md
-- VoiceAssistant-14-Indexing-Service.md
+- VoiceHelper-13-Retrieval-Service.md
+- VoiceHelper-14-Indexing-Service.md
 
 **高优先级**（AI 核心能力）：
 
-- VoiceAssistant-10-Voice-Engine.md
-- VoiceAssistant-12-Model-Adapter.md
+- VoiceHelper-10-Voice-Engine.md
+- VoiceHelper-12-Model-Adapter.md
 
 **中优先级**（管理服务）：
 
-- VoiceAssistant-06-Analytics-Service.md
-- VoiceAssistant-07-Notification-Service.md
-- VoiceAssistant-11-Multimodal-Engine.md
-- VoiceAssistant-15-Vector-Store-Adapter.md
+- VoiceHelper-06-Analytics-Service.md
+- VoiceHelper-07-Notification-Service.md
+- VoiceHelper-11-Multimodal-Engine.md
+- VoiceHelper-15-Vector-Store-Adapter.md
 
 **低优先级**（共享组件）：
 
-- VoiceAssistant-16-共享组件-Auth-Cache-Config.md
-- VoiceAssistant-17-共享组件-Middleware-Resilience.md
-- VoiceAssistant-18-共享组件-Events-Monitoring.md
+- VoiceHelper-16-共享组件-Auth-Cache-Config.md
+- VoiceHelper-17-共享组件-Middleware-Resilience.md
+- VoiceHelper-18-共享组件-Events-Monitoring.md
 
 ---
 
@@ -265,7 +265,7 @@
 
 **文档集版本**：v1.0
 **最后更新**：2025-01-27
-**维护者**：VoiceAssistant 技术团队
+**维护者**：VoiceHelper 技术团队
 
 **变更日志**：
 

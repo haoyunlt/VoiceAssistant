@@ -231,7 +231,7 @@ uploads/
 # - docs/code-quality/*
 
 # 排除详细服务文档
-docs/VoiceAssistant-*.md
+# docs/VoiceHelper-*.md
 
 # Documentation build output
 docs/_build/

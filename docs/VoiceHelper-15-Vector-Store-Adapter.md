@@ -1,14 +1,14 @@
-# VoiceAssistant - 15 - Vector Store Adapter
+# VoiceHelper - 15 - Vector Store Adapter
 
 ## 模块概览
 
-Vector Store Adapter（向量存储适配器）是 VoiceAssistant 系统中向量数据库的统一访问层，为上层服务（Indexing Service、Retrieval Service、RAG Engine）提供标准化的向量存储接口。该模块通过适配器模式封装底层向量数据库（Milvus、pgvector），实现向量数据库的解耦与切换。
+Vector Store Adapter（向量存储适配器）是 VoiceHelper 系统中向量数据库的统一访问层，为上层服务（Indexing Service、Retrieval Service、RAG Engine）提供标准化的向量存储接口。该模块通过适配器模式封装底层向量数据库（Milvus、pgvector），实现向量数据库的解耦与切换。
 
 ### 模块定位与价值
 
 **系统定位**
 
-Vector Store Adapter 位于 VoiceAssistant 系统的数据持久化层，是连接上层业务服务与底层向量数据库的桥梁：
+Vector Store Adapter 位于 VoiceHelper 系统的数据持久化层，是连接上层业务服务与底层向量数据库的桥梁：
 
 1. **统一抽象层**：通过 `VectorStoreBackend` 抽象基类，统一不同向量数据库的接口差异
 2. **服务解耦**：上层服务通过 HTTP 接口调用，无需关心底层数据库类型
@@ -2622,7 +2622,7 @@ class ConnectionPool:
 
 ### 核心贡献
 
-Vector Store Adapter 作为 VoiceAssistant 系统的向量存储统一访问层，通过以下设计实现了高性能、高可用、易扩展的向量数据库服务：
+Vector Store Adapter 作为 VoiceHelper 系统的向量存储统一访问层，通过以下设计实现了高性能、高可用、易扩展的向量数据库服务：
 
 1. **适配器模式**：统一接口，支持多向量数据库（Milvus、pgvector），易于扩展
 2. **HNSW 索引优化**：查询延迟降低至 30ms（vs FLAT 500ms），**性能提升 16 倍**

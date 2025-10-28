@@ -1,8 +1,8 @@
-# VoiceAssistant - 09 - RAG Engine
+# VoiceHelper - 09 - RAG Engine
 
 ## 模块概览
 
-RAG Engine（检索增强生成引擎）是 VoiceAssistant 平台的核心知识问答组件，实现了基于检索增强生成（Retrieval-Augmented Generation）的智能问答能力。该引擎通过查询改写、混合检索、上下文构建、Prompt 生成等多个环节，结合大语言模型生成高质量、有据可查的答案。
+RAG Engine（检索增强生成引擎）是 VoiceHelper 平台的核心知识问答组件，实现了基于检索增强生成（Retrieval-Augmented Generation）的智能问答能力。该引擎通过查询改写、混合检索、上下文构建、Prompt 生成等多个环节，结合大语言模型生成高质量、有据可查的答案。
 
 ### 核心职责
 

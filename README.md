@@ -1,4 +1,4 @@
-# VoiceAssistant - AI 客服与语音助手平台
+# VoiceHelper - AI 客服与语音助手平台
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-1.25+-blue.svg)](https://kubernetes.io/)
@@ -99,8 +99,8 @@ AI 客服与语音助手平台，基于微服务架构，集成 LangChain、Lang
 
 ```bash
 # 克隆项目
-git clone https://github.com/haoyunlt/VoiceAssistant.git
-cd VoiceAssistant
+git clone https://github.com/haoyunlt/VoiceHelper.git
+cd VoiceHelper
 
 # 执行部署脚本
 chmod +x scripts/deploy-k8s.sh
@@ -141,7 +141,7 @@ curl http://${INGRESS_HOST}/health
 ## 📁 项目结构
 
 ```text
-VoiceAssistant/
+VoiceHelper/
 ├── algo/                      # Python AI 算法服务
 │   ├── agent-engine/          # 智能体引擎
 │   ├── rag-engine/            # RAG 检索增强
@@ -384,4 +384,4 @@ pytest tests/
 
 **⭐ 如果这个项目对你有帮助，请给我们一个 Star！**
 
-**💬 有问题？欢迎在 [Issues](https://github.com/voiceassistant/VoiceAssistant/issues) 中提问！**
+**💬 有问题？欢迎在 [Issues](https://github.com/voiceassistant/VoiceHelper/issues) 中提问！**

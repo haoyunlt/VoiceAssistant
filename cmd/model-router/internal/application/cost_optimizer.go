@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"voiceassistant/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/domain"
 )
 
 // BudgetConfig 预算配置

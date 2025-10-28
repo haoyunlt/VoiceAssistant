@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"voiceassistant/cmd/identity-service/internal/domain"
+	"voicehelper/cmd/identity-service/internal/domain"
 )
 
 var (

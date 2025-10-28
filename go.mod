@@ -1,4 +1,4 @@
-module voiceassistant
+module voicehelper
 
 go 1.25.3
 
@@ -19,7 +19,6 @@ require (
 	github.com/minio/minio-go/v7 v7.0.95
 	github.com/nacos-group/nacos-sdk-go/v2 v2.3.5
 	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
-	github.com/posthog/posthog-go v1.6.12
 	github.com/prometheus/client_golang v1.23.2
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/segmentio/kafka-go v0.4.49
@@ -121,7 +120,6 @@ require (
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/serf v0.10.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect

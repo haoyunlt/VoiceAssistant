@@ -1,7 +1,7 @@
 package main
 
 import (
-	"voiceassistant/cmd/knowledge-service/internal/data"
+	"voicehelper/cmd/knowledge-service/internal/data"
 )
 
 // Config is application config.

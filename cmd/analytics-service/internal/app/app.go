@@ -2,8 +2,8 @@ package app
 
 import (
 	"context"
-	"voiceassistant/cmd/analytics-service/internal/data"
-	"voiceassistant/cmd/analytics-service/internal/server"
+	"voicehelper/cmd/analytics-service/internal/data"
+	"voicehelper/cmd/analytics-service/internal/server"
 
 	"go.uber.org/zap"
 )

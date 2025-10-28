@@ -1,6 +1,6 @@
-# VoiceAssistant Kubernetes 部署
+# VoiceHelper Kubernetes 部署
 
-VoiceAssistant 完整的 Kubernetes + Istio 部署配置，包含所有微服务和基础设施。
+VoiceHelper 完整的 Kubernetes + Istio 部署配置，包含所有微服务和基础设施。
 
 ## 📁 目录结构
 
@@ -62,7 +62,7 @@ k8s/
 
 ```bash
 # 克隆项目
-cd VoiceAssistant
+cd VoiceHelper
 
 # 执行部署脚本
 ./scripts/deploy-k8s.sh
@@ -429,7 +429,7 @@ kubectl delete namespace istio-system
 - 技术支持：support@voiceassistant.com
 - 架构师：architect@voiceassistant.com
 - On-Call：+86-xxx-xxxx-xxxx
-- Issue：https://github.com/voiceassistant/VoiceAssistant/issues
+- Issue：https://github.com/voiceassistant/VoiceHelper/issues
 
 ---
 

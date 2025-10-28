@@ -165,7 +165,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **Major Release - Production Ready**
 
-This is the first production-ready release of VoiceAssistant, featuring:
+This is the first production-ready release of VoiceHelper, featuring:
 
 - **Complete Microservices Architecture**: 14 independently deployable services
 - **Cloud-Native Deployment**: Full Kubernetes + Istio support
@@ -217,11 +217,11 @@ This is the first production-ready release of VoiceAssistant, featuring:
 
 For questions or issues:
 
-- GitHub Issues: https://github.com/voiceassistant/VoiceAssistant/issues
+- GitHub Issues: https://github.com/voiceassistant/VoiceHelper/issues
 - Email: support@voiceassistant.com
 - Documentation: https://docs.voiceassistant.com
 
-[Unreleased]: https://github.com/voiceassistant/VoiceAssistant/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/voiceassistant/VoiceAssistant/releases/tag/v1.0.0
-[0.9.0]: https://github.com/voiceassistant/VoiceAssistant/releases/tag/v0.9.0
-[0.5.0]: https://github.com/voiceassistant/VoiceAssistant/releases/tag/v0.5.0
+[Unreleased]: https://github.com/voiceassistant/VoiceHelper/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/voiceassistant/VoiceHelper/releases/tag/v1.0.0
+[0.9.0]: https://github.com/voiceassistant/VoiceHelper/releases/tag/v0.9.0
+[0.5.0]: https://github.com/voiceassistant/VoiceHelper/releases/tag/v0.5.0

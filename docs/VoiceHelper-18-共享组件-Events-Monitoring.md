@@ -1,10 +1,10 @@
-# VoiceAssistant - 18 - 共享组件 - Events, Monitoring
+# VoiceHelper - 18 - 共享组件 - Events, Monitoring
 
 ## 模块概览
 
 ### 职责与定位
 
-Events 和 Monitoring 组件是 VoiceAssistant 平台的核心基础设施组件，负责跨服务事件通信和可观测性保障。
+Events 和 Monitoring 组件是 VoiceHelper 平台的核心基础设施组件，负责跨服务事件通信和可观测性保障。
 
 **Events 组件**：基于 Kafka 实现的异步事件总线，支持服务间解耦通信、事件溯源和事件驱动架构。
 

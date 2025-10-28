@@ -1,9 +1,9 @@
-# VoiceAssistant Helm Values
+# VoiceHelper Helm Values
 
 global:
-  namespace: voiceassistant
+  namespace: voicehelper
   environment: production
-  imageRegistry: ghcr.io/voiceassistant
+  imageRegistry: ghcr.io/voicehelper
   imagePullSecrets:
     - name: ghcr-secret
 
@@ -300,9 +300,9 @@ multimodal-engine:
 postgresql:
   enabled: true
   auth:
-    username: voiceassistant
+    username: voicehelper
     password: changeme
-    database: voiceassistant
+    database: voicehelper
   primary:
     persistence:
       enabled: true
@@ -394,7 +394,7 @@ jaeger:
 
 serviceAccount:
   create: true
-  name: voiceassistant-sa
+  name: voicehelper-sa
 
 networkPolicy:
   enabled: true

@@ -3,7 +3,7 @@ package biz
 import (
 	"context"
 
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/domain"
 )
 
 // MessageUsecase 消息用例

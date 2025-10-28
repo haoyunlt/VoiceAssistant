@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/domain"
 )
 
 // ConversationUsecase 对话用例

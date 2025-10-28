@@ -7,7 +7,7 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/domain"
 )
 
 type contextRepo struct {

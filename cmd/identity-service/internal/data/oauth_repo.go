@@ -1,8 +1,8 @@
 package data
 
 import (
-	"voiceassistant/cmd/identity-service/internal/biz"
-	"voiceassistant/cmd/identity-service/internal/domain"
+	"voicehelper/cmd/identity-service/internal/biz"
+	"voicehelper/cmd/identity-service/internal/domain"
 	"gorm.io/gorm"
 )
 

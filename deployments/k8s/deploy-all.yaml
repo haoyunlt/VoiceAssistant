@@ -1,5 +1,5 @@
 ---
-# VoiceAssistant 全服务部署脚本
+# VoiceHelper 全服务部署脚本
 # 此文件用于快速部署所有服务到 Kubernetes + Istio
 
 # 1. 创建命名空间

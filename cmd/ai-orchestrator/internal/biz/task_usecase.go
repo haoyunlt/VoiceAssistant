@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-	"voiceassistant/cmd/ai-orchestrator/internal/domain"
+	"voicehelper/cmd/ai-orchestrator/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 )

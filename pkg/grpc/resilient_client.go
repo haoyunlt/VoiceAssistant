@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"voiceassistant/pkg/resilience"
+	"voicehelper/pkg/resilience"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

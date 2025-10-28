@@ -1,6 +1,6 @@
-# VoiceAssistant API 定义
+# VoiceHelper API 定义
 
-本目录包含 VoiceAssistant 项目的 API 定义和规范。
+本目录包含 VoiceHelper 项目的 API 定义和规范。
 
 ## 📁 目录结构
 
@@ -298,7 +298,7 @@ Token 有效期为 24 小时，可通过 `/api/v1/auth/refresh` 刷新。
 
 ### Postman Collection
 
-导入 `postman/VoiceAssistant.postman_collection.json` 到 Postman。
+导入 `postman/VoiceHelper.postman_collection.json` 到 Postman。
 
 ### API 测试脚本
 
@@ -321,4 +321,4 @@ Token 有效期为 24 小时，可通过 `/api/v1/auth/refresh` 刷新。
 ## 🆘 获取帮助
 
 - API 问题：api-support@voiceassistant.com
-- Issue：https://github.com/voiceassistant/VoiceAssistant/issues
+- Issue：https://github.com/voiceassistant/VoiceHelper/issues

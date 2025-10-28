@@ -5,7 +5,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'VoiceAssistant - AI Chat',
+  title: 'VoiceHelper - AI Chat',
   description: 'AI-powered voice and chat assistant',
 };
 

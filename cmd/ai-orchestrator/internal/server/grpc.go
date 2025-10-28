@@ -8,7 +8,7 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/validate"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 
-	"voiceassistant/cmd/ai-orchestrator/internal/service"
+	"voicehelper/cmd/ai-orchestrator/internal/service"
 )
 
 // NewGRPCServer 创建gRPC服务器

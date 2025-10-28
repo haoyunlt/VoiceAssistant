@@ -3,7 +3,7 @@ package data
 import (
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
-	"voiceassistant/pkg/database"
+	"voicehelper/pkg/database"
 )
 
 // Config 数据库配置

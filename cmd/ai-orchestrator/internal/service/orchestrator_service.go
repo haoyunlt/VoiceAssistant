@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 
-	"voiceassistant/cmd/ai-orchestrator/internal/biz"
-	"voiceassistant/cmd/ai-orchestrator/internal/domain"
+	"voicehelper/cmd/ai-orchestrator/internal/biz"
+	"voicehelper/cmd/ai-orchestrator/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	// 假设proto文件生成了对应的包
-	// pb "voiceassistant/api/proto/orchestrator/v1"
+	// pb "voicehelper/api/proto/orchestrator/v1"
 )
 
 // 临时定义，实际应该从proto生成

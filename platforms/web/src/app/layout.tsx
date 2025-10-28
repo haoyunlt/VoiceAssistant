@@ -5,19 +5,14 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'VoiceAssistant AI - 智能客服语音助手',
+  title: 'VoiceHelper AI - 智能客服语音助手',
   description: 'GraphRAG + Multi-Agent 驱动的云原生语音客服平台',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="zh-CN">
       <body className={inter.className}>{children}</body>
     </html>
   );
 }
-

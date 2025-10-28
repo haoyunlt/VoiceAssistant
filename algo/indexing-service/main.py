@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # 创建 FastAPI 应用
 app = FastAPI(
     title="Indexing Service",
-    description="VoiceAssistant 文档索引构建服务",
+    description="VoiceHelper 文档索引构建服务",
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -137,7 +137,11 @@ app.add_middleware(RequestIDMiddleware)
 app.add_middleware(StructuredLoggingMiddleware)
 
 # 4. CORS 中间件 - 根据环境变量配置
-allowed_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else ["http://localhost:3000", "http://localhost:8000"]
+allowed_origins = (
+    os.getenv("CORS_ORIGINS", "").split(",")
+    if os.getenv("CORS_ORIGINS")
+    else ["http://localhost:3000", "http://localhost:8000"]
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -199,7 +203,9 @@ async def readiness_check(request: Request) -> Dict[str, Any]:
         if document_processor:
             try:
                 # MinIO检查
-                checks["minio"] = await document_processor.minio_client.file_exists("_health_check_")
+                checks["minio"] = await document_processor.minio_client.file_exists(
+                    "_health_check_"
+                )
             except Exception:
                 checks["minio"] = False
 
@@ -226,7 +232,7 @@ async def readiness_check(request: Request) -> Dict[str, Any]:
         content={
             "ready": all_ready,
             "checks": checks,
-        }
+        },
     )
 
 
@@ -234,13 +240,14 @@ async def readiness_check(request: Request) -> Dict[str, Any]:
 # API 端点
 # ========================================
 
+
 @app.get("/")
 async def root() -> Dict[str, str]:
     """根路径"""
     return {
         "service": "indexing-service",
         "version": "2.0.0",
-        "description": "VoiceAssistant Document Indexing Service",
+        "description": "VoiceHelper Document Indexing Service",
     }
 
 
@@ -274,6 +281,7 @@ async def trigger_processing(document_id: str, request: Request) -> Dict[str, st
 # ========================================
 # 信号处理
 # ========================================
+
 
 def handle_shutdown(signum, frame):
     """处理关闭信号"""

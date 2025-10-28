@@ -6,7 +6,7 @@
 from typing import Any, Dict, Optional
 
 
-class VoiceAssistantError(Exception):
+class VoiceHelperError(Exception):
     """
     基础异常类
     所有自定义异常的基类
@@ -17,7 +17,7 @@ class VoiceAssistantError(Exception):
         message: str,
         code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
-        cause: Optional[Exception] = None
+        cause: Optional[Exception] = None,
     ):
         """
         初始化异常
@@ -54,135 +54,163 @@ class VoiceAssistantError(Exception):
 
 # ==================== 服务可用性异常 ====================
 
-class ServiceUnavailableError(VoiceAssistantError):
+
+class ServiceUnavailableError(VoiceHelperError):
     """服务不可用"""
+
     pass
 
 
-class ServiceTimeoutError(VoiceAssistantError):
+class ServiceTimeoutError(VoiceHelperError):
     """服务超时"""
+
     pass
 
 
-class CircuitBreakerOpenError(VoiceAssistantError):
+class CircuitBreakerOpenError(VoiceHelperError):
     """熔断器打开"""
+
     pass
 
 
 # ==================== 资源相关异常 ====================
 
-class ResourceNotFoundError(VoiceAssistantError):
+
+class ResourceNotFoundError(VoiceHelperError):
     """资源未找到"""
+
     pass
 
 
-class ResourceExistsError(VoiceAssistantError):
+class ResourceExistsError(VoiceHelperError):
     """资源已存在"""
+
     pass
 
 
-class ResourceExhaustedError(VoiceAssistantError):
+class ResourceExhaustedError(VoiceHelperError):
     """资源耗尽（如配额、限流）"""
+
     pass
 
 
 # ==================== 验证与认证异常 ====================
 
-class ValidationError(VoiceAssistantError):
+
+class ValidationError(VoiceHelperError):
     """输入验证错误"""
+
     pass
 
 
-class AuthenticationError(VoiceAssistantError):
+class AuthenticationError(VoiceHelperError):
     """认证失败"""
+
     pass
 
 
-class AuthorizationError(VoiceAssistantError):
+class AuthorizationError(VoiceHelperError):
     """授权失败"""
+
     pass
 
 
 # ==================== 外部服务异常 ====================
 
-class ExternalServiceError(VoiceAssistantError):
+
+class ExternalServiceError(VoiceHelperError):
     """外部服务错误（LLM、向量库等）"""
+
     pass
 
 
 class LLMError(ExternalServiceError):
     """LLM 调用错误"""
+
     pass
 
 
 class VectorStoreError(ExternalServiceError):
     """向量库错误"""
+
     pass
 
 
 class ElasticsearchError(ExternalServiceError):
     """Elasticsearch 错误"""
+
     pass
 
 
 # ==================== 业务逻辑异常 ====================
 
-class BusinessLogicError(VoiceAssistantError):
+
+class BusinessLogicError(VoiceHelperError):
     """业务逻辑错误"""
+
     pass
 
 
 class InvalidStateError(BusinessLogicError):
     """无效状态"""
+
     pass
 
 
 class OperationNotAllowedError(BusinessLogicError):
     """操作不允许"""
+
     pass
 
 
 # ==================== 数据异常 ====================
 
-class DataError(VoiceAssistantError):
+
+class DataError(VoiceHelperError):
     """数据错误"""
+
     pass
 
 
 class DataCorruptionError(DataError):
     """数据损坏"""
+
     pass
 
 
 class DataIntegrityError(DataError):
     """数据完整性错误"""
+
     pass
 
 
 # ==================== 配置异常 ====================
 
-class ConfigurationError(VoiceAssistantError):
+
+class ConfigurationError(VoiceHelperError):
     """配置错误"""
+
     pass
 
 
 class MissingConfigError(ConfigurationError):
     """缺少必需配置"""
+
     pass
 
 
 class InvalidConfigError(ConfigurationError):
     """配置值无效"""
+
     pass
 
 
 # ==================== 工具函数 ====================
 
+
 def wrap_exception(
-    exc: Exception,
-    message: Optional[str] = None,
-    error_class: type = VoiceAssistantError
-) -> VoiceAssistantError:
+    exc: Exception, message: Optional[str] = None, error_class: type = VoiceHelperError
+) -> VoiceHelperError:
     """
     包装外部异常为内部异常
 
@@ -195,14 +223,10 @@ def wrap_exception(
         包装后的异常
     """
     msg = message or str(exc)
-    return error_class(
-        message=msg,
-        cause=exc,
-        details={"original_type": type(exc).__name__}
-    )
+    return error_class(message=msg, cause=exc, details={"original_type": type(exc).__name__})
 
 
-def handle_service_error(exc: Exception, service_name: str) -> VoiceAssistantError:
+def handle_service_error(exc: Exception, service_name: str) -> VoiceHelperError:
     """
     处理服务调用异常，转换为标准异常
 
@@ -217,24 +241,17 @@ def handle_service_error(exc: Exception, service_name: str) -> VoiceAssistantErr
 
     if isinstance(exc, httpx.TimeoutException):
         return ServiceTimeoutError(
-            f"{service_name} timeout",
-            details={"service": service_name},
-            cause=exc
+            f"{service_name} timeout", details={"service": service_name}, cause=exc
         )
     elif isinstance(exc, httpx.ConnectError):
         return ServiceUnavailableError(
-            f"{service_name} unavailable",
-            details={"service": service_name},
-            cause=exc
+            f"{service_name} unavailable", details={"service": service_name}, cause=exc
         )
     elif isinstance(exc, httpx.HTTPStatusError):
         return ExternalServiceError(
             f"{service_name} returned error: {exc.response.status_code}",
-            details={
-                "service": service_name,
-                "status_code": exc.response.status_code
-            },
-            cause=exc
+            details={"service": service_name, "status_code": exc.response.status_code},
+            cause=exc,
         )
     else:
         return wrap_exception(exc, f"{service_name} error", ExternalServiceError)
@@ -242,7 +259,8 @@ def handle_service_error(exc: Exception, service_name: str) -> VoiceAssistantErr
 
 # ==================== HTTP 状态码映射 ====================
 
-def get_http_status_code(exc: VoiceAssistantError) -> int:
+
+def get_http_status_code(exc: VoiceHelperError) -> int:
     """
     根据异常类型返回合适的 HTTP 状态码
 

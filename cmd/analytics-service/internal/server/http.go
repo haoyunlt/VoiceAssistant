@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"voiceassistant/cmd/analytics-service/internal/domain"
-	"voiceassistant/cmd/analytics-service/internal/service"
+	"voicehelper/cmd/analytics-service/internal/domain"
+	"voicehelper/cmd/analytics-service/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"

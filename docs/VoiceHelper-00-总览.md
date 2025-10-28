@@ -1,8 +1,8 @@
-# VoiceAssistant - 00 - 总览
+# VoiceHelper - 00 - 总览
 
 ## 项目简介
 
-VoiceAssistant 是 AI 客服与语音助手平台，基于微服务架构设计，集成了 LangChain、LangGraph、RAG（检索增强生成）、多智能体协作等先进技术。该平台支持文本、语音、多模态等多种交互方式，能够处理复杂的业务场景。
+VoiceHelper 是 AI 客服与语音助手平台，基于微服务架构设计，集成了 LangChain、LangGraph、RAG（检索增强生成）、多智能体协作等先进技术。该平台支持文本、语音、多模态等多种交互方式，能够处理复杂的业务场景。
 
 ### 核心能力
 

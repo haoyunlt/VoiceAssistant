@@ -9,7 +9,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/redis/go-redis/v9"
 
-	ws "voiceassistant/cmd/conversation-service/internal/websocket"
+	ws "voicehelper/cmd/conversation-service/internal/websocket"
 )
 
 // SyncService 多设备同步服务

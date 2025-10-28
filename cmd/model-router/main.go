@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"voiceassistant/cmd/model-router/internal/server"
-	"voiceassistant/pkg/observability"
+	"voicehelper/cmd/model-router/internal/server"
+	"voicehelper/pkg/observability"
 
 	"github.com/go-kratos/kratos/v2"
 	kratoslog "github.com/go-kratos/kratos/v2/log"

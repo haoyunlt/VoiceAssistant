@@ -1,8 +1,8 @@
-# VoiceAssistant - 10 - Voice Engine
+# VoiceHelper - 10 - Voice Engine
 
 ## 模块概览
 
-Voice Engine（语音处理引擎）是 VoiceAssistant 平台的语音交互核心，提供 ASR（自动语音识别）、TTS（文本转语音）、VAD（语音活动检测）三大功能。该服务基于 Faster-Whisper、Edge TTS 和 Silero VAD 实现，支持批量处理和 WebSocket 实时流式处理，为用户提供低延迟、高准确性的语音交互体验。
+Voice Engine（语音处理引擎）是 VoiceHelper 平台的语音交互核心，提供 ASR（自动语音识别）、TTS（文本转语音）、VAD（语音活动检测）三大功能。该服务基于 Faster-Whisper、Edge TTS 和 Silero VAD 实现，支持批量处理和 WebSocket 实时流式处理，为用户提供低延迟、高准确性的语音交互体验。
 
 ### 服务定位与边界
 

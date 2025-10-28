@@ -26,7 +26,7 @@ export const Navigation: React.FC = () => {
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2">
               <div className="text-2xl">🤖</div>
-              <span className="font-bold text-xl text-gray-800">VoiceAssistant</span>
+              <span className="font-bold text-xl text-gray-800">VoiceHelper</span>
             </Link>
 
             <div className="flex gap-1">
@@ -56,4 +56,3 @@ export const Navigation: React.FC = () => {
     </nav>
   );
 };
-

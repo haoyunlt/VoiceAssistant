@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"voiceassistant/cmd/knowledge-service/internal/domain"
-	"voiceassistant/cmd/knowledge-service/internal/infrastructure/event"
-	"voiceassistant/cmd/knowledge-service/internal/infrastructure/security"
-	"voiceassistant/cmd/knowledge-service/internal/infrastructure/storage"
+	"voicehelper/cmd/knowledge-service/internal/domain"
+	"voicehelper/cmd/knowledge-service/internal/infrastructure/event"
+	"voicehelper/cmd/knowledge-service/internal/infrastructure/security"
+	"voicehelper/cmd/knowledge-service/internal/infrastructure/storage"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/uuid"

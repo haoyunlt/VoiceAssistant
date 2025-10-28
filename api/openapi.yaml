@@ -1,13 +1,13 @@
 openapi: 3.0.3
 info:
-  title: VoiceAssistant AI API
+  title: VoiceHelper AI API
   description: |
-    VoiceAssistant AI 客服语音助手平台 API
-    
+    VoiceHelper AI 客服语音助手平台 API
+
     基于 GraphRAG + Multi-Agent 的云原生语音客服平台。
   version: v2.0.0
   contact:
-    name: VoiceAssistant Team
+    name: VoiceHelper Team
     email: dev@voiceassistant.ai
   license:
     name: Apache 2.0
@@ -186,7 +186,7 @@ paths:
       tags: [System]
       security: []
       responses:
-        '200':
+        "200":
           description: Service is healthy
           content:
             application/json:
@@ -219,7 +219,7 @@ paths:
                   type: string
                   format: password
       responses:
-        '200':
+        "200":
           description: Login successful
           content:
             application/json:
@@ -233,13 +233,13 @@ paths:
                   expires_in:
                     type: integer
                   user:
-                    $ref: '#/components/schemas/User'
-        '401':
+                    $ref: "#/components/schemas/User"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /api/v1/conversations:
     post:
@@ -264,18 +264,18 @@ paths:
                   type: string
                   enum: [voice, text, multimodal]
       responses:
-        '201':
+        "201":
           description: Conversation created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Conversation'
-        '400':
+                $ref: "#/components/schemas/Conversation"
+        "400":
           description: Bad request
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /api/v1/conversations/{id}:
     get:
@@ -288,18 +288,18 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Conversation found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Conversation'
-        '404':
+                $ref: "#/components/schemas/Conversation"
+        "404":
           description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
   /api/v1/conversations/{conversation_id}/messages:
     post:
@@ -329,12 +329,12 @@ paths:
                 metadata:
                   type: object
       responses:
-        '201':
+        "201":
           description: Message sent
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Message'
+                $ref: "#/components/schemas/Message"
 
     get:
       summary: Get messages
@@ -356,7 +356,7 @@ paths:
             type: integer
             default: 0
       responses:
-        '200':
+        "200":
           description: Messages retrieved
           content:
             application/json:
@@ -366,7 +366,7 @@ paths:
                   messages:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Message'
+                      $ref: "#/components/schemas/Message"
                   total:
                     type: integer
 
@@ -395,12 +395,12 @@ paths:
                 metadata:
                   type: object
       responses:
-        '201':
+        "201":
           description: Document uploaded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
+                $ref: "#/components/schemas/Document"
 
     get:
       summary: List documents
@@ -422,7 +422,7 @@ paths:
             type: integer
             default: 20
       responses:
-        '200':
+        "200":
           description: Documents retrieved
           content:
             application/json:
@@ -432,7 +432,7 @@ paths:
                   documents:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Document'
+                      $ref: "#/components/schemas/Document"
                   total:
                     type: integer
 
@@ -447,18 +447,18 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Document found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Document'
-        '404':
+                $ref: "#/components/schemas/Document"
+        "404":
           description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
 
     delete:
       summary: Delete document
@@ -470,12 +470,11 @@ paths:
           schema:
             type: string
       responses:
-        '204':
+        "204":
           description: Document deleted
-        '404':
+        "404":
           description: Not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-
+                $ref: "#/components/schemas/Error"

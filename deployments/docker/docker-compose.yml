@@ -1,4 +1,4 @@
-# Docker Compose - VoiceAssistant 统一配置
+# Docker Compose - VoiceHelper 统一配置
 # 包含所有服务和基础设施组件
 version: "3.8"
 
@@ -45,9 +45,9 @@ services:
       - PORT=8080
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=voiceassistant
+      - DB_USER=voicehelper
       - DB_PASSWORD=password
-      - DB_NAME=voiceassistant
+      - DB_NAME=voicehelper
     ports:
       - "8080:8080"
     volumes:
@@ -75,7 +75,7 @@ services:
       - NACOS_SERVER_ADDR=nacos
       - NACOS_SERVER_PORT=8848
       - NACOS_NAMESPACE=
-      - NACOS_GROUP=VoiceAssistant
+      - NACOS_GROUP=VoiceHelper
       - NACOS_DATA_ID=conversation-service.yaml
       - NACOS_USERNAME=
       - NACOS_PASSWORD=
@@ -141,7 +141,7 @@ services:
       - NACOS_SERVER_ADDR=nacos
       - NACOS_SERVER_PORT=8848
       - NACOS_NAMESPACE=
-      - NACOS_GROUP=VoiceAssistant
+      - NACOS_GROUP=VoiceHelper
       - NACOS_DATA_ID=agent-engine.yaml
       - NACOS_USERNAME=
       - NACOS_PASSWORD=
@@ -180,7 +180,7 @@ services:
       # pgvector 配置
       - PGVECTOR_HOST=postgres
       - PGVECTOR_PORT=5432
-      - PGVECTOR_DATABASE=voiceassistant
+      - PGVECTOR_DATABASE=voicehelper
       - PGVECTOR_USER=postgres
       - PGVECTOR_PASSWORD=postgres
       # 默认配置
@@ -210,7 +210,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=voiceassistant
+      - POSTGRES_DB=voicehelper
     ports:
       - "5432:5432"
     volumes:
@@ -368,7 +368,7 @@ networks:
 #   2. 进入"配置管理" -> "配置列表"
 #   3. 创建配置：
 #      - Data ID: conversation-service.yaml 或 agent-engine.yaml
-#      - Group: VoiceAssistant
+#      - Group: VoiceHelper
 #      - 配置格式: YAML
 #      - 配置内容: 复制对应的 configs/*.yaml 内容
 #

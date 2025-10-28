@@ -4,10 +4,10 @@
 package main
 
 import (
-	"voiceassistant/cmd/conversation-service/internal/biz"
-	"voiceassistant/cmd/conversation-service/internal/data"
-	"voiceassistant/cmd/conversation-service/internal/server"
-	"voiceassistant/cmd/conversation-service/internal/service"
+	"voicehelper/cmd/conversation-service/internal/biz"
+	"voicehelper/cmd/conversation-service/internal/data"
+	"voicehelper/cmd/conversation-service/internal/server"
+	"voicehelper/cmd/conversation-service/internal/service"
 
 	"github.com/google/wire"
 	"gorm.io/gorm"

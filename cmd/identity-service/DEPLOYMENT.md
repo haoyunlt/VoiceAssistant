@@ -40,7 +40,7 @@ colima start
 使用 docker-compose 启动所需的基础设施：
 
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant/cmd/identity-service
+cd /Users/lintao/important/ai-customer/VoiceHelper/cmd/identity-service
 docker-compose up -d postgres redis vault
 ```
 
@@ -54,7 +54,7 @@ docker-compose ps
 
 ```bash
 # 确保数据库表结构已创建
-docker exec -it identity-postgres psql -U voiceassistant -d voiceassistant -f /docker-entrypoint-initdb.d/001_init_schema.sql
+docker exec -it identity-postgres psql -U voicehelper -d voicehelper -f /docker-entrypoint-initdb.d/001_init_schema.sql
 ```
 
 ## 本地运行
@@ -62,21 +62,21 @@ docker exec -it identity-postgres psql -U voiceassistant -d voiceassistant -f /d
 ### 方式1：直接运行二进制
 
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant/cmd/identity-service
+cd /Users/lintao/important/ai-customer/VoiceHelper/cmd/identity-service
 ./bin/identity-service -conf ../../configs/app/identity-service.yaml
 ```
 
 ### 方式2：使用 Go run
 
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant/cmd/identity-service
+cd /Users/lintao/important/ai-customer/VoiceHelper/cmd/identity-service
 go run . -conf ../../configs/app/identity-service.yaml
 ```
 
 ### 方式3：使用 Makefile
 
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant/cmd/identity-service
+cd /Users/lintao/important/ai-customer/VoiceHelper/cmd/identity-service
 make run
 ```
 
@@ -85,8 +85,8 @@ make run
 ### 构建镜像
 
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant/cmd/identity-service
-docker build -t voiceassistant/identity-service:latest .
+cd /Users/lintao/important/ai-customer/VoiceHelper/cmd/identity-service
+docker build -t voicehelper/identity-service:latest .
 ```
 
 ### 启动完整服务栈
@@ -211,7 +211,7 @@ kill -9 <PID>
 
 **解决**:
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant/cmd/identity-service
+cd /Users/lintao/important/ai-customer/VoiceHelper/cmd/identity-service
 wire
 ```
 
@@ -219,7 +219,7 @@ wire
 
 **解决**:
 ```bash
-cd /Users/lintao/important/ai-customer/VoiceAssistant
+cd /Users/lintao/important/ai-customer/VoiceHelper
 bash scripts/proto-gen.sh
 
 # 确保生成的文件在正确位置

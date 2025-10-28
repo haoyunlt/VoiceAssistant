@@ -1,4 +1,4 @@
-# VoiceAssistant - 完整部署配置
+# VoiceHelper - 完整部署配置
 # 包含所有 Go 服务、Python 服务和基础设施
 version: "3.9"
 
@@ -12,9 +12,9 @@ services:
     image: postgres:15-alpine
     container_name: va-postgres
     environment:
-      POSTGRES_USER: voiceassistant
+      POSTGRES_USER: voicehelper
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-      POSTGRES_DB: voiceassistant
+      POSTGRES_DB: voicehelper
       POSTGRES_INITDB_ARGS: "-E UTF8"
     ports:
       - "5432:5432"
@@ -22,7 +22,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./migrations/postgres:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U voiceassistant"]
+      test: ["CMD-SHELL", "pg_isready -U voicehelper"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -149,7 +149,7 @@ services:
     image: clickhouse/clickhouse-server:23.8-alpine
     container_name: va-clickhouse
     environment:
-      CLICKHOUSE_DB: voiceassistant
+      CLICKHOUSE_DB: voicehelper
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse}
     ports:
@@ -204,9 +204,9 @@ services:
       - CONFIG_PATH=/app/configs/app/analytics-service.yaml
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_USER=voiceassistant
+      - DB_USER=voicehelper
       - DB_PASSWORD=${DB_PASSWORD:-password}
-      - DB_NAME=voiceassistant
+      - DB_NAME=voicehelper
       - REDIS_ADDR=redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis123}
       - CLICKHOUSE_ADDR=clickhouse:9000

@@ -1,8 +1,8 @@
-# VoiceAssistant - 05 - Model Router
+# VoiceHelper - 05 - Model Router
 
 ## 模块概览
 
-Model Router（模型路由服务）是 VoiceAssistant 平台的智能路由层，负责将 LLM 请求路由到最合适的模型提供商。该服务实现了多种路由策略、负载均衡、故障转移和成本优化，确保系统的高可用性和经济性。
+Model Router（模型路由服务）是 VoiceHelper 平台的智能路由层，负责将 LLM 请求路由到最合适的模型提供商。该服务实现了多种路由策略、负载均衡、故障转移和成本优化，确保系统的高可用性和经济性。
 
 ### 核心职责
 

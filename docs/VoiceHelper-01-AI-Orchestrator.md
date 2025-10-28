@@ -1,8 +1,8 @@
-# VoiceAssistant - 01 - AI Orchestrator
+# VoiceHelper - 01 - AI Orchestrator
 
 ## 模块概览
 
-AI Orchestrator（AI 编排服务）是 VoiceAssistant 平台的智能中枢，负责协调和编排所有 AI 引擎的调用。它根据用户请求的类型和复杂度，自动选择最合适的 AI 引擎（Agent、RAG、Voice、Multimodal），管理任务执行流程，并提供统一的响应接口。
+AI Orchestrator（AI 编排服务）是 VoiceHelper 平台的智能中枢，负责协调和编排所有 AI 引擎的调用。它根据用户请求的类型和复杂度，自动选择最合适的 AI 引擎（Agent、RAG、Voice、Multimodal），管理任务执行流程，并提供统一的响应接口。
 
 ### 核心职责
 
@@ -2479,7 +2479,7 @@ func (uc *OrchestratorUsecase) ExecuteChat(ctx context.Context, req *Request) er
 
 ### 核心价值
 
-AI Orchestrator 作为 VoiceAssistant 平台的智能中枢，通过以下关键能力为系统提供核心价值：
+AI Orchestrator 作为 VoiceHelper 平台的智能中枢，通过以下关键能力为系统提供核心价值：
 
 **1. 智能编排**
 

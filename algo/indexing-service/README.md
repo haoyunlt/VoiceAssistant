@@ -2,7 +2,7 @@
 
 ## 概述
 
-Indexing Service 是 VoiceAssistant 平台的文档索引与向量化服务，负责：
+Indexing Service 是 VoiceHelper 平台的文档索引与向量化服务，负责：
 
 - **文档解析**：支持 PDF、DOCX、TXT、MD、HTML 等多种格式
 - **文本分块**：智能文本切分，支持重叠窗口

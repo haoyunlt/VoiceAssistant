@@ -3,7 +3,7 @@ package data
 import (
 	"fmt"
 	"time"
-	"voiceassistant/cmd/notification-service/internal/domain"
+	"voicehelper/cmd/notification-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/driver/postgres"

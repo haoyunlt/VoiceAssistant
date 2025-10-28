@@ -1,6 +1,6 @@
 package main
 
-import "voiceassistant/cmd/notification-service/internal/data"
+import "voicehelper/cmd/notification-service/internal/data"
 
 // Config is the application configuration
 type Config struct {

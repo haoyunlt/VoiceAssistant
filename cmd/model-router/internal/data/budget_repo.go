@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"voiceassistant/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/domain"
 )
 
 type budgetRepo struct {

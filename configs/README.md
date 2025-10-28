@@ -47,7 +47,7 @@ docker run -d \
 2. 进入"配置管理" -> "配置列表"
 3. 点击"+"创建配置：
    - **Data ID**: `conversation-service.yaml` 或 `agent-engine.yaml`
-   - **Group**: `VoiceAssistant`
+   - **Group**: `VoiceHelper`
    - **配置格式**: `YAML`
    - **配置内容**: 复制 `configs/*.yaml` 的内容（去掉 nacos 配置块）
 
@@ -59,7 +59,7 @@ export CONFIG_MODE=nacos
 export CONFIG_PATH=./configs/conversation-service.yaml  # Nacos 连接配置
 export NACOS_SERVER_ADDR=localhost
 export NACOS_SERVER_PORT=8848
-export NACOS_GROUP=VoiceAssistant
+export NACOS_GROUP=VoiceHelper
 export NACOS_DATA_ID=conversation-service.yaml
 ./conversation-service
 
@@ -98,25 +98,25 @@ python main_with_nacos.py
 ```bash
 # 开发环境
 export NACOS_NAMESPACE=dev
-export NACOS_GROUP=VoiceAssistant
+export NACOS_GROUP=VoiceHelper
 
 # 测试环境
 export NACOS_NAMESPACE=test
-export NACOS_GROUP=VoiceAssistant
+export NACOS_GROUP=VoiceHelper
 
 # 生产环境
 export NACOS_NAMESPACE=prod
-export NACOS_GROUP=VoiceAssistant
+export NACOS_GROUP=VoiceHelper
 ```
 
 ### 方案 2：使用不同的 Group
 
 ```bash
 # 开发环境
-export NACOS_GROUP=VoiceAssistant-Dev
+export NACOS_GROUP=VoiceHelper-Dev
 
 # 生产环境
-export NACOS_GROUP=VoiceAssistant-Prod
+export NACOS_GROUP=VoiceHelper-Prod
 ```
 
 ## Docker 部署
@@ -154,7 +154,7 @@ Nacos 模式下，配置变更会自动推送到服务：
 ```bash
 # 在 Nacos 控制台修改配置后，服务会自动重新加载
 # 日志中会显示：
-# 🔄 Config changed: VoiceAssistant/conversation-service.yaml
+# 🔄 Config changed: VoiceHelper/conversation-service.yaml
 # ✅ Config reloaded successfully
 ```
 
@@ -174,7 +174,7 @@ telnet localhost 8848
 
 ```bash
 # 验证配置是否存在
-curl "http://localhost:8848/nacos/v1/cs/configs?dataId=conversation-service.yaml&group=VoiceAssistant"
+curl "http://localhost:8848/nacos/v1/cs/configs?dataId=conversation-service.yaml&group=VoiceHelper"
 
 # 检查环境变量
 env | grep NACOS
@@ -209,7 +209,7 @@ nacos:
   server_addr: 'localhost'
   server_port: 8848
   namespace: ''
-  group: 'VoiceAssistant'
+  group: 'VoiceHelper'
   data_id: 'service-name.yaml'
   username: ''
   password: ''
@@ -248,7 +248,7 @@ retry:
 - Python: `from algo.common.config import load_config`
 - Go: `import "voice-assistant/pkg/config"`
 - Nacos DataID: `resilience.yaml`
-- Nacos Group: `VoiceAssistant-Common`
+- Nacos Group: `VoiceHelper-Common`
 
 #### 2. `observability.yaml` - 可观测性配置
 
@@ -272,18 +272,18 @@ tracing:
 - Python: `from algo.common.telemetry import init_tracing, TracingConfig`
 - Go: `import "voice-assistant/pkg/observability"`
 - Nacos DataID: `observability.yaml`
-- Nacos Group: `VoiceAssistant-Common`
+- Nacos Group: `VoiceHelper-Common`
 
 ### Nacos 配置组织结构
 
 ```
 命名空间: public (或 dev/staging/prod)
-├── Group: VoiceAssistant (服务配置)
+├── Group: VoiceHelper (服务配置)
 │   ├── conversation-service.yaml
 │   ├── agent-engine.yaml
 │   ├── model-router.yaml
 │   └── ...
-└── Group: VoiceAssistant-Common (公共配置)
+└── Group: VoiceHelper-Common (公共配置)
     ├── resilience.yaml
     ├── observability.yaml
     └── services-integration.yaml
@@ -292,7 +292,7 @@ tracing:
 ## Go 服务集成
 
 ```go
-import "github.com/VoiceAssistant/pkg/config"
+import "github.com/VoiceHelper/pkg/config"
 
 // 创建配置管理器
 cfgManager := config.NewManager()

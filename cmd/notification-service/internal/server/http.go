@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 	"time"
-	"voiceassistant/cmd/notification-service/internal/service"
+	"voicehelper/cmd/notification-service/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/logging"

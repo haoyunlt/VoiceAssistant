@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"voiceassistant/cmd/model-router/internal/application"
-	"voiceassistant/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/application"
+	"voicehelper/cmd/model-router/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 )

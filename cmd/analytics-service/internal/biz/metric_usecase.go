@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"voiceassistant/cmd/analytics-service/internal/domain"
+	"voicehelper/cmd/analytics-service/internal/domain"
 )
 
 // MetricUsecase 指标用例

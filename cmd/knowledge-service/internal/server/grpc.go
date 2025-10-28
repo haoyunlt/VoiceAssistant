@@ -8,7 +8,7 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/validate"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 
-	"voiceassistant/cmd/knowledge-service/internal/service"
+	"voicehelper/cmd/knowledge-service/internal/service"
 )
 
 // GRPCConfig gRPC服务器配置

@@ -1,8 +1,8 @@
-# VoiceAssistant - 16 - 共享组件 - Auth, Cache, Config
+# VoiceHelper - 16 - 共享组件 - Auth, Cache, Config
 
 ## 模块概览
 
-本文档介绍 VoiceAssistant 平台的三个核心共享组件：Auth（认证）、Cache（缓存）和 Config（配置），这些组件被所有 Go 后端服务复用。
+本文档介绍 VoiceHelper 平台的三个核心共享组件：Auth（认证）、Cache（缓存）和 Config（配置），这些组件被所有 Go 后端服务复用。
 
 ### 职责范围
 

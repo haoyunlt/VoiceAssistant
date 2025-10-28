@@ -7,7 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 
-	"voiceassistant/cmd/notification-service/internal/domain"
+	"voicehelper/cmd/notification-service/internal/domain"
 )
 
 type notificationRepo struct {

@@ -9,13 +9,13 @@ package main
 import (
 	"time"
 
-	"voiceassistant/cmd/knowledge-service/internal/biz"
-	"voiceassistant/cmd/knowledge-service/internal/data"
-	"voiceassistant/cmd/knowledge-service/internal/infrastructure/event"
-	"voiceassistant/cmd/knowledge-service/internal/infrastructure/security"
-	"voiceassistant/cmd/knowledge-service/internal/infrastructure/storage"
-	"voiceassistant/cmd/knowledge-service/internal/server"
-	"voiceassistant/cmd/knowledge-service/internal/service"
+	"voicehelper/cmd/knowledge-service/internal/biz"
+	"voicehelper/cmd/knowledge-service/internal/data"
+	"voicehelper/cmd/knowledge-service/internal/infrastructure/event"
+	"voicehelper/cmd/knowledge-service/internal/infrastructure/security"
+	"voicehelper/cmd/knowledge-service/internal/infrastructure/storage"
+	"voicehelper/cmd/knowledge-service/internal/server"
+	"voicehelper/cmd/knowledge-service/internal/service"
 
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"

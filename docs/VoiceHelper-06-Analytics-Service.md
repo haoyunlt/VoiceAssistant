@@ -1,8 +1,8 @@
-# VoiceAssistant - 06 - Analytics Service
+# VoiceHelper - 06 - Analytics Service
 
 ## 模块概览
 
-Analytics Service（数据分析服务）是 VoiceAssistant 平台的数据洞察中心，负责收集、分析和可视化用户行为数据、AI 使用数据、成本数据等。该服务基于 ClickHouse 列式数据库实现高性能实时分析，为运营决策、资源优化和产品改进提供数据支持。
+Analytics Service（数据分析服务）是 VoiceHelper 平台的数据洞察中心，负责收集、分析和可视化用户行为数据、AI 使用数据、成本数据等。该服务基于 ClickHouse 列式数据库实现高性能实时分析，为运营决策、资源优化和产品改进提供数据支持。
 
 ### 核心职责
 

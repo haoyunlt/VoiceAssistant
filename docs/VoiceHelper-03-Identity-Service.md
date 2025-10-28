@@ -1,8 +1,8 @@
-# VoiceAssistant - 03 - Identity Service
+# VoiceHelper - 03 - Identity Service
 
 ## 模块概览
 
-Identity Service 是 VoiceAssistant 平台的认证授权中心，负责用户身份认证、令牌管理、权限控制和租户管理。该服务基于 JWT（JSON Web Token）和 RBAC（基于角色的访问控制）模型，提供安全可靠的身份认证和授权机制。
+Identity Service 是 VoiceHelper 平台的认证授权中心，负责用户身份认证、令牌管理、权限控制和租户管理。该服务基于 JWT（JSON Web Token）和 RBAC（基于角色的访问控制）模型，提供安全可靠的身份认证和授权机制。
 
 ### 核心职责
 

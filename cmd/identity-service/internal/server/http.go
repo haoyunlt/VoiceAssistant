@@ -3,7 +3,7 @@ package server
 import (
 	"time"
 
-	"voiceassistant/cmd/identity-service/internal/service"
+	"voicehelper/cmd/identity-service/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/logging"

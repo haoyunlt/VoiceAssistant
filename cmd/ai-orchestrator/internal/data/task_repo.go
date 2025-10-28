@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"voiceassistant/cmd/ai-orchestrator/internal/domain"
+	"voicehelper/cmd/ai-orchestrator/internal/domain"
 	"gorm.io/gorm"
 )
 

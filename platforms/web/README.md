@@ -1,6 +1,6 @@
-# VoiceAssistant Web Frontend
+# VoiceHelper Web Frontend
 
-基于 Next.js 和 React 的 VoiceAssistant Web 前端应用。
+基于 Next.js 和 React 的 VoiceHelper Web 前端应用。
 
 ## 🚀 快速开始
 

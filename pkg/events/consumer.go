@@ -9,7 +9,7 @@ import (
 	"github.com/IBM/sarama"
 	"google.golang.org/protobuf/proto"
 
-	eventsv1 "voiceassistant/api/proto/events/v1"
+	eventsv1 "voicehelper/api/proto/events/v1"
 )
 
 // EventHandler 事件处理器接口

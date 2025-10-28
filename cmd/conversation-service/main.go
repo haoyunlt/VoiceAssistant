@@ -8,8 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"voiceassistant/cmd/conversation-service/internal/data"
-	"voiceassistant/pkg/config"
+	"voicehelper/cmd/conversation-service/internal/data"
+	"voicehelper/pkg/config"
 )
 
 func main() {

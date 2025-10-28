@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
-	"voiceassistant/cmd/knowledge-service/internal/domain"
+	"voicehelper/cmd/knowledge-service/internal/domain"
 	"gorm.io/gorm"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"voiceassistant/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/domain"
 
 	"github.com/go-redis/redis/v8"
 )

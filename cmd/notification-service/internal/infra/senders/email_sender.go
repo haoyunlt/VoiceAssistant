@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/smtp"
 
-	"voiceassistant/cmd/notification-service/internal/domain"
+	"voicehelper/cmd/notification-service/internal/domain"
 )
 
 type EmailSender struct {

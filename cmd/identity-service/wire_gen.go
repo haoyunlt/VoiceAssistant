@@ -9,11 +9,11 @@ package main
 import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
-	"voiceassistant/cmd/identity-service/internal/biz"
-	"voiceassistant/cmd/identity-service/internal/data"
-	"voiceassistant/cmd/identity-service/internal/infra/oauth"
-	"voiceassistant/cmd/identity-service/internal/server"
-	"voiceassistant/cmd/identity-service/internal/service"
+	"voicehelper/cmd/identity-service/internal/biz"
+	"voicehelper/cmd/identity-service/internal/data"
+	"voicehelper/cmd/identity-service/internal/infra/oauth"
+	"voicehelper/cmd/identity-service/internal/server"
+	"voicehelper/cmd/identity-service/internal/service"
 )
 
 import (

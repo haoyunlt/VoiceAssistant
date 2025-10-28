@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"voiceassistant/cmd/knowledge-service/internal/domain"
+	"voicehelper/cmd/knowledge-service/internal/domain"
 )
 
 type collectionRepo struct {

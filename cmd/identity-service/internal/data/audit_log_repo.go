@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"voiceassistant/cmd/identity-service/internal/biz"
+	"voicehelper/cmd/identity-service/internal/biz"
 
 	"gorm.io/gorm"
 )

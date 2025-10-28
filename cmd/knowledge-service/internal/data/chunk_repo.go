@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/lib/pq"
-	"voiceassistant/cmd/knowledge-service/internal/domain"
+	"voicehelper/cmd/knowledge-service/internal/domain"
 	"gorm.io/gorm"
 )
 

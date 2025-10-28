@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"voiceassistant/cmd/notification-service/internal/domain"
+	"voicehelper/cmd/notification-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 )

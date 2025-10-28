@@ -92,7 +92,7 @@ func (h *Hub) registerClient(client *Client) {
 	// 发送欢迎消息
 	welcomeMsg := map[string]interface{}{
 		"type":      MessageTypeWelcome,
-		"message":   "Connected to VoiceAssistant",
+		"message":   "Connected to VoiceHelper",
 		"client_id": client.ID,
 		"timestamp": time.Now().Unix(),
 	}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 
-	"voiceassistant/cmd/model-router/internal/domain"
+	"voicehelper/cmd/model-router/internal/domain"
 )
 
 // VariantSelector 变体选择策略接口

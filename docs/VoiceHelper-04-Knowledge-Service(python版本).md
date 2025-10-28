@@ -1,4 +1,4 @@
-# VoiceAssistant-04-Knowledge-Service (Python版本)
+# VoiceHelper-04-Knowledge-Service (Python版本)
 
 ---
 
@@ -32,7 +32,7 @@
 
 ### 项目目标
 
-Knowledge Service（知识图谱服务）是 VoiceAssistant 平台的知识管理核心组件，提供企业级知识图谱构建、查询、社区检测和实体消歧能力。
+Knowledge Service（知识图谱服务）是 VoiceHelper 平台的知识管理核心组件，提供企业级知识图谱构建、查询、社区检测和实体消歧能力。
 
 ### 核心能力边界
 

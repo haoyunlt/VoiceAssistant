@@ -1,7 +1,7 @@
 [project]
 name = "voiceassistant-algo"
 version = "2.0.0"
-description = "VoiceAssistant AI Algorithm Services"
+description = "VoiceHelper AI Algorithm Services"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.110.0",

@@ -1,7 +1,7 @@
 package server
 
 import (
-	"voiceassistant/cmd/model-router/internal/service"
+	"voicehelper/cmd/model-router/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
 )

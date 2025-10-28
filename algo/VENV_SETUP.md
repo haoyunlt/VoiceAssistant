@@ -89,7 +89,7 @@ deactivate
 
 使用镜像安装：
 ```bash
-export PIP_CONFIG_FILE=/Users/lintao/important/ai-customer/VoiceAssistant/algo/pip.conf
+export PIP_CONFIG_FILE=/Users/lintao/important/ai-customer/VoiceHelper/algo/pip.conf
 pip install -r requirements.txt
 ```
 
@@ -150,7 +150,7 @@ A:
 ### Q: 如何在 IDE 中使用虚拟环境？
 A: 在 VS Code/PyCharm/Cursor 中，选择项目解释器为：
 ```
-/Users/lintao/important/ai-customer/VoiceAssistant/algo/<service>/venv/bin/python
+/Users/lintao/important/ai-customer/VoiceHelper/algo/<service>/venv/bin/python
 ```
 
 ## 下一步

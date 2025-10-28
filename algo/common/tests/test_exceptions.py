@@ -3,53 +3,48 @@
 """
 
 import pytest
-
 from algo.common.exceptions import (
     ResourceNotFoundError,
     ServiceUnavailableError,
     ValidationError,
-    VoiceAssistantError,
+    VoiceHelperError,
     get_http_status_code,
     handle_service_error,
     wrap_exception,
 )
 
 
-class TestVoiceAssistantError:
+class TestVoiceHelperError:
     """基础异常测试"""
 
     def test_basic_error(self):
         """测试基本异常"""
-        error = VoiceAssistantError("Test error")
-        assert str(error) == "Test error (code=VoiceAssistantError)"
+        error = VoiceHelperError("Test error")
+        assert str(error) == "Test error (code=VoiceHelperError)"
         assert error.message == "Test error"
-        assert error.code == "VoiceAssistantError"
+        assert error.code == "VoiceHelperError"
 
     def test_error_with_code(self):
         """测试带错误代码的异常"""
-        error = VoiceAssistantError("Test error", code="TEST_001")
+        error = VoiceHelperError("Test error", code="TEST_001")
         assert error.code == "TEST_001"
 
     def test_error_with_details(self):
         """测试带详情的异常"""
         details = {"field": "username", "value": "test"}
-        error = VoiceAssistantError("Test error", details=details)
+        error = VoiceHelperError("Test error", details=details)
         assert error.details == details
         assert "details" in str(error)
 
     def test_error_with_cause(self):
         """测试带原因的异常"""
         cause = ValueError("Original error")
-        error = VoiceAssistantError("Wrapped error", cause=cause)
+        error = VoiceHelperError("Wrapped error", cause=cause)
         assert error.cause == cause
 
     def test_to_dict(self):
         """测试转换为字典"""
-        error = VoiceAssistantError(
-            "Test error",
-            code="TEST_001",
-            details={"key": "value"}
-        )
+        error = VoiceHelperError("Test error", code="TEST_001", details={"key": "value"})
         error_dict = error.to_dict()
 
         assert error_dict["error"] == "TEST_001"
@@ -63,7 +58,7 @@ class TestSpecificErrors:
     def test_service_unavailable(self):
         """测试服务不可用异常"""
         error = ServiceUnavailableError("Service is down")
-        assert isinstance(error, VoiceAssistantError)
+        assert isinstance(error, VoiceHelperError)
         assert error.code == "ServiceUnavailableError"
 
     def test_resource_not_found(self):
@@ -74,8 +69,7 @@ class TestSpecificErrors:
     def test_validation_error(self):
         """测试验证错误"""
         error = ValidationError(
-            "Invalid input",
-            details={"field": "email", "error": "invalid format"}
+            "Invalid input", details={"field": "email", "error": "invalid format"}
         )
         assert error.details["field"] == "email"
 
@@ -88,7 +82,7 @@ class TestWrapException:
         original = ValueError("Original error")
         wrapped = wrap_exception(original)
 
-        assert isinstance(wrapped, VoiceAssistantError)
+        assert isinstance(wrapped, VoiceHelperError)
         assert wrapped.cause == original
         assert "ValueError" in wrapped.details["original_type"]
 
@@ -117,7 +111,7 @@ class TestHandleServiceError:
         original = httpx.TimeoutException("Request timeout")
         handled = handle_service_error(original, "test-service")
 
-        assert isinstance(handled, VoiceAssistantError)
+        assert isinstance(handled, VoiceHelperError)
         assert "timeout" in handled.message.lower()
         assert handled.details["service"] == "test-service"
 
@@ -152,7 +146,7 @@ class TestHttpStatusCodeMapping:
 
     def test_default_500(self):
         """测试默认 500"""
-        error = VoiceAssistantError("Generic error")
+        error = VoiceHelperError("Generic error")
         assert get_http_status_code(error) == 500
 
 

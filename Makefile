@@ -1,7 +1,7 @@
 .PHONY: help verify test build deploy clean
 
 help: ## 显示帮助信息
-	@echo "VoiceAssistant - 可用命令:"
+	@echo "VoiceHelper - 可用命令:"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
 verify: ## 验证架构优化

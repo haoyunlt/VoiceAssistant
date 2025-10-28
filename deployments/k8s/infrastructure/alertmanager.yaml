@@ -52,7 +52,7 @@ data:
       email_configs:
       - to: 'oncall@voiceassistant.com'
         headers:
-          Subject: '[CRITICAL] VoiceAssistant Alert'
+          Subject: '[CRITICAL] VoiceHelper Alert'
       webhook_configs:
       - url: 'http://notification-service.voiceassistant-prod:9006/webhook/critical'
       # 可选：集成钉钉/企业微信/Slack

@@ -9,7 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"voiceassistant/cmd/analytics-service/internal/conf"
+	"voicehelper/cmd/analytics-service/internal/conf"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"

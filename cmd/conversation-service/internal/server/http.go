@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"voiceassistant/cmd/conversation-service/internal/domain"
-	"voiceassistant/cmd/conversation-service/internal/service"
+	"voicehelper/cmd/conversation-service/internal/domain"
+	"voicehelper/cmd/conversation-service/internal/service"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-kratos/kratos/v2/log"

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"voiceassistant/cmd/knowledge-service/internal/domain"
+	"voicehelper/cmd/knowledge-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"

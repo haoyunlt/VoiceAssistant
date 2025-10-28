@@ -1,8 +1,8 @@
-# VoiceAssistant - 13 - Retrieval Service
+# VoiceHelper - 13 - Retrieval Service
 
 ## 模块概览
 
-Retrieval Service（检索服务）是 VoiceAssistant 平台 RAG 能力的核心组件，负责从向量数据库、全文搜索引擎和知识图谱中检索相关文档。该服务实现了混合检索策略，通过 RRF（Reciprocal Rank Fusion）算法融合多种检索结果，并使用 Cross-Encoder 重排序提升准确性。
+Retrieval Service（检索服务）是 VoiceHelper 平台 RAG 能力的核心组件，负责从向量数据库、全文搜索引擎和知识图谱中检索相关文档。该服务实现了混合检索策略，通过 RRF（Reciprocal Rank Fusion）算法融合多种检索结果，并使用 Cross-Encoder 重排序提升准确性。
 
 ### 核心职责
 

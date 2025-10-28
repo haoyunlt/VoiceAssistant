@@ -12,7 +12,7 @@ data:
   NACOS_SERVER_ADDR: "nacos.voice-assistant.svc.cluster.local"
   NACOS_SERVER_PORT: "8848"
   NACOS_NAMESPACE: "production"
-  NACOS_GROUP: "VoiceAssistant"
+  NACOS_GROUP: "VoiceHelper"
   CONFIG_MODE: "nacos"
 
 ---
@@ -162,7 +162,7 @@ data:
       server_addr: "nacos.voice-assistant.svc.cluster.local"
       server_port: 8848
       namespace: "production"
-      group: "VoiceAssistant"
+      group: "VoiceHelper"
       data_id: "conversation-service.yaml"
       log_dir: "/tmp/nacos/log"
       cache_dir: "/tmp/nacos/cache"
@@ -299,7 +299,7 @@ data:
       server_addr: "nacos.voice-assistant.svc.cluster.local"
       server_port: 8848
       namespace: "production"
-      group: "VoiceAssistant"
+      group: "VoiceHelper"
       data_id: "agent-engine.yaml"
 
     # 本地配置（Nacos 模式下会被覆盖）

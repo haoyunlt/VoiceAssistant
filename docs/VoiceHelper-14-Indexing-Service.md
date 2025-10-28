@@ -1,8 +1,8 @@
-# VoiceAssistant - 14 - Indexing Service
+# VoiceHelper - 14 - Indexing Service
 
 ## 模块概览
 
-Indexing Service（索引服务）是 VoiceAssistant 平台 RAG 能力的前置处理服务，负责将上传的文档解析、分块、向量化，并存储到 Milvus 向量数据库和 Neo4j 知识图谱。该服务作为文档索引流水线的协调者，确保文档从原始格式转换为可检索的结构化数据。
+Indexing Service（索引服务）是 VoiceHelper 平台 RAG 能力的前置处理服务，负责将上传的文档解析、分块、向量化，并存储到 Milvus 向量数据库和 Neo4j 知识图谱。该服务作为文档索引流水线的协调者，确保文档从原始格式转换为可检索的结构化数据。
 
 ### 核心职责
 
