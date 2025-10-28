@@ -47,7 +47,7 @@ AI 客服与语音助手平台，基于微服务架构，集成 LangChain、Lang
 
 ## 🏛️ 系统架构
 
-```
+```text
 ┌─────────────┐
 │   客户端     │
 │ Web/Mobile  │
@@ -140,7 +140,7 @@ curl http://${INGRESS_HOST}/health
 
 ## 📁 项目结构
 
-```
+```text
 VoiceAssistant/
 ├── algo/                      # Python AI 算法服务
 │   ├── agent-engine/          # 智能体引擎
@@ -269,17 +269,63 @@ todo
 
 ## 🛠️ 开发
 
-### 本地开发
+### Python 环境设置
+
+本项目已配置国内镜像源（清华大学 PyPI 镜像），大幅提升依赖安装速度（5-25倍）。
+
+#### 快速设置（推荐）
 
 ```bash
-# Go 服务
+# 方式一：批量设置所有服务（串行，稳定）
+cd algo
+./setup-all-venvs.sh
+
+# 方式二：并行设置所有服务（更快）
+cd algo
+./setup-venv-parallel.sh
+
+# 方式三：单独设置某个服务
+cd algo/agent-engine
+./setup-venv.sh
+```
+
+所有脚本已自动配置使用清华镜像源，无需额外配置。
+
+#### 手动安装
+
+如需手动安装依赖：
+
+```bash
+cd algo/<service-name>
+
+# 创建虚拟环境
+python3.11 -m venv venv
+source venv/bin/activate
+
+# 使用镜像源安装（已内置在脚本中）
+pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+```
+
+详细配置说明请参考：[Python 镜像源配置指南](algo/PIP_MIRROR_README.md)
+
+### Go 服务开发
+
+```bash
 cd cmd/identity-service
 go mod download
 go run main.go
+```
 
-# Python 服务
+### Python 服务开发
+
+```bash
 cd algo/agent-engine
-pip install -r requirements.txt
+
+# 激活虚拟环境
+source venv/bin/activate
+
+# 运行服务
 python main.py
 ```
 
@@ -320,13 +366,9 @@ pytest tests/
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-
-
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-
 
 ## 🙏 致谢
 

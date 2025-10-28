@@ -100,8 +100,8 @@ for service in "${SERVICES[@]}"; do
     # 激活虚拟环境并安装依赖
     echo "安装依赖..."
     if source venv/bin/activate && \
-       pip install --upgrade pip > /dev/null 2>&1 && \
-       pip install -r requirements.txt; then
+       pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple > /dev/null 2>&1 && \
+       pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
         echo -e "${GREEN}✓ 依赖安装成功${NC}"
         ((SUCCESS++))
         deactivate

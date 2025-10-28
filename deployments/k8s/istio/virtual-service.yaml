@@ -1,217 +1,646 @@
 ---
-# API Gateway Virtual Service - 统一入口路由
+# VirtualService - API Gateway Routes
+# 从 APISIX 路由配置转换而来
+# 版本: v3.0
+# 最后更新: 2025-10-28
+
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: api-gateway
   namespace: voiceassistant-prod
+  labels:
+    app: api-gateway
+    version: v3.0
+  annotations:
+    description: "Main API Gateway VirtualService (replaces APISIX routes)"
 spec:
   hosts:
   - "api.voiceassistant.com"
   gateways:
-  - voiceassistant-gateway
+  - istio-system/voiceassistant-gateway
   http:
-  # Identity Service
-  - match:
+  # ========== Identity Service ==========
+
+  # 1. Identity Service - Authentication (Public)
+  - name: identity-auth
+    match:
     - uri:
         prefix: "/api/v1/auth"
-    - uri:
-        prefix: "/api/v1/users"
+      headers:
+        host:
+          exact: api.voiceassistant.com
     route:
     - destination:
-        host: identity-service
+        host: identity-service.voiceassistant-prod.svc.cluster.local
         port:
-          number: 8080
+          number: 9000
+        subset: v1
+      weight: 100
     timeout: 10s
     retries:
       attempts: 3
       perTryTimeout: 3s
       retryOn: 5xx,reset,connect-failure,refused-stream
-  
-  # Conversation Service
-  - match:
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - authorization
+      - content-type
+      - x-request-id
+      - x-tenant-id
+      - x-user-id
+      allowCredentials: true
+      maxAge: 3600s
+    headers:
+      request:
+        set:
+          x-forwarded-proto: https
+        add:
+          x-request-id: "%REQ(x-request-id)%"
+      response:
+        set:
+          x-frame-options: DENY
+          x-content-type-options: nosniff
+          strict-transport-security: max-age=31536000; includeSubDomains
+
+  # 2. Identity Service - Users Management (Authenticated)
+  - name: identity-users
+    match:
+    - uri:
+        prefix: "/api/v1/users"
+    route:
+    - destination:
+        host: identity-service.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9000
+        subset: v1
+    timeout: 10s
+    retries:
+      attempts: 3
+      perTryTimeout: 3s
+    headers:
+      request:
+        set:
+          x-forwarded-proto: https
+
+  # ========== Conversation Service ==========
+
+  # 3. Conversation Service
+  - name: conversation-service
+    match:
     - uri:
         prefix: "/api/v1/conversations"
     - uri:
         prefix: "/api/v1/messages"
     route:
     - destination:
-        host: conversation-service
+        host: conversation-service.voiceassistant-prod.svc.cluster.local
         port:
-          number: 8080
+          number: 9000
+        subset: v1
     timeout: 30s
     retries:
       attempts: 2
-      perTryTimeout: 10s
-  
-  # Knowledge Service
-  - match:
+      perTryTimeout: 15s
+      retryOn: 5xx,reset,connect-failure
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # ========== Knowledge Service ==========
+
+  # 4. Knowledge Service - Documents
+  - name: knowledge-documents
+    match:
     - uri:
         prefix: "/api/v1/knowledge"
     - uri:
         prefix: "/api/v1/documents"
     route:
     - destination:
-        host: knowledge-service
+        host: knowledge-service.voiceassistant-prod.svc.cluster.local
         port:
-          number: 8080
+          number: 9000
+        subset: v1
     timeout: 60s
-  
-  # AI Orchestrator (主要AI处理)
-  - match:
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # ========== AI Services ==========
+
+  # 5. AI Orchestrator (Main AI Processing)
+  - name: ai-orchestrator
+    match:
     - uri:
         prefix: "/api/v1/ai"
     route:
     - destination:
-        host: ai-orchestrator
+        host: ai-orchestrator.voiceassistant-prod.svc.cluster.local
         port:
           number: 9003
+        subset: v1
     timeout: 120s
-  
-  # Voice Engine (WebSocket和HTTP)
-  - match:
+    retries:
+      attempts: 1
+      perTryTimeout: 120s
+      retryOn: reset,connect-failure  # 不重试5xx，避免重复AI调用
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+    headers:
+      request:
+        set:
+          x-service-type: ai-processing
+
+  # 6. Model Router (LLM Routing)
+  - name: model-router
+    match:
+    - uri:
+        prefix: "/api/v1/models"
+    route:
+    - destination:
+        host: model-router.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9004
+        subset: v1
+    timeout: 180s
+    retries:
+      attempts: 0  # LLM调用不重试，避免重复计费
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # ========== Python Algorithm Services ==========
+
+  # 7. Agent Engine
+  - name: agent-engine
+    match:
+    - uri:
+        prefix: "/api/v1/agent"
+    route:
+    - destination:
+        host: agent-engine.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 8003
+        subset: v1
+    timeout: 120s
+    retries:
+      attempts: 2
+      perTryTimeout: 60s
+      retryOn: 5xx,reset
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # 8. RAG Engine
+  - name: rag-engine
+    match:
+    - uri:
+        prefix: "/api/v1/rag"
+    route:
+    - destination:
+        host: rag-engine.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 8006
+        subset: v1
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # 9. Retrieval Service
+  - name: retrieval-service
+    match:
+    - uri:
+        prefix: "/api/v1/retrieval"
+    route:
+    - destination:
+        host: retrieval-service.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 8000
+        subset: v1
+    timeout: 30s
+    retries:
+      attempts: 2
+      perTryTimeout: 15s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # 10. Voice Engine (HTTP)
+  - name: voice-engine-http
+    match:
     - uri:
         prefix: "/api/v1/voice"
     route:
     - destination:
-        host: voice-engine
+        host: voice-engine.voiceassistant-prod.svc.cluster.local
         port:
           number: 8002
+        subset: v1
     timeout: 300s
-    websocketUpgrade: true
-  
-  # Health Check
-  - match:
+    retries:
+      attempts: 1
+      perTryTimeout: 300s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # 11. Multimodal Engine
+  - name: multimodal-engine
+    match:
     - uri:
-        exact: "/health"
+        prefix: "/api/v1/multimodal"
     route:
     - destination:
-        host: ai-orchestrator
+        host: multimodal-engine.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 8007
+        subset: v1
+    timeout: 120s
+    retries:
+      attempts: 2
+      perTryTimeout: 60s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # 12. Analytics Service
+  - name: analytics-service
+    match:
+    - uri:
+        prefix: "/api/v1/analytics"
+    route:
+    - destination:
+        host: analytics-service.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9001
+        subset: v1
+    timeout: 30s
+    retries:
+      attempts: 2
+      perTryTimeout: 15s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # 13. Notification Service
+  - name: notification-service
+    match:
+    - uri:
+        prefix: "/api/v1/notification"
+    route:
+    - destination:
+        host: notification-service.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9002
+        subset: v1
+    timeout: 10s
+    retries:
+      attempts: 2
+      perTryTimeout: 5s
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - POST
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+
+  # ========== Health & Monitoring ==========
+
+  # 14. Health Check
+  - name: health-check
+    match:
+    - uri:
+        exact: "/health"
+    - uri:
+        exact: "/healthz"
+    route:
+    - destination:
+        host: ai-orchestrator.voiceassistant-prod.svc.cluster.local
         port:
           number: 9003
+    timeout: 5s
+    retries:
+      attempts: 1
+      perTryTimeout: 3s
+
+  # 15. Readiness Check
+  - name: readiness-check
+    match:
+    - uri:
+        exact: "/ready"
+    route:
+    - destination:
+        host: ai-orchestrator.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9003
+    timeout: 5s
 
 ---
-# WebSocket Virtual Service (语音流式)
+# WebSocket VirtualService - Voice Streaming
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: voice-ws
+  name: websocket-voice
   namespace: voiceassistant-prod
+  labels:
+    app: websocket-gateway
+    version: v3.0
 spec:
   hosts:
   - "ws.voiceassistant.com"
   gateways:
-  - voiceassistant-ws-gateway
+  - istio-system/voiceassistant-gateway
   http:
-  - match:
+  # Voice WebSocket Stream
+  - name: voice-websocket
+    match:
     - uri:
         prefix: "/ws/voice"
     route:
     - destination:
-        host: voice-engine
+        host: voice-engine.voiceassistant-prod.svc.cluster.local
         port:
           number: 8002
-    timeout: 3600s  # 1小时超时
+        subset: v1
+    timeout: 3600s  # 1小时 WebSocket超时
     websocketUpgrade: true
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
+    headers:
+      request:
+        set:
+          x-connection-type: websocket
+
+  # Conversation WebSocket
+  - name: conversation-websocket
+    match:
+    - uri:
+        prefix: "/ws/conversation"
+    route:
+    - destination:
+        host: conversation-service.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 8080
+        subset: v1
+    timeout: 3600s
+    websocketUpgrade: true
+    corsPolicy:
+      allowOrigins:
+      - regex: "https://.*\\.voiceassistant\\.com"
+      allowMethods:
+      - GET
+      - OPTIONS
+      allowHeaders:
+      - "*"
+      allowCredentials: true
 
 ---
-# gRPC Virtual Service
+# gRPC VirtualService
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
   name: grpc-services
   namespace: voiceassistant-prod
+  labels:
+    app: grpc-gateway
+    version: v3.0
 spec:
   hosts:
   - "grpc.voiceassistant.com"
   gateways:
-  - voiceassistant-gateway
+  - istio-system/voiceassistant-gateway
   http:
-  - match:
+  # Identity gRPC Service
+  - name: identity-grpc
+    match:
     - uri:
-        prefix: "/identity.IdentityService"
+        prefix: "/identity.v1.Identity"
     route:
     - destination:
-        host: identity-service
+        host: identity-service.voiceassistant-prod.svc.cluster.local
         port:
           number: 9000
-  
-  - match:
+        subset: v1
+    timeout: 10s
+    retries:
+      attempts: 3
+      perTryTimeout: 3s
+
+  # Conversation gRPC Service
+  - name: conversation-grpc
+    match:
     - uri:
-        prefix: "/knowledge.KnowledgeService"
+        prefix: "/conversation.v1.Conversation"
     route:
     - destination:
-        host: knowledge-service
+        host: conversation-service.voiceassistant-prod.svc.cluster.local
         port:
           number: 9000
-  
-  - match:
+        subset: v1
+    timeout: 30s
+    retries:
+      attempts: 2
+      perTryTimeout: 15s
+
+  # Knowledge gRPC Service
+  - name: knowledge-grpc
+    match:
     - uri:
-        prefix: "/model.ModelRouter"
+        prefix: "/knowledge.v1.Knowledge"
     route:
     - destination:
-        host: model-router
+        host: knowledge-service.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9000
+        subset: v1
+    timeout: 60s
+
+  # Model Router gRPC Service
+  - name: model-router-grpc
+    match:
+    - uri:
+        prefix: "/model.v1.Router"
+    route:
+    - destination:
+        host: model-router.voiceassistant-prod.svc.cluster.local
         port:
           number: 9004
+        subset: v1
+    timeout: 180s
+    retries:
+      attempts: 0  # LLM调用不重试
+
+  # AI Orchestrator gRPC Service
+  - name: ai-orchestrator-grpc
+    match:
+    - uri:
+        prefix: "/ai.v1.Orchestrator"
+    route:
+    - destination:
+        host: ai-orchestrator.voiceassistant-prod.svc.cluster.local
+        port:
+          number: 9003
+        subset: v1
+    timeout: 120s
 
 ---
-# Internal Service Mesh 路由 (服务间调用)
+# Internal Service Mesh Routes (服务间调用)
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
-  name: agent-engine-internal
+  name: internal-services
   namespace: voiceassistant-prod
+  labels:
+    app: internal-mesh
+    version: v3.0
 spec:
   hosts:
-  - agent-engine
+  - "agent-engine.voiceassistant-prod.svc.cluster.local"
+  - "rag-engine.voiceassistant-prod.svc.cluster.local"
+  - "model-adapter.voiceassistant-prod.svc.cluster.local"
+  - "retrieval-service.voiceassistant-prod.svc.cluster.local"
+  - "indexing-service.voiceassistant-prod.svc.cluster.local"
+  - "vector-store-adapter.voiceassistant-prod.svc.cluster.local"
   http:
-  - route:
+  # Agent Engine Internal
+  - match:
+    - uri:
+        prefix: "/"
+      sourceLabels:
+        app: ai-orchestrator
+    - uri:
+        prefix: "/"
+      sourceLabels:
+        app: conversation-service
+    route:
     - destination:
-        host: agent-engine
+        host: agent-engine.voiceassistant-prod.svc.cluster.local
         port:
           number: 8003
         subset: v1
-      weight: 100
     timeout: 120s
     retries:
       attempts: 2
       perTryTimeout: 60s
 
----
-apiVersion: networking.istio.io/v1beta1
-kind: VirtualService
-metadata:
-  name: rag-engine-internal
-  namespace: voiceassistant-prod
-spec:
-  hosts:
-  - rag-engine
-  http:
-  - route:
+  # RAG Engine Internal
+  - match:
+    - uri:
+        prefix: "/"
+      sourceLabels:
+        app: ai-orchestrator
+    route:
     - destination:
-        host: rag-engine
+        host: rag-engine.voiceassistant-prod.svc.cluster.local
         port:
           number: 8006
         subset: v1
-      weight: 100
     timeout: 60s
 
----
-apiVersion: networking.istio.io/v1beta1
-kind: VirtualService
-metadata:
-  name: model-adapter-internal
-  namespace: voiceassistant-prod
-spec:
-  hosts:
-  - model-adapter
-  http:
-  - route:
+  # Model Adapter Internal (不重试)
+  - match:
+    - uri:
+        prefix: "/"
+      sourceLabels:
+        app: model-router
+    route:
     - destination:
-        host: model-adapter
+        host: model-adapter.voiceassistant-prod.svc.cluster.local
         port:
           number: 8005
         subset: v1
-      weight: 100
     timeout: 180s
-
+    retries:
+      attempts: 0  # LLM适配器不重试

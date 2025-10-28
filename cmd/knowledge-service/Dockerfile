@@ -3,7 +3,13 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
+# 配置阿里云 Alpine 镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 RUN apk add --no-cache git make
+
+# 配置 Go 国内代理
+ENV GOPROXY=https://goproxy.cn,direct
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -14,6 +20,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o knowledge-service
 
 # Runtime stage
 FROM alpine:latest
+
+# 配置阿里云 Alpine 镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 RUN apk --no-cache add ca-certificates tzdata
 

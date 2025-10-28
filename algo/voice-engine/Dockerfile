@@ -3,6 +3,10 @@ FROM python:3.11-slim as builder
 
 WORKDIR /app
 
+# 配置清华 APT 源
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources || \
+  sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
   gcc \
@@ -13,12 +17,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir --user -r requirements.txt
+# 配置清华 pip 源并安装依赖
+RUN pip install --no-cache-dir --user -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # Final stage
 FROM python:3.11-slim
 
 WORKDIR /app
+
+# 配置清华 APT 源
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources || \
+  sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

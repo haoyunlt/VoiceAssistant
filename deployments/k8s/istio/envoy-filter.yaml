@@ -1,0 +1,629 @@
+---
+# EnvoyFilter - 高级流量控制和插件功能
+# 对应 APISIX 插件功能
+# 版本: v3.0
+# 最后更新: 2025-10-28
+
+# ========== 全局限流 (Rate Limiting) ==========
+
+# 1. 全局IP限流 (防DDoS)
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: global-rate-limit
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    # HTTP连接管理器配置
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            stat_prefix: http_local_rate_limiter
+            token_bucket:
+              max_tokens: 1000
+              tokens_per_fill: 1000
+              fill_interval: 60s
+            filter_enabled:
+              runtime_key: local_rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: local_rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            response_headers_to_add:
+              - append: false
+                header:
+                  key: x-local-rate-limit
+                  value: "true"
+            local_rate_limit_per_downstream_connection: false
+
+---
+# 2. Redis全局限流 (分布式限流)
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: redis-rate-limit
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    # 添加Redis Rate Limit Service配置
+    - applyTo: CLUSTER
+      match:
+        context: GATEWAY
+      patch:
+        operation: ADD
+        value:
+          name: rate_limit_service
+          type: STRICT_DNS
+          connect_timeout: 1s
+          lb_policy: ROUND_ROBIN
+          protocol_selection: USE_CONFIGURED_PROTOCOL
+          http2_protocol_options: {}
+          load_assignment:
+            cluster_name: rate_limit_service
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: redis-cluster.voiceassistant-infra.svc.cluster.local
+                          port_value: 6379
+
+    # HTTP Rate Limit Filter
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.ratelimit
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.ratelimit.v3.RateLimit
+            domain: voiceassistant-prod
+            failure_mode_deny: false
+            timeout: 1s
+            rate_limit_service:
+              grpc_service:
+                envoy_grpc:
+                  cluster_name: rate_limit_service
+              transport_api_version: V3
+            request_type: both
+
+---
+# ========== 安全头和响应重写 ==========
+
+# 3. 全局安全响应头
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: security-headers
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inline_code: |
+              function envoy_on_response(response_handle)
+                -- 添加安全响应头
+                response_handle:headers():add("X-Frame-Options", "DENY")
+                response_handle:headers():add("X-Content-Type-Options", "nosniff")
+                response_handle:headers():add("X-XSS-Protection", "1; mode=block")
+                response_handle:headers():add("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+                response_handle:headers():add("Referrer-Policy", "strict-origin-when-cross-origin")
+                response_handle:headers():add("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+                -- 移除泄露信息的响应头
+                response_handle:headers():remove("Server")
+                response_handle:headers():remove("X-Powered-By")
+                response_handle:headers():remove("X-AspNet-Version")
+              end
+
+---
+# ========== 请求ID追踪 ==========
+
+# 4. 全局请求ID生成
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: request-id-generator
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            use_remote_address: true
+            xff_num_trusted_hops: 1
+            normalize_path: true
+            merge_slashes: true
+            request_id_extension:
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.request_id.uuid.v3.UuidRequestIdConfig
+                use_request_id_for_trace_sampling: true
+
+---
+# ========== CORS 配置 ==========
+
+# 5. 全局CORS策略
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cors-policy
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.cors
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+
+    # CORS路由配置
+    - applyTo: ROUTE_CONFIGURATION
+      match:
+        context: GATEWAY
+      patch:
+        operation: MERGE
+        value:
+          route_config:
+            virtual_hosts:
+              - cors:
+                  allow_origin_string_match:
+                    - safe_regex:
+                        google_re2: {}
+                        regex: "https://.*\\.voiceassistant\\.com"
+                  allow_methods: "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+                  allow_headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Tenant-ID,X-User-ID,X-Session-ID,X-Request-ID,X-Conversation-ID"
+                  expose_headers: "Content-Length,Content-Range,X-Request-ID,X-Rate-Limit-Remaining,X-Rate-Limit-Reset"
+                  max_age: "86400"
+                  allow_credentials: true
+
+---
+# ========== 请求/响应大小限制 ==========
+
+# 6. 请求体大小限制
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: request-size-limit
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            max_request_headers_kb: 96
+            stream_idle_timeout: 300s
+            request_timeout: 300s
+
+    # HTTP Route配置
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+      patch:
+        operation: MERGE
+        value:
+          route:
+            max_stream_duration:
+              grpc_timeout_header_max: 300s
+              max_stream_duration: 300s
+
+---
+# ========== 连接和超时管理 ==========
+
+# 7. 连接管理和超时配置
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: connection-management
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            common_http_protocol_options:
+              idle_timeout: 60s
+              max_connection_duration: 0s
+              max_headers_count: 100
+              max_stream_duration: 300s
+              headers_with_underscores_action: REJECT_REQUEST
+            http2_protocol_options:
+              max_concurrent_streams: 100
+              initial_stream_window_size: 65536
+              initial_connection_window_size: 1048576
+            stream_idle_timeout: 300s
+            request_timeout: 300s
+            drain_timeout: 5s
+
+---
+# ========== WebSocket 支持 ==========
+
+# 8. WebSocket升级配置
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: websocket-upgrade
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            route:
+              name: "ws-route"
+      patch:
+        operation: MERGE
+        value:
+          route:
+            timeout: 3600s
+            idle_timeout: 3600s
+            upgrade_configs:
+              - upgrade_type: websocket
+                enabled: true
+
+---
+# ========== 压缩配置 ==========
+
+# 9. gzip压缩
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: compression
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.compressor
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor
+            response_direction_config:
+              common_config:
+                enabled:
+                  default_value: true
+                  runtime_key: response_compressor_enabled
+                min_content_length: 1024
+                content_type:
+                  - text/plain
+                  - text/css
+                  - text/html
+                  - text/javascript
+                  - text/xml
+                  - application/json
+                  - application/javascript
+                  - application/xml
+                  - application/xml+rss
+            compressor_library:
+              name: text_optimized
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.compression.gzip.compressor.v3.Gzip
+                memory_level: 9
+                compression_level: BEST_COMPRESSION
+                compression_strategy: DEFAULT_STRATEGY
+                window_bits: 15
+
+---
+# ========== 访问日志配置 ==========
+
+# 10. 结构化访问日志
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: access-log-format
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            access_log:
+              # JSON格式访问日志
+              - name: envoy.access_loggers.file
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.access_loggers.file.v3.FileAccessLog
+                  path: /dev/stdout
+                  log_format:
+                    json_format:
+                      timestamp: "%START_TIME%"
+                      protocol: "%PROTOCOL%"
+                      duration: "%DURATION%"
+                      request_method: "%REQ(:METHOD)%"
+                      request_path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+                      response_code: "%RESPONSE_CODE%"
+                      response_flags: "%RESPONSE_FLAGS%"
+                      response_code_details: "%RESPONSE_CODE_DETAILS%"
+                      connection_termination_details: "%CONNECTION_TERMINATION_DETAILS%"
+                      upstream_host: "%UPSTREAM_HOST%"
+                      upstream_cluster: "%UPSTREAM_CLUSTER%"
+                      upstream_local_address: "%UPSTREAM_LOCAL_ADDRESS%"
+                      downstream_local_address: "%DOWNSTREAM_LOCAL_ADDRESS%"
+                      downstream_remote_address: "%DOWNSTREAM_REMOTE_ADDRESS%"
+                      requested_server_name: "%REQUESTED_SERVER_NAME%"
+                      bytes_received: "%BYTES_RECEIVED%"
+                      bytes_sent: "%BYTES_SENT%"
+                      user_agent: "%REQ(USER-AGENT)%"
+                      x_forwarded_for: "%REQ(X-FORWARDED-FOR)%"
+                      x_request_id: "%REQ(X-REQUEST-ID)%"
+                      x_tenant_id: "%REQ(X-TENANT-ID)%"
+                      x_user_id: "%REQ(X-USER-ID)%"
+                      x_session_id: "%REQ(X-SESSION-ID)%"
+                      authority: "%REQ(:AUTHORITY)%"
+                      upstream_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+                      route_name: "%ROUTE_NAME%"
+
+---
+# ========== 健康检查和监控 ==========
+
+# 11. 增强的健康检查端点
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: health-check-endpoints
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.health_check
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.health_check.v3.HealthCheck
+            pass_through_mode: false
+            headers:
+              - name: ":path"
+                exact_match: "/healthz"
+              - name: "x-envoy-livenessprobe"
+                exact_match: "healthz"
+
+---
+# ========== IP黑白名单 ==========
+
+# 12. IP限制 (可选，基于具体需求)
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: ip-restriction
+  namespace: voiceassistant-prod
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      app: identity-service # 示例：仅对identity-service启用
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.rbac
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC
+            rules:
+              action: ALLOW
+              policies:
+                "allow-internal":
+                  permissions:
+                    - any: true
+                  principals:
+                    - remote_ip:
+                        address_prefix: 10.0.0.0
+                        prefix_len: 8
+                    - remote_ip:
+                        address_prefix: 172.16.0.0
+                        prefix_len: 12
+                    - remote_ip:
+                        address_prefix: 192.168.0.0
+                        prefix_len: 16
+
+---
+# ========== 性能优化 ==========
+
+# 13. HTTP/2性能优化
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: http2-optimization
+  namespace: istio-system
+  labels:
+    app: envoy-filter
+    version: v3.0
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: MERGE
+        value:
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            http2_protocol_options:
+              max_concurrent_streams: 1000
+              initial_stream_window_size: 268435456 # 256MB
+              initial_connection_window_size: 268435456 # 256MB
+              allow_connect: true
+              allow_metadata: true

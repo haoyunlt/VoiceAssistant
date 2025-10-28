@@ -5,6 +5,10 @@ FROM python:3.11-slim as builder
 
 WORKDIR /build
 
+# 配置清华 APT 源
+RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources || \
+  sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list
+
 # 安装构建依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
   gcc \
@@ -12,11 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
-COPY requirements_updated.txt .
+COPY requirements.txt .
 
-# 安装Python依赖到独立目录
-RUN pip install --no-cache-dir --upgrade pip && \
-  pip install --no-cache-dir --target=/build/deps -r requirements_updated.txt
+# 配置清华 pip 源并安装Python依赖到独立目录
+RUN pip install --no-cache-dir --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+  pip install --no-cache-dir --target=/build/deps -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 # ===== 运行阶段 =====
 FROM python:3.11-slim
@@ -43,4 +47,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 USER appuser
 
 # 启动命令
-CMD ["python", "-m", "uvicorn", "main_refactored:app", "--host", "0.0.0.0", "--port", "8005"]
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8005"]

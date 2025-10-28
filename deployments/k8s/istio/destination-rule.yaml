@@ -1,13 +1,22 @@
 ---
 # Destination Rules - 流量策略和负载均衡
+# 从 APISIX Upstreams 配置转换而来
+# 版本: v3.0
+# 最后更新: 2025-10-28
+
+# ========== Go Services (gRPC) ==========
+
 # Identity Service
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: identity-service
   namespace: voiceassistant-prod
+  labels:
+    app: identity-service
+    version: v3.0
 spec:
-  host: identity-service
+  host: identity-service.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       consistentHash:
@@ -15,19 +24,26 @@ spec:
     connectionPool:
       tcp:
         maxConnections: 1000
+        connectTimeout: 3s
       http:
         http1MaxPendingRequests: 1024
         http2MaxRequests: 1024
         maxRequestsPerConnection: 10
+        idleTimeout: 60s
     outlierDetection:
-      consecutiveErrors: 5
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
       interval: 30s
       baseEjectionTime: 30s
       maxEjectionPercent: 50
+      minHealthPercent: 40
   subsets:
   - name: v1
     labels:
       version: v1
+  - name: canary
+    labels:
+      version: canary
 
 ---
 # Conversation Service
@@ -36,22 +52,68 @@ kind: DestinationRule
 metadata:
   name: conversation-service
   namespace: voiceassistant-prod
+  labels:
+    app: conversation-service
+    version: v3.0
 spec:
-  host: conversation-service
+  host: conversation-service.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       consistentHash:
-        httpHeaderName: "x-conversation-id"
+        httpHeaderName: "x-conversation-id"  # 对话会话保持
     connectionPool:
       tcp:
         maxConnections: 2000
+        connectTimeout: 3s
       http:
         http1MaxPendingRequests: 2048
         http2MaxRequests: 2048
+        maxRequestsPerConnection: 10
+        idleTimeout: 60s
     outlierDetection:
-      consecutiveErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
       interval: 20s
       baseEjectionTime: 30s
+      maxEjectionPercent: 50
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+  - name: canary
+    labels:
+      version: canary
+
+---
+# Knowledge Service
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: knowledge-service
+  namespace: voiceassistant-prod
+  labels:
+    app: knowledge-service
+    version: v3.0
+spec:
+  host: knowledge-service.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 500
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 1024
+        http2MaxRequests: 1024
+        maxRequestsPerConnection: 10
+        idleTimeout: 60s
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
   subsets:
   - name: v1
     labels:
@@ -64,49 +126,171 @@ kind: DestinationRule
 metadata:
   name: ai-orchestrator
   namespace: voiceassistant-prod
+  labels:
+    app: ai-orchestrator
+    version: v3.0
 spec:
-  host: ai-orchestrator
+  host: ai-orchestrator.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
-      simple: LEAST_REQUEST  # 最少请求负载均衡
+      simple: LEAST_REQUEST  # 最少请求负载均衡（适合长任务）
+      localityLbSetting:
+        enabled: true
+        distribute:
+        - from: us-west/*
+          to:
+            "us-west/*": 80
+            "us-east/*": 20
     connectionPool:
       tcp:
         maxConnections: 500
+        connectTimeout: 3s
       http:
         http2MaxRequests: 500
         maxRequestsPerConnection: 5
+        idleTimeout: 60s
+        h2UpgradePolicy: UPGRADE
     outlierDetection:
-      consecutiveErrors: 2
+      consecutiveGatewayErrors: 2
+      consecutive5xxErrors: 2
       interval: 10s
       baseEjectionTime: 60s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
   subsets:
   - name: v1
     labels:
       version: v1
 
 ---
+# Model Router
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: model-router
+  namespace: voiceassistant-prod
+  labels:
+    app: model-router
+    version: v3.0
+spec:
+  host: model-router.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST  # LLM路由需要负载均衡
+    connectionPool:
+      tcp:
+        maxConnections: 500
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 1024
+        http2MaxRequests: 1024
+        maxRequestsPerConnection: 5
+        idleTimeout: 60s
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 30  # LLM偶尔超时是正常的
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+
+---
+# Analytics Service
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: analytics-service
+  namespace: voiceassistant-prod
+  labels:
+    app: analytics-service
+    version: v3.0
+spec:
+  host: analytics-service.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 500
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 1024
+        http2MaxRequests: 1024
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+
+---
+# Notification Service
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: notification-service
+  namespace: voiceassistant-prod
+  labels:
+    app: notification-service
+    version: v3.0
+spec:
+  host: notification-service.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 500
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 512
+        http2MaxRequests: 512
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      interval: 20s
+      baseEjectionTime: 30s
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+
+---
+# ========== Python Services (FastAPI/HTTP) ==========
+
 # Agent Engine
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
   name: agent-engine
   namespace: voiceassistant-prod
+  labels:
+    app: agent-engine
+    version: v3.0
 spec:
-  host: agent-engine
+  host: agent-engine.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
-      simple: LEAST_REQUEST
+      simple: LEAST_REQUEST  # Agent执行通常是长任务
     connectionPool:
       tcp:
         maxConnections: 300
+        connectTimeout: 3s
       http:
         http1MaxPendingRequests: 512
         http2MaxRequests: 512
         maxRequestsPerConnection: 3
+        idleTimeout: 120s  # Agent任务较长
     outlierDetection:
-      consecutiveErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
       interval: 20s
       baseEjectionTime: 60s
+      maxEjectionPercent: 50
   subsets:
   - name: v1
     labels:
@@ -119,75 +303,26 @@ kind: DestinationRule
 metadata:
   name: rag-engine
   namespace: voiceassistant-prod
+  labels:
+    app: rag-engine
+    version: v3.0
 spec:
-  host: rag-engine
+  host: rag-engine.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN
     connectionPool:
       tcp:
         maxConnections: 500
+        connectTimeout: 3s
       http:
         http1MaxPendingRequests: 1024
         http2MaxRequests: 1024
+        maxRequestsPerConnection: 10
+        idleTimeout: 60s
     outlierDetection:
-      consecutiveErrors: 3
-      interval: 30s
-      baseEjectionTime: 30s
-  subsets:
-  - name: v1
-    labels:
-      version: v1
-
----
-# Model Adapter
-apiVersion: networking.istio.io/v1beta1
-kind: DestinationRule
-metadata:
-  name: model-adapter
-  namespace: voiceassistant-prod
-spec:
-  host: model-adapter
-  trafficPolicy:
-    loadBalancer:
-      simple: LEAST_REQUEST
-    connectionPool:
-      tcp:
-        maxConnections: 400
-      http:
-        http1MaxPendingRequests: 512
-        http2MaxRequests: 512
-        maxRequestsPerConnection: 5
-    outlierDetection:
-      consecutiveErrors: 5
-      interval: 30s
-      baseEjectionTime: 120s  # LLM调用可能偶尔超时
-  subsets:
-  - name: v1
-    labels:
-      version: v1
-
----
-# Voice Engine
-apiVersion: networking.istio.io/v1beta1
-kind: DestinationRule
-metadata:
-  name: voice-engine
-  namespace: voiceassistant-prod
-spec:
-  host: voice-engine
-  trafficPolicy:
-    loadBalancer:
-      consistentHash:
-        httpHeaderName: "x-session-id"  # WebSocket会话保持
-    connectionPool:
-      tcp:
-        maxConnections: 1000
-      http:
-        http1MaxPendingRequests: 1024
-        maxRequestsPerConnection: 1  # WebSocket长连接
-    outlierDetection:
-      consecutiveErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
       interval: 30s
       baseEjectionTime: 30s
   subsets:
@@ -202,19 +337,26 @@ kind: DestinationRule
 metadata:
   name: retrieval-service
   namespace: voiceassistant-prod
+  labels:
+    app: retrieval-service
+    version: v3.0
 spec:
-  host: retrieval-service
+  host: retrieval-service.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN
     connectionPool:
       tcp:
         maxConnections: 600
+        connectTimeout: 3s
       http:
         http1MaxPendingRequests: 1024
         http2MaxRequests: 1024
+        maxRequestsPerConnection: 10
+        idleTimeout: 60s
     outlierDetection:
-      consecutiveErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
       interval: 30s
       baseEjectionTime: 30s
   subsets:
@@ -223,25 +365,101 @@ spec:
       version: v1
 
 ---
-# Model Router
+# Model Adapter
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: model-router
+  name: model-adapter
   namespace: voiceassistant-prod
+  labels:
+    app: model-adapter
+    version: v3.0
 spec:
-  host: model-router
+  host: model-adapter.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: LEAST_REQUEST  # LLM适配器使用最少请求
+    connectionPool:
+      tcp:
+        maxConnections: 400
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 512
+        http2MaxRequests: 512
+        maxRequestsPerConnection: 5
+        idleTimeout: 180s  # LLM调用时间长
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 120s  # LLM调用可能偶尔超时
+      maxEjectionPercent: 30
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+
+---
+# Voice Engine
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: voice-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: voice-engine
+    version: v3.0
+spec:
+  host: voice-engine.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: "x-session-id"  # WebSocket会话保持
+    connectionPool:
+      tcp:
+        maxConnections: 1000
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 1024
+        maxRequestsPerConnection: 1  # WebSocket长连接
+        idleTimeout: 3600s  # WebSocket 1小时超时
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+
+---
+# Multimodal Engine
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: multimodal-engine
+  namespace: voiceassistant-prod
+  labels:
+    app: multimodal-engine
+    version: v3.0
+spec:
+  host: multimodal-engine.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: LEAST_REQUEST
     connectionPool:
       tcp:
-        maxConnections: 500
+        maxConnections: 300
+        connectTimeout: 3s
       http:
-        http1MaxPendingRequests: 1024
-        http2MaxRequests: 1024
+        http1MaxPendingRequests: 512
+        http2MaxRequests: 512
+        maxRequestsPerConnection: 5
+        idleTimeout: 120s
     outlierDetection:
-      consecutiveErrors: 5
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
       interval: 30s
       baseEjectionTime: 60s
   subsets:
@@ -250,25 +468,63 @@ spec:
       version: v1
 
 ---
-# Knowledge Service
+# Indexing Service (Internal)
 apiVersion: networking.istio.io/v1beta1
 kind: DestinationRule
 metadata:
-  name: knowledge-service
+  name: indexing-service
   namespace: voiceassistant-prod
+  labels:
+    app: indexing-service
+    version: v3.0
 spec:
-  host: knowledge-service
+  host: indexing-service.voiceassistant-prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 200
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 256
+        maxRequestsPerConnection: 5
+        idleTimeout: 300s  # 索引构建时间长
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      interval: 60s
+      baseEjectionTime: 120s
+  subsets:
+  - name: v1
+    labels:
+      version: v1
+
+---
+# Vector Store Adapter (Internal)
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: vector-store-adapter
+  namespace: voiceassistant-prod
+  labels:
+    app: vector-store-adapter
+    version: v3.0
+spec:
+  host: vector-store-adapter.voiceassistant-prod.svc.cluster.local
   trafficPolicy:
     loadBalancer:
       simple: ROUND_ROBIN
     connectionPool:
       tcp:
         maxConnections: 500
+        connectTimeout: 3s
       http:
         http1MaxPendingRequests: 1024
-        http2MaxRequests: 1024
+        maxRequestsPerConnection: 10
+        idleTimeout: 60s
     outlierDetection:
-      consecutiveErrors: 3
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
       interval: 30s
       baseEjectionTime: 30s
   subsets:
@@ -276,3 +532,35 @@ spec:
     labels:
       version: v1
 
+---
+# ========== Global Default Policy ==========
+
+# 全局默认策略（可被具体服务覆盖）
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: global-default
+  namespace: voiceassistant-prod
+  labels:
+    app: global
+    version: v3.0
+spec:
+  host: "*.voiceassistant-prod.svc.cluster.local"
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 3s
+      http:
+        http1MaxPendingRequests: 256
+        http2MaxRequests: 256
+        maxRequestsPerConnection: 10
+        idleTimeout: 60s
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50

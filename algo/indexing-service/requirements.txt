@@ -22,7 +22,8 @@ beautifulsoup4==4.12.3
 lxml==5.1.0
 
 # 文本处理
-langchain==0.1.7
+langchain==0.1.10
+langchain-community==0.0.25
 langchain-text-splitters==0.0.1
 
 # Embedding

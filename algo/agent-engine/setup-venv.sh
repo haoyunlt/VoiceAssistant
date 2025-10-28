@@ -22,13 +22,13 @@ python3.11 -m venv venv
 echo "Activating virtual environment..."
 source venv/bin/activate
 
-# 升级 pip
+# 升级 pip（使用清华镜像源）
 echo "Upgrading pip..."
-pip install --upgrade pip
+pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
 
-# 安装依赖
-echo "Installing dependencies..."
-pip install -r requirements.txt
+# 安装依赖（使用清华镜像源）
+echo "Installing dependencies from Tsinghua mirror..."
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 
 echo "Virtual environment setup complete!"
 echo "To activate the virtual environment, run: source venv/bin/activate"

@@ -1,66 +1,100 @@
 ---
 # Istio Gateway - 外部流量入口
+# 从 APISIX 迁移回来,保留所有功能特性
+# 版本: v3.0
+# 最后更新: 2025-10-28
+
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
   name: voiceassistant-gateway
-  namespace: voiceassistant-prod
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    version: v3.0
+  annotations:
+    description: "Main gateway for VoiceAssistant platform (replaces APISIX)"
 spec:
   selector:
-    istio: ingressgateway  # 使用默认的Istio Ingress Gateway
+    istio: ingressgateway # 使用默认的Istio Ingress Gateway
+
   servers:
-  # HTTP (重定向到HTTPS)
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*.voiceassistant.com"
-    - "api.voiceassistant.com"
-    tls:
-      httpsRedirect: true
-  
-  # HTTPS
-  - port:
-      number: 443
-      name: https
-      protocol: HTTPS
-    hosts:
-    - "*.voiceassistant.com"
-    - "api.voiceassistant.com"
-    tls:
-      mode: SIMPLE
-      credentialName: voiceassistant-tls-cert  # TLS证书Secret
-  
-  # gRPC
-  - port:
-      number: 9000
-      name: grpc
-      protocol: GRPC
-    hosts:
-    - "grpc.voiceassistant.com"
-    tls:
-      mode: SIMPLE
-      credentialName: voiceassistant-tls-cert
+    # HTTP (重定向到HTTPS)
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*.voiceassistant.com"
+        - "api.voiceassistant.com"
+        - "ws.voiceassistant.com"
+        - "grpc.voiceassistant.com"
+      tls:
+        httpsRedirect: true
+
+    # HTTPS - API Gateway
+    - port:
+        number: 443
+        name: https-api
+        protocol: HTTPS
+      hosts:
+        - "api.voiceassistant.com"
+      tls:
+        mode: SIMPLE
+        credentialName: voiceassistant-tls-cert # TLS证书Secret
+        minProtocolVersion: TLSV1_2
+        maxProtocolVersion: TLSV1_3
+        cipherSuites:
+          - ECDHE-RSA-AES128-GCM-SHA256
+          - ECDHE-RSA-AES256-GCM-SHA384
+          - ECDHE-RSA-CHACHA20-POLY1305
+          - ECDHE-ECDSA-AES128-GCM-SHA256
+          - ECDHE-ECDSA-AES256-GCM-SHA384
+
+    # HTTPS - WebSocket Gateway
+    - port:
+        number: 443
+        name: https-ws
+        protocol: HTTPS
+      hosts:
+        - "ws.voiceassistant.com"
+      tls:
+        mode: SIMPLE
+        credentialName: voiceassistant-tls-cert
+        minProtocolVersion: TLSV1_2
+        maxProtocolVersion: TLSV1_3
+
+    # HTTPS - gRPC Gateway
+    - port:
+        number: 443
+        name: https-grpc
+        protocol: HTTPS
+      hosts:
+        - "grpc.voiceassistant.com"
+      tls:
+        mode: SIMPLE
+        credentialName: voiceassistant-tls-cert
+        minProtocolVersion: TLSV1_2
 
 ---
-# WebSocket Gateway (语音流式传输)
+# Gateway for Internal Service Mesh (可选，用于东西向流量管理)
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
-  name: voiceassistant-ws-gateway
+  name: voiceassistant-mesh-gateway
   namespace: voiceassistant-prod
+  labels:
+    app: istio-ingressgateway
+    type: mesh-internal
 spec:
   selector:
     istio: ingressgateway
   servers:
-  - port:
-      number: 443
-      name: https-ws
-      protocol: HTTPS
-    hosts:
-    - "ws.voiceassistant.com"
-    tls:
-      mode: SIMPLE
-      credentialName: voiceassistant-tls-cert
-
+    - port:
+        number: 15443
+        name: tls-internal
+        protocol: TLS
+      hosts:
+        - "*.voiceassistant-prod.svc.cluster.local"
+      tls:
+        mode: ISTIO_MUTUAL # mTLS for internal services

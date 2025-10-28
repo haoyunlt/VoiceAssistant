@@ -1,97 +1,595 @@
 ---
-# Istio Telemetry 配置 - OpenTelemetry集成
-apiVersion: telemetry.istio.io/v1alpha1
-kind: Telemetry
-metadata:
-  name: default
-  namespace: voiceassistant-prod
-spec:
-  # Tracing配置
-  tracing:
-  - providers:
-    - name: jaeger
-    randomSamplingPercentage: 10.0  # 10%采样率(生产环境)
-    customTags:
-      environment:
-        literal:
-          value: production
-      cluster:
-        literal:
-          value: voiceassistant-prod
-  
-  # Metrics配置
-  metrics:
-  - providers:
-    - name: prometheus
-    overrides:
-    # 请求指标
-    - match:
-        metric: REQUEST_COUNT
-      tagOverrides:
-        destination_service_name:
-          value: destination.service.name
-        request_protocol:
-          value: request.protocol
-    # 请求时长
-    - match:
-        metric: REQUEST_DURATION
-      tagOverrides:
-        destination_service_name:
-          value: destination.service.name
-    # TCP指标
-    - match:
-        metric: TCP_OPENED_CONNECTIONS
-      tagOverrides:
-        destination_service_name:
-          value: destination.service.name
-  
-  # Access Logging
-  accessLogging:
-  - providers:
-    - name: envoy
-    filter:
-      expression: response.code >= 400  # 只记录错误日志
+# Istio Telemetry Configuration
+# 可观测性配置 - OpenTelemetry, Prometheus, Logging
+# 从 APISIX 可观测性配置迁移
+# 版本: v3.0
+# 最后更新: 2025-10-28
 
----
-# 开发环境 - 更高采样率
+# ========== OpenTelemetry Tracing ==========
+
+# 1. 全局OpenTelemetry追踪配置
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
-  name: default
-  namespace: voiceassistant-dev
+  name: otel-tracing-global
+  namespace: istio-system
+  labels:
+    app: telemetry
+    version: v3.0
 spec:
   tracing:
-  - providers:
-    - name: jaeger
-    randomSamplingPercentage: 100.0  # 开发环境100%采样
-    customTags:
-      environment:
-        literal:
-          value: development
-  accessLogging:
-  - providers:
-    - name: envoy
+    - providers:
+        - name: otel-collector
+      randomSamplingPercentage: 10.0 # 全局10%采样率
+      customTags:
+        # 自定义标签
+        environment:
+          literal:
+            value: "production"
+        cluster:
+          literal:
+            value: "voiceassistant-prod"
+        tenant_id:
+          header:
+            name: x-tenant-id
+            defaultValue: "unknown"
+        user_id:
+          header:
+            name: x-user-id
+            defaultValue: "unknown"
+        session_id:
+          header:
+            name: x-session-id
+            defaultValue: "unknown"
+        conversation_id:
+          header:
+            name: x-conversation-id
+            defaultValue: "unknown"
 
 ---
-# 关键服务增强追踪
+# 2. AI服务高采样率追踪
 apiVersion: telemetry.istio.io/v1alpha1
 kind: Telemetry
 metadata:
-  name: ai-services-telemetry
+  name: otel-tracing-ai-services
   namespace: voiceassistant-prod
 spec:
   selector:
     matchLabels:
-      component: ai-engine  # agent-engine, rag-engine, model-adapter
+      service-type: ai-processing
   tracing:
-  - providers:
-    - name: jaeger
-    randomSamplingPercentage: 50.0  # AI服务50%采样
-    customTags:
-      service_type:
-        literal:
-          value: ai-processing
-      slo_target:
-        literal:
-          value: "2.5s"
+    - providers:
+        - name: otel-collector
+      randomSamplingPercentage: 50.0 # AI服务50%采样率
+      customTags:
+        ai_model:
+          header:
+            name: x-model-name
+            defaultValue: "unknown"
+        ai_processing_time:
+          header:
+            name: x-ai-processing-time
+            defaultValue: "0"
+        token_count:
+          header:
+            name: x-token-count
+            defaultValue: "0"
+        service_type:
+          literal:
+            value: "ai-processing"
 
+---
+# 3. WebSocket服务追踪配置
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: otel-tracing-websocket
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: voice-engine
+  tracing:
+    - providers:
+        - name: otel-collector
+      randomSamplingPercentage: 100.0 # WebSocket 100%采样（会话较少）
+      customTags:
+        connection_type:
+          literal:
+            value: "websocket"
+        stream_duration:
+          header:
+            name: x-stream-duration
+            defaultValue: "0"
+
+---
+# ========== Prometheus Metrics ==========
+
+# 4. 全局Prometheus指标配置
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: prometheus-metrics-global
+  namespace: istio-system
+spec:
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        # Request Count
+        - match:
+            metric: REQUEST_COUNT
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+            destination_workload:
+              value: destination.workload.name
+            source_service:
+              value: source.service.host
+            source_workload:
+              value: source.workload.name
+            request_protocol:
+              value: request.protocol
+            response_code:
+              value: response.code
+            connection_security_policy:
+              value: connection.security_policy
+            tenant_id:
+              value: request.headers['x-tenant-id']
+            user_id:
+              value: request.headers['x-user-id']
+
+        # Request Duration
+        - match:
+            metric: REQUEST_DURATION
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+            source_service:
+              value: source.service.host
+            request_protocol:
+              value: request.protocol
+            response_code:
+              value: response.code
+
+        # Request Size
+        - match:
+            metric: REQUEST_SIZE
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+            request_protocol:
+              value: request.protocol
+
+        # Response Size
+        - match:
+            metric: RESPONSE_SIZE
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+            response_code:
+              value: response.code
+
+        # TCP Connection
+        - match:
+            metric: TCP_OPENED_CONNECTIONS
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+
+        - match:
+            metric: TCP_CLOSED_CONNECTIONS
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+
+        # gRPC Metrics
+        - match:
+            metric: GRPC_REQUEST_MESSAGES
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+            grpc_method:
+              value: request.headers['grpc-method']
+
+        - match:
+            metric: GRPC_RESPONSE_MESSAGES
+          tagOverrides:
+            destination_service:
+              value: destination.service.host
+            grpc_status:
+              value: response.grpc_status
+
+---
+# 5. AI服务自定义指标
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: prometheus-metrics-ai-services
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      service-type: ai-processing
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: REQUEST_COUNT
+          tagOverrides:
+            ai_model:
+              value: request.headers['x-model-name']
+            ai_provider:
+              value: request.headers['x-model-provider']
+            tenant_id:
+              value: request.headers['x-tenant-id']
+            user_id:
+              value: request.headers['x-user-id']
+
+        - match:
+            metric: REQUEST_DURATION
+          tagOverrides:
+            ai_model:
+              value: request.headers['x-model-name']
+            token_count:
+              value: request.headers['x-token-count']
+
+---
+# 6. 成本追踪指标
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: prometheus-metrics-cost-tracking
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      cost-tracking: "enabled"
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: REQUEST_COUNT
+          tagOverrides:
+            tenant_id:
+              value: request.headers['x-tenant-id']
+            user_id:
+              value: request.headers['x-user-id']
+            ai_model:
+              value: request.headers['x-model-name']
+            token_count:
+              value: request.headers['x-token-count']
+            estimated_cost:
+              value: request.headers['x-estimated-cost']
+
+---
+# ========== Access Logging ==========
+
+# 7. 全局访问日志配置
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: access-logging-global
+  namespace: istio-system
+spec:
+  accessLogging:
+    - providers:
+        - name: envoy
+      filter:
+        expression: "response.code >= 400" # 仅记录错误请求
+    - providers:
+        - name: otel
+      # 所有请求发送到OpenTelemetry Collector
+
+---
+# 8. AI服务详细日志
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: access-logging-ai-services
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      service-type: ai-processing
+  accessLogging:
+    - providers:
+        - name: envoy
+      # AI服务记录所有请求
+    - providers:
+        - name: otel
+
+---
+# 9. WebSocket连接日志
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: access-logging-websocket
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: voice-engine
+  accessLogging:
+    - providers:
+        - name: envoy
+      # WebSocket连接日志
+    - providers:
+        - name: otel
+
+---
+# 10. PII敏感操作审计日志
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: access-logging-audit
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      audit-required: "true"
+  accessLogging:
+    - providers:
+        - name: envoy
+      filter:
+        expression: "request.method == 'DELETE' || request.method == 'PUT'"
+    - providers:
+        - name: otel
+
+---
+# ========== Provider Configurations ==========
+
+# 11. OpenTelemetry Collector Provider
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: otel-provider-config
+  namespace: istio-system
+spec:
+  meshConfig:
+    extensionProviders:
+      # OpenTelemetry Tracing
+      - name: otel-collector
+        opentelemetry:
+          service: otel-collector.voiceassistant-infra.svc.cluster.local
+          port: 4317
+          resource_detectors:
+            environment: {}
+
+      # Prometheus Metrics
+      - name: prometheus
+        prometheus: {}
+
+      # Envoy Access Logging
+      - name: envoy
+        envoyFileAccessLog:
+          path: /dev/stdout
+          logFormat:
+            labels:
+              timestamp: "%START_TIME%"
+              protocol: "%PROTOCOL%"
+              duration: "%DURATION%"
+              request_method: "%REQ(:METHOD)%"
+              request_path: "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%"
+              response_code: "%RESPONSE_CODE%"
+              response_flags: "%RESPONSE_FLAGS%"
+              upstream_host: "%UPSTREAM_HOST%"
+              upstream_cluster: "%UPSTREAM_CLUSTER%"
+              bytes_received: "%BYTES_RECEIVED%"
+              bytes_sent: "%BYTES_SENT%"
+              user_agent: "%REQ(USER-AGENT)%"
+              x_request_id: "%REQ(X-REQUEST-ID)%"
+              x_tenant_id: "%REQ(X-TENANT-ID)%"
+              x_user_id: "%REQ(X-USER-ID)%"
+              x_session_id: "%REQ(X-SESSION-ID)%"
+              authority: "%REQ(:AUTHORITY)%"
+              upstream_service_time: "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%"
+
+      # OpenTelemetry Access Logging
+      - name: otel
+        opentelemetry:
+          service: otel-collector.voiceassistant-infra.svc.cluster.local
+          port: 4317
+          logName: "access_log"
+
+---
+# ========== ServiceMonitor for Prometheus ==========
+
+# 12. Istio Ingress Gateway Metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  endpoints:
+    - port: http-envoy-prom
+      interval: 15s
+      path: /stats/prometheus
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod_name
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+      metricRelabelings:
+        # 保留关键指标
+        - sourceLabels: [__name__]
+          regex: "istio_requests_total|istio_request_duration_milliseconds.*|istio_request_bytes.*|istio_response_bytes.*|istio_tcp_.*|envoy_cluster_.*|envoy_listener_.*"
+          action: keep
+
+---
+# 13. Istio Control Plane Metrics
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istio-component
+  namespace: istio-system
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  endpoints:
+    - port: http-monitoring
+      interval: 15s
+      path: /metrics
+
+---
+# 14. Application Sidecar Metrics
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: envoy-stats
+  namespace: voiceassistant-prod
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      # 所有带有sidecar的Pod
+      security.istio.io/tlsMode: istio
+  podMetricsEndpoints:
+    - port: http-envoy-prom
+      interval: 15s
+      path: /stats/prometheus
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod_name
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+        - sourceLabels: [__meta_kubernetes_pod_label_app]
+          targetLabel: app
+        - sourceLabels: [__meta_kubernetes_pod_label_version]
+          targetLabel: version
+
+---
+# ========== Prometheus Rules ==========
+
+# 15. Istio告警规则
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: istio-alerts
+  namespace: istio-system
+  labels:
+    app: istio
+    release: prometheus
+spec:
+  groups:
+    # Gateway健康告警
+    - name: istio-gateway-health
+      interval: 30s
+      rules:
+        - alert: IstioGatewayDown
+          expr: up{job="istio-ingressgateway"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            component: istio-gateway
+          annotations:
+            summary: "Istio Gateway is down"
+            description: "Istio Ingress Gateway {{ $labels.pod }} has been down for more than 1 minute."
+
+        - alert: IstioGatewayHighErrorRate
+          expr: |
+            sum(rate(istio_requests_total{reporter="destination",response_code=~"5.."}[5m]))
+            / sum(rate(istio_requests_total{reporter="destination"}[5m])) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+            component: istio-gateway
+          annotations:
+            summary: "Istio Gateway high error rate"
+            description: "Istio Gateway error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+        - alert: IstioGatewayHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(istio_request_duration_milliseconds_bucket{reporter="destination"}[5m])) by (le)
+            ) > 2000
+          for: 5m
+          labels:
+            severity: warning
+            component: istio-gateway
+          annotations:
+            summary: "Istio Gateway high latency"
+            description: "Istio Gateway P95 latency is {{ $value }}ms (threshold: 2000ms)"
+
+    # Service Mesh健康告警
+    - name: istio-mesh-health
+      interval: 30s
+      rules:
+        - alert: IstioServiceHighErrorRate
+          expr: |
+            sum(rate(istio_requests_total{reporter="destination",response_code=~"5.."}[5m])) by (destination_service)
+            / sum(rate(istio_requests_total{reporter="destination"}[5m])) by (destination_service) > 0.05
+          for: 2m
+          labels:
+            severity: warning
+            component: service-mesh
+          annotations:
+            summary: "Service {{ $labels.destination_service }} high error rate"
+            description: "Service {{ $labels.destination_service }} error rate is {{ $value | humanizePercentage }}"
+
+        - alert: IstioServiceCircuitBreakerOpen
+          expr: |
+            sum(increase(istio_requests_total{response_code="503",response_flags=~".*UO.*"}[5m])) by (destination_service) > 10
+          for: 1m
+          labels:
+            severity: warning
+            component: service-mesh
+          annotations:
+            summary: "Circuit breaker opened for {{ $labels.destination_service }}"
+            description: "Circuit breaker for service {{ $labels.destination_service }} has opened"
+
+        - alert: IstioMTLSFailure
+          expr: |
+            sum(rate(istio_requests_total{response_code="503",connection_security_policy!="mutual_tls"}[5m])) by (destination_service) > 0
+          for: 1m
+          labels:
+            severity: critical
+            component: security
+          annotations:
+            summary: "mTLS failure for {{ $labels.destination_service }}"
+            description: "Service {{ $labels.destination_service }} is receiving non-mTLS traffic"
+
+    # AI服务特定告警
+    - name: ai-services-alerts
+      interval: 30s
+      rules:
+        - alert: AIServiceHighLatency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(istio_request_duration_milliseconds_bucket{
+                destination_service=~".*ai-orchestrator.*|.*model-router.*|.*agent-engine.*"
+              }[5m])) by (le, destination_service)
+            ) > 120000
+          for: 5m
+          labels:
+            severity: warning
+            component: ai-service
+          annotations:
+            summary: "AI service {{ $labels.destination_service }} high latency"
+            description: "AI service P95 latency is {{ $value }}ms (threshold: 120s)"
+
+        - alert: AIServiceHighTokenUsage
+          expr: |
+            sum(rate(istio_requests_total{
+              destination_service=~".*model-router.*"
+            }[5m])) > 1000
+          for: 5m
+          labels:
+            severity: info
+            component: ai-service
+          annotations:
+            summary: "High AI model usage detected"
+            description: "AI model request rate is {{ $value }}/s"

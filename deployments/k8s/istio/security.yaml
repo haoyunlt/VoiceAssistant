@@ -1,89 +1,222 @@
 ---
-# mTLS配置 - 服务间加密通信
+# Istio Security Configuration
+# 从 APISIX 安全配置迁移
+# 版本: v3.0
+# 最后更新: 2025-10-28
+
+# ========== mTLS 配置 ==========
+
+# 1. 生产环境 - 严格mTLS
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: default
+  name: default-strict-mtls
   namespace: voiceassistant-prod
+  labels:
+    app: security
+    version: v3.0
 spec:
   mtls:
-    mode: STRICT  # 强制mTLS
+    mode: STRICT # 强制mTLS，所有服务间通信加密
 
 ---
-# 开发环境宽松模式
+# 2. 开发环境 - 宽松mTLS
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: default
+  name: default-permissive-mtls
   namespace: voiceassistant-dev
 spec:
   mtls:
-    mode: PERMISSIVE  # 允许明文和mTLS
+    mode: PERMISSIVE # 允许明文和mTLS，便于开发调试
 
 ---
-# 基础设施服务不强制mTLS
+# 3. 基础设施服务 - 宽松mTLS
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: infra-services
+  name: infra-services-mtls
   namespace: voiceassistant-infra
 spec:
   mtls:
-    mode: PERMISSIVE
+    mode: PERMISSIVE # Kafka, Redis, PostgreSQL等基础设施服务
 
 ---
-# Authorization Policy - Identity Service
+# 4. Istio System - 严格mTLS
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: istio-system-mtls
+  namespace: istio-system
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# ========== JWT 认证配置 ==========
+
+# 5. 全局JWT认证策略
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth-global
+  namespace: voiceassistant-prod
+  labels:
+    app: security
+    version: v3.0
+spec:
+  selector:
+    matchLabels:
+      require-jwt: "true" # 只对标记的服务启用
+  jwtRules:
+    # Identity Service JWT
+    - issuer: "https://identity.voiceassistant.com"
+      jwksUri: "https://identity.voiceassistant.com/.well-known/jwks.json"
+      audiences:
+        - "voiceassistant-api"
+        - "voiceassistant-web"
+        - "voiceassistant-mobile"
+      forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+      fromParams:
+        - "access_token"
+      outputPayloadToHeader: "x-jwt-payload"
+
+    # External OAuth Provider (可选)
+    - issuer: "https://accounts.google.com"
+      jwksUri: "https://www.googleapis.com/oauth2/v3/certs"
+      audiences:
+        - "voiceassistant-oauth-client-id"
+      forwardOriginalToken: false
+
+---
+# 6. Identity Service JWT认证
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth-identity
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: identity-service
+  jwtRules:
+    - issuer: "https://identity.voiceassistant.com"
+      jwksUri: "https://identity.voiceassistant.com/.well-known/jwks.json"
+      audiences:
+        - "voiceassistant-api"
+      forwardOriginalToken: true
+      fromHeaders:
+        - name: Authorization
+          prefix: "Bearer "
+
+---
+# 7. AI Services JWT认证
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth-ai-services
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      service-type: ai-processing # AI相关服务
+  jwtRules:
+    - issuer: "https://identity.voiceassistant.com"
+      jwksUri: "https://identity.voiceassistant.com/.well-known/jwks.json"
+      audiences:
+        - "voiceassistant-api"
+      forwardOriginalToken: true
+
+---
+# ========== 授权策略 (AuthorizationPolicy) ==========
+
+# 8. 默认拒绝策略 (Deny by Default)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-default
+  namespace: voiceassistant-prod
+spec:
+  action: DENY
+  rules:
+    - from:
+        - source:
+            notNamespaces:
+              - "voiceassistant-prod"
+              - "istio-system"
+              - "voiceassistant-infra"
+
+---
+# 9. 允许Ingress Gateway访问所有服务
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-gateway
+  namespace: voiceassistant-prod
+  labels:
+    app: security
+    version: v3.0
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+
+---
+# 10. Identity Service 授权策略
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: identity-service-authz
   namespace: voiceassistant-prod
+  labels:
+    app: identity-service
+    version: v3.0
 spec:
   selector:
     matchLabels:
       app: identity-service
   action: ALLOW
   rules:
-  # 允许来自网关的请求
-  - from:
-    - source:
-        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
-  # 允许内部服务调用
-  - from:
-    - source:
-        namespaces: ["voiceassistant-prod"]
-    to:
-    - operation:
-        methods: ["GET", "POST"]
-        paths: ["/api/v1/auth/*", "/api/v1/users/*"]
+    # 公开认证接口
+    - to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/v1/auth/*"]
+      from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+
+    # 用户管理接口 - 需要JWT认证
+    - to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/v1/users/*"]
+      from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+
+    # 允许内部服务调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
 
 ---
-# Authorization Policy - AI Orchestrator
-apiVersion: security.istio.io/v1beta1
-kind: AuthorizationPolicy
-metadata:
-  name: ai-orchestrator-authz
-  namespace: voiceassistant-prod
-spec:
-  selector:
-    matchLabels:
-      app: ai-orchestrator
-  action: ALLOW
-  rules:
-  # 允许认证用户请求
-  - from:
-    - source:
-        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
-    when:
-    - key: request.auth.claims[sub]
-      notValues: [""]
-  # 允许内部服务间调用
-  - from:
-    - source:
-        namespaces: ["voiceassistant-prod"]
-
----
-# Authorization Policy - Conversation Service
+# 11. Conversation Service 授权策略
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -95,48 +228,416 @@ spec:
       app: conversation-service
   action: ALLOW
   rules:
-  - from:
-    - source:
-        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
-  - from:
-    - source:
-        namespaces: ["voiceassistant-prod"]
+    # 需要JWT认证
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+        - key: request.auth.claims[aud]
+          values:
+            [
+              "voiceassistant-api",
+              "voiceassistant-web",
+              "voiceassistant-mobile",
+            ]
+
+    # 内部服务调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+            principals: ["cluster.local/ns/voiceassistant-prod/sa/*"]
 
 ---
-# Authorization Policy - 拒绝未认证的外部访问
+# 12. Knowledge Service 授权策略
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: knowledge-service-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: knowledge-service
+  action: ALLOW
+  rules:
+    # 需要JWT认证
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+
+    # 内部服务调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+
+---
+# 13. AI Orchestrator 授权策略 (严格)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ai-orchestrator-authz
+  namespace: voiceassistant-prod
+  labels:
+    app: ai-orchestrator
+    version: v3.0
+spec:
+  selector:
+    matchLabels:
+      app: ai-orchestrator
+  action: ALLOW
+  rules:
+    # 需要认证用户
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+        - key: request.auth.claims[aud]
+          values: ["voiceassistant-api"]
+      to:
+        - operation:
+            methods: ["POST"]
+            paths: ["/api/v1/ai/*"]
+
+    # 内部服务间调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+            principals:
+              - "cluster.local/ns/voiceassistant-prod/sa/conversation-service"
+              - "cluster.local/ns/voiceassistant-prod/sa/agent-engine"
+
+---
+# 14. Model Router 授权策略 (仅内部调用)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: model-router-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: model-router
+  action: ALLOW
+  rules:
+    # 外部调用需要认证
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+
+    # 内部服务调用 (主要使用场景)
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+            principals:
+              - "cluster.local/ns/voiceassistant-prod/sa/ai-orchestrator"
+              - "cluster.local/ns/voiceassistant-prod/sa/agent-engine"
+              - "cluster.local/ns/voiceassistant-prod/sa/rag-engine"
+
+---
+# 15. Voice Engine 授权策略 (WebSocket + HTTP)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: voice-engine-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: voice-engine
+  action: ALLOW
+  rules:
+    # HTTP接口需要JWT
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+      to:
+        - operation:
+            paths: ["/api/v1/voice/*"]
+
+    # WebSocket接口需要JWT
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+        - key: request.headers[upgrade]
+          values: ["websocket", "WebSocket"]
+      to:
+        - operation:
+            paths: ["/ws/voice/*"]
+
+    # 内部调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+
+---
+# 16. Analytics Service 授权策略 (只读)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: analytics-service-authz
+  namespace: voiceassistant-prod
+spec:
+  selector:
+    matchLabels:
+      app: analytics-service
+  action: ALLOW
+  rules:
+    # 需要认证，仅GET
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/api/v1/analytics/*"]
+
+    # 内部服务调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+
+---
+# 17. 内部服务授权策略 (Agent, RAG, Model Adapter等)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: internal-services-authz
+  namespace: voiceassistant-prod
+  labels:
+    app: internal-services
+    version: v3.0
+spec:
+  selector:
+    matchLabels:
+      service-access: internal-only
+  action: ALLOW
+  rules:
+    # 仅允许内部服务调用
+    - from:
+        - source:
+            namespaces: ["voiceassistant-prod"]
+            principals:
+              - "cluster.local/ns/voiceassistant-prod/sa/ai-orchestrator"
+              - "cluster.local/ns/voiceassistant-prod/sa/conversation-service"
+              - "cluster.local/ns/voiceassistant-prod/sa/knowledge-service"
+              - "cluster.local/ns/voiceassistant-prod/sa/agent-engine"
+              - "cluster.local/ns/voiceassistant-prod/sa/rag-engine"
+
+---
+# 18. 健康检查和监控端点授权
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: health-monitoring-authz
+  namespace: voiceassistant-prod
+spec:
+  action: ALLOW
+  rules:
+    # 健康检查端点公开访问
+    - to:
+        - operation:
+            methods: ["GET"]
+            paths:
+              - "/health"
+              - "/healthz"
+              - "/ready"
+              - "/readyz"
+              - "/livez"
+
+    # 监控指标端点 - 仅内部网络
+    - to:
+        - operation:
+            methods: ["GET"]
+            paths:
+              - "/metrics"
+              - "/stats/prometheus"
+      from:
+        - source:
+            namespaces: ["voiceassistant-infra", "istio-system"]
+
+---
+# ========== RBAC 角色授权 ==========
+
+# 19. Admin角色授权策略
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: admin-role-authz
+  namespace: voiceassistant-prod
+spec:
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[role]
+          values: ["admin", "super-admin"]
+        - key: request.auth.claims[aud]
+          values: ["voiceassistant-api"]
+
+---
+# 20. 租户隔离授权策略
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: tenant-isolation-authz
+  namespace: voiceassistant-prod
+  labels:
+    app: security
+    type: tenant-isolation
+    version: v3.0
+spec:
+  selector:
+    matchLabels:
+      require-tenant-isolation: "true"
+  action: ALLOW
+  rules:
+    # 用户只能访问自己租户的数据
+    - from:
+        - source:
+            principals:
+              [
+                "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account",
+              ]
+      when:
+        - key: request.auth.claims[tenant_id]
+          values: ["*"] # 有tenant_id就允许
+        - key: request.headers[x-tenant-id]
+          values: ["%REQ(request.auth.claims[tenant_id])%"] # header与JWT中的tenant_id匹配
+
+---
+# ========== 拒绝策略 ==========
+
+# 21. 拒绝未认证的外部访问
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: deny-external-unauthenticated
   namespace: voiceassistant-prod
+  labels:
+    app: security
+    type: deny-policy
+    version: v3.0
 spec:
   action: DENY
   rules:
-  - from:
-    - source:
-        notNamespaces: ["voiceassistant-prod", "istio-system"]
-    to:
-    - operation:
-        paths: ["/api/v1/*"]
-    when:
-    - key: request.auth.claims[sub]
-      notValues: ["*"]
+    # 拒绝来自外部且没有JWT的请求
+    - from:
+        - source:
+            notNamespaces: ["voiceassistant-prod", "istio-system"]
+      to:
+        - operation:
+            paths: ["/api/v1/*"]
+      when:
+        - key: request.auth.principal
+          notValues: ["*"] # 没有认证主体
 
 ---
-# Request Authentication - JWT验证
+# 22. 拒绝特定IP黑名单
 apiVersion: security.istio.io/v1beta1
-kind: RequestAuthentication
+kind: AuthorizationPolicy
 metadata:
-  name: jwt-auth
+  name: deny-blacklist-ips
   namespace: voiceassistant-prod
 spec:
-  selector:
-    matchLabels:
-      app: ai-orchestrator
-  jwtRules:
-  - issuer: "https://identity.voiceassistant.com"
-    jwksUri: "https://identity.voiceassistant.com/.well-known/jwks.json"
-    audiences:
-    - "voiceassistant-api"
-    forwardOriginalToken: true
+  action: DENY
+  rules:
+    - from:
+        - source:
+            remoteIpBlocks:
+              - "192.0.2.0/24" # 示例黑名单IP段
+            # 根据实际需要添加
 
+---
+# 23. 拒绝特定User-Agent
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-bad-user-agents
+  namespace: voiceassistant-prod
+spec:
+  action: DENY
+  rules:
+    - when:
+        - key: request.headers[user-agent]
+          values:
+            - "*bot*"
+            - "*crawler*"
+            - "*scraper*"
+            - "*curl*" # 可选：是否拒绝curl
+          # 根据实际需要调整
+
+---
+# ========== 审计和合规 ==========
+
+# 24. 审计日志配置 (PII敏感操作)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: audit-sensitive-operations
+  namespace: voiceassistant-prod
+  labels:
+    app: security
+    type: audit
+    version: v3.0
+  annotations:
+    description: "Audit policy for sensitive operations (user data access, deletion)"
+spec:
+  action: CUSTOM
+  provider:
+    name: "audit-logger" # 需要配置自定义审计provider
+  rules:
+    - to:
+        - operation:
+            methods: ["DELETE", "PUT"]
+            paths:
+              - "/api/v1/users/*"
+              - "/api/v1/knowledge/*"
+              - "/api/v1/documents/*"
+      when:
+        - key: request.auth.claims[sub]
+          notValues: [""]

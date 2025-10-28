@@ -9,11 +9,11 @@ graph TB
         WebApp[Web应用]
     end
 
-    subgraph "API Gateway (APISIX)"
-        Gateway[APISIX Gateway<br/>统一入口]
+    subgraph "API Gateway (Istio + Envoy)"
+        Gateway[Istio Gateway<br/>统一入口]
 
         subgraph "Gateway Features"
-            RoutePlugin[路由 & 插件<br/>限流/JWT/mTLS]
+            RoutePlugin[VirtualService & EnvoyFilter<br/>限流/JWT/mTLS]
         end
 
         subgraph "Go Services"
@@ -337,62 +337,65 @@ sequenceDiagram
 
 ## 部署架构
 
-### Kubernetes + APISIX Gateway
+### Kubernetes + Istio Service Mesh
 
-> **架构演进**: 已从 Istio/Envoy 迁移到 APISIX，实现更轻量级的网关架构
+> **架构演进**: 已从 APISIX 迁移到 Istio Gateway + Envoy，实现服务网格架构
 
 - **命名空间隔离**:
 
-  - `voiceassistant-prod`: 应用服务
+  - `voiceassistant-prod`: 应用服务（Sidecar 自动注入）
   - `voiceassistant-infra`: 基础设施
-  - `apisix`: APISIX 网关
+  - `istio-system`: Istio 控制平面与 Ingress Gateway
 
-- **流量管理 (APISIX)**:
+- **流量管理 (Istio)**:
 
-  - APISIX Gateway 统一入口（替代 Istio Gateway + Envoy）
-  - Routes 路由规则（对应 Istio VirtualService）
-  - Upstreams 负载均衡和健康检查（对应 Istio DestinationRule）
-  - 支持 HTTP/HTTPS、WebSocket、gRPC
-  - Kubernetes 服务发现
+  - Istio Gateway: 外部流量入口（HTTP/HTTPS/gRPC/WebSocket）
+  - VirtualService: 路由规则（URI、Header、权重路由）
+  - DestinationRule: 流量策略（负载均衡、连接池、熔断）
+  - EnvoyFilter: 高级功能（限流、认证、压缩、日志）
+  - Sidecar 模式：每个服务 Pod 注入 Envoy 代理
 
 - **安全**:
 
-  - mTLS 服务间加密（APISIX Upstream TLS）
-  - JWT 认证（jwt-auth 插件）
-  - RBAC 授权策略（APISIX RBAC）
-  - WAF 防护（自定义规则）
-  - PII 数据脱敏
-  - IP 限流和租户限流
+  - PeerAuthentication: 服务间 mTLS（STRICT 模式，零信任）
+  - RequestAuthentication: JWT 验证（多 Issuer 支持）
+  - AuthorizationPolicy: 细粒度授权（Namespace、ServiceAccount、JWT Claims）
+  - Deny by Default: 默认拒绝策略 + 显式授权
+  - 租户隔离: 基于 JWT tenant_id 的访问控制
+  - PII 数据脱敏: 日志自动脱敏
 
 - **可观测性**:
 
-  - OpenTelemetry 全链路追踪（替代 Jaeger）
-  - Prometheus 指标采集（APISIX metrics exporter）
-  - Grafana Dashboard 可视化
-  - Kafka 日志收集（access log + error log）
-  - 自定义告警规则
+  - OpenTelemetry: 全链路追踪（服务间调用链完整）
+  - Prometheus: 指标采集（Istio Metrics + Envoy Stats）
+  - Grafana: Istio 官方 Dashboard（Mesh/Service/Workload）
+  - JSON Access Log: 结构化日志（租户/用户/会话 ID）
+  - ServiceMonitor: 自动发现和采集
 
-- **性能优化**:
+- **性能与可靠性**:
 
-  - 无 Sidecar 开销（~90% 内存节省）
-  - HPA 自动扩缩容（3-10 副本）
-  - 连接池和 keepalive 优化
-  - Redis 集群限流缓存
+  - HPA 自动扩缩容（Gateway 3-10 副本，Istiod 2-5 副本）
+  - 连接池优化（HTTP/1.1 + HTTP/2）
+  - 熔断与重试（OutlierDetection）
+  - 流量分割与金丝雀发布（基于权重）
+  - Redis 分布式限流
 
-### APISIX vs Istio 对比
+### Istio vs APISIX 对比
 
-| 维度 | Istio/Envoy | APISIX | 说明 |
-|------|-------------|--------|------|
-| **架构** | Sidecar 模式 | 集中式网关 | APISIX 无 Sidecar 开销 |
-| **资源消耗** | 高（每 Pod 1 Sidecar） | 低（共享网关） | ~90% 内存节省 |
-| **配置方式** | CRD (Gateway/VirtualService) | Route/Upstream | APISIX 更直观 |
-| **插件生态** | Envoy Filter | 80+ 内置插件 | APISIX 插件更丰富 |
-| **性能** | 好 | 优秀 | APISIX 延迟更低 |
-| **学习曲线** | 陡峭 | 平缓 | APISIX 更易上手 |
-| **可观测性** | Istio Telemetry | OpenTelemetry + Prometheus | 功能对等 |
-| **安全** | mTLS + RBAC | mTLS + JWT + WAF | APISIX 更全面 |
+| 维度 | APISIX | Istio + Envoy | 说明 |
+|------|--------|---------------|------|
+| **架构** | 集中式网关 | Sidecar 模式 | Istio 实现服务级流量控制 |
+| **资源消耗** | 低（~1.5GB） | 高（~15GB+） | Istio 每服务额外 Sidecar |
+| **配置方式** | Route/Upstream | Gateway/VirtualService/DestinationRule | Istio Kubernetes 原生 |
+| **插件生态** | 80+ 内置插件 | Envoy Filter + 社区生态 | Istio 是云原生标准 |
+| **性能** | 优秀（低延迟） | 好（+5-10ms） | Sidecar 有额外开销 |
+| **学习曲线** | 平缓 | 陡峭 | Istio 概念更多 |
+| **可观测性** | 网关层面 | 服务间全链路 | Istio 完整调用链追踪 |
+| **安全** | mTLS + JWT + WAF | mTLS + RBAC + JWT | Istio 零信任架构 |
+| **流量管理** | 路由规则 | VirtualService + DestinationRule | Istio 更细粒度控制 |
+| **多集群** | 有限支持 | 原生多集群联邦 | Istio 跨集群流量管理 |
 
-**迁移文档**: [`deployments/k8s/apisix/README.md`](../../deployments/k8s/apisix/README.md)
+**迁移文档**: [`deployments/k8s/istio/MIGRATION_GUIDE.md`](../../deployments/k8s/istio/MIGRATION_GUIDE.md)
 
 ## NFR 指标
 
