@@ -372,22 +372,6 @@ func (s *HTTPServer) respondError(c *gin.Context, statusCode int, message string
 	})
 }
 
-// respondErrorWithDetails 响应错误（带详情）
-func (s *HTTPServer) respondErrorWithDetails(c *gin.Context, statusCode int, message, details string) {
-	s.logger.Error("HTTP error",
-		zap.String("path", c.Request.URL.Path),
-		zap.Int("status", statusCode),
-		zap.String("message", message),
-		zap.String("details", details),
-	)
-
-	c.JSON(statusCode, ErrorResponse{
-		Code:    statusCode,
-		Message: message,
-		Details: details,
-	})
-}
-
 // handleServiceError 处理服务层错误
 func (s *HTTPServer) handleServiceError(c *gin.Context, err error) {
 	switch {

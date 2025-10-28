@@ -16,7 +16,6 @@ type cacheItem struct {
 // MemoryCache 内存缓存实现
 type MemoryCache struct {
 	items sync.Map
-	mutex sync.RWMutex
 }
 
 // NewMemoryCache 创建内存缓存

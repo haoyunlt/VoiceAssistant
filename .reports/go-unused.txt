@@ -1,0 +1,6 @@
+cmd/analytics-service/internal/data/cache.go:19:2: field mutex is unused (U1000)
+cmd/analytics-service/internal/server/http.go:376:22: func (*HTTPServer).respondErrorWithDetails is unused (U1000)
+cmd/conversation-service/internal/domain/context_manager.go:284:30: func (*ContextManagerImpl).isValid is unused (U1000)
+cmd/knowledge-service/internal/biz/document_processor.go:141:29: func (*DocumentProcessor).splitTextIntoChunks is unused (U1000)
+cmd/model-router/internal/data/metrics_repo.go:155:6: func upsert is unused (U1000)
+cmd/model-router/main.go:127:6: func gracefulShutdown is unused (U1000)

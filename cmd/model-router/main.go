@@ -6,9 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
 	"syscall"
-	"time"
 
 	"voicehelper/cmd/model-router/internal/server"
 	"voicehelper/pkg/observability"
@@ -121,23 +119,4 @@ func newApp(
 		kratos.Signal(syscall.SIGTERM, syscall.SIGINT),
 		kratos.Context(context.Background()),
 	)
-}
-
-// gracefulShutdown 优雅关闭
-func gracefulShutdown(httpServer *server.HTTPServer, logger kratoslog.Logger) {
-	helper := kratoslog.NewHelper(logger)
-
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-
-	helper.Info("Shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	// TODO: 实现 HTTPServer 的 Shutdown 方法
-	_ = ctx
-
-	helper.Info("Server exited")
 }

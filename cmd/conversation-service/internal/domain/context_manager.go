@@ -280,12 +280,6 @@ func (m *ContextManagerImpl) trimMessages(messages []*Message, maxTokens int) []
 	return result
 }
 
-// isValid 检查缓存的上下文是否有效
-func (m *ContextManagerImpl) isValid(context *ManagedContext) bool {
-	// 缓存5分钟内有效
-	return time.Since(context.GeneratedAt) < 5*time.Minute
-}
-
 // isValidConversationContext 检查 ConversationContext 是否有效
 func (m *ContextManagerImpl) isValidConversationContext(context *ConversationContext) bool {
 	// 缓存5分钟内有效

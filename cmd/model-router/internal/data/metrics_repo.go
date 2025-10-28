@@ -150,9 +150,3 @@ func (r *ModelMetricsRepository) toDomainMetrics(po *ModelMetricsPO) *domain.Mod
 		UpdatedAt:       po.UpdatedAt,
 	}
 }
-
-// upsert 返回PostgreSQL upsert子句
-func upsert() interface{} {
-	// 使用GORM的OnConflict
-	return nil // 简化实现，实际需要GORM v2的Clauses
-}

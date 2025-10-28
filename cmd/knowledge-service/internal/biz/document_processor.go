@@ -137,41 +137,6 @@ func (p *DocumentProcessor) extractTextFromHTML(content []byte) (string, error) 
 	return text, nil
 }
 
-// splitTextIntoChunks 基础滑动窗口分块
-func (p *DocumentProcessor) splitTextIntoChunks(text string) []string {
-	var chunks []string
-
-	// 如果文本短于maxChunkSize，直接返回
-	if len(text) <= p.maxChunkSize {
-		if len(text) >= p.minChunkSize {
-			return []string{text}
-		}
-		return []string{}
-	}
-
-	// 滑动窗口分块
-	for i := 0; i < len(text); i += p.maxChunkSize - p.chunkOverlap {
-		end := i + p.maxChunkSize
-		if end > len(text) {
-			end = len(text)
-		}
-
-		chunk := text[i:end]
-
-		// 只保留达到最小大小的chunk
-		if len(chunk) >= p.minChunkSize {
-			chunks = append(chunks, chunk)
-		}
-
-		// 如果已经到达末尾，退出
-		if end == len(text) {
-			break
-		}
-	}
-
-	return chunks
-}
-
 // splitTextIntoChunksWithSemanticBoundary 语义边界分块
 func (p *DocumentProcessor) splitTextIntoChunksWithSemanticBoundary(text string) []string {
 	var chunks []string
