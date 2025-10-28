@@ -98,9 +98,17 @@ func (r *ConversationRepository) DeleteConversation(ctx context.Context, id stri
 
 // toDataObject 转换为数据对象
 func (r *ConversationRepository) toDataObject(conversation *domain.Conversation) *ConversationDO {
-	contextJSON, err := json.Marshal(conversation.Context)
-	if err != nil {
-		// 记录错误但不中断，使用空 JSON
+	var contextJSON []byte
+	var err error
+
+	// 如果有 Limits，保存为 Context JSON
+	if conversation.Limits != nil {
+		contextJSON, err = json.Marshal(conversation.Limits)
+		if err != nil {
+			// 记录错误但不中断，使用空 JSON
+			contextJSON = []byte("{}")
+		}
+	} else {
 		contextJSON = []byte("{}")
 	}
 
@@ -127,11 +135,15 @@ func (r *ConversationRepository) toDataObject(conversation *domain.Conversation)
 
 // toDomain 转换为领域对象
 func (r *ConversationRepository) toDomain(do *ConversationDO) *domain.Conversation {
-	var context domain.ConversationContext
+	var limits domain.ConversationLimits
 	if do.ContextJSON != "" && do.ContextJSON != "{}" {
-		if err := json.Unmarshal([]byte(do.ContextJSON), &context); err != nil {
+		if err := json.Unmarshal([]byte(do.ContextJSON), &limits); err != nil {
 			// 记录错误并使用空上下文
-			context = domain.ConversationContext{}
+			limits = domain.ConversationLimits{
+				MaxMessages:  100,
+				TokenLimit:   4000,
+				Variables:    make(map[string]string),
+			}
 		}
 	}
 
@@ -153,7 +165,7 @@ func (r *ConversationRepository) toDomain(do *ConversationDO) *domain.Conversati
 		Title:        do.Title,
 		Mode:         domain.ConversationMode(do.Mode),
 		Status:       domain.ConversationStatus(do.Status),
-		Context:      &context,
+		Limits:       &limits,
 		Metadata:     metadata,
 		CreatedAt:    do.CreatedAt,
 		UpdatedAt:    do.UpdatedAt,

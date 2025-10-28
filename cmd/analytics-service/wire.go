@@ -25,12 +25,16 @@ func initApp(config *conf.Config, logger *zap.Logger) (*app.App, func(), error) 
 		// Data 层
 		data.NewDB,
 		data.NewClickHouseClient,
+		data.NewMemoryCache,
 		data.NewMetricRepository,
 		data.NewReportRepository,
 
 		// Biz 层
+		wire.Bind(new(biz.ClickHouseClient), new(*data.ClickHouseClient)),
+		wire.Bind(new(biz.CacheClient), new(*data.MemoryCache)),
 		biz.NewMetricUsecase,
 		biz.NewReportUsecase,
+		biz.NewRealtimeDashboardUsecase,
 
 		// Service 层
 		service.NewAnalyticsService,

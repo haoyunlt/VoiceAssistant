@@ -7,7 +7,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
 
 // Config 数据库配置
@@ -20,8 +20,8 @@ type Config struct {
 }
 
 // NewDB 创建数据库连接
-func NewDB(c *Config, log log.Logger) (*gorm.DB, error) {
-	helper := log.NewHelper(log)
+func NewDB(c *Config, logger log.Logger) (*gorm.DB, error) {
+	helper := log.NewHelper(logger)
 
 	// 根据驱动选择适配器
 	var dialector gorm.Dialector
@@ -33,11 +33,11 @@ func NewDB(c *Config, log log.Logger) (*gorm.DB, error) {
 	}
 
 	// 配置GORM日志
-	gormLogger := logger.New(
+	gormLogger := gormlogger.New(
 		&logAdapter{helper: helper},
-		logger.Config{
+		gormlogger.Config{
 			SlowThreshold:             200 * time.Millisecond,
-			LogLevel:                  logger.Info,
+			LogLevel:                  gormlogger.Info,
 			IgnoreRecordNotFoundError: true,
 			Colorful:                  false,
 		},

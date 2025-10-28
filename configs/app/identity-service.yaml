@@ -16,8 +16,27 @@ data:
     write_timeout: 3s
     db: 0
 
-jwt_secret: "your-super-secret-jwt-key-change-this-in-production"
+auth:
+  jwt_secret: "your-super-secret-jwt-key-change-this-in-production"
+  access_token_expiry: "1h"
+  refresh_token_expiry: "168h"
+  password_policy:
+    min_length: 8
+    require_upper: true
+    require_lower: true
+    require_digit: true
+    require_special: false
+  oauth:
+    wechat:
+      app_id: "your-wechat-app-id"
+      app_secret: "your-wechat-app-secret"
+    github:
+      client_id: "your-github-client-id"
+      client_secret: "your-github-client-secret"
+    google:
+      client_id: "your-google-client-id"
+      client_secret: "your-google-client-secret"
+      redirect_uri: "http://localhost:8000/oauth/google/callback"
 
 trace:
   endpoint: http://localhost:4318
-

@@ -61,11 +61,11 @@ func LoadModelsFromFile(path string) ([]*ModelInfo, error) {
 
 // convertYAMLToModel 将 YAML 配置转换为 ModelInfo
 func convertYAMLToModel(cfg ModelConfigYAML) (*ModelInfo, error) {
-	// 从环境变量读取 API Key
-	apiKey := ""
-	if cfg.APIKeyEnv != "" {
-		apiKey = os.Getenv(cfg.APIKeyEnv)
-	}
+	// 从环境变量读取 API Key（未来可能用于认证）
+	// apiKey := ""
+	// if cfg.APIKeyEnv != "" {
+	// 	apiKey = os.Getenv(cfg.APIKeyEnv)
+	// }
 
 	// 转换 Provider
 	provider := ModelProvider(cfg.Provider)

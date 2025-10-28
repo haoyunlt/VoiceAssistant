@@ -20,4 +20,10 @@ var (
 
 	// ErrUnauthorized 未授权
 	ErrUnauthorized = errors.New("unauthorized")
+
+	// ErrPermissionDenied 权限被拒绝
+	ErrPermissionDenied = errors.New("permission denied")
+
+	// ErrConversationLimitReached 对话限制已达到
+	ErrConversationLimitReached = errors.New("conversation limit reached")
 )

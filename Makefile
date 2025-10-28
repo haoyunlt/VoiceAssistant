@@ -49,14 +49,6 @@ ps: ## 查看服务状态
 # ==================
 # Code Quality
 # ==================
-lint-go: ## Go代码检查
-	@echo "🔍 Go代码检查..."
-	@golangci-lint run ./...
-
-lint-python: ## Python代码检查
-	@echo "🔍 Python代码检查..."
-	@ruff check algo/
-
 lint: lint-go lint-python ## 全部代码检查
 
 check-unused: ## 检测未使用代码

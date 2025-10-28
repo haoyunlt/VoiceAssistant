@@ -10,15 +10,21 @@ import (
 
 // AnalyticsService 分析服务实现
 type AnalyticsService struct {
-	metricUc *biz.MetricUsecase
-	reportUc *biz.ReportUsecase
+	metricUc    *biz.MetricUsecase
+	reportUc    *biz.ReportUsecase
+	dashboardUc *biz.RealtimeDashboardUsecase
 }
 
 // NewAnalyticsService 创建分析服务
-func NewAnalyticsService(metricUc *biz.MetricUsecase, reportUc *biz.ReportUsecase) *AnalyticsService {
+func NewAnalyticsService(
+	metricUc *biz.MetricUsecase,
+	reportUc *biz.ReportUsecase,
+	dashboardUc *biz.RealtimeDashboardUsecase,
+) *AnalyticsService {
 	return &AnalyticsService{
-		metricUc: metricUc,
-		reportUc: reportUc,
+		metricUc:    metricUc,
+		reportUc:    reportUc,
+		dashboardUc: dashboardUc,
 	}
 }
 
@@ -65,4 +71,9 @@ func (s *AnalyticsService) ListReports(ctx context.Context, tenantID string, lim
 // DeleteReport 删除报表
 func (s *AnalyticsService) DeleteReport(ctx context.Context, id string) error {
 	return s.reportUc.DeleteReport(ctx, id)
+}
+
+// GetDashboardMetrics 获取实时看板指标
+func (s *AnalyticsService) GetDashboardMetrics(ctx context.Context, tenantID string) (*biz.DashboardMetrics, error) {
+	return s.dashboardUc.GetDashboardMetrics(ctx, tenantID)
 }

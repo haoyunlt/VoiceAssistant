@@ -338,7 +338,7 @@ func (s *ABTestingServiceV2) validateTestRequest(req *CreateTestRequest) error {
 
 	// 验证模型存在
 	for _, v := range req.Variants {
-		model := s.modelRegistry.GetModel(v.ModelID)
+		model, _ := s.modelRegistry.Get(v.ModelID)
 		if model == nil {
 			return fmt.Errorf("%w: %s", domain.ErrModelNotFound, v.ModelID)
 		}

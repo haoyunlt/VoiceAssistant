@@ -6,21 +6,21 @@ server:
   write_timeout: 30s
 
 database:
-  host: localhost
+  host: postgres
   port: 5432
   dbname: analytics
   user: analytics_user
-  password: ${DB_PASSWORD}
+  password: analytics_pass
   sslmode: disable
   max_open_conns: 25
   max_idle_conns: 5
   conn_max_lifetime: 5m
 
 clickhouse:
-  addr: localhost:9000
-  database: analytics
+  addr: clickhouse:9000
+  database: voiceassistant
   username: default
-  password: ${CLICKHOUSE_PASSWORD}
+  password: ""
   max_open_conns: 10
   max_idle_conns: 5
   conn_max_lifetime: 5m
@@ -29,8 +29,8 @@ clickhouse:
   write_timeout: 30s
 
 redis:
-  addr: localhost:6379
-  password: ${REDIS_PASSWORD}
+  addr: redis:6379
+  password: ""
   db: 0
   pool_size: 10
   min_idle_conns: 5

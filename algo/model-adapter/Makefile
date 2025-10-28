@@ -20,11 +20,11 @@ help: ## 显示帮助信息
 
 install: ## 安装生产依赖
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements_updated.txt
+	$(PIP) install -r requirements.txt
 
 dev: ## 安装开发依赖
 	$(PIP) install --upgrade pip
-	$(PIP) install -r requirements_updated.txt
+	$(PIP) install -r requirements.txt
 	$(PIP) install pytest pytest-asyncio pytest-cov pytest-mock black isort mypy ruff
 
 test: ## 运行单元测试
@@ -67,13 +67,13 @@ clean: ## 清理临时文件
 	rm -f .coverage coverage.xml
 
 run: ## 运行服务（开发模式）
-	$(PYTHON) main_refactored.py
+	$(PYTHON) main.py
 
 run-prod: ## 运行服务（生产模式）
-	uvicorn main_refactored:app --host 0.0.0.0 --port 8005 --workers 4
+	uvicorn main:app --host 0.0.0.0 --port 8005 --workers 4
 
 docker-build: ## 构建Docker镜像
-	docker build -f Dockerfile.optimized -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+	docker build -f Dockerfile -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
 
 docker-run: ## 运行Docker容器
 	docker run -d \

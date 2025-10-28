@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sort"
 	"time"
+
 	"voiceassistant/cmd/model-router/internal/domain"
 )
 
@@ -301,24 +302,24 @@ func (s *RoutingService) selectBestQuality(candidates []*domain.ModelInfo) (*dom
 	}
 
 	// 计算质量分数 (可用性权重40%, 低错误率权重30%, 上下文长度权重30%)
-	type scored struct {
+	type scoredModel struct {
 		model *domain.ModelInfo
 		score float64
 	}
 
-	var scored []scored
+	var scoredModels []scoredModel
 	for _, model := range candidates {
 		score := model.Availability*0.4 + (1-model.ErrorRate)*0.3 + float64(model.ContextLength)/200000.0*0.3
-		scored = append(scored, scored{model: model, score: score})
+		scoredModels = append(scoredModels, scoredModel{model: model, score: score})
 	}
 
-	sort.Slice(scored, func(i, j int) bool {
-		return scored[i].score > scored[j].score
+	sort.Slice(scoredModels, func(i, j int) bool {
+		return scoredModels[i].score > scoredModels[j].score
 	})
 
-	selected := scored[0].model
+	selected := scoredModels[0].model
 
-	return selected, fmt.Sprintf("Best quality model (score: %.2f)", scored[0].score)
+	return selected, fmt.Sprintf("Best quality model (score: %.2f)", scoredModels[0].score)
 }
 
 // selectRoundRobin 轮询选择

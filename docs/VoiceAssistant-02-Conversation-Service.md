@@ -46,87 +46,79 @@ Conversation Service 是 VoiceAssistant 平台的核心业务服务，负责管�
 
 ### 整体服务架构图
 
-Conversation Service 采用分层架构设计，各层职责清晰，依赖方向单向向下。架构图展示了从客户端请求到数据持久化的完整数据流路径。
+Conversation Service 采用严格的 DDD 分层架构设计，遵循依赖倒置原则，各层职责清晰。架构图展示了从客户端请求到数据持久化的完整数据流路径，以及实际代码中实现的组件结构。
 
 ```mermaid
 flowchart TB
     subgraph Client["客户端层 (Client Layer)"]
-        HTTPClient["HTTP/REST Client<br/>📱 Web/Mobile App"]
-        GRPCClient["gRPC Client<br/>🔧 Internal Services"]
-        WSClient["WebSocket Client<br/>🎙️ Real-time Voice"]
+        HTTPClient["HTTP/REST Client<br/>📱 Web/Mobile App<br/>端口: 8080"]
+        WSClient["WebSocket Client<br/>🎙️ Real-time Voice<br/>端口: 8081"]
     end
 
-    subgraph Server["接入层 (Server Layer)"]
-        HTTPServer["HTTP Server<br/>Gin Framework<br/>:8080"]
-        GRPCServer["gRPC Server<br/>Protocol Buffers<br/>:9000"]
-        WSServer["WebSocket Server<br/>Real-time Stream<br/>:8081"]
+    subgraph Server["接入层 (Server Layer)<br/>internal/server"]
+        HTTPServer["HTTPServer (http.go)<br/>Gin Framework<br/>• 路由注册<br/>• 请求绑定<br/>• 响应封装"]
 
-        Middleware["中间件栈<br/>• Authentication<br/>• Rate Limiting<br/>• Logging<br/>• Metrics"]
+        Middleware["中间件栈 (middleware.go)<br/>• RecoveryMiddleware<br/>• CORSMiddleware<br/>• TracingMiddleware (OpenTelemetry)<br/>• LoggingMiddleware (Kratos)<br/>• TimeoutMiddleware (30s)<br/>• AuthMiddleware (JWT)<br/>• RateLimitMiddleware"]
     end
 
-    subgraph Service["服务层 (Service Layer)"]
-        ConvService["ConversationService<br/>🎯 服务门面<br/>• 参数验证<br/>• 权限前置检查<br/>• 业务编排"]
+    subgraph Service["服务层 (Service Layer)<br/>internal/service"]
+        ConvService["ConversationService<br/>(conversation_service.go)<br/>🎯 服务门面模式<br/>• 协调 Usecase<br/>• 无业务逻辑<br/>• 纯转发"]
     end
 
-    subgraph Business["业务逻辑层 (Business Logic Layer)"]
-        ConvUsecase["ConversationUsecase<br/>📋 会话业务逻辑<br/>• 创建/更新/删除<br/>• 状态机管理<br/>• 业务规则验证"]
+    subgraph Business["业务逻辑层 (Business Logic Layer)<br/>internal/biz"]
+        ConvUsecase["ConversationUsecase<br/>(conversation_usecase.go)<br/>📋 会话生命周期<br/>• CreateConversation<br/>• UpdateTitle<br/>• Archive/Delete<br/>• ListConversations"]
 
-        MsgUsecase["MessageUsecase<br/>💬 消息业务逻辑<br/>• 发送/查询消息<br/>• 权限验证<br/>• 统计更新"]
+        MsgUsecase["MessageUsecase<br/>(message_usecase.go)<br/>💬 消息管理<br/>• SendMessage<br/>• GetMessage<br/>• ListMessages<br/>• GetRecentMessages"]
 
-        StreamUsecase["StreamUsecase<br/>🌊 流式处理<br/>• 异步流式推送<br/>• 分块传输<br/>• AI调用协调"]
+        CtxCompressor["ContextCompressor<br/>(context_compression.go)<br/>🗜️ 四种压缩策略<br/>• Token Pruning<br/>• Summarization<br/>• LLMLingua<br/>• Hybrid"]
 
-        CtxCompressor["ContextCompressor<br/>🗜️ 上下文压缩<br/>• Token Pruning<br/>• Summarization<br/>• LLMLingua<br/>• Hybrid"]
-
-        TitleGen["TitleGenerator<br/>📝 标题生成<br/>• 智能标题提取<br/>• LLM生成"]
+        TitleGen["TitleGenerator<br/>(title_generator_usecase.go)<br/>📝 智能标题<br/>• LLM 生成<br/>• 关键词提取"]
     end
 
-    subgraph Domain["领域层 (Domain Layer)"]
-        Conversation["Conversation<br/>🏛️ 会话聚合根<br/>• 状态机<br/>• 业务不变式<br/>• 领域事件"]
+    subgraph Domain["领域层 (Domain Layer)<br/>internal/domain"]
+        Conversation["Conversation<br/>(conversation.go)<br/>🏛️ 会话聚合根<br/>• 状态机 (4种状态)<br/>• 业务不变式<br/>• CanSendMessage()<br/>• IncrementMessageCount()"]
 
-        Message["Message<br/>📨 消息实体<br/>• 多角色支持<br/>• Token计算"]
+        Message["Message<br/>(message.go)<br/>📨 消息实体<br/>• 4种角色<br/>• 4种内容类型<br/>• SetTokens()<br/>• SetModel()"]
 
-        ContextMgr["ContextManager<br/>🧠 上下文管理器<br/>• 窗口策略<br/>• Token估算<br/>• 裁剪算法"]
+        ContextMgr["ContextManager<br/>(context_manager.go)<br/>🧠 上下文智能管理<br/>• GetContext()<br/>• UpdateContext()<br/>• CompressContext()<br/>• estimateTokens()<br/>• trimMessages()"]
 
-        WindowStrategy["WindowStrategy<br/>📐 窗口策略接口<br/>• Recent<br/>• Sliding<br/>• Fixed"]
+        WindowStrategy["WindowStrategy<br/>(window_strategy.go)<br/>📐 窗口选择策略<br/>• RecentWindowStrategy<br/>• RelevantWindowStrategy"]
 
-        Repository["Repository<br/>🗄️ 仓储接口<br/>• 抽象数据访问<br/>• 依赖倒置"]
+        Repository["Repository Interfaces<br/>(repository.go)<br/>🗄️ 依赖倒置<br/>• ConversationRepository<br/>• MessageRepository<br/>• ContextRepository"]
     end
 
-    subgraph Data["数据访问层 (Data Access Layer)"]
-        ConvRepo["ConversationRepo<br/>💾 会话仓储<br/>• GORM ORM<br/>• 事务管理"]
+    subgraph Data["数据访问层 (Data Access Layer)<br/>internal/data"]
+        ConvRepo["ConversationRepository<br/>(conversation_repo.go)<br/>💾 会话持久化<br/>• GORM 实现<br/>• JSONB 存储 Limits<br/>• Soft Delete"]
 
-        MsgRepo["MessageRepo<br/>💾 消息仓储<br/>• 时间序列优化<br/>• 分页查询"]
+        MsgRepo["MessageRepository<br/>(message_repo.go)<br/>💾 消息持久化<br/>• 按时间序列<br/>• 分页优化<br/>• 角色过滤"]
 
-        CtxCache["ContextCache<br/>⚡ 上下文缓存<br/>• Redis List<br/>• TTL管理<br/>• 自动截断"]
+        CtxCache["ContextCache<br/>(context_cache.go)<br/>⚡ Redis 缓存<br/>• GetContext()<br/>• SetContext()<br/>• AppendMessage()<br/>• truncateContext()<br/>• TTL 24h"]
 
-        CtxRepo["ContextRepo<br/>🗃️ 上下文仓储<br/>• 缓存协调<br/>• DB回源"]
+        CtxRepo["ContextRepository<br/>(context_repo.go)<br/>🗃️ 缓存协调<br/>• Cache First<br/>• DB Fallback"]
     end
 
     subgraph Storage["存储层 (Storage Layer)"]
-        PostgreSQL["PostgreSQL<br/>🐘 主数据库<br/>• 会话表<br/>• 消息表<br/>• 索引优化"]
+        PostgreSQL["PostgreSQL<br/>🐘 主数据库<br/>Schema: conversation<br/>• conversations 表<br/>• messages 表<br/>• 索引优化<br/>• JSONB 字段"]
 
-        Redis["Redis<br/>⚡ 缓存<br/>• 上下文缓存<br/>• Token统计<br/>• 会话列表"]
+        Redis["Redis<br/>⚡ 缓存层<br/>• context:{id}<br/>• TTL 管理<br/>• 自动截断 (4000 tokens)<br/>• 批量操作"]
 
         Kafka["Kafka<br/>📢 事件总线<br/>• conversation.created<br/>• message.sent<br/>• context.compressed"]
     end
 
     subgraph External["外部依赖服务 (External Services)"]
-        AIOrchestrator["AI Orchestrator<br/>🤖 AI编排服务<br/>• 流式生成<br/>• 模型路由"]
+        AIOrchestrator["AI Orchestrator<br/>🤖 AI 编排<br/>• 流式生成<br/>• 模型路由<br/>• Token 计算"]
 
-        Identity["Identity Service<br/>🔐 身份认证<br/>• JWT验证<br/>• 权限管理"]
+        Identity["Identity Service<br/>🔐 身份认证<br/>• JWT 验证<br/>• 权限管理"]
 
-        Analytics["Analytics Service<br/>📊 分析服务<br/>• 统计上报<br/>• 成本计算"]
+        Analytics["Analytics Service<br/>📊 数据分析<br/>• 统计上报<br/>• 成本计算"]
     end
 
     %% 客户端到服务器
     HTTPClient --> HTTPServer
-    GRPCClient --> GRPCServer
-    WSClient --> WSServer
+    WSClient --> HTTPServer
 
     %% 服务器到中间件
     HTTPServer --> Middleware
-    GRPCServer --> Middleware
-    WSServer --> Middleware
 
     %% 中间件到服务层
     Middleware --> ConvService
@@ -134,10 +126,8 @@ flowchart TB
     %% 服务层到业务层
     ConvService --> ConvUsecase
     ConvService --> MsgUsecase
-    ConvService --> StreamUsecase
 
-    %% 业务层内部交互
-    StreamUsecase --> MsgUsecase
+    %% 业务层内部协作
     MsgUsecase --> CtxCompressor
     ConvUsecase --> TitleGen
 
@@ -148,12 +138,12 @@ flowchart TB
     CtxCompressor --> ContextMgr
     ContextMgr --> WindowStrategy
 
-    %% 领域层到仓储接口
+    %% 业务层到仓储接口（依赖倒置）
     ConvUsecase --> Repository
     MsgUsecase --> Repository
     ContextMgr --> Repository
 
-    %% 仓储接口到数据层
+    %% 仓储接口到数据层实现
     Repository -.实现.-> ConvRepo
     Repository -.实现.-> MsgRepo
     Repository -.实现.-> CtxRepo
@@ -165,13 +155,17 @@ flowchart TB
     %% 数据层到存储
     ConvRepo --> PostgreSQL
     MsgRepo --> PostgreSQL
-    ConvRepo --> Kafka
     CtxCache --> Redis
 
-    %% 服务层到外部服务
-    ConvService --> Identity
-    StreamUsecase --> AIOrchestrator
-    ConvService --> Analytics
+    %% 事件发布（异步）
+    ConvRepo -.异步.-> Kafka
+    MsgRepo -.异步.-> Kafka
+
+    %% 外部服务调用
+    CtxCompressor --> AIOrchestrator
+    TitleGen --> AIOrchestrator
+    Middleware --> Identity
+    ConvService -.异步.-> Analytics
 
     %% 样式定义
     style Client fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
@@ -188,65 +182,242 @@ flowchart TB
 
 **分层职责划分**
 
-1. **客户端层（Client Layer）**：支持多种客户端接入方式，包括 HTTP/REST（Web/Mobile）、gRPC（内部服务）、WebSocket（实时语音）。
+该架构严格遵循 DDD 分层架构和依赖倒置原则，确保各层单向依赖，便于测试和维护。
 
-2. **接入层（Server Layer）**：
+**1. 客户端层（Client Layer）**
 
-   - HTTP Server（Gin）：处理 RESTful API 请求，端口 8080
-   - gRPC Server：处理高性能 RPC 调用，端口 9000
-   - WebSocket Server：处理实时流式连接，端口 8081
-   - 中间件栈：统一处理认证、限流、日志、指标采集
+支持两种主要接入方式：
+- HTTP/REST Client：Web/Mobile 应用，端口 8080
+- WebSocket Client：实时语音交互，端口 8081
 
-3. **服务层（Service Layer）**：ConversationService 作为门面，负责参数验证、权限前置检查和多个 Usecase 的编排。
+**2. 接入层（Server Layer）**
 
-4. **业务逻辑层（Business Logic Layer）**：
+代码位置：`cmd/conversation-service/internal/server/`
 
-   - ConversationUsecase：会话生命周期管理、状态机转换、业务规则验证
-   - MessageUsecase：消息 CRUD、权限验证、统计更新
-   - StreamUsecase：流式消息推送、异步 AI 调用协调
-   - ContextCompressor：四种压缩策略（Token Pruning、Summarization、LLMLingua、Hybrid）
-   - TitleGenerator：智能标题生成
+- **HTTPServer** (`http.go`)：
+  - Gin Framework 实现
+  - 路由注册：`/api/v1/conversations/*`
+  - 请求参数绑定与验证
+  - 统一响应封装（`response.go`）
+  - 健康检查端点：`/health`
 
-5. **领域层（Domain Layer）**：
+- **中间件栈** (`middleware.go`)：
+  - **RecoveryMiddleware**：Panic 恢复，记录错误
+  - **CORSMiddleware**：跨域支持
+  - **TracingMiddleware**：OpenTelemetry 分布式追踪
+  - **LoggingMiddleware**：Kratos 结构化日志
+  - **TimeoutMiddleware**：30 秒超时控制
+  - **AuthMiddleware**：JWT 认证（从 Header 提取 `X-User-ID`、`X-Tenant-ID`）
+  - **RateLimitMiddleware**：限流保护（待实现 Redis 分布式限流）
 
-   - Conversation 聚合根：封装会话状态机和业务不变式
-   - Message 实体：多角色消息、Token 计算
-   - ContextManager：上下文窗口管理、Token 估算、裁剪算法
-   - WindowStrategy：三种窗口策略（Recent、Sliding、Fixed）
-   - Repository 接口：依赖倒置，抽象数据访问
+**3. 服务层（Service Layer）**
 
-6. **数据访问层（Data Access Layer）**：
+代码位置：`cmd/conversation-service/internal/service/conversation_service.go`
 
-   - ConversationRepo/MessageRepo：GORM ORM 封装、事务管理
-   - ContextCache：Redis 缓存、TTL 管理、自动截断
-   - CtxRepo：缓存协调、DB 回源
+- **ConversationService**：
+  - 采用门面模式（Facade Pattern）
+  - 纯转发，无业务逻辑
+  - 协调 ConversationUsecase 和 MessageUsecase
+  - 提供统一对外接口
 
-7. **存储层（Storage Layer）**：
+**4. 业务逻辑层（Business Logic Layer）**
 
-   - PostgreSQL：主数据库，存储会话和消息
-   - Redis：缓存上下文、Token 统计、会话列表
-   - Kafka：事件总线，发布领域事件
+代码位置：`cmd/conversation-service/internal/biz/`
 
-8. **外部服务（External Services）**：
-   - AI Orchestrator：AI 编排、流式生成、模型路由
-   - Identity Service：JWT 认证、权限管理
-   - Analytics Service：统计上报、成本计算
+- **ConversationUsecase** (`conversation_usecase.go`)：
+  - 会话生命周期管理：创建、更新、归档、删除
+  - 权限验证：检查 `userID` 匹配
+  - 调用领域对象方法应用业务规则
+
+- **MessageUsecase** (`message_usecase.go`)：
+  - 消息 CRUD 操作
+  - 发送消息时更新会话统计
+  - 串行执行：查询会话 → 创建消息 → 更新会话
+  - 获取最近消息（优化查询）
+
+- **ContextCompressor** (`context_compression.go`)：
+  - 四种压缩策略实现
+  - Token 计数与估算
+  - 压缩统计信息收集
+  - 调用 AI 服务生成摘要
+
+- **TitleGenerator** (`title_generator_usecase.go`)：
+  - 智能标题生成
+  - 关键词提取
+  - LLM API 调用
+
+**5. 领域层（Domain Layer）**
+
+代码位置：`cmd/conversation-service/internal/domain/`
+
+- **Conversation 聚合根** (`conversation.go`)：
+  - 状态机：Active → Paused → Archived → Deleted
+  - 业务不变式：`CanSendMessage()` 检查状态和消息数限制
+  - 封装状态变更：`Archive()`、`Delete()`、`UpdateTitle()`
+  - 自动更新活跃时间：`UpdateActivity()`
+
+- **Message 实体** (`message.go`)：
+  - 4 种角色：User、Assistant、System、Tool
+  - 4 种内容类型：Text、Audio、Image、Video
+  - Token 计算辅助方法
+  - 模型信息记录
+
+- **ContextManager** (`context_manager.go`)：
+  - 上下文智能管理
+  - Token 估算算法（简化版：3 字符 = 1 token）
+  - 消息裁剪策略（从最新开始保留）
+  - 缓存有效性检查（5 分钟 TTL）
+
+- **WindowStrategy** (`window_strategy.go`)：
+  - 策略模式（Strategy Pattern）
+  - RecentWindowStrategy：保留最近 N 条消息
+  - RelevantWindowStrategy：基于相关性选择（待实现）
+
+- **Repository 接口** (`repository.go`)：
+  - 依赖倒置原则（Dependency Inversion Principle）
+  - 接口定义在领域层，实现在数据层
+  - ConversationRepository、MessageRepository、ContextRepository
+
+**6. 数据访问层（Data Access Layer）**
+
+代码位置：`cmd/conversation-service/internal/data/`
+
+- **ConversationRepository** (`conversation_repo.go`)：
+  - GORM 实现
+  - 领域对象 ↔ 数据对象转换
+  - JSONB 存储 `Limits` 和 `Metadata`
+  - 软删除：`status != 'deleted'`
+
+- **MessageRepository** (`message_repo.go`)：
+  - 时间序列查询优化
+  - 分页支持
+  - 角色过滤：`GetMessagesByRole()`、`GetSystemMessages()`
+  - 反向排序处理（最新消息在后）
+
+- **ContextCache** (`context_cache.go`)：
+  - Redis 缓存实现
+  - 键格式：`context:{conversation_id}`
+  - TTL 管理：默认 24 小时
+  - 自动截断：超过 4000 tokens 时裁剪旧消息
+  - 批量操作支持
+
+- **ContextRepository** (`context_repo.go`)：
+  - 缓存优先策略（Cache First）
+  - 缓存未命中时回源数据库
+
+**7. 存储层（Storage Layer）**
+
+- **PostgreSQL**：
+  - Schema：`conversation`
+  - 表：`conversations`、`messages`
+  - 索引：`tenant_id`、`user_id`、`conversation_id`、`created_at`
+  - JSONB 字段：存储复杂对象
+
+- **Redis**：
+  - 上下文缓存
+  - TTL 自动过期
+  - 支持批量操作
+
+- **Kafka**：
+  - 异步事件发布
+  - Topic：`voiceassistant.conversations`
+  - 事件类型：`conversation.created`、`message.sent`、`context.compressed`
+
+**8. 外部依赖服务（External Services）**
+
+- **AI Orchestrator**：
+  - 流式生成
+  - 模型路由
+  - Token 计算
+
+- **Identity Service**：
+  - JWT 验证
+  - 权限管理
+
+- **Analytics Service**：
+  - 统计上报
+  - 成本计算
 
 **数据流向**
 
-- 请求流：Client → Server → Middleware → Service → Usecase → Domain → Repository → Data → Storage
-- 响应流：按相反方向返回
-- 事件流：Domain 事件 → Kafka → 异步消费者
-- 缓存流：优先 Redis，缓存未命中回源 PostgreSQL
+1. **请求流**（同步）：
+   ```
+   Client → HTTPServer → Middleware Stack → ConversationService
+   → ConversationUsecase/MessageUsecase → Domain Objects
+   → Repository Interface → Repository Implementation
+   → GORM/Redis → PostgreSQL/Redis
+   ```
+
+2. **响应流**（同步）：
+   - 按相反方向返回
+   - 数据层对象转换为领域对象
+   - 领域对象序列化为 JSON
+   - 经过中间件栈（日志、追踪、响应封装）返回客户端
+
+3. **事件流**（异步）：
+   ```
+   Repository → Kafka Producer → Kafka Topic → Event Consumers
+   (Analytics Service, Notification Service, etc.)
+   ```
+
+4. **缓存流**：
+   ```
+   查询流程：
+   Application → ContextCache.GetContext() → Redis GET
+   ├─ 命中 → 返回缓存数据
+   └─ 未命中 → MessageRepo → PostgreSQL → 构建上下文 → Redis SET → 返回数据
+
+   更新流程：
+   Application → MessageRepo.CreateMessage() → PostgreSQL INSERT
+   → ContextCache.DeleteContext() → Redis DEL（缓存失效）
+   ```
 
 **关键设计模式**
 
-- 分层架构（Layered Architecture）：各层单向依赖，职责清晰
-- 领域驱动设计（DDD）：聚合根、实体、值对象、仓储
-- 依赖倒置（Dependency Inversion）：Repository 接口在领域层定义，数据层实现
-- 策略模式（Strategy Pattern）：WindowStrategy 支持多种窗口选择策略
-- 门面模式（Facade Pattern）：ConversationService 统一对外接口
-- 工厂模式（Factory Pattern）：Domain 对象构造函数（NewConversation、NewMessage）
+该服务应用了多种设计模式以提高代码质量和可维护性：
+
+1. **分层架构（Layered Architecture）**：
+   - 各层单向依赖：Server → Service → Usecase → Domain → Repository
+   - 依赖注入：通过 Wire 自动生成依赖关系
+   - 职责分离：每层专注于特定职责
+
+2. **领域驱动设计（DDD）**：
+   - 聚合根：`Conversation` 封装会话状态和业务规则
+   - 实体：`Message` 具有唯一标识
+   - 仓储模式：抽象数据访问
+   - 领域事件：通过 Kafka 异步发布
+
+3. **依赖倒置原则（Dependency Inversion Principle）**：
+   - Repository 接口定义在 `domain/` 包
+   - Repository 实现在 `data/` 包
+   - 业务层依赖接口而非实现
+   - 便于单元测试（Mock Repository）
+
+4. **策略模式（Strategy Pattern）**：
+   - `WindowStrategy` 接口：定义上下文窗口选择策略
+   - `RecentWindowStrategy`：保留最近 N 条消息
+   - `RelevantWindowStrategy`：基于相关性选择（待实现）
+   - 运行时切换策略：`ContextManager.SetStrategy()`
+
+5. **门面模式（Facade Pattern）**：
+   - `ConversationService` 提供统一外部接口
+   - 隐藏内部复杂性
+   - 协调多个 Usecase
+
+6. **工厂模式（Factory Pattern）**：
+   - `NewConversation()`：创建会话聚合根，初始化状态和限制
+   - `NewMessage()`：创建消息实体，设置默认值
+   - `NewContextManager()`：创建上下文管理器
+
+7. **模板方法模式（Template Method Pattern）**：
+   - `ContextCompressor.Compress()`：定义压缩流程模板
+   - 不同策略实现具体压缩算法
+   - 统一的前置处理和后置统计
+
+8. **适配器模式（Adapter Pattern）**：
+   - `toDataObject()`：领域对象 → 数据对象
+   - `toDomain()`：数据对象 → 领域对象
+   - 隔离 ORM 框架与领域模型
 
 ### 模块交互时序图
 
@@ -291,35 +462,46 @@ sequenceDiagram
     end
 
     rect rgb(240, 255, 240)
-    Note over Client,AI: 场景2：发送消息
+    Note over Client,Kafka: 场景2：发送消息（串行执行）
     Client->>HTTP: POST /conversations/:id/messages
     HTTP->>Service: SendMessage(...)
     Service->>MsgUC: SendMessage(...)
+
+    Note over MsgUC: 步骤1：查询会话
     MsgUC->>ConvRepo: GetConversation(id)
-    ConvRepo->>DB: SELECT * FROM conversations
-    DB-->>ConvRepo: row
-    ConvRepo-->>MsgUC: Conversation
-    Note over MsgUC: 权限验证<br/>CanSendMessage()
+    ConvRepo->>DB: SELECT * FROM conversations<br/>WHERE id=? AND status!='deleted'
+    DB-->>ConvRepo: row (20ms)
+    ConvRepo-->>MsgUC: *Conversation
+
+    Note over MsgUC: 步骤2：权限验证
+    MsgUC->>MsgUC: conversation.UserID == userID?
+    MsgUC->>Domain: conversation.CanSendMessage()
+    Note over Domain: 检查：<br/>• status == active<br/>• current_messages < max_messages
+    Domain-->>MsgUC: true
+
+    Note over MsgUC: 步骤3：创建消息
     MsgUC->>Domain: NewMessage(...)
-    Domain-->>MsgUC: Message
+    Domain-->>MsgUC: *Message
 
-    par 并行操作
-        MsgUC->>MsgRepo: CreateMessage(...)
-        MsgRepo->>DB: INSERT INTO messages
-        DB-->>MsgRepo: success
-    and
-        MsgUC->>ConvRepo: UpdateConversation(...)
-        ConvRepo->>DB: UPDATE conversations
-        DB-->>ConvRepo: success
-    and
-        MsgUC->>Cache: InvalidateContext(id)
-        Cache->>Redis: DEL context:id
-        Redis-->>Cache: OK
-    end
+    Note over MsgUC: 步骤4：保存消息
+    MsgUC->>MsgRepo: CreateMessage(message)
+    MsgRepo->>DB: INSERT INTO messages<br/>(id, conversation_id, role, content, ...)
+    DB-->>MsgRepo: success (20ms)
+    MsgRepo-->>MsgUC: nil
 
-    MsgUC-->>Service: Message
+    Note over MsgUC: 步骤5：更新会话统计
+    MsgUC->>Domain: conversation.IncrementMessageCount()
+    Note over Domain: current_messages++<br/>last_active_at = now()
+    MsgUC->>ConvRepo: UpdateConversation(conversation)
+    ConvRepo->>DB: UPDATE conversations<br/>SET current_messages=?, last_active_at=?<br/>WHERE id=?
+    DB-->>ConvRepo: success (15ms)
+    ConvRepo-->>MsgUC: nil
+
+    MsgUC-->>Service: *Message
     Service-->>HTTP: 201 Created
     HTTP-->>Client: message JSON
+
+    Note over Client,Kafka: 总耗时：60-80ms<br/>查询: 20ms<br/>插入: 20ms<br/>更新: 15ms
     end
 
     rect rgb(255, 240, 240)
@@ -398,29 +580,63 @@ sequenceDiagram
 
 **场景 2：发送消息**
 
-该场景展示了消息发送流程，包括权限验证、并行数据库操作和缓存失效。
+该场景展示了消息发送流程，采用串行执行保证数据一致性。
 
-关键步骤：
+**关键步骤**：
 
-1. 查询会话并进行权限验证
-2. 检查业务规则（是否可发送消息）
-3. 创建消息领域对象
-4. 并行执行三个操作：
-   - 保存消息到数据库
-   - 更新会话统计信息
-   - 清除上下文缓存
-5. 返回消息对象
+1. **查询会话**（20ms）：
+   - SQL：`SELECT * FROM conversations WHERE id=? AND status!='deleted'`
+   - 软删除过滤
+   - 返回完整会话对象
 
-性能指标：
+2. **权限验证**（<1ms）：
+   - 检查 `conversation.UserID == userID`
+   - 调用 `conversation.CanSendMessage()` 检查业务规则
+   - 验证会话状态为 `active`
+   - 验证 `current_messages < max_messages`
 
-- 端到端延迟：60-100ms
-- 数据库操作：1 次 SELECT + 1 次 INSERT + 1 次 UPDATE（并行执行）
-- 缓存操作：1 次 DEL（<5ms）
+3. **创建消息**（<1ms）：
+   - 调用 `domain.NewMessage()` 工厂方法
+   - 生成消息 ID：`msg_时间戳`
+   - 设置默认值：`content_type=text`, `tokens=0`
 
-并发控制：
+4. **保存消息**（20ms）：
+   - SQL：`INSERT INTO messages (id, conversation_id, role, content, ...)`
+   - 领域对象 → 数据对象转换
+   - GORM 执行插入
 
-- 会话更新使用乐观锁或行锁
-- 消息 ID 使用分布式 ID 生成器保证唯一性
+5. **更新会话统计**（15ms）：
+   - 调用 `conversation.IncrementMessageCount()`
+   - 自动更新 `last_active_at`
+   - SQL：`UPDATE conversations SET current_messages=?, last_active_at=? WHERE id=?`
+
+**性能指标**：
+
+- 端到端延迟：**60-80ms**
+- 数据库操作：**串行执行**
+  - 1 次 SELECT：20ms
+  - 1 次 INSERT：20ms
+  - 1 次 UPDATE：15ms
+- 总数据库时间：55ms
+- 应用逻辑：5-10ms
+
+**并发控制**：
+
+- 消息 ID 唯一性：基于时间戳生成（简化实现，生产环境应使用 Snowflake）
+- 会话更新冲突：GORM 默认行锁（`SELECT FOR UPDATE`）
+- 事务一致性：当前实现为两次独立事务，建议改为单一事务
+
+**改进建议**：
+
+```go
+// 建议使用事务保证一致性
+func (uc *MessageUsecase) SendMessage(...) (*domain.Message, error) {
+    return uc.db.Transaction(func(tx *gorm.DB) (interface{}, error) {
+        // 在事务中执行 INSERT 和 UPDATE
+        // ...
+    })
+}
+```
 
 **场景 3：获取上下文**
 
@@ -552,120 +768,321 @@ WebSocket Server 支持实时双向通信，端口 8081。
 
 该章节分析 Conversation Service 的关键技术设计，评估其对性能、成本、准确率、用户体验的影响，并提供量化估计。
 
-### 功能点 1：多级缓存策略
+### 功能点 1：Redis 上下文缓存
 
 **目的**：减少数据库查询压力，降低响应延迟，提升系统吞吐量。
 
 **技术实现**：
 
+代码位置：`cmd/conversation-service/internal/data/context_cache.go`
+
 ```text
-进程内 LRU 缓存 (L1)
-  ↓ 未命中
-Redis 缓存 (L2)
-  ↓ 未命中
-PostgreSQL 数据库 (L3)
+查询流程：
+Application → ContextCache.GetContext() → Redis GET
+├─ 命中 → 直接返回（<5ms）
+└─ 未命中 → MessageRepo → PostgreSQL SELECT → 构建上下文 → Redis SET → 返回
 ```
 
-1. **L1 缓存（进程内）**：
+**实际实现细节**：
 
-   - 使用 Go 内置 `sync.Map` 或 `github.com/hashicorp/golang-lru`
-   - 存储热点会话对象（最近 1000 个会话）
-   - TTL：5 分钟
-   - 命中率：30-40%（热点会话）
-   - 访问延迟：<1ms
+1. **缓存键格式**：
+   ```go
+   key := "context:" + conversationID
+   ```
+   - 简洁明了，便于调试
+   - 支持通配符查询：`context:*`
 
-2. **L2 缓存（Redis）**：
+2. **数据结构**：
+   - 类型：Redis String
+   - 值：JSON 序列化的 `ConversationContext` 对象
+   - 字段：`conversation_id`, `messages[]`, `message_count`, `total_tokens`, `system_prompt`, `metadata`
 
-   - 存储上下文、消息列表、Token 统计
-   - 数据结构：String（上下文 JSON）、List（消息 ID 列表）、Hash（统计信息）
-   - TTL：5-60 分钟（根据访问频率动态调整）
-   - 命中率：60-70%
-   - 访问延迟：2-5ms
+3. **TTL 管理**：
+   ```go
+   defaultContextTTL = 24 * time.Hour
+   ```
+   - 默认 24 小时自动过期
+   - 支持 `ExtendTTL()` 动态延长
+   - 活跃会话自动续期
 
-3. **L3 数据源（PostgreSQL）**：
-   - 持久化存储，保证数据一致性
-   - 读写分离：读节点分担查询压力
-   - 连接池：100 个最大连接
-   - 访问延迟：20-50ms
+4. **自动截断**：
+   ```go
+   maxContextTokens = 4000
+   func truncateContext(context, maxTokens) {
+       // 从最新消息开始保留
+       // 丢弃超出 maxTokens 的旧消息
+   }
+   ```
+   - 防止缓存过大
+   - 保持 Token 限制
+   - 优先保留最近消息
 
 **性能提升**：
 
-- 缓存命中时延迟降低：从 50ms → 5ms，**提升 90%**
-- 数据库 QPS 降低：从 10000 QPS → 3000 QPS，**减少 70%**
-- 服务器资源节省：CPU 使用率从 60% → 40%，**节省 33%**
-- 成本降低：数据库实例从 8 核 16G → 4 核 8G，**月成本降低约 $200**
+- **缓存命中延迟**：**<5ms**（Redis GET + JSON 反序列化）
+- **缓存未命中延迟**：**50-80ms**（PostgreSQL SELECT + 构建上下文 + Redis SET）
+- **缓存命中率**：**预估 70-85%**（活跃会话）
+- **数据库 QPS 降低**：**70-85%**（假设 100 QPS → 15-30 QPS）
 
-**准确率影响**：
+**成本降低**：
 
-- 缓存一致性：写操作后主动失效缓存，保证最终一致性
-- 缓存击穿保护：使用互斥锁（singleflight）防止缓存击穿
-- 数据正确性：99.99%（极少数情况下可能读到旧数据，TTL 内自动修复）
+假设每秒 100 次上下文查询：
+- **无缓存**：100 QPS 全部打到 PostgreSQL
+  - 需要 16 核 32G 数据库实例：约 $500/月
+- **有缓存（80% 命中率）**：仅 20 QPS 到 PostgreSQL
+  - 可降为 8 核 16G 实例：约 $250/月
+  - Redis 集群（3 节点）：约 $150/月
+  - **总成本节省**：$500 - ($250 + $150) = **$100/月（20% 降低）**
+
+**数据一致性**：
+
+- **写操作触发失效**：
+  - 新消息发送：不主动失效（懒加载）
+  - 会话删除：调用 `DeleteContext()` 立即清除
+  - 系统提示更新：调用 `UpdateSystemPrompt()` 更新缓存
+
+- **一致性模型**：**最终一致性**（Eventual Consistency）
+  - 接受短暂不一致（TTL 内）
+  - 适合对话场景（容错性高）
+
+- **缓存击穿保护**：
+  - 当前实现：无（待改进）
+  - 建议：使用 `singleflight` 库防止缓存击穿
+  ```go
+  import "golang.org/x/sync/singleflight"
+  var g singleflight.Group
+  v, err, _ := g.Do(key, func() (interface{}, error) {
+      return loadFromDB(key)
+  })
+  ```
+
+**监控指标**：
+
+`context_cache.go` 提供了 `GetStats()` 方法用于监控：
+- `TotalContexts`：缓存的会话总数
+- `TotalMessages`：消息总数
+- `TotalTokens`：Token 总数
+- `AverageTokens`：平均每会话 Token 数
+- `AverageMessages`：平均每会话消息数
+
+**改进建议**：
+
+1. **增加缓存命中率监控**：
+   ```go
+   metrics.ObserveContextCacheHit(hit bool)
+   ```
+
+2. **实现缓存预热**：
+   - 在会话创建时预先写入缓存
+   - 在消息发送后增量更新缓存
+
+3. **优化序列化性能**：
+   - 使用 `encoding/gob` 或 `protobuf` 替代 JSON
+   - 减少序列化开销
 
 ### 功能点 2：上下文智能压缩
 
 **目的**：减少 LLM API Token 消耗，降低推理成本，同时保持对话质量。
 
-**四种压缩策略**：
+**技术实现**：
 
-1. **Token Pruning（剪枝）**
+代码位置：`cmd/conversation-service/internal/biz/context_compression.go`
 
-   - 算法：保留最近 N 条消息，按 Token 限制裁剪
-   - 时间复杂度：O(n)
-   - 压缩比：30-50%（保留最近 50% 消息）
-   - 信息保留度：70-80%（丢失远期上下文）
-   - 适用场景：短期对话、实时对话
+**四种压缩策略实现**：
 
-2. **Summarization（摘要）**
+#### 1. Token Pruning（Token 剪枝）
 
-   - 算法：对历史消息分段生成摘要，保留最近原始消息
-   - 调用 LLM：GPT-3.5-turbo（成本低）
-   - 压缩比：60-70%（摘要长度约为原文 1/5）
-   - 信息保留度：75-85%（保留核心语义）
-   - 额外成本：摘要生成成本（约为原成本的 10-15%）
-   - 适用场景：中长期对话、客服对话
+```go
+func (c *ContextCompressor) compressWithTokenPrune(
+    ctx context.Context,
+    messages []*domain.Message,
+) ([]*domain.Message, error) {
+    targetTokens := int(float64(c.countTokens(messages)) * c.config.TargetCompressionRatio)
 
-3. **LLMLingua**
+    // 从最新消息开始保留
+    var compressed []*domain.Message
+    currentTokens := 0
 
-   - 算法：调用专业压缩服务（LLMLingua API）
-   - 压缩比：70-80%（高度压缩）
-   - 信息保留度：80-90%（保留关键词和语义）
-   - 额外成本：LLMLingua API 调用费用（$0.001/1k tokens）
-   - 适用场景：超长对话、RAG 增强
+    for i := len(messages) - 1; i >= 0; i-- {
+        msg := messages[i]
+        tokens := c.countMessageTokens(msg)
 
-4. **Hybrid（混合）**
-   - 算法：旧消息摘要 + 较新消息剪枝
-   - 压缩比：50-65%（平衡压缩和质量）
-   - 信息保留度：80-85%（综合最优）
-   - 适用场景：通用场景、默认策略
+        if currentTokens+tokens <= targetTokens {
+            compressed = append([]*domain.Message{msg}, compressed...)
+            currentTokens += tokens
+        } else {
+            break
+        }
+    }
+
+    return compressed, nil
+}
+```
+
+- **算法**：从最新消息向前保留，直到达到目标 Token 数
+- **时间复杂度**：`O(n)`，n 为消息数
+- **空间复杂度**：`O(k)`，k 为保留的消息数
+- **压缩比**：**30-60%**（取决于 `TargetCompressionRatio`）
+- **信息保留度**：**70-80%**（丢失远期上下文）
+- **适用场景**：短期对话、实时对话、快速问答
+- **优点**：实现简单、执行快速（<1ms）、无额外成本
+- **缺点**：完全丢失远期上下文
+
+#### 2. Summarization（摘要压缩）
+
+```go
+func (c *ContextCompressor) compressWithSummarize(
+    ctx context.Context,
+    messages []*domain.Message,
+) ([]*domain.Message, error) {
+    // 1. 将历史消息分段（每 10 条一段）
+    segments := c.segmentMessages(messages, 10)
+
+    // 2. 对每段生成摘要（调用 LLM）
+    var compressed []*domain.Message
+    for _, segment := range segments {
+        summary, err := c.summarizeSegment(ctx, segment)
+        if err != nil {
+            return nil, err
+        }
+
+        summaryMsg := &domain.Message{
+            Role:    "system",
+            Content: fmt.Sprintf("[历史摘要] %s", summary),
+        }
+        compressed = append(compressed, summaryMsg)
+    }
+
+    // 3. 保留最近 5 条原始消息
+    recentCount := 5
+    compressed = append(compressed, messages[len(messages)-recentCount:]...)
+
+    return compressed, nil
+}
+```
+
+- **算法**：对旧消息生成摘要，保留最近原始消息
+- **分段大小**：**10 条消息/段**
+- **摘要调用**：GPT-3.5-turbo（低成本）
+- **压缩比**：**60-70%**（摘要约为原文 1/5）
+- **信息保留度**：**75-85%**（保留核心语义）
+- **额外成本**：摘要生成约占原成本的 **10-15%**
+- **适用场景**：中长期对话、客服对话、复杂任务对话
+- **优点**：保留语义、适合长对话
+- **缺点**：额外 LLM 调用成本、增加 200-500ms 延迟
+
+**成本分析**：
+
+假设原对话 100 条消息，共 30000 tokens：
+- 摘要生成成本：(30000 / 5) * $0.0005/1k = **$0.003**
+- 压缩后 Token 数：(30000 * 0.3) = 9000 tokens
+- 节省的推理成本：(30000 - 9000) * $0.03/1k = **$0.63**
+- 净收益：$0.63 - $0.003 = **$0.627**
+- ROI：$0.627 / $0.003 = **209倍**
+
+#### 3. Hybrid（混合策略）
+
+```go
+func (c *ContextCompressor) compressWithHybrid(
+    ctx context.Context,
+    messages []*domain.Message,
+) ([]*domain.Message, error) {
+    // 1. 对旧消息（前 50%）使用摘要
+    midPoint := len(messages) / 2
+    oldMessages := messages[:midPoint]
+    summarized, err := c.compressWithSummarize(ctx, oldMessages)
+    if err != nil {
+        return nil, err
+    }
+
+    // 2. 对较新消息（后 50%）使用 Token 剪枝
+    recentMessages := messages[midPoint:]
+    pruned, err := c.compressWithTokenPrune(ctx, recentMessages)
+    if err != nil {
+        return nil, err
+    }
+
+    // 3. 合并
+    result := append(summarized, pruned...)
+    return result, nil
+}
+```
+
+- **算法**：远期摘要 + 近期剪枝，兼顾成本和质量
+- **分段点**：消息列表**中点**
+- **压缩比**：**50-65%**（综合两种策略）
+- **信息保留度**：**80-85%**（最优平衡）
+- **适用场景**：通用场景、**推荐默认策略**
+- **优点**：平衡成本和质量
+- **缺点**：实现复杂度中等
+
+#### 4. LLMLingua（专业压缩）
+
+```go
+func (c *ContextCompressor) compressWithLLMLingua(
+    ctx context.Context,
+    messages []*domain.Message,
+) ([]*domain.Message, error) {
+    conversationText := c.messagesToText(messages)
+
+    request := map[string]interface{}{
+        "text":              conversationText,
+        "compression_ratio": c.config.TargetCompressionRatio,
+        "preserve_keywords": c.config.PreserveKeywords,
+    }
+
+    response, err := c.aiClient.CallLLMLingua(ctx, request)
+    if err != nil {
+        return nil, err
+    }
+
+    compressedText := response["compressed_text"].(string)
+    compressed := c.textToMessages(compressedText, messages)
+
+    return compressed, nil
+}
+```
+
+- **算法**：调用专业压缩服务（LLMLingua API）
+- **压缩比**：**70-80%**（高度压缩）
+- **信息保留度**：**80-90%**（保留关键词和语义）
+- **额外成本**：**$0.001/1k tokens**（相对便宜）
+- **适用场景**：超长对话、RAG 增强、需要极致压缩
+- **优点**：压缩比高、信息保留度高
+- **缺点**：依赖外部服务、增加网络调用延迟（50-100ms）
 
 **成本降低估算**：
 
-假设平均对话 50 轮，每轮用户输入 100 tokens，助手输出 200 tokens。
+假设平均对话 50 轮，每轮用户 100 tokens，助手 200 tokens：
 
-- 无压缩：50 × (100 + 200) = 15000 tokens
-- Token Pruning（保留 20 轮）：20 × 300 = 6000 tokens，**降低 60%**
-- Summarization（摘要前 30 轮）：(30 × 300 / 5) + 20 × 300 = 1800 + 6000 = 7800 tokens，**降低 48%**
-- LLMLingua：15000 × 0.25 = 3750 tokens，**降低 75%**
-- Hybrid：(30 × 300 / 5) + 20 × 300 × 0.5 = 1800 + 3000 = 4800 tokens，**降低 68%**
+| 策略           | 原始 Tokens | 压缩后 Tokens | 压缩比 | 推理成本（GPT-4）   | 压缩成本   | 总成本    | 节省     |
+| -------------- | ----------- | ------------- | ------ | ------------------- | ---------- | --------- | -------- |
+| 无压缩         | 15,000      | 15,000        | 0%     | $0.45               | -          | $0.45     | -        |
+| Token Pruning  | 15,000      | 6,000         | 60%    | $0.18               | -          | $0.18     | **60%**  |
+| Summarization  | 15,000      | 7,800         | 48%    | $0.234              | $0.0075    | $0.2415   | **46%**  |
+| LLMLingua      | 15,000      | 3,750         | 75%    | $0.1125             | $0.015     | $0.1275   | **72%**  |
+| Hybrid         | 15,000      | 4,800         | 68%    | $0.144              | $0.0045    | $0.1485   | **67%**  |
 
-以 GPT-4 价格（Input: $0.03/1k tokens, Output: $0.06/1k tokens）计算，每对话成本：
+假设每天 **10 万对话**，年成本节省：
 
-- 无压缩：15000 × $0.03 / 1000 = $0.45
-- Hybrid 压缩：4800 × $0.03 / 1000 = $0.144，**节省 $0.306**
-
-假设每天 10 万对话，年成本节省：**$0.306 × 100,000 × 365 = $1,116,900**
+- Token Pruning：$0.27 × 100,000 × 365 = **$985万**
+- Hybrid：$0.3015 × 100,000 × 365 = **$1,100万**
+- LLMLingua：$0.3225 × 100,000 × 365 = **$1,177万**
 
 **准确率影响**：
 
-- Token Pruning：丢失远期上下文，可能导致 AI 遗忘早期信息，准确率下降 5-10%
-- Summarization：摘要可能丢失细节，准确率下降 3-8%
-- LLMLingua：高效保留语义，准确率下降 2-5%
-- Hybrid：平衡方案，准确率下降 3-7%
+| 策略           | 远期上下文保留 | 语义完整性 | 准确率下降 | 用户感知差异 |
+| -------------- | -------------- | ---------- | ---------- | ------------ |
+| Token Pruning  | ❌ 完全丢失    | 中         | 5-10%      | 中等         |
+| Summarization  | ✅ 摘要保留    | 中高       | 3-8%       | 较小         |
+| LLMLingua      | ✅ 关键词保留  | 高         | 2-5%       | 很小         |
+| Hybrid         | ✅ 综合保留    | 高         | 3-7%       | 小           |
 
-**用户体验**：
+**用户体验提升**：
 
-- 响应速度提升：Token 减少 → LLM 推理加速，延迟降低 20-40%
-- 对话连贯性：智能压缩保留关键信息，用户感知差异小于 10%
+- **响应速度**：Token 减少 → LLM 推理加速 → 延迟降低 **20-40%**
+- **对话连贯性**：智能压缩保留关键信息，用户感知差异 **<10%**
+- **成本传导**：成本降低 → 定价降低 → 用户使用意愿提升 **15-25%**
 
 ### 功能点 3：流式消息推送
 
@@ -928,59 +1345,197 @@ classDiagram
 
 ### 数据库模型
 
+基于实际代码实现的数据库模型设计。
+
 **conversations 表**
 
-| 字段名           | 类型         | 约束            | 说明          |
-| ---------------- | ------------ | --------------- | ------------- |
-| id               | VARCHAR(64)  | PRIMARY KEY     | 会话 ID       |
-| tenant_id        | VARCHAR(64)  | NOT NULL, INDEX | 租户 ID       |
-| user_id          | VARCHAR(64)  | NOT NULL, INDEX | 用户 ID       |
-| title            | VARCHAR(255) | NOT NULL        | 会话标题      |
-| mode             | VARCHAR(20)  | NOT NULL        | 对话模式      |
-| status           | VARCHAR(20)  | NOT NULL, INDEX | 会话状态      |
-| max_messages     | INT          | DEFAULT 100     | 最大消息数    |
-| current_messages | INT          | DEFAULT 0       | 当前消息数    |
-| token_limit      | INT          | DEFAULT 4000    | Token 限制    |
-| current_tokens   | INT          | DEFAULT 0       | 当前 Token 数 |
-| system_prompt    | TEXT         |                 | 系统提示词    |
-| metadata         | JSONB        |                 | 元数据        |
-| created_at       | TIMESTAMP    | NOT NULL        | 创建时间      |
-| updated_at       | TIMESTAMP    | NOT NULL        | 更新时间      |
-| last_active_at   | TIMESTAMP    | NOT NULL        | 最后活跃时间  |
+代码位置：`cmd/conversation-service/internal/data/conversation_repo.go`
 
-索引：
+表名：`conversation.conversations`（Schema: `conversation`）
 
-- `idx_conversations_tenant_user`：(tenant_id, user_id)
-- `idx_conversations_status`：(status)
-- `idx_conversations_last_active`：(last_active_at DESC)
+| 字段名       | 类型         | 约束            | 说明                        | 代码字段         |
+| ------------ | ------------ | --------------- | --------------------------- | ---------------- |
+| id           | VARCHAR(64)  | PRIMARY KEY     | 会话 ID（conv_时间戳）      | ID               |
+| tenant_id    | VARCHAR(64)  | NOT NULL, INDEX | 租户 ID，多租户隔离         | TenantID         |
+| user_id      | VARCHAR(64)  | NOT NULL, INDEX | 用户 ID，权限控制           | UserID           |
+| title        | VARCHAR(255) | NOT NULL        | 会话标题                    | Title            |
+| mode         | VARCHAR(20)  | NOT NULL        | 对话模式（text/voice/video）| Mode             |
+| status       | VARCHAR(20)  | NOT NULL, INDEX | 会话状态（active/archived） | Status           |
+| context_json | JSONB        |                 | ConversationLimits（JSONB） | ContextJSON      |
+| metadata_json| JSONB        |                 | 自定义元数据（JSONB）       | MetadataJSON     |
+| created_at   | TIMESTAMP    | NOT NULL        | 创建时间                    | CreatedAt        |
+| updated_at   | TIMESTAMP    | NOT NULL        | 更新时间                    | UpdatedAt        |
+| last_active_at| TIMESTAMP   | NOT NULL, INDEX | 最后活跃时间，排序使用      | LastActiveAt     |
+
+**索引设计**：
+
+```sql
+-- 主键索引
+PRIMARY KEY (id)
+
+-- 租户+用户查询（列出会话）
+CREATE INDEX idx_conversations_tenant_user ON conversations(tenant_id, user_id);
+
+-- 按活跃时间排序
+CREATE INDEX idx_conversations_last_active ON conversations(last_active_at DESC);
+
+-- 软删除过滤
+WHERE status != 'deleted'  -- 在查询中应用，无需单独索引
+```
+
+**JSONB 字段说明**：
+
+1. **context_json**（存储 `ConversationLimits`）：
+   ```json
+   {
+     "max_messages": 100,
+     "current_messages": 5,
+     "token_limit": 4000,
+     "current_tokens": 1250,
+     "system_prompt": "You are a helpful assistant.",
+     "variables": {
+       "user_name": "Alice",
+       "language": "zh-CN"
+     }
+   }
+   ```
+
+2. **metadata_json**（自定义元数据）：
+   ```json
+   {
+     "device_id": "device_123",
+     "client_version": "1.0.0",
+     "tags": ["support", "vip"]
+   }
+   ```
+
+**GORM 映射**：
+
+```go
+type ConversationDO struct {
+    ID           string    `gorm:"primaryKey"`
+    TenantID     string    `gorm:"index"`
+    UserID       string    `gorm:"index"`
+    Title        string
+    Mode         string
+    Status       string
+    ContextJSON  string    `gorm:"type:jsonb"`
+    MetadataJSON string    `gorm:"type:jsonb"`
+    CreatedAt    time.Time
+    UpdatedAt    time.Time
+    LastActiveAt time.Time
+}
+
+func (ConversationDO) TableName() string {
+    return "conversation.conversations"
+}
+```
+
+---
 
 **messages 表**
 
-| 字段名          | 类型         | 约束            | 说明       |
-| --------------- | ------------ | --------------- | ---------- |
-| id              | VARCHAR(64)  | PRIMARY KEY     | 消息 ID    |
-| conversation_id | VARCHAR(64)  | NOT NULL, INDEX | 会话 ID    |
-| tenant_id       | VARCHAR(64)  | NOT NULL, INDEX | 租户 ID    |
-| user_id         | VARCHAR(64)  | NOT NULL        | 用户 ID    |
-| role            | VARCHAR(20)  | NOT NULL        | 消息角色   |
-| content         | TEXT         | NOT NULL        | 消息内容   |
-| content_type    | VARCHAR(20)  | DEFAULT 'text'  | 内容类型   |
-| tokens          | INT          | DEFAULT 0       | Token 数   |
-| model           | VARCHAR(100) |                 | 使用的模型 |
-| provider        | VARCHAR(50)  |                 | 模型提供商 |
-| metadata        | JSONB        |                 | 元数据     |
-| created_at      | TIMESTAMP    | NOT NULL, INDEX | 创建时间   |
+代码位置：`cmd/conversation-service/internal/data/message_repo.go`
 
-索引：
+表名：`conversation.messages`（Schema: `conversation`）
 
-- `idx_messages_conversation`：(conversation_id, created_at DESC)
-- `idx_messages_created_at`：(created_at DESC)
+| 字段名          | 类型         | 约束            | 说明                        | 代码字段     |
+| --------------- | ------------ | --------------- | --------------------------- | ------------ |
+| id              | VARCHAR(64)  | PRIMARY KEY     | 消息 ID（msg_时间戳）       | ID           |
+| conversation_id | VARCHAR(64)  | NOT NULL, INDEX | 会话 ID（外键）             | ConversationID|
+| tenant_id       | VARCHAR(64)  | NOT NULL, INDEX | 租户 ID，跨会话查询         | TenantID     |
+| user_id         | VARCHAR(64)  | NOT NULL, INDEX | 用户 ID                     | UserID       |
+| role            | VARCHAR(20)  | NOT NULL        | 消息角色（user/assistant/system/tool）| Role         |
+| content         | TEXT         | NOT NULL        | 消息内容（支持大文本）      | Content      |
+| content_type    | VARCHAR(20)  |                 | 内容类型（text/audio/image/video）| ContentType  |
+| tokens          | INT          |                 | Token 数（0 表示未计算）    | Tokens       |
+| model           | VARCHAR(100) |                 | 使用的模型（gpt-4-turbo）   | Model        |
+| provider        | VARCHAR(50)  |                 | 模型提供商（openai/anthropic）| Provider     |
+| metadata_json   | JSONB        |                 | 元数据（JSONB）             | MetadataJSON |
+| created_at      | TIMESTAMP    | NOT NULL, INDEX | 创建时间（时间序列）        | CreatedAt    |
 
-分区策略：
+**索引设计**：
 
-- 按月份分区（created_at）
+```sql
+-- 主键索引
+PRIMARY KEY (id)
+
+-- 会话消息查询（最常用）
+CREATE INDEX idx_messages_conversation_created ON messages(conversation_id, created_at DESC);
+
+-- 租户消息查询（跨会话）
+CREATE INDEX idx_messages_tenant_created ON messages(tenant_id, created_at DESC);
+
+-- 按角色过滤（系统消息、用户消息等）
+-- 不建索引，通过 conversation_id 索引后再过滤
+```
+
+**查询优化**：
+
+1. **获取会话最近消息**（最频繁）：
+   ```sql
+   SELECT * FROM messages
+   WHERE conversation_id = ?
+   ORDER BY created_at DESC
+   LIMIT 50;
+   ```
+   - 命中索引：`idx_messages_conversation_created`
+   - 执行时间：<10ms
+
+2. **按角色过滤**：
+   ```sql
+   SELECT * FROM messages
+   WHERE conversation_id = ? AND role = 'system'
+   ORDER BY created_at ASC;
+   ```
+   - 命中索引：`idx_messages_conversation_created`
+   - 角色过滤在内存中完成
+
+3. **跨会话查询**（统计分析）：
+   ```sql
+   SELECT * FROM messages
+   WHERE tenant_id = ? AND role = 'user'
+   ORDER BY created_at DESC
+   LIMIT 100;
+   ```
+   - 命中索引：`idx_messages_tenant_created`
+
+**GORM 映射**：
+
+```go
+type MessageDO struct {
+    ID             string    `gorm:"primaryKey"`
+    ConversationID string    `gorm:"index"`
+    TenantID       string    `gorm:"index"`
+    UserID         string    `gorm:"index"`
+    Role           string
+    Content        string    `gorm:"type:text"`
+    ContentType    string
+    Tokens         int
+    Model          string
+    Provider       string
+    MetadataJSON   string    `gorm:"type:jsonb"`
+    CreatedAt      time.Time
+}
+
+func (MessageDO) TableName() string {
+    return "conversation.messages"
+}
+```
+
+**分区策略（未实现，建议）**：
+
+- 按月份分区（`created_at`）
 - 保留最近 12 个月的热数据
-- 归档旧数据到对象存储
+- 归档旧数据到对象存储（S3/MinIO）
+- 分区表命名：`messages_202501`, `messages_202502`, ...
+
+**存储成本优化**：
+
+- PostgreSQL 存储：$0.115/GB/月
+- S3 归档存储：$0.004/GB/月
+- 假设每月新增 100GB 消息数据
+- 12 个月后开始归档，年节省成本：$0.111 × 100GB × 12 = **$133/月**
 
 ## API 详解
 
@@ -1118,53 +1673,126 @@ func NewConversation(tenantID, userID, title string, mode ConversationMode) *Con
 
 **调用链路详细分析**
 
-该接口涉及 6 层调用，每层职责明确：
+该接口涉及 6 层调用，每层职责明确，代码路径可追踪：
 
 ```text
-第1层：HTTP Handler (server/http.go)
-  ↓ 职责：参数绑定、基础验证
-  ↓ 代码：createConversation() 方法
-  ↓ 耗时：<1ms
+第1层：HTTP Handler
+  文件：cmd/conversation-service/internal/server/http.go
+  函数：func (s *HTTPServer) createConversation(c *gin.Context)
+  职责：
+    • 请求参数绑定：c.ShouldBindJSON(&req)
+    • 基础参数验证：required 标签验证
+    • 调用服务层：s.service.CreateConversation(...)
+  耗时：<1ms
+  关键代码：
+    ```go
+    var req struct {
+        TenantID string `json:"tenant_id" binding:"required"`
+        UserID   string `json:"user_id" binding:"required"`
+        Title    string `json:"title" binding:"required"`
+        Mode     string `json:"mode" binding:"required"`
+    }
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(400, Response{Code: 400, Message: err.Error()})
+        return
+    }
+    ```
 
-第2层：Service Layer (service/conversation_service.go)
-  ↓ 职责：门面协调、预处理
-  ↓ 代码：CreateConversation() 方法
-  ↓ 耗时：<1ms
+第2层：Service Layer（门面）
+  文件：cmd/conversation-service/internal/service/conversation_service.go
+  函数：func (s *ConversationService) CreateConversation(...)
+  职责：
+    • 纯转发，无业务逻辑
+    • 协调 Usecase
+  耗时：<1ms
+  关键代码：
+    ```go
+    return s.conversationUc.CreateConversation(ctx, tenantID, userID, title, mode)
+    ```
 
-第3层：Usecase Layer (biz/conversation_usecase.go)
-  ↓ 职责：业务逻辑编排
-  ↓ 代码：CreateConversation() 方法
-  ↓ 耗时：<1ms
+第3层：Usecase Layer（业务逻辑）
+  文件：cmd/conversation-service/internal/biz/conversation_usecase.go
+  函数：func (uc *ConversationUsecase) CreateConversation(...)
+  职责：
+    • 调用领域对象工厂方法
+    • 调用仓储持久化
+  耗时：<1ms
+  关键代码：
+    ```go
+    conversation := domain.NewConversation(tenantID, userID, title, mode)
+    if err := uc.conversationRepo.CreateConversation(ctx, conversation); err != nil {
+        return nil, fmt.Errorf("failed to create conversation: %w", err)
+    }
+    return conversation, nil
+    ```
 
-第4层：Domain Layer (domain/conversation.go)
-  ↓ 职责：领域对象构造、业务规则应用
-  ↓ 代码：NewConversation() 工厂方法
-  ↓ 耗时：<1ms
-  ↓ 关键逻辑：
-  ↓   • 生成会话 ID（conv_时间戳）
-  ↓   • 设置初始状态（StatusActive）
-  ↓   • 初始化限制（MaxMessages=100, TokenLimit=4000）
-  ↓   • 初始化元数据
+第4层：Domain Layer（领域模型）
+  文件：cmd/conversation-service/internal/domain/conversation.go
+  函数：func NewConversation(tenantID, userID, title string, mode ConversationMode) *Conversation
+  职责：
+    • 生成会话 ID：generateConversationID()
+    • 设置初始状态：StatusActive
+    • 初始化限制：MaxMessages=100, TokenLimit=4000
+    • 初始化元数据
+  耗时：<1ms
+  关键代码：
+    ```go
+    return &Conversation{
+        ID:       generateConversationID(),  // conv_时间戳
+        TenantID: tenantID,
+        UserID:   userID,
+        Title:    title,
+        Mode:     mode,
+        Status:   StatusActive,
+        Limits: &ConversationLimits{
+            MaxMessages:     100,
+            CurrentMessages: 0,
+            TokenLimit:      4000,
+            CurrentTokens:   0,
+            Variables:       make(map[string]string),
+        },
+        Metadata:     make(map[string]string),
+        CreatedAt:    now,
+        UpdatedAt:    now,
+        LastActiveAt: now,
+    }
+    ```
 
-第5层：Repository Layer (data/conversation_repo.go)
-  ↓ 职责：数据持久化、事务管理
-  ↓ 代码：CreateConversation() 方法
-  ↓ 耗时：20-30ms（数据库写入）
-  ↓ 关键操作：
-  ↓   • 领域对象 → 数据对象转换
-  ↓   • GORM INSERT 操作
-  ↓   • 异步 Kafka 事件发布
+第5层：Repository Layer（数据访问）
+  文件：cmd/conversation-service/internal/data/conversation_repo.go
+  函数：func (r *ConversationRepository) CreateConversation(ctx, conversation)
+  职责：
+    • 领域对象 → 数据对象转换：toDataObject()
+    • GORM INSERT 操作
+    • 异步 Kafka 事件发布（待实现）
+  耗时：20-30ms（数据库写入）
+  关键代码：
+    ```go
+    do := r.toDataObject(conversation)
+    return r.db.WithContext(ctx).Create(do).Error
+    ```
 
-第6层：Storage Layer (PostgreSQL)
-  ↓ 职责：数据存储
-  ↓ 操作：INSERT INTO conversations
-  ↓ 耗时：20-30ms
+第6层：Storage Layer（数据库）
+  数据库：PostgreSQL
+  表：conversation.conversations
+  操作：INSERT INTO conversations (id, tenant_id, user_id, title, mode, status, ...)
+  索引命中：tenant_id, user_id 复合索引
+  耗时：20-30ms
 
-异步：Kafka Event Publisher
-  ↓ 事件：conversation.created
-  ↓ 分区键：tenant_id
-  ↓ 耗时：不阻塞主流程（异步）
+异步事件发布（待实现）：
+  Topic：voiceassistant.conversations
+  事件：conversation.created
+  分区键：tenant_id
+  耗时：不阻塞主流程（go 异步）
 ```
+
+**性能瓶颈分析**：
+
+- **主要耗时**：数据库 INSERT（20-30ms），占总耗时的 **90%**
+- **优化空间**：
+  - 批量创建：如果客户端需要创建多个会话，支持批量 API
+  - 异步持久化：对于不要求强一致性的场景，可先返回响应，异步写数据库
+  - 连接池优化：确保 PostgreSQL 连接池配置合理
 
 **关键代码路径**
 

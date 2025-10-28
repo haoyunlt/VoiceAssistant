@@ -16,6 +16,19 @@ const (
 	ModelProviderCohere      ModelProvider = "cohere"      // Cohere
 	ModelProviderHuggingFace ModelProvider = "huggingface" // HuggingFace
 	ModelProviderLocal       ModelProvider = "local"       // 本地部署
+
+	// 别名用于兼容
+	ProviderOpenAI = ModelProviderOpenAI
+)
+
+// PricingTier 定价层级
+type PricingTier string
+
+const (
+	PricingTierFree       PricingTier = "free"
+	PricingTierBasic      PricingTier = "basic"
+	PricingTierPremium    PricingTier = "premium"
+	PricingTierEnterprise PricingTier = "enterprise"
 )
 
 // ModelType 模型类型

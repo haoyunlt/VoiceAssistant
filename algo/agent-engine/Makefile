@@ -4,7 +4,7 @@ install:
 	pip install -r requirements.txt
 
 run:
-	uvicorn main_refactored:app --reload --host 0.0.0.0 --port 8010
+	uvicorn main:app --reload --host 0.0.0.0 --port 8010
 
 test:
 	pytest tests/ -v
@@ -29,4 +29,4 @@ docker-run:
 	docker run -p 8010:8010 --env-file .env voiceassistant/agent-engine:latest
 
 dev:
-	uvicorn main_refactored:app --reload --host 0.0.0.0 --port 8010 --log-level debug
+	uvicorn main:app --reload --host 0.0.0.0 --port 8010 --log-level debug

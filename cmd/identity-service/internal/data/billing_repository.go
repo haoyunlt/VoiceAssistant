@@ -2,10 +2,10 @@ package data
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
-	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/go-kratos/kratos/v2/log"
 )
@@ -43,7 +43,7 @@ func (r *BillingRepositoryImpl) HasUnpaidBillsByTenantID(ctx context.Context, te
 
 	var unpaidAmount float64
 	if err := r.conn.QueryRow(ctx, query, tenantID).Scan(&unpaidAmount); err != nil {
-		if err == clickhouse.ErrNoRows {
+		if err == sql.ErrNoRows {
 			return false, 0, nil
 		}
 		return false, 0, fmt.Errorf("failed to query unpaid bills: %w", err)
@@ -89,7 +89,7 @@ func (r *BillingRepositoryImpl) RecordUsage(ctx context.Context, tenantID string
 	`
 
 	now := time.Now()
-	_, err := r.conn.Exec(ctx, query,
+	err := r.conn.Exec(ctx, query,
 		tenantID,
 		now,
 		tokens,
@@ -114,7 +114,7 @@ func (r *BillingRepositoryImpl) MarkBillsPaid(ctx context.Context, tenantID stri
 		WHERE tenant_id = ? AND status = 'unpaid'
 	`
 
-	_, err := r.conn.Exec(ctx, query, tenantID)
+	err := r.conn.Exec(ctx, query, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to mark bills paid: %w", err)
 	}

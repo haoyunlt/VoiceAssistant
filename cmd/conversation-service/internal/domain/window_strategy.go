@@ -25,7 +25,7 @@ func (s *RecentWindowStrategy) Select(
 	options *ContextOptions,
 ) ([]*Message, error) {
 	// 获取最近的消息
-	messages, err := repo.ListMessages(ctx, conversationID, options.MaxMessages, 0)
+	messages, _, err := repo.ListMessages(ctx, conversationID, options.MaxMessages, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (s *RecentWindowStrategy) Select(
 	// 如果需要包含系统消息，确保第一条是系统消息
 	if options.IncludeSystem && len(messages) > 0 {
 		// 检查第一条是否为系统消息
-		if messages[0].Role != MessageRoleSystem {
+		if messages[0].Role != RoleSystem {
 			// 查询系统消息
 			// TODO: 实现系统消息查询
 		}
@@ -59,7 +59,8 @@ func (s *SlidingWindowStrategy) Select(
 		windowSize = options.MaxMessages
 	}
 
-	return repo.ListMessages(ctx, conversationID, windowSize, 0)
+	messages, _, err := repo.ListMessages(ctx, conversationID, windowSize, 0)
+	return messages, err
 }
 
 // FixedWindowStrategy 固定窗口策略
@@ -75,5 +76,6 @@ func (s *FixedWindowStrategy) Select(
 	conversationID string,
 	options *ContextOptions,
 ) ([]*Message, error) {
-	return repo.ListMessages(ctx, conversationID, s.WindowSize, s.StartOffset)
+	messages, _, err := repo.ListMessages(ctx, conversationID, s.WindowSize, s.StartOffset)
+	return messages, err
 }

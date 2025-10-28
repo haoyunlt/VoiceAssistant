@@ -20,14 +20,19 @@ import (
 // wireApp init kratos application.
 func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 	panic(wire.Build(
+		// Config providers
+		provideDataConfig,
+
 		// Data layer
 		data.NewDB,
 		data.NewData,
 		data.NewTaskRepo,
 		data.NewServiceClient,
 
-		// Domain layer - Pipelines
+		// Bind ServiceClient interface
 		wire.Bind(new(domain.ServiceClient), new(*data.GRPCServiceClient)),
+
+		// Domain layer - Pipelines
 		domain.NewRAGPipeline,
 		domain.NewAgentPipeline,
 		domain.NewVoicePipeline,
@@ -45,4 +50,15 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 		// App
 		newApp,
 	))
+}
+
+// provideDataConfig 提供数据层配置
+func provideDataConfig(c *Config) *data.Config {
+	return &data.Config{
+		Driver:          c.Data.Database.Driver,
+		Source:          c.Data.Database.Source,
+		MaxIdleConns:    c.Data.Database.MaxIdleConns,
+		MaxOpenConns:    c.Data.Database.MaxOpenConns,
+		ConnMaxLifetime: ParseDuration(c.Data.Database.ConnMaxLifetime),
+	}
 }

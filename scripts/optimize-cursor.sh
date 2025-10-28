@@ -42,6 +42,10 @@ find . -type d -name "node_modules" -prune -exec du -sh {} \; 2>/dev/null | head
 find . -type d -name ".next" -exec rm -rf {} + 2>/dev/null || true
 find . -type d -name ".turbo" -exec rm -rf {} + 2>/dev/null || true
 find . -type d -name ".parcel-cache" -exec rm -rf {} + 2>/dev/null || true
+find . -type f -name ".eslintcache" -delete 2>/dev/null || true
+find . -type f -name ".stylelintcache" -delete 2>/dev/null || true
+find . -type f -name "tsconfig.tsbuildinfo" -delete 2>/dev/null || true
+find . -type f -name "*.tsbuildinfo" -delete 2>/dev/null || true
 echo -e "${GREEN}✓ Node.js caches cleaned${NC}\n"
 
 # ==============================================================================

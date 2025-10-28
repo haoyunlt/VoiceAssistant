@@ -1,11 +1,11 @@
-package http
+package server
 
 import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/middleware/logging"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
-	"github.com/go-kratos/kratos/v2/transport/http"
+	khttp "github.com/go-kratos/kratos/v2/transport/http"
 
 	"voiceassistant/cmd/ai-orchestrator/internal/service"
 )
@@ -14,9 +14,9 @@ import (
 func NewHTTPServer(
 	orchestratorService *service.OrchestratorService,
 	logger log.Logger,
-) *http.Server {
-	var opts = []http.ServerOption{
-		http.Middleware(
+) *khttp.Server {
+	opts := []khttp.ServerOption{
+		khttp.Middleware(
 			recovery.Recovery(),
 			tracing.Server(),
 			logging.Server(logger),
@@ -24,9 +24,9 @@ func NewHTTPServer(
 	}
 
 	// 配置服务器地址
-	opts = append(opts, http.Address(":8000"))
+	opts = append(opts, khttp.Address(":8000"))
 
-	srv := http.NewServer(opts...)
+	srv := khttp.NewServer(opts...)
 
 	// 注册HTTP路由
 	// pb.RegisterOrchestratorHTTPServer(srv, orchestratorService)

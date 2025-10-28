@@ -24,7 +24,7 @@ func NewHTTPServer(
 	knowledgeService *service.KnowledgeService,
 	logger log.Logger,
 ) *http.Server {
-	var opts = []http.ServerOption{
+	opts := []http.ServerOption{
 		http.Middleware(
 			recovery.Recovery(),
 			tracing.Server(),
@@ -52,9 +52,4 @@ func NewHTTPServer(
 
 	log.NewHelper(logger).Infof("HTTP server created on %s", config.Addr)
 	return srv
-}
-
-// parseDuration 解析时间字符串 (简单实现，建议使用time.ParseDuration)
-func parseDuration(s string) string {
-	return s
 }

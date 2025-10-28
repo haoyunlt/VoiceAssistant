@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"voiceassistant/cmd/knowledge-service/internal/biz"
 	"voiceassistant/cmd/knowledge-service/internal/domain"
@@ -159,27 +160,14 @@ func (s *KnowledgeService) ListKnowledgeBases(
 }
 
 // UploadDocument 上传文档
+// TODO: 待proto生成后实现完整的上传逻辑
 func (s *KnowledgeService) UploadDocument(
 	ctx context.Context,
 	req *UploadDocumentRequest,
 ) (*DocumentResponse, error) {
-	doc, err := s.docUC.UploadDocument(
-		ctx,
-		req.KnowledgeBaseID,
-		req.Name,
-		req.FileName,
-		domain.DocumentType(req.FileType),
-		req.FileSize,
-		req.FilePath,
-		req.TenantID,
-		req.UploadedBy,
-	)
-	if err != nil {
-		s.log.WithContext(ctx).Errorf("failed to upload document: %v", err)
-		return nil, err
-	}
-
-	return s.toDocumentResponse(doc), nil
+	// 暂时返回错误，等proto生成后再实现
+	s.log.WithContext(ctx).Warn("UploadDocument not implemented yet, waiting for proto generation")
+	return nil, fmt.Errorf("not implemented")
 }
 
 // GetDocument 获取文档
@@ -197,22 +185,14 @@ func (s *KnowledgeService) GetDocument(
 }
 
 // ProcessDocument 处理文档
+// TODO: 待proto生成后实现
 func (s *KnowledgeService) ProcessDocument(
 	ctx context.Context,
 	req *GetDocumentRequest,
 	content string,
 ) (*DocumentResponse, error) {
-	if err := s.docUC.ProcessDocument(ctx, req.ID, content); err != nil {
-		s.log.WithContext(ctx).Errorf("failed to process document: %v", err)
-		return nil, err
-	}
-
-	doc, err := s.docUC.GetDocument(ctx, req.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.toDocumentResponse(doc), nil
+	s.log.WithContext(ctx).Warn("ProcessDocument not implemented yet")
+	return nil, fmt.Errorf("not implemented")
 }
 
 // DeleteDocument 删除文档

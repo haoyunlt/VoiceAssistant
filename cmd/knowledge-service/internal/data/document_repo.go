@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
 	"voiceassistant/cmd/knowledge-service/internal/domain"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -45,7 +46,7 @@ type DocumentRepository struct {
 }
 
 // NewDocumentRepo 创建文档仓储
-func NewDocumentRepo(data *Data, logger log.Logger) *DocumentRepository {
+func NewDocumentRepo(data *Data, logger log.Logger) domain.DocumentRepository {
 	return &DocumentRepository{
 		data: data,
 		log:  log.NewHelper(logger),
@@ -67,8 +68,8 @@ func (r *DocumentRepository) Create(ctx context.Context, doc *domain.Document) e
 	return nil
 }
 
-// FindByID 根据ID获取文档
-func (r *DocumentRepository) FindByID(ctx context.Context, id string) (*domain.Document, error) {
+// GetByID 根据ID获取文档
+func (r *DocumentRepository) GetByID(ctx context.Context, id string) (*domain.Document, error) {
 	var po DocumentPO
 	if err := r.data.db.WithContext(ctx).Where("id = ?", id).First(&po).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -109,13 +110,23 @@ func (r *DocumentRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// FindByKnowledgeBaseID 获取知识库的文档列表
-func (r *DocumentRepository) FindByKnowledgeBaseID(
+// ListByKnowledgeBase 获取知识库的文档列表
+func (r *DocumentRepository) ListByKnowledgeBase(
 	ctx context.Context,
 	kbID string,
-	limit, offset int,
-) ([]*domain.Document, error) {
+	offset, limit int,
+) ([]*domain.Document, int64, error) {
 	var pos []DocumentPO
+
+	// 查询总数
+	var total int64
+	if err := r.data.db.WithContext(ctx).
+		Model(&DocumentPO{}).
+		Where("knowledge_base_id = ? AND status != ?", kbID, domain.DocumentStatusDeleted).
+		Count(&total).Error; err != nil {
+		r.log.Errorf("failed to count documents: %v", err)
+		return nil, 0, err
+	}
 
 	// 查询列表
 	if err := r.data.db.WithContext(ctx).
@@ -125,7 +136,7 @@ func (r *DocumentRepository) FindByKnowledgeBaseID(
 		Limit(limit).
 		Find(&pos).Error; err != nil {
 		r.log.Errorf("failed to list documents: %v", err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	docs := make([]*domain.Document, 0, len(pos))
@@ -138,11 +149,11 @@ func (r *DocumentRepository) FindByKnowledgeBaseID(
 		docs = append(docs, doc)
 	}
 
-	return docs, nil
+	return docs, total, nil
 }
 
-// CountByKnowledgeBaseID 统计知识库的文档数量
-func (r *DocumentRepository) CountByKnowledgeBaseID(ctx context.Context, kbID string) (int64, error) {
+// CountByKnowledgeBase 统计知识库的文档数量
+func (r *DocumentRepository) CountByKnowledgeBase(ctx context.Context, kbID string) (int64, error) {
 	var count int64
 	if err := r.data.db.WithContext(ctx).
 		Model(&DocumentPO{}).

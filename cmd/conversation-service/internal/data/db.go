@@ -2,12 +2,14 @@ package data
 
 import (
 	"fmt"
+	"os"
 	"time"
 
+	"voiceassistant/pkg/database"
+
+	"github.com/go-kratos/kratos/v2/log"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"voiceassistant/pkg/database"
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 // DBConfig 数据库配置
@@ -52,7 +54,7 @@ func NewDB(config *DBConfig) (*gorm.DB, error) {
 	}
 
 	// 创建简单logger（conversation-service没有使用kratos）
-	kLogger := log.NewStdLogger(nil)
+	kLogger := log.NewStdLogger(os.Stdout)
 
 	db, err := database.NewDB(dbConfig, kLogger)
 	if err != nil {

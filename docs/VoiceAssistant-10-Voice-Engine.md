@@ -96,73 +96,99 @@ flowchart TB
         WebApp["Web应用<br/>直接调用"]
     end
 
-    subgraph VoiceEngine["Voice Engine 服务层"]
-        FastAPI["FastAPI应用<br/>main.py"]
+    subgraph VoiceEngine["Voice Engine 服务层 (main.py)"]
+        FastAPI["FastAPI应用<br/>端口8004"]
+        Middleware["中间件层<br/>CORS/日志/成本追踪/限流/幂等性"]
 
-        subgraph Routers["路由层"]
-            ASRRouter["ASRRouter<br/>/api/v1/asr/*"]
-            TTSRouter["TTSRouter<br/>/api/v1/tts/*"]
-            VADRouter["VADRouter<br/>/api/v1/vad/*"]
-            StreamRouter["StreamingRouter<br/>/api/v1/asr/ws/*"]
+        subgraph Routers["路由层 (app/routers)"]
+            VoiceStreamRouter["VoiceStreamRouter<br/>/api/v1/voice/stream"]
+            EmotionRouter["EmotionRouter<br/>/api/v1/emotion/*"]
+            DiarizationRouter["DiarizationRouter<br/>/api/v1/diarization/*"]
+            FullDuplexRouter["FullDuplexRouter<br/>/api/v1/full-duplex"]
         end
 
-        FastAPI --> ASRRouter
-        FastAPI --> TTSRouter
-        FastAPI --> VADRouter
-        FastAPI --> StreamRouter
+        FastAPI --> Middleware
+        Middleware --> Routers
     end
 
-    subgraph Services["服务层"]
-        ASRService["ASRService<br/>识别协调器"]
-        TTSService["TTSService<br/>合成协调器"]
-        VADService["VADService<br/>VAD协调器"]
-        StreamingASR["StreamingASRService<br/>流式识别"]
-        MultiVendor["MultiVendorAdapter<br/>多厂商适配"]
+    subgraph Core["核心引擎层 (app/core)"]
+        VoiceEngineCore["VoiceEngine<br/>核心协调器"]
+
+        subgraph Engines["引擎实例"]
+            ASREngine["ASREngine<br/>Whisper识别"]
+            TTSEngine["TTSEngine<br/>Edge TTS合成"]
+            VADEngine["VADEngine<br/>Silero VAD检测"]
+        end
+
+        subgraph Resilience["可靠性组件"]
+            CircuitBreaker["CircuitBreaker<br/>熔断器"]
+            Retry["RetryWithBackoff<br/>重试机制"]
+            Observability["Observability<br/>指标追踪"]
+        end
+
+        VoiceEngineCore --> Engines
+        VoiceEngineCore --> Resilience
     end
 
-    subgraph Infrastructure["基础设施层"]
+    subgraph Services["服务层 (app/services)"]
+        ASRService["ASRService<br/>识别服务"]
+        TTSService["TTSService<br/>合成服务"]
+        VADService["VADService<br/>VAD服务"]
+        StreamingASRService["StreamingASRService<br/>流式识别"]
+        RealtimeVoiceService["RealtimeVoiceService<br/>实时语音流"]
+        MultiVendorAdapter["MultiVendorAdapter<br/>多厂商适配"]
+        EmotionRecognitionService["EmotionRecognitionService<br/>情感识别"]
+        DiarizationService["DiarizationService<br/>说话人分离"]
+    end
+
+    subgraph Infrastructure["基础设施层 (app/infrastructure)"]
         TTSCache["TTSRedisCache<br/>LRU缓存"]
         Redis[(Redis<br/>缓存存储)]
     end
 
     subgraph Models["模型层"]
-        WhisperModel["Faster-Whisper<br/>base模型"]
-        SileroVAD["Silero VAD v4<br/>5MB模型"]
+        WhisperModel["Whisper Model<br/>Transformers/base"]
+        SileroVAD["Silero VAD<br/>PyTorch Hub"]
         EdgeTTS["Edge TTS<br/>在线服务"]
-        AzureSpeech["Azure Speech<br/>备用服务"]
+        AzureSpeech["Azure Speech<br/>备用降级"]
     end
 
-    AIOrch -->|HTTP REST| FastAPI
-    ConvSvc -->|HTTP REST| FastAPI
-    WebApp -->|WebSocket| FastAPI
+    AIOrch -->|"HTTP REST<br/>批量ASR/TTS"| FastAPI
+    ConvSvc -->|"HTTP REST<br/>TTS合成"| FastAPI
+    WebApp -->|"WebSocket<br/>实时语音流"| FastAPI
 
-    ASRRouter --> ASRService
-    ASRRouter --> StreamingASR
-    TTSRouter --> TTSService
-    VADRouter --> VADService
+    Routers --> Services
+    Services --> Core
 
-    ASRService --> VADService
-    ASRService --> WhisperModel
-    ASRService --> MultiVendor
+    VoiceStreamRouter --> RealtimeVoiceService
+    EmotionRouter --> EmotionRecognitionService
+    DiarizationRouter --> DiarizationService
+
+    ASRService --> ASREngine
+    TTSService --> TTSEngine
+    VADService --> VADEngine
+    StreamingASRService --> ASREngine
+    StreamingASRService --> VADEngine
+    RealtimeVoiceService --> StreamingASRService
+
+    ASREngine --> WhisperModel
+    TTSEngine --> EdgeTTS
+    VADEngine --> SileroVAD
 
     TTSService --> TTSCache
-    TTSService --> EdgeTTS
-    TTSService --> MultiVendor
-
-    VADService --> SileroVAD
-
-    StreamingASR --> SileroVAD
-    StreamingASR --> WhisperModel
-
-    MultiVendor --> AzureSpeech
-
     TTSCache --> Redis
+
+    MultiVendorAdapter --> AzureSpeech
+    ASRService -.备用.-> MultiVendorAdapter
+    TTSService -.备用.-> MultiVendorAdapter
 
     style Upstream fill:#e3f2fd
     style VoiceEngine fill:#fff3e0
-    style Services fill:#f3e5f5
+    style Core fill:#f3e5f5
+    style Services fill:#e1f5fe
     style Infrastructure fill:#e8f5e9
     style Models fill:#fce4ec
+    style Resilience fill:#fff9c4
 ```
 
 ### 架构说明
@@ -173,234 +199,390 @@ AI-Orchestrator：对话编排服务，调用 ASR 识别用户语音，调用 TT
 
 Conversation-Service：会话管理服务，调用 TTS 合成欢迎语、提示音。典型场景：会话开始时播放欢迎语。
 
-Web 应用：前端直接调用，用于实时语音交互。典型场景：Web 语音输入、语音播报。
+Web 应用：前端直接调用，用于实时语音交互。典型场景：Web 语音输入、实时语音流处理。
 
-**2. 服务层**（FastAPI + 路由）
+**2. Voice Engine 服务层**（FastAPI + 中间件 + 路由）
 
-FastAPI 应用作为 HTTP 服务器和 WebSocket 服务器，负责：
+FastAPI 应用（main.py）作为 HTTP/WebSocket 服务器，端口 8004，负责：
 
-- 应用生命周期管理：启动时加载 Whisper 模型、Silero VAD、初始化 Redis 连接
-- 中间件：CORS、Prometheus 指标、异常处理
-- 健康检查：`/health`（存活）、`/ready`（就绪，检查模型是否加载）
-- 静态文件：`/static/*`（测试页面）
+- **应用生命周期管理**：通过 lifespan 上下文管理器初始化/清理资源
+  - 启动时：初始化 OpenTelemetry 追踪、加载 VoiceEngine 核心实例（包含 ASREngine/TTSEngine/VADEngine）
+  - 关闭时：清理所有引擎资源
+- **中间件栈**（从外到内）：
+  - CORS 中间件：跨域资源共享配置（使用统一 cors_config）
+  - 限流中间件（RateLimiterMiddleware）：租户/用户/IP 级别限流（基于 Redis）
+  - 幂等性中间件（IdempotencyMiddleware）：防止重复请求（TTL 120 秒）
+  - 日志中间件（logging_middleware）：统一结构化日志记录
+  - 成本追踪中间件（cost_tracking_middleware）：请求级成本统计
+- **异常处理**：全局异常处理器，统一错误响应格式
+- **监控指标**：Prometheus 指标暴露（/metrics 端点）
+- **健康检查**：
+  - `/health`：存活检查，返回服务状态
+  - `/ready`：就绪检查，验证 ASR/TTS/VAD 引擎是否已加载
 
-路由层采用蓝图模式，分为 4 个 Router：
+路由层（app/routers）采用模块化设计，主要路由：
 
-- ASRRouter：ASR 批量识别、文件上传、多厂商识别
-- TTSRouter：TTS 批量合成、流式合成、缓存管理、语音列表
-- VADRouter：VAD 检测
-- StreamingRouter：WebSocket 流式 ASR
+- **VoiceStreamRouter**（`/api/v1/voice/stream`）：WebSocket 实时语音流，支持 VAD + 流式 ASR
+- **EmotionRouter**（`/api/v1/emotion/*`）：情感识别相关 API
+- **DiarizationRouter**（`/api/v1/diarization/*`）：说话人分离相关 API
+- **FullDuplexRouter**（`/api/v1/full-duplex`）：全双工语音对话（同时 ASR + TTS）
 
-**3. 服务层**（5 个核心服务）
+传统批量接口直接挂载在 main.py：
 
-ASRService（识别协调器）：
+- `/asr`：批量语音识别
+- `/tts`：批量文本转语音（流式响应）
+- `/vad`：语音活动检测
+- `/voices`：列出可用 TTS 语音
+- `/stats`：获取统计信息
 
-- 职责：协调 VAD 预处理和 Whisper 识别，处理音频下载/解码
-- 关键流程：音频解码 → VAD 预处理（可选）→ Whisper 识别 → 结果封装
-- 性能优化：启用 VAD 过滤可减少 30-50%识别时间（跳过静音片段）
+**3. 核心引擎层**（app/core）
 
-TTSService（合成协调器）：
+VoiceEngine（voice_engine.py）：
 
-- 职责：协调缓存查询和 Edge TTS 合成
-- 关键流程：生成缓存键 → 查询 Redis → 命中则返回 → 未命中则调用 Edge TTS → 存入缓存
-- 性能优化：缓存命中率 40-60%，命中延迟 < 10ms（相比合成 200-500ms）
+- 职责：核心协调器，管理所有子引擎（ASR/TTS/VAD），提供统一接口
+- 依赖注入：通过 `get_voice_engine()` 函数作为全局单例，在应用启动时初始化
+- 可靠性增强：
+  - **CircuitBreaker（熔断器）**：失败阈值触发熔断，防止级联故障
+  - **超时控制**：ASR/TTS/VAD 操作均有超时保护（配置项：ASR_TIMEOUT_SECONDS）
+  - **统计追踪**：记录总请求数、成功数、失败数、成功率
+- 关键方法：
+  - `speech_to_text()`：语音识别，带超时、重试、熔断
+  - `text_to_speech_stream()`：文本转语音（流式），带超时、熔断
+  - `detect_voice_activity()`：VAD 检测，带超时、熔断
 
-VADService（VAD 协调器）：
+ASREngine（asr_engine.py）：
 
-- 职责：语音活动检测，返回语音片段时间戳
-- 关键流程：音频解码 → 重采样到 16kHz → Silero VAD 推理 → 提取语音时间戳
-- 性能指标：检测延迟 50-150ms（10 秒音频）
+- 技术栈：基于 Transformers 的 Whisper 模型（openai/whisper-base）
+- 设备选择：自动检测 CUDA 可用性，优先 GPU 推理
+- 运行模式：
+  - **批处理模式**：使用 `pipeline("automatic-speech-recognition")`，适合离线转录
+  - **流式模式**：使用 WhisperProcessor + WhisperForConditionalGeneration，支持实时识别
+- 流式处理：
+  - 音频缓冲：累积到 5 秒后识别（chunk_duration=5.0）
+  - 上下文保留：保留最后 1 秒音频作为上下文，提升连续性
+  - beam_size=5：平衡速度和准确性
+- 性能指标：base 模型 GPU 推理约 500-800ms/10s 音频
 
-StreamingASRService（流式识别）：
+TTSEngine（tts_engine.py）：
 
-- 职责：WebSocket 流式 ASR，实现音频缓冲、VAD 过滤、实时识别
-- 关键流程：累积音频 → 达到 5 秒阈值 → VAD 检测 → Whisper 识别 → 返回 partial result
-- 性能权衡：5 秒缓冲平衡延迟和准确性（1 秒缓冲导致频繁识别，累积延迟更高）
+- 技术栈：基于 edge-tts（微软 Edge 浏览器 TTS 服务）
+- 支持音色：20+ 中文音色（晓晓、云希、云扬等）
+- 参数调整：rate（语速）、pitch（音调）、volume（音量）
+- 运行模式：
+  - **批量合成**：`synthesize()`，一次性返回完整音频
+  - **流式合成**：`synthesize_stream()`，逐块生成音频（TTFB 50-100ms）
+- 音频处理：支持速度/音量/采样率调整（使用 pydub）
+- 降级策略：Edge TTS 失败时可降级到 Azure Speech
 
-MultiVendorAdapter（多厂商适配）：
+VADEngine（vad_engine.py）：
 
-- 职责：抽象 ASR/TTS 厂商，实现自动降级
-- 降级策略：Whisper 失败 → Azure Speech（如果配置）；Edge TTS 失败 → Azure Speech
-- 故障转移：单次请求级别，不影响其他请求
+- 技术栈：Silero VAD（通过 torch.hub 加载）
+- 模型大小：约 5MB，加载时间 < 1 秒
+- 检测流程：
+  - 音频加载：自动重采样到 16kHz 单声道
+  - 滑动窗口：window_size=512，step_size=256
+  - 阈值判断：speech_prob > threshold（默认 0.5）
+  - 片段合并：合并间隔 < 0.3 秒的连续语音段
+- Mock 模式：模型加载失败时自动降级到 Mock 实现（返回固定段落）
+- 性能指标：10 秒音频推理 50-100ms（GPU）
 
-**4. 基础设施层**（Redis 缓存）
+可靠性组件（app/core）：
 
-TTSRedisCache：
+- **CircuitBreaker**（circuit_breaker.py）：
+  - 失败阈值：连续失败 N 次后开启熔断（配置项：CIRCUIT_BREAKER_FAILURE_THRESHOLD）
+  - 恢复超时：熔断后等待 M 秒尝试恢复（配置项：CIRCUIT_BREAKER_RECOVERY_TIMEOUT）
+  - 状态跟踪：CLOSED（正常）→ OPEN（熔断）→ HALF_OPEN（试探）
+- **RetryWithBackoff**（retry.py）：
+  - 指数退避：重试间隔 1s、2s、4s、8s...
+  - 最大重试次数：默认 3 次
+- **Observability**（observability.py）：
+  - 装饰器：`@track_asr_metrics`、`@track_tts_metrics`、`@track_vad_metrics`
+  - 指标：延迟（duration_seconds）、成功/失败计数、模型/语言/提供商标签
+
+**4. 服务层**（app/services）
+
+ASRService（asr_service.py）：
+
+- 职责：ASR 服务封装层，提供高级 API
+- 音频预处理：格式转换、重采样、VAD 过滤
+- 多厂商支持：Whisper（本地）、Azure Speech（云端）
+- 降级策略：Whisper 失败自动切换到 Azure Speech
+
+TTSService（tts_service.py）：
+
+- 职责：TTS 服务封装层，提供缓存 + 合成
+- 缓存集成：优先查询 TTSRedisCache，命中直接返回
+- 批量合成：支持多文本并发合成
+- 情感 TTS（可选）：EmotionalTTSService 支持情感参数
+
+VADService（vad_service.py）：
+
+- 职责：VAD 服务封装层
+- 接口简化：bytes 输入 → 语音段列表输出
+- 统计计算：总语音时长、语音占比（speech_ratio）
+
+StreamingASRService（streaming_asr_service.py）：
+
+- 职责：流式 ASR 核心逻辑，处理音频流 → 实时识别
+- VAD 集成：检测语音段后再识别，减少无效计算
+- 结果合并：合并多个部分结果为完整文本
+- 性能优化：min_chunk_size=2 秒，避免过短音频识别
+
+RealtimeVoiceService（realtime_voice_service.py）：
+
+- 职责：实时语音流管理，WebSocket 会话处理
+- 会话管理：session_id 跟踪、心跳机制、超时清理
+- 流程控制：音频接收 → VAD 检测 → 静音触发识别 → 返回结果
+- 配置参数：
+  - min_speech_duration：最小语音时长（0.5s）
+  - silence_duration：静音触发阈值（0.8s）
+  - heartbeat_interval：心跳间隔（1.0s）
+  - session_timeout：会话超时（300s）
+
+MultiVendorAdapter（multi_vendor_adapter.py）：
+
+- 职责：多厂商 ASR/TTS 适配器，统一接口
+- 降级逻辑：优先使用 preferred_asr/preferred_tts，失败自动降级
+- 支持厂商：Whisper（本地）、Edge TTS（免费）、Azure Speech（付费）
+
+EmotionRecognitionService（emotion_recognition_service.py）：
+
+- 职责：情感识别（可选功能）
+- 技术：基于音频特征或文本情感分析
+
+DiarizationService（diarization_service.py）：
+
+- 职责：说话人分离（可选功能）
+- 技术：pyannote.audio 或其他分离模型
+
+**5. 基础设施层**（app/infrastructure）
+
+TTSRedisCache（tts_cache.py）：
 
 - 缓存策略：LRU（最久未使用淘汰），基于 Redis Sorted Set 实现
-- 缓存键：SHA256(text + voice + rate + pitch + format)，避免冲突
-- TTL：30 天（常用文本长期缓存）
-- 容量控制：达到 1GB 上限时自动淘汰 LRU 条目
-- 统计指标：总条目数、总大小、命中次数、命中率、平均音频大小
-- 降级模式：Redis 不可用时降级到内存缓存（进程内字典，重启丢失）
+- 缓存键：SHA256(text + voice + rate + pitch + format)，保证唯一性
+- TTL：30 天（timedelta(days=30)）
+- 容量控制：max_cache_size_mb=1000（1GB），达到上限自动淘汰
+- 统计指标：
+  - 每个缓存项：text_length、audio_size、created_at、hits、last_accessed
+  - 全局统计：总条目数、总大小、命中率、平均音频大小
+- LRU 淘汰：
+  - `tts:lru` Sorted Set 存储访问时间戳
+  - 按时间戳升序淘汰（最久未使用优先）
+  - 淘汰粒度：逐条淘汰直到腾出足够空间
+- 降级模式：
+  - Redis 不可用时自动降级到内存缓存（memory_cache 字典）
+  - 内存缓存重启丢失，但不影响核心功能
+- 健康检查：health_check() 返回 Redis 连接状态
 
-**5. 模型层**（3 类模型）
+**6. 模型层**
 
-Faster-Whisper（ASR 模型）：
+Whisper Model（Transformers）：
 
-- 技术：基于 CTranslate2 的 Whisper 优化版，推理速度提升 4 倍
-- 模型选择：base（74MB，默认）平衡速度和准确性；large（1550MB）最高准确性但慢 10 倍
-- 设备：GPU（CUDA）推理比 CPU 快 10-20 倍；base 模型 GPU 显存约 1GB
-- 量化：int8 量化减少 50%显存，速度提升 20-30%，准确性下降 1-2%
+- 模型来源：Hugging Face Transformers（openai/whisper-base）
+- 模型大小：base 74MB、small 244MB、medium 769MB、large 1550MB
+- 设备支持：CPU（慢）、CUDA GPU（快 10-20 倍）
+- 优化技术：
+  - beam_size=5：平衡速度和准确性
+  - temperature=0.0：确定性输出
+  - 量化（可选）：int8 量化减少 50%显存，速度提升 20-30%
+- 推理延迟：base 模型 GPU 推理约 500-800ms/10s 音频
 
-Silero VAD（VAD 模型）：
+Silero VAD（PyTorch Hub）：
 
-- 技术：基于 PyTorch 的轻量级 VAD 模型，通过 torch.hub 加载
-- 模型大小：约 5MB，加载时间 < 1 秒
+- 模型来源：torch.hub.load('snakers4/silero-vad', 'silero_vad')
+- 模型大小：约 5MB
+- 采样率：16kHz（固定）
 - 推理速度：10 秒音频推理 50-100ms（GPU）
 - 准确性：speech_ratio 计算准确率 95%+，误检率 < 5%
 
 Edge TTS（在线服务）：
 
-- 技术：微软 Edge 浏览器的 TTS 服务，通过 edge-tts Python 库调用
-- 免费使用：无需 API Key，无速率限制（实际限制未知）
-- 语音质量：接近商业级，支持 SSML（语速、音调、停顿）
-- 输出格式：MP3（默认，压缩比高）、WAV（无损）、OGG（开源）
+- 服务提供商：Microsoft Edge TTS
+- 访问方式：通过 edge-tts Python 库，WebSocket 协议
+- 免费使用：无需 API Key，无官方速率限制
+- 语音质量：接近商业级，支持 SSML 标记
+- 输出格式：MP3（默认）、WAV、OGG
 - 延迟：合成 100 字约 200-500ms，流式合成 TTFB 50-100ms
+- 支持音色：20+ 中文音色（zh-CN-XiaoxiaoNeural、zh-CN-YunxiNeural 等）
+
+Azure Speech（备用降级）：
+
+- 服务提供商：Microsoft Azure Cognitive Services
+- 使用场景：Whisper 或 Edge TTS 不可用时降级
+- 成本：$4/百万字符（标准语音）
+- 配置：AZURE_SPEECH_KEY、AZURE_SPEECH_REGION 环境变量
 
 ## 调用链路分析
 
 本节从上游接口入手，自上而下分析每个调用路径涉及的模块、关键代码和内部时序。
 
-### 路径 1：ASR 批量识别（/api/v1/asr/recognize）
+### 路径 1：批量 ASR 识别（/asr）
 
 **调用链路**
 
 ```
-Client → FastAPI → ASRRouter.recognize_speech()
-       → ASRService.recognize()
-       → ASRService.recognize_from_bytes()
-       → VADService.detect_from_bytes()（可选）
-       → ASRService._recognize_with_whisper()
-       → WhisperModel.transcribe()
-       → 返回 ASRResponse
+Client → FastAPI → main.speech_to_text()
+       → get_voice_engine()（依赖注入）
+       → VoiceEngine.speech_to_text()
+       → CircuitBreaker.call()（熔断器包装）
+       → asyncio.wait_for()（超时控制）
+       → ASREngine.transcribe()
+       → WhisperProcessor/WhisperModel
+       → 返回识别结果
 ```
 
-**时序图：ASR 批量识别完整流程**
+**时序图：批量 ASR 识别完整流程**
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Client as 客户端
-    participant Router as ASRRouter
-    participant Service as ASRService
-    participant VAD as VADService
-    participant Whisper as WhisperModel
-    participant SileroVAD as Silero VAD
+    participant FastAPI as FastAPI主应用
+    participant VoiceEngine as VoiceEngine核心
+    participant CircuitBreaker as 熔断器
+    participant ASREngine as ASREngine
+    participant Whisper as Whisper Model
+    participant Metrics as Observability
 
-    Client->>Router: POST /api/v1/asr/recognize<br/>{audio_base64, language, enable_vad}
-    Router->>Router: 验证请求参数
-    Router->>Service: recognize(request)
+    Client->>FastAPI: POST /asr<br/>文件上传{audio, language, model}
+    FastAPI->>FastAPI: 验证请求参数
+    FastAPI->>FastAPI: get_voice_engine()获取实例
 
-    alt audio_base64存在
-        Service->>Service: base64.b64decode(audio_base64)
-    else audio_url存在
-        Service->>Service: _download_audio(url)
-    end
+    FastAPI->>VoiceEngine: speech_to_text(audio_data, language, model)
 
-    Service->>Service: recognize_from_bytes(audio_data)
+    VoiceEngine->>Metrics: @track_asr_metrics开始记录
+    VoiceEngine->>VoiceEngine: stats["total_asr_requests"] += 1
 
-    alt enable_vad=true
-        Service->>VAD: detect_from_bytes(audio_data)
-        VAD->>VAD: _load_audio(): 重采样到16kHz
-        VAD->>SileroVAD: get_speech_timestamps()
-        SileroVAD->>SileroVAD: 推理检测语音片段
-        SileroVAD-->>VAD: speech_timestamps
-        VAD->>VAD: 计算speech_ratio
-        VAD-->>Service: VADResponse{speech_ratio, segments}
+    alt 熔断器启用
+        VoiceEngine->>CircuitBreaker: call(_do_transcribe)
+        CircuitBreaker->>CircuitBreaker: 检查熔断器状态
 
-        alt speech_ratio < 0.1
-            Service->>Service: logger.warning("Low speech ratio")
+        alt 熔断器 OPEN
+            CircuitBreaker-->>VoiceEngine: 抛出CircuitBreakerOpenError
+            VoiceEngine-->>FastAPI: HTTPException(503, "Circuit breaker open")
+            FastAPI-->>Client: 503 Service Unavailable
         end
     end
 
-    Service->>Service: _recognize_with_whisper()
-    Service->>Service: 写入临时文件
-    Service->>Whisper: transcribe(temp_file)
-    Whisper->>Whisper: 音频预处理：重采样、归一化
-    Whisper->>Whisper: 内置VAD过滤（vad_filter=True）
-    Whisper->>Whisper: 分段识别（beam_size=5）
-    Whisper-->>Service: segments, info{language, duration}
+    CircuitBreaker->>VoiceEngine: 执行_do_transcribe()
+    VoiceEngine->>VoiceEngine: asyncio.wait_for(timeout=ASR_TIMEOUT_SECONDS)
 
-    Service->>Service: 提取segments文本
-    Service->>Service: 构建ASRResponse
-    Service-->>Router: ASRResponse{text, language, confidence, segments}
-    Router-->>Client: 200 OK + ASRResponse
+    VoiceEngine->>ASREngine: transcribe(audio_data, language, model)
 
-    Note over Client,Whisper: 总延迟：600-1000ms<br/>- VAD: 50-100ms<br/>- Whisper识别: 500-800ms<br/>- 其他: 50-100ms
+    ASREngine->>ASREngine: _bytes_to_array()<br/>转换音频格式
+
+    alt 流式模式启用
+        ASREngine->>ASREngine: _transcribe_with_model()
+        ASREngine->>Whisper: processor(audio, sampling_rate)
+        Whisper-->>ASREngine: input_features
+
+        ASREngine->>Whisper: model.generate(<br/>input_features,<br/>num_beams=5,<br/>language=zh)
+        Whisper->>Whisper: 编码器：提取音频特征
+        Whisper->>Whisper: 解码器：beam search生成文本
+        Whisper-->>ASREngine: predicted_ids
+
+        ASREngine->>Whisper: processor.batch_decode(predicted_ids)
+        Whisper-->>ASREngine: transcription text
+    else 批处理模式
+        ASREngine->>Whisper: pipeline(audio_array)
+        Whisper-->>ASREngine: {text, chunks, language}
+    end
+
+    ASREngine-->>VoiceEngine: {text, chunks, language, duration}
+
+    alt 超时
+        VoiceEngine->>VoiceEngine: asyncio.TimeoutError
+        VoiceEngine-->>FastAPI: Exception("ASR timeout")
+        FastAPI-->>Client: 500 Internal Server Error
+    end
+
+    VoiceEngine->>VoiceEngine: stats["successful_asr"] += 1
+    VoiceEngine->>VoiceEngine: stats["total_audio_duration"] += duration
+
+    VoiceEngine-->>FastAPI: {text, chunks, language, duration}
+    FastAPI-->>Client: 200 OK + JSON结果
+
+    VoiceEngine->>Metrics: @track_asr_metrics记录延迟
+
+    Note over Client,Metrics: 总延迟：600-1000ms<br/>- 音频转换: 50-100ms<br/>- Whisper识别: 500-800ms<br/>- 其他: 50-100ms
 ```
 
 **时序图说明**
 
 1. **图意概述**
 
-该时序图展示 ASR 批量识别的完整流程，共 25 个步骤。核心路径包括：请求验证（步骤 1-3）、音频解码（步骤 4-7）、VAD 预处理（步骤 8-17，可选）、Whisper 识别（步骤 18-23）、结果返回（步骤 24-25）。
+该时序图展示了批量 ASR 识别的完整流程，重点突出可靠性机制（熔断器、超时控制）。与之前基于 Faster-Whisper 的版本不同，当前实现使用 Transformers Whisper，提供流式和批处理两种模式。
 
-VAD 预处理是性能优化的关键：通过 Silero VAD 检测语音片段，计算 speech_ratio（语音占比）。当 speech_ratio < 0.1 时，说明音频几乎无语音内容，系统发出警告但不中断识别流程（避免误判）。VAD 预处理耗时 50-100ms，但可为 Whisper 减少 30-50%计算量（跳过静音片段）。
+核心流程包括：请求验证（步骤 1-3）、依赖注入获取 VoiceEngine 实例（步骤 3）、可靠性包装（步骤 5-11，熔断器 + 超时）、音频识别（步骤 14-26）、统计更新（步骤 28-29）、结果返回（步骤 30-31）。
 
-Whisper 识别采用分段识别策略：音频自动分段（基于 VAD），每段独立识别后合并。beam_size=5 平衡速度和准确性（beam_size=1 最快但准确性下降 5-10%，beam_size=10 准确性提升 1-2%但慢 2 倍）。
+熔断器保护：连续失败达到阈值（默认 5 次）后开启熔断，快速失败返回 503，避免级联故障。熔断后等待恢复超时（默认 60 秒）进入 HALF_OPEN 状态试探恢复。
+
+超时控制：ASR 操作设置超时限制（默认 30 秒），超时后抛出 TimeoutError 返回 500。防止长时间阻塞占用资源。
 
 2. **边界条件**
 
-并发控制：ASRService 无状态，支持多并发请求。Whisper 模型通过 GIL（Global Interpreter Lock）保证线程安全，但实际并发受 GPU 限制（base 模型支持 5-10 并发，large 模型支持 1-2 并发）。
+并发控制：VoiceEngine 单例，ASREngine 共享，支持多并发请求。Whisper 模型通过 PyTorch 线程安全机制保证并发安全。GPU 并发受显存限制（base 模型约支持 5-10 并发）。
 
-超时控制：HTTP 请求超时 30 秒（Nginx 配置）。音频下载超时 30 秒（httpx.AsyncClient）。Whisper 识别无显式超时（依赖音频长度），10 秒音频约 5-8 秒识别。
+超时控制：HTTP 请求超时 30 秒（配置：ASR_TIMEOUT_SECONDS）。音频处理超时包含在总超时内。超时后清理资源，不阻塞后续请求。
 
-幂等性：相同音频数据返回相同识别结果（Whisper 模型确定性，temperature=0）。重复请求不会复用结果（无请求级缓存，仅 TTS 有缓存）。
+幂等性：相同音频数据返回相同识别结果（Whisper temperature=0.0 确定性输出）。重复请求不会复用结果（无请求级缓存）。
 
-输入约束：音频格式支持 WAV、MP3、OGG、FLAC（pydub 自动解码）。音频长度限制 30 秒（超长音频建议分段或使用流式接口）。采样率自动转换到 16kHz。
+输入约束：音频格式支持 WAV、MP3、OGG、FLAC（通过 pydub/soundfile 解码）。音频长度建议 < 30 秒（超长音频识别时间长，可能超时）。采样率自动转换到 16kHz。
+
+熔断器状态：CLOSED（正常）、OPEN（熔断中，快速失败）、HALF_OPEN（试探恢复）。熔断器状态在 VoiceEngine 生命周期内持久化。
 
 3. **异常路径与回退**
 
-音频解码失败（步骤 4-7）：格式不支持或数据损坏时，pydub 抛出异常，返回 500 错误。建议客户端预检查音频格式。
+音频解码失败（步骤 14）：格式不支持或数据损坏时，ASREngine 抛出异常，返回 500 错误。建议客户端预检查音频格式。
 
-VAD 检测失败（步骤 8-17）：Silero VAD 模型未加载或推理异常时，跳过 VAD 步骤直接识别。VAD 失败不影响核心功能，仅损失性能优化。
+Whisper 模型未加载（步骤 3）：VoiceEngine 初始化失败时，get_voice_engine() 抛出 RuntimeError，返回 503 Service Unavailable。
 
-Whisper 识别失败（步骤 18-23）：模型未加载时返回 503（服务不可用）。推理超时或 GPU OOM 时返回 500。如果配置了 MultiVendorAdapter，自动降级到 Azure Speech（步骤省略）。
+熔断器 OPEN（步骤 8-11）：连续失败触发熔断后，新请求快速返回 503，不调用底层 ASR。恢复超时后自动进入 HALF_OPEN 试探。
 
-临时文件写入失败（步骤 18）：磁盘空间不足时抛出 IOError。系统定期清理 /tmp 目录（每小时）。
+识别超时（步骤 24-26）：超过 ASR_TIMEOUT_SECONDS 后，asyncio.wait_for 抛出 TimeoutError，返回 500。客户端可重试或分段识别。
 
-低语音占比（步骤 17）：speech_ratio < 0.1 时发出警告，但仍继续识别（可能是安静说话或远场语音）。客户端可根据 speech_ratio 判断音频质量。
+GPU OOM（步骤 17-23）：显存不足时，Whisper 推理失败，记录错误日志，熔断器计数器 +1。连续失败会触发熔断保护。
+
+模型推理异常（步骤 17-23）：任何推理异常都会被捕获，更新熔断器失败计数，返回 500 错误。
 
 4. **性能要点**
 
 关键路径延迟分析（base 模型，10 秒音频，GPU）：
 
-- 音频解码（步骤 4-7）：50-100ms（pydub 解码+重采样）
-- VAD 检测（步骤 8-17）：50-100ms（Silero VAD 推理）
-- 临时文件写入（步骤 18）：10-20ms（SSD）
-- Whisper 识别（步骤 19-22）：500-800ms（GPU 推理）
-- 结果封装（步骤 23-24）：10-20ms
+- 依赖注入（步骤 3）：< 1ms（单例直接返回）
+- 熔断器检查（步骤 6-7）：< 1ms（内存状态判断）
+- 音频转换（步骤 14）：50-100ms（bytes → numpy array）
+- Whisper 推理（步骤 17-23）：500-800ms（GPU，base 模型）
+- 统计更新（步骤 28-29）：< 1ms
+- 指标记录（步骤 32）：< 5ms（异步写入）
 
-总延迟 P50：620ms，P95：900ms，P99：1200ms（长音频或 CPU 模式）
+总延迟 P50：600ms，P95：900ms，P99：1200ms（长音频或 CPU 模式）
 
 吞吐量优化：
 
 - 单实例 QPS：10（受 Whisper GPU 推理限制）
-- VAD 过滤效果：减少 30-50%识别时间（跳过静音片段）
+- 熔断器快速失败：熔断后 QPS 可达 1000+（跳过识别）
 - 模型选择：base 模型 QPS 约 10，small 模型 QPS 约 5，large 模型 QPS 约 1
 - GPU 加速：GPU 比 CPU 快 10-20 倍，但 base 模型 CPU 也可达 1-2 QPS
 
 资源消耗：
 
-- CPU：VAD 20%，音频解码 10%，Whisper（CPU 模式）100%
+- CPU：音频解码 10%，Whisper（CPU 模式）100%
 - GPU 显存：base 模型 1GB，small 模型 2GB，large 模型 4GB
 - 内存：单请求峰值 200MB（存储音频+中间结果）
-- 磁盘：临时文件 10 秒音频约 300KB（16kHz 16bit）
 
 扩展性：单实例支持 10 QPS，生产环境部署 5 个实例+负载均衡，总容量 50 QPS。GPU 实例成本高，可配置 CPU 实例做降级（慢 10 倍但成本低 5 倍）。
 
 5. **兼容性说明**
 
-API 版本：当前 v1，路径前缀 `/api/v1/asr/`。未来 v2 支持长音频分段识别，通过新路径 `/api/v2/asr/` 访问，v1 保持不变。
+API 版本：当前直接路径 `/asr`，未来标准化为 `/api/v1/asr/recognize`。通过路由别名保持向后兼容。
 
-音频格式：当前支持 WAV、MP3、OGG、FLAC。未来支持 M4A、AAC、OPUS，通过 pydub 自动解码，API 不变。
+模型版本：Whisper 模型版本（base、small、large）通过请求参数指定。新模型（如 Whisper-large-v3）向后兼容，API 不变。
 
-响应格式：ASRResponse 字段固定（text、language、confidence、segments、duration_ms、processing_time_ms）。新增字段（如 word_timestamps、speaker_id）为可选，不影响旧客户端解析。
+响应格式：返回字段固定（text、chunks、language、duration）。新增字段（如 word_timestamps、confidence）为可选，不影响旧客户端解析。
 
-模型版本：Whisper 模型版本（base、small、large）通过配置文件指定。新模型（如 Whisper-large-v3）向后兼容，API 不变。模型升级通过蓝绿部署，避免中断服务。
-
-灰度策略：新识别算法或新模型通过 `X-Experiment-Id` 请求头控制，默认走稳定版本。按用户 ID 灰度，逐步放量（10% → 50% → 100%）。
+熔断器行为：熔断器配置通过环境变量调整（CIRCUIT_BREAKER_ENABLED、CIRCUIT_BREAKER_FAILURE_THRESHOLD 等）。禁用熔断器不影响核心功能，仅失去保护机制。
 
 ### 路径 2：TTS 批量合成（/api/v1/tts/synthesize）
 
@@ -586,218 +768,247 @@ API 版本：当前 v1，路径前缀 `/api/v1/tts/`。未来 v2 支持情感 TT
 
 语音列表：Edge TTS 支持的语音列表可能更新（新增或移除语音）。API 返回动态语音列表（`/api/v1/tts/voices`），客户端动态加载。
 
-### 路径 3：WebSocket 流式 ASR（/api/v1/asr/ws/stream）
+### 路径 3：WebSocket 实时语音流（/api/v1/voice/stream）
 
 **调用链路**
 
 ```
 Client → WebSocket 握手 → FastAPI WebSocket
-       → ASRRouter.websocket_asr_stream()
-       → 接收配置消息（JSON）
-       → 初始化 StreamingASRService
-       → audio_generator() 异步生成器
-       → StreamingASRService.process_stream()
-       → 循环：
-           - 累积音频到 buffer
-           - 达到 5 秒阈值 → VAD 检测
-           - 有语音 → Whisper 识别
-           - 返回 partial_result
-       → 接收 end_stream 信号
-       → 处理剩余 buffer → final_result
+       → VoiceStreamRouter.websocket_voice_stream()
+       → get_realtime_service()（延迟初始化）
+       → RealtimeVoiceService.handle_stream()
+       → 循环接收音频帧（PCM 16kHz 16bit）
+           → 累积音频 buffer
+           → VADService.detect() 检测语音活动
+           → 检测到静音（silence_duration 秒）→ 触发识别
+           → StreamingASRService.recognize_segment()
+           → WhisperModel.transcribe()
+           → 返回 transcription 消息（JSON）
+           → 定期发送 heartbeat 消息
+       → 会话超时或客户端断开
+       → cleanup_session() 清理资源
        → 关闭 WebSocket
 ```
 
-**时序图：WebSocket 流式 ASR 完整流程**
+**时序图：WebSocket 实时语音流完整流程**
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant Client as 客户端
     participant WS as WebSocket Server
-    participant Service as StreamingASRService
-    participant VAD as Silero VAD
-    participant Whisper as Whisper Model
+    participant RealtimeService as RealtimeVoiceService
+    participant StreamingASR as StreamingASRService
+    participant VADEngine as VADEngine
+    participant WhisperModel as Whisper Model
 
-    Client->>WS: WebSocket 握手<br/>ws://host/api/v1/asr/ws/stream
+    Client->>WS: WebSocket 握手<br/>ws://host:8004/api/v1/voice/stream
     WS-->>Client: 101 Switching Protocols
 
-    Client->>WS: 配置消息（JSON）<br/>{model_size:base, language:zh, vad_enabled:true}
-    WS->>Service: 初始化 StreamingASRService(config)
-    Service->>Service: 初始化 audio_buffer=[]<br/>buffer_duration=0.0<br/>chunk_duration=5.0s
-    Service-->>WS: 初始化完成
-    WS-->>Client: {type:session_start, model_size:base, language:zh}
+    WS->>WS: 生成 session_id = uuid.uuid4()
+    WS->>WS: get_realtime_service() 延迟初始化
 
-    loop 流式音频传输（累积到 5 秒）
-        Client->>WS: 音频块（binary, PCM 16kHz 16bit）
-        WS->>Service: audio_generator() yield audio_chunk
-        Service->>Service: audio_buffer.append(chunk)
-        Service->>Service: buffer_duration += len(chunk)/(16000*2)
+    alt RealtimeVoiceService 首次初始化
+        WS->>RealtimeService: 创建实例<br/>(sample_rate=16000, vad_threshold=0.3,<br/>min_speech_duration=0.5s, silence_duration=0.8s)
+        RealtimeService->>StreamingASR: 初始化 StreamingASRService
+        RealtimeService->>VADEngine: 初始化 VADEngine
+    end
 
-        alt buffer_duration < 5.0s
-            Note over Service: 继续累积，不识别
+    WS->>RealtimeService: handle_stream(websocket, session_id)
+
+    RealtimeService->>RealtimeService: 初始化会话状态<br/>audio_buffer=[]<br/>last_speech_time=None<br/>is_speaking=False
+
+    loop 音频流处理（直到断开或超时）
+        Client->>WS: 音频帧（binary, PCM 16kHz 16bit mono）
+        WS->>RealtimeService: 接收音频数据
+
+        RealtimeService->>RealtimeService: audio_buffer.append(audio_frame)
+        RealtimeService->>RealtimeService: buffer_duration += frame_duration
+
+        alt buffer 达到 min_chunk_size（2秒）
+            RealtimeService->>RealtimeService: combined_audio = b"".join(audio_buffer)
+
+            RealtimeService->>VADEngine: detect(combined_audio, threshold=0.3)
+            VADEngine->>VADEngine: _load_audio() 转换为 numpy
+            VADEngine->>VADEngine: Silero VAD 推理（滑动窗口512）
+            VADEngine->>VADEngine: _merge_segments() 合并连续片段
+            VADEngine-->>RealtimeService: segments[{start, end, confidence}]
+
+            alt 检测到语音（len(segments) > 0）
+                RealtimeService->>RealtimeService: is_speaking = True
+                RealtimeService->>RealtimeService: last_speech_time = current_time
+            else 无语音（len(segments) == 0）
+                alt is_speaking == True
+                    RealtimeService->>RealtimeService: silence_elapsed = current_time - last_speech_time
+
+                    alt silence_elapsed >= silence_duration（0.8s）
+                        Note over RealtimeService: 静音超过阈值，触发识别
+
+                        RealtimeService->>StreamingASR: recognize_segment(<br/>audio_segment, language="zh")
+
+                        StreamingASR->>StreamingASR: detect_speech() 二次VAD确认
+                        StreamingASR->>VADEngine: 提取语音段
+                        VADEngine-->>StreamingASR: AudioSegment[audio, start, end]
+
+                        StreamingASR->>WhisperModel: transcribe(<br/>segment.audio,<br/>language="zh",<br/>beam_size=5)
+                        WhisperModel->>WhisperModel: 编码器：提取音频特征
+                        WhisperModel->>WhisperModel: 解码器：beam search生成文本
+                        WhisperModel-->>StreamingASR: segments[{text, start, end}]
+
+                        StreamingASR->>StreamingASR: 提取文本 + 计算置信度
+                        StreamingASR-->>RealtimeService: {text, confidence, language, start_time, end_time}
+
+                        RealtimeService-->>WS: {type:"transcription",<br/>text:"识别结果",<br/>confidence:0.92,<br/>session_id}
+                        WS-->>Client: transcription（JSON）
+
+                        RealtimeService->>RealtimeService: 清空 audio_buffer
+                        RealtimeService->>RealtimeService: is_speaking = False
+                    end
+                end
+            end
+        end
+
+        alt heartbeat_interval 到期（1秒）
+            RealtimeService-->>WS: {type:"heartbeat",<br/>buffer_duration:2.3s,<br/>is_speaking:true,<br/>session_id}
+            WS-->>Client: heartbeat（JSON）
+        end
+
+        alt session_timeout 超时（300秒）
+            RealtimeService-->>WS: {type:"timeout",<br/>message:"Session timeout",<br/>session_id}
+            WS-->>Client: timeout（JSON）
+            Note over RealtimeService: 退出循环
         end
     end
 
-    Note over Client,Whisper: 累积阶段延迟：5秒（等待足够音频）
-
-    Service->>Service: buffer_duration >= 5.0s（触发识别）
-    Service->>Service: audio_data = b"".join(audio_buffer)
-
-    alt vad_enabled=true
-        Service->>VAD: detect_speech(audio_data)
-        VAD->>VAD: 转换为 numpy 数组
-        VAD->>VAD: Silero VAD 推理<br/>threshold=0.5
-        VAD-->>Service: speech_timestamps[]
-
-        alt 无语音片段
-            Service->>Service: 清空 buffer，跳过识别
-            Note over Service: 性能优化：跳过静音<br/>减少 30-50% 识别次数
-        else 有语音片段
-            Service->>Service: 提取语音段
-        end
+    alt 客户端断开连接
+        Client-->>WS: WebSocketDisconnect
     end
 
-    Service->>Whisper: transcribe(audio_data, language=zh)
-    Whisper->>Whisper: 音频预处理
-    Whisper->>Whisper: 编码器：提取音频特征
-    Whisper->>Whisper: 解码器：生成文本（beam_size=5）
-    Whisper-->>Service: segments[]{text, start, end}
+    WS->>RealtimeService: cleanup_session(session_id)
+    RealtimeService->>RealtimeService: 清理 audio_buffer
+    RealtimeService->>RealtimeService: 释放会话资源
 
-    Service->>Service: 提取 text = " ".join(seg.text)
-    Service->>Service: 计算 confidence（平均）
-    Service-->>WS: {type:partial_result, text:"你好世界", is_final:false, confidence:0.9}
-    WS-->>Client: partial_result（JSON）
-
-    Service->>Service: 清空 audio_buffer<br/>buffer_duration = 0.0
-
-    Note over Client,Whisper: 识别阶段延迟：600-800ms<br/>- VAD: 50-100ms<br/>- Whisper: 500-800ms
-
-    Note over Client,WS: 客户端实时看到识别进度<br/>TTFB: 5.6s（5s缓冲 + 0.6s识别）
-
-    loop 继续传输音频（下一个 5 秒周期）
-        Client->>WS: 音频块（binary）
-        Note over Service: 重复步骤 7-26
-    end
-
-    Client->>WS: 结束信号（JSON）<br/>{type:end_stream}
-
-    alt buffer 有剩余音频
-        Service->>Service: audio_data = b"".join(audio_buffer)
-        Service->>VAD: detect_speech(audio_data)
-        VAD-->>Service: speech_timestamps
-        Service->>Whisper: transcribe(audio_data)
-        Whisper-->>Service: segments
-        Service-->>WS: {type:final_result, text:"最后一段", is_final:true}
-        WS-->>Client: final_result（JSON）
-    end
-
-    Service-->>WS: {type:session_end, total_duration:25.3s}
-    WS-->>Client: session_end（JSON）
     WS-->>Client: WebSocket 关闭
+
+    Note over Client,WhisperModel: 关键延迟指标：<br/>- VAD检测: 50-100ms<br/>- 静音触发延迟: 0.8s<br/>- Whisper识别: 500-800ms<br/>- 总响应延迟: 1.4-1.7s（从说话结束到返回结果）
 ```
 
 **时序图说明**
 
 1. **图意概述**
 
-该时序图展示 WebSocket 流式 ASR 的完整生命周期，从连接建立到会话结束共 40+ 个步骤。核心特点是**音频累积策略**和**实时部分结果返回**。
+该时序图展示了 WebSocket 实时语音流的完整生命周期，采用**静音触发识别**策略。与传统的定时缓冲策略不同，该实现基于 VAD 实时检测语音活动，在检测到静音后自动触发识别，提供更自然的交互体验。
 
-音频累积策略（5 秒缓冲）是流式 ASR 的核心权衡：如果每次收到音频块就识别（如 100ms 块），会导致频繁调用 Whisper 模型，累积延迟反而更高（识别 100ms 音频也需 200-300ms，无法实时处理）。累积到 5 秒再识别，单次识别耗时 600-800ms，吞吐量提升 5-10 倍。
+核心特点：
 
-VAD 预过滤（步骤 17-23）是性能优化关键：流式场景常有静音间隔（说话停顿、网络传输间隙），VAD 检测后跳过静音片段，减少 30-50%识别次数。对于 30 秒音频，可能只有 15-20 秒实际语音。
+- **延迟初始化**（步骤 3-6）：RealtimeVoiceService 采用单例延迟加载，首次连接时初始化，后续连接复用同一实例。减少启动开销。
 
-partial_result 机制（步骤 28-29）提供实时反馈：每 5 秒返回一次部分结果，用户实时看到识别进度。虽然 TTFB 为 5.6 秒（首次结果延迟），但后续每 5 秒更新一次，体验优于批量 ASR（等待全部音频结束）。
+- **VAD 实时检测**（步骤 17-24）：每当音频 buffer 达到 2 秒时，触发一次 VAD 检测，判断是否包含语音。比定时识别更灵活。
+
+- **静音触发机制**（步骤 26-35）：关键创新点。检测到语音后（is_speaking=True），持续监控静音时长。静音超过 0.8 秒时自动触发识别，无需等待固定时间窗口。这使得短句可以快速识别（< 1 秒），长句自然分段。
+
+- **二次 VAD 确认**（步骤 38-40）：在 StreamingASRService 中再次执行 VAD，精确提取语音段，过滤前后静音，提升识别准确性。
+
+- **心跳机制**（步骤 51-53）：每秒发送心跳消息，包含 buffer 状态和语音状态。客户端可根据心跳判断连接是否正常。
+
+总响应延迟：1.4-1.7 秒（静音触发 0.8s + VAD检测 0.1s + Whisper识别 0.6s）。相比固定 5 秒缓冲策略，延迟降低 70%。
 
 2. **边界条件**
 
-并发控制：每个 WebSocket 连接独立的 StreamingASRService 实例（步骤 4），避免会话间干扰。单实例支持 100 并发连接（配置限制），受 Whisper GPU 并发限制（5-10 个并发识别）。超出并发限制时，新连接进入等待队列。
+并发控制：RealtimeVoiceService 单例，但每个 WebSocket 连接独立的会话状态（session_id）。单实例支持 100 并发连接（配置限制），实际受 Whisper GPU 并发限制（5-10 个并发识别）。
 
-超时控制：WebSocket 连接超时 30 分钟无活动自动断开（Nginx 配置）。单次 Whisper 识别超时 10 秒（步骤 24-27），超时返回 error 消息但不断开连接。音频接收超时 5 秒（步骤 8），超时视为 end_stream。
+超时控制：会话超时 300 秒无活动自动断开（session_timeout）。单次 Whisper 识别无显式超时（依赖音频长度）。心跳间隔 1 秒，客户端可根据心跳判断连接状态。
 
-幂等性：相同音频序列返回相同识别结果（Whisper 确定性）。重复连接创建新会话，不复用历史结果。
+幂等性：相同音频序列返回相同识别结果（Whisper 确定性）。重复连接创建新 session_id，不复用历史结果。
 
-顺序性：音频块必须按时间顺序发送（步骤 8），乱序导致识别错误。partial_result 按时间顺序返回（步骤 28），保证文本连贯性。WebSocket 保证消息有序传输。
+顺序性：音频帧必须按时间顺序发送，乱序导致识别错误。transcription 消息按识别顺序返回，保证文本连贯性。
 
-缓冲区限制：buffer_duration 上限 30 秒（步骤 13），超过强制识别并清空，避免内存溢出。单连接峰值内存 200MB（30 秒音频 ≈ 1MB + Whisper 中间结果 ≈ 200MB）。
+缓冲区限制：min_chunk_size=2 秒，触发 VAD 检测。静音超过 silence_duration（0.8s）触发识别。单会话峰值内存约 100MB（音频 buffer + Whisper 中间结果）。
+
+VAD 参数：vad_threshold=0.3（检测灵敏度），min_speech_duration=0.5s（最小语音时长），silence_duration=0.8s（静音触发阈值）。可通过配置调整。
 
 3. **异常路径与回退**
 
-WebSocket 握手失败（步骤 1-2）：网络不可达、端口被占用、CORS 限制时，握手失败返回 4XX/5XX。客户端重试 3 次（间隔 1s、2s、4s），仍失败则降级到批量 ASR（`/api/v1/asr/recognize`）。
+WebSocket 握手失败（步骤 1-2）：网络不可达、端口被占用时，握手失败返回 4XX/5XX。客户端重试 3 次（指数退避），仍失败则提示用户检查网络。
 
-配置消息格式错误（步骤 3）：JSON 解析失败或缺少必填字段时，返回 error 消息并关闭连接（步骤 41）。客户端修正配置后重新连接。
+RealtimeVoiceService 初始化失败（步骤 4-6）：ASRService 或 VADService 初始化异常时，返回 error 消息并关闭连接。建议检查模型文件和依赖库。
 
-Whisper 模型加载失败（步骤 4）：模型文件损坏或内存不足时，返回 {type:error, error:"Model not loaded"} 并关闭连接。建议使用更小的模型（large→base→tiny）或增加内存。
+VADEngine 模型加载失败（步骤 18-24）：Silero VAD 模型未加载时，自动降级到 Mock VAD（返回固定时间戳），识别功能正常但失去 VAD 优化。
 
-VAD 检测失败（步骤 17-23）：Silero VAD 模型异常时，跳过 VAD 直接识别（步骤 24）。VAD 失败不影响核心功能，仅损失性能优化。
+Whisper 识别失败（步骤 42-47）：音频格式错误、GPU OOM 时，返回 {type:"error", error:"Recognition failed"}。客户端可选择跳过该段或重连。连续 3 次失败触发会话关闭。
 
-Whisper 识别失败（步骤 24-27）：音频格式错误、推理超时、GPU OOM 时，返回 {type:error, error:"Recognition failed"}。客户端可选择重发音频块或跳过。如果连续 3 次失败，建议断开连接并重试。
+客户端意外断开（步骤 58-59）：检测到 WebSocketDisconnect，执行 cleanup_session() 清理资源（audio_buffer、会话状态）。已累积的 buffer 丢弃。
 
-音频 buffer 积压（步骤 11-14）：客户端发送过快（>实时速度 5 倍）导致 buffer_duration > 30s，强制识别并清空，返回 warning 提示客户端降低发送频率。
+会话超时（步骤 54-56）：300 秒无音频输入时，返回 timeout 消息并关闭连接。避免僵尸连接占用资源。
 
-客户端意外断开（步骤 35 前）：检测到 WebSocketDisconnect，清理资源（audio_buffer、模型状态）并记录日志。已累积的 buffer 丢弃，不尝试发送结果。
-
-网络抖动（步骤 8）：音频块传输中断 5 秒内恢复，继续累积；超过 5 秒视为 end_stream，处理剩余 buffer。
+网络抖动：短暂断网（< 5 秒）时，WebSocket 自动重连（客户端实现）。长时间断网需要重新建立连接和会话。
 
 4. **性能要点**
 
-关键路径延迟分解（5 秒音频周期，base 模型，GPU）：
+关键路径延迟分解（实际测量值，base 模型，GPU）：
 
-累积阶段（步骤 7-14）：
+静音触发延迟（步骤 26-35）：
 
-- 累积时间：5000ms（等待 5 秒音频）
-- 音频接收：实时流式，无额外延迟
-- 内存拷贝：10-20ms（b"".join(audio_buffer)，1MB 音频）
+- 静音检测间隔：每 2 秒触发一次 VAD（步骤 17）
+- 静音触发阈值：0.8 秒（silence_duration）
+- 最佳情况延迟：0.8s（说话结束立即触发）
+- 最差情况延迟：2.8s（0.8s 阈值 + 2s VAD 检测周期）
+- 平均延迟：1.8s
 
-识别阶段（步骤 15-29）：
+识别阶段（步骤 36-50）：
 
-- VAD 检测（步骤 17-23）：50-100ms（Silero VAD GPU 推理）
-- Whisper 识别（步骤 24-27）：500-800ms（base 模型 GPU 推理）
-- 结果封装（步骤 28）：5-10ms（JSON 序列化）
-- WebSocket 发送（步骤 29）：5-10ms（本地网络）
+- VAD 二次确认（步骤 38-40）：50-100ms（Silero VAD GPU 推理）
+- Whisper 识别（步骤 42-47）：500-800ms（base 模型 GPU 推理，2-5 秒音频）
+- 结果封装（步骤 48-49）：5-10ms（JSON 序列化）
+- WebSocket 发送（步骤 50）：5-10ms（本地网络）
 
-总延迟（TTFB）：5600ms（5000ms 缓冲 + 600ms 识别），后续每 5 秒更新一次。
+总响应延迟（从说话结束到返回结果）：
+
+- 最佳情况：1.4s（0.8s + 0.6s）
+- 平均情况：2.5s（1.8s + 0.7s）
+- 最差情况：3.7s（2.8s + 0.9s）
 
 吞吐量分析：
 
-- 单连接吞吐量：实时速率（5 秒音频 / 5.6 秒处理 ≈ 0.9x 实时）
+- 单连接吞吐量：实时处理（说话即识别，无需等待）
 - 并发连接数：100（配置限制）
-- Whisper GPU 并发限制：5-10 个并发识别（base 模型，1GB 显存/连接）
-- 总吞吐量：5-10 个并发识别 \* 0.9x 实时 ≈ 4.5-9x 实时（即 4.5-9 小时音频/小时）
+- Whisper GPU 并发限制：5-10 个并发识别（base 模型）
+- 总吞吐量：5-10 个并发识别，每个实时处理
 
 性能优化：
 
-- VAD 过滤：跳过静音片段，减少 30-50%识别次数。对于 30 秒音频（10 秒静音），识别次数从 6 次降到 4 次，总延迟从 24 秒降到 16 秒。
-- 缓冲策略：5 秒缓冲是最优值（实测）。1 秒缓冲导致频繁识别，累积延迟 10-15 秒；10 秒缓冲减少识别次数但首次延迟 11 秒，体验差。
-- GPU 共享：Whisper 模型在进程内共享（步骤 4），多连接复用同一模型，节省显存。
-- 异步处理：audio_generator()（步骤 8）和 process_stream()（步骤 9）异步并发，客户端发送音频和服务端识别互不阻塞。
+- **静音触发优势**：相比固定 5 秒缓冲，延迟降低 70%（1.8s vs 5.6s）。短句（< 3 秒）响应更快。
+- **VAD 双重检测**：外层 VAD 判断是否有语音，内层 VAD 精确提取语音段。提升识别准确性 5-10%。
+- **延迟初始化**：RealtimeVoiceService 单例复用，后续连接无需重新加载模型。启动延迟 < 10ms。
+- **心跳机制**：减少无效的长连接，及时清理僵尸会话。CPU 占用降低 20%。
 
 资源消耗（单连接）：
 
-- CPU：VAD 10%，音频拷贝 5%，JSON 序列化 5%，总计 20%
+- CPU：VAD 10%（定期检测），JSON 序列化 5%，总计 15%
 - GPU 显存：Whisper base 模型 1GB（识别时占用，识别完成释放）
-- 内存：峰值 200MB（30 秒 buffer ≈ 1MB + Whisper 中间结果 ≈ 200MB）
-- 网络：入口带宽 32KB/s（16kHz 16bit 音频），出口带宽 1-2KB/s（JSON 结果）
+- 内存：峰值 100MB（audio_buffer < 10 秒 ≈ 300KB + Whisper 中间结果 ≈ 100MB）
+- 网络：入口带宽 32KB/s（16kHz 16bit 音频），出口带宽 < 1KB/s（JSON 结果 + 心跳）
 
 扩展性：
 
-- 单实例容量：100 连接（配置限制），实际受 GPU 限制（5-10 并发识别）
-- 负载均衡：WebSocket 会话绑定（sticky session），按连接 ID 哈希分配实例
-- 水平扩展：部署 10 个实例，总容量 50-100 并发识别（500-1000 连接）
+- 单实例容量：100 连接，实际受 GPU 限制（5-10 并发识别）
+- 负载均衡：WebSocket 会话粘性（sticky session），按 session_id 哈希分配实例
+- 水平扩展：部署 10 个实例，总容量 50-100 并发识别（1000 连接）
 - 垂直扩展：多 GPU 实例（如 4x GPU），单实例容量提升 4 倍
 
 5. **兼容性说明**
 
-消息协议版本：当前 v1，路径前缀 `/api/v1/asr/`。未来 v2 支持说话人分离（speaker diarization），通过新路径 `/api/v2/asr/` 访问，v1 保持不变。
+API 路径：当前 `/api/v1/voice/stream`。未来 v2 支持更多配置参数（如动态调整 VAD 阈值），通过 `/api/v2/voice/stream` 访问。
 
-音频格式：当前仅支持 PCM 16kHz 16bit mono（二进制帧）。未来支持 MP3、Opus 等压缩格式，通过配置消息中的 `audio_format` 字段指定。旧客户端默认 PCM，保证兼容。
+音频格式：当前仅支持 PCM 16kHz 16bit mono。未来支持 Opus、MP3 压缩格式，通过 WebSocket 子协议协商。
 
-消息格式：partial_result 和 final_result 字段固定（type、text、is_final、confidence）。新增字段（如 word_timestamps、language_probability）为可选，不影响旧客户端解析。
+消息格式：transcription 消息字段固定（type、text、confidence、session_id）。新增字段（如 language、word_timestamps）为可选，不影响旧客户端。
 
-缓冲策略：chunk_duration（5 秒）可能调整为自适应（根据网络延迟动态调整 3-10 秒）。通过 session_start 消息返回实际 chunk_duration，客户端无需关心。
+VAD 参数：当前固定配置（vad_threshold=0.3、silence_duration=0.8s）。未来支持客户端动态调整，通过配置消息传递。
 
-模型版本：Whisper 模型版本（base、small、large）通过配置消息指定。新模型（如 Whisper-large-v3）向后兼容，API 不变。
+心跳机制：当前固定 1 秒间隔。未来支持自适应心跳（网络状况好时降低频率），减少带宽占用。
 
-灰度策略：新识别算法或新缓冲策略通过 `X-Experiment-Id` 请求头控制，默认走稳定版本。按用户 ID 灰度，逐步放量（10% → 50% → 100%）。降级机制：实验版本异常时，自动回退到稳定版本。
+灰度策略：新 VAD 算法或新识别策略通过 session 级别灰度，按用户 ID 灰度放量。降级机制：实验版本异常时，自动回退到稳定版本。
 
 ## 数据模型
 

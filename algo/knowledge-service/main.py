@@ -13,7 +13,7 @@ from app.core.logging_config import setup_logging
 from app.graph.knowledge_graph_service import get_kg_service
 from app.graph.neo4j_client import get_neo4j_client
 from app.routers import knowledge_graph
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 # 设置日志

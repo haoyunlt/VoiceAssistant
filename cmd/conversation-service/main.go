@@ -75,7 +75,7 @@ func main() {
 	}
 
 	// 初始化应用（使用 Wire 生成的代码）
-	app, cleanup, err := initApp(dbConfig)
+	appComponents, err := initApp(dbConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize app: %v", err)
 	}
@@ -97,7 +97,7 @@ func main() {
 
 	// 在单独的 goroutine 中启动服务器
 	go func() {
-		if err := app.Start(addr); err != nil {
+		if err := appComponents.Server.Start(addr); err != nil {
 			log.Fatalf("Failed to start server: %v", err)
 		}
 	}()
@@ -115,12 +115,17 @@ func main() {
 	defer cancel()
 
 	// 关闭 HTTP 服务器
-	if err := app.Shutdown(ctx); err != nil {
+	if err := appComponents.Server.Shutdown(ctx); err != nil {
 		log.Printf("Server forced to shutdown: %v", err)
 	}
 
 	// 清理资源（关闭数据库连接等）
-	cleanup()
+	if appComponents.DB != nil {
+		sqlDB, err := appComponents.DB.DB()
+		if err == nil {
+			_ = sqlDB.Close()
+		}
+	}
 
 	log.Println("✅ Server exited")
 }

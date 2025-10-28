@@ -55,7 +55,7 @@ func NewGRPCServer(
 	srv := grpc.NewServer(opts...)
 
 	// Register service
-	pb.RegisterIdentityServer(srv, identityService)
+	pb.RegisterIdentityServiceServer(srv, identityService)
 
 	return srv
 }

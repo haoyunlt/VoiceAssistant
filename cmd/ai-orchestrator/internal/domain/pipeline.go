@@ -29,15 +29,13 @@ type ServiceClient interface {
 
 // RAGPipeline RAG处理流程
 type RAGPipeline struct {
-	retrievalClient ServiceClient
-	ragEngineClient ServiceClient
+	client ServiceClient
 }
 
 // NewRAGPipeline 创建RAG流程
-func NewRAGPipeline(retrievalClient, ragEngineClient ServiceClient) *RAGPipeline {
+func NewRAGPipeline(client ServiceClient) *RAGPipeline {
 	return &RAGPipeline{
-		retrievalClient: retrievalClient,
-		ragEngineClient: ragEngineClient,
+		client: client,
 	}
 }
 
@@ -47,7 +45,7 @@ func (p *RAGPipeline) Execute(task *Task) (*TaskOutput, error) {
 	step1 := NewTaskStep("检索文档", "retrieval-service")
 	task.AddStep(step1)
 
-	retrievalResult, err := p.retrievalClient.Call(
+	retrievalResult, err := p.client.Call(
 		"retrieval-service",
 		"retrieve",
 		map[string]interface{}{
@@ -66,7 +64,7 @@ func (p *RAGPipeline) Execute(task *Task) (*TaskOutput, error) {
 	step2 := NewTaskStep("RAG生成", "rag-engine")
 	task.AddStep(step2)
 
-	ragResult, err := p.ragEngineClient.Call(
+	ragResult, err := p.client.Call(
 		"rag-engine",
 		"generate",
 		map[string]interface{}{
@@ -113,13 +111,13 @@ func (p *RAGPipeline) Name() string {
 
 // AgentPipeline Agent执行流程
 type AgentPipeline struct {
-	agentClient ServiceClient
+	client ServiceClient
 }
 
 // NewAgentPipeline 创建Agent流程
-func NewAgentPipeline(agentClient ServiceClient) *AgentPipeline {
+func NewAgentPipeline(client ServiceClient) *AgentPipeline {
 	return &AgentPipeline{
-		agentClient: agentClient,
+		client: client,
 	}
 }
 
@@ -128,7 +126,7 @@ func (p *AgentPipeline) Execute(task *Task) (*TaskOutput, error) {
 	step := NewTaskStep("Agent执行", "agent-engine")
 	task.AddStep(step)
 
-	result, err := p.agentClient.Call(
+	result, err := p.client.Call(
 		"agent-engine",
 		"execute",
 		map[string]interface{}{
@@ -174,13 +172,13 @@ func (p *AgentPipeline) Name() string {
 
 // VoicePipeline 语音处理流程
 type VoicePipeline struct {
-	voiceClient ServiceClient
+	client ServiceClient
 }
 
 // NewVoicePipeline 创建语音流程
-func NewVoicePipeline(voiceClient ServiceClient) *VoicePipeline {
+func NewVoicePipeline(client ServiceClient) *VoicePipeline {
 	return &VoicePipeline{
-		voiceClient: voiceClient,
+		client: client,
 	}
 }
 
@@ -190,7 +188,7 @@ func (p *VoicePipeline) Execute(task *Task) (*TaskOutput, error) {
 	step1 := NewTaskStep("语音识别", "voice-engine")
 	task.AddStep(step1)
 
-	asrResult, err := p.voiceClient.Call(
+	asrResult, err := p.client.Call(
 		"voice-engine",
 		"asr",
 		map[string]interface{}{

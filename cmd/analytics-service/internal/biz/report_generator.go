@@ -515,11 +515,7 @@ func (r *Report) ExportToJSON() (string, error) {
 	return string(data), nil
 }
 
-// 接口定义（需要实际实现）
-type ClickHouseClient interface {
-	Query(ctx context.Context, query string, args ...interface{}) (interface{}, error)
-}
-
+// CacheManager 缓存管理器接口（需要实际实现）
 type CacheManager interface {
 	Get(key string) (interface{}, error)
 	Set(key string, value interface{}, ttl time.Duration) error

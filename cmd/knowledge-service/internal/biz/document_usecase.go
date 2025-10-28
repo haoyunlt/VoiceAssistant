@@ -8,27 +8,18 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-kratos/kratos/v2/log"
-	"github.com/google/uuid"
 	"voiceassistant/cmd/knowledge-service/internal/domain"
 	"voiceassistant/cmd/knowledge-service/internal/infrastructure/event"
 	"voiceassistant/cmd/knowledge-service/internal/infrastructure/security"
 	"voiceassistant/cmd/knowledge-service/internal/infrastructure/storage"
-)
 
-// DocumentRepository 文档仓储接口
-type DocumentRepository interface {
-	Create(ctx context.Context, doc *domain.Document) error
-	Update(ctx context.Context, doc *domain.Document) error
-	Delete(ctx context.Context, id string) error
-	FindByID(ctx context.Context, id string) (*domain.Document, error)
-	FindByKnowledgeBaseID(ctx context.Context, kbID string, limit, offset int) ([]*domain.Document, error)
-	CountByKnowledgeBaseID(ctx context.Context, kbID string) (int64, error)
-}
+	"github.com/go-kratos/kratos/v2/log"
+	"github.com/google/uuid"
+)
 
 // DocumentUsecase 文档用例
 type DocumentUsecase struct {
-	repo           DocumentRepository
+	repo           domain.DocumentRepository
 	kbUsecase      *KnowledgeBaseUsecase
 	storageClient  *storage.MinIOClient
 	virusScanner   security.VirusScanner
@@ -38,7 +29,7 @@ type DocumentUsecase struct {
 
 // NewDocumentUsecase 创建文档用例
 func NewDocumentUsecase(
-	repo DocumentRepository,
+	repo domain.DocumentRepository,
 	kbUsecase *KnowledgeBaseUsecase,
 	storageClient *storage.MinIOClient,
 	virusScanner security.VirusScanner,
@@ -115,18 +106,27 @@ func (uc *DocumentUsecase) UploadDocument(ctx context.Context, input *UploadDocu
 	}
 
 	// 7. 创建文档记录
+	// 转换 metadata 类型
+	metadata := make(map[string]interface{})
+	for k, v := range input.Metadata {
+		metadata[k] = v
+	}
+
+	// 从文件名推断文件类型
+	fileType := inferDocumentType(input.Filename)
+
 	doc := &domain.Document{
 		ID:              documentID,
 		KnowledgeBaseID: input.KnowledgeBaseID,
 		TenantID:        input.TenantID,
-		UserID:          input.UserID,
-		Filename:        input.Filename,
+		UploadedBy:      input.UserID,
+		Name:            input.Filename,
+		FileName:        input.Filename,
+		FileType:        fileType,
 		FileSize:        input.FileSize,
-		ContentType:     input.ContentType,
-		StoragePath:     storagePath,
+		FilePath:        storagePath,
 		Status:          domain.DocumentStatusPending,
-		Version:         1,
-		Metadata:        input.Metadata,
+		Metadata:        metadata,
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
 	}
@@ -138,16 +138,24 @@ func (uc *DocumentUsecase) UploadDocument(ctx context.Context, input *UploadDocu
 	}
 
 	// 8. 发布文档上传事件 (Indexing Service会监听此事件)
+	// 转换 metadata 回 map[string]string
+	metadataStr := make(map[string]string)
+	for k, v := range doc.Metadata {
+		if str, ok := v.(string); ok {
+			metadataStr[k] = str
+		}
+	}
+
 	err = uc.eventPublisher.PublishDocumentUploaded(ctx, &event.DocumentUploadedEvent{
 		DocumentID:      doc.ID,
 		TenantID:        doc.TenantID,
-		UserID:          doc.UserID,
+		UserID:          doc.UploadedBy,
 		KnowledgeBaseID: doc.KnowledgeBaseID,
-		Filename:        doc.Filename,
+		Filename:        doc.FileName,
 		FileSize:        doc.FileSize,
-		ContentType:     doc.ContentType,
-		StoragePath:     doc.StoragePath,
-		Metadata:        doc.Metadata,
+		ContentType:     string(doc.FileType),
+		StoragePath:     doc.FilePath,
+		Metadata:        metadataStr,
 	})
 	if err != nil {
 		// 事件发布失败不阻塞主流程，但记录错误
@@ -160,7 +168,7 @@ func (uc *DocumentUsecase) UploadDocument(ctx context.Context, input *UploadDocu
 
 // GetDocument 获取文档
 func (uc *DocumentUsecase) GetDocument(ctx context.Context, id string) (*domain.Document, error) {
-	doc, err := uc.repo.FindByID(ctx, id)
+	doc, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find document: %w", err)
 	}
@@ -171,13 +179,13 @@ func (uc *DocumentUsecase) GetDocument(ctx context.Context, id string) (*domain.
 // DownloadDocument 下载文档
 func (uc *DocumentUsecase) DownloadDocument(ctx context.Context, id string) (io.ReadCloser, *domain.Document, error) {
 	// 1. 获取文档信息
-	doc, err := uc.repo.FindByID(ctx, id)
+	doc, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to find document: %w", err)
 	}
 
 	// 2. 从MinIO下载文件
-	reader, err := uc.storageClient.DownloadFile(ctx, doc.StoragePath)
+	reader, err := uc.storageClient.DownloadFile(ctx, doc.FilePath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to download file: %w", err)
 	}
@@ -188,13 +196,13 @@ func (uc *DocumentUsecase) DownloadDocument(ctx context.Context, id string) (io.
 // GetDownloadURL 获取下载URL
 func (uc *DocumentUsecase) GetDownloadURL(ctx context.Context, id string, expires time.Duration) (string, error) {
 	// 1. 获取文档信息
-	doc, err := uc.repo.FindByID(ctx, id)
+	doc, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("failed to find document: %w", err)
 	}
 
 	// 2. 生成预签名URL
-	url, err := uc.storageClient.GetPresignedURL(ctx, doc.StoragePath, expires)
+	url, err := uc.storageClient.GetPresignedURL(ctx, doc.FilePath, expires)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned url: %w", err)
 	}
@@ -205,13 +213,13 @@ func (uc *DocumentUsecase) GetDownloadURL(ctx context.Context, id string, expire
 // DeleteDocument 删除文档
 func (uc *DocumentUsecase) DeleteDocument(ctx context.Context, id string) error {
 	// 1. 获取文档信息
-	doc, err := uc.repo.FindByID(ctx, id)
+	doc, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to find document: %w", err)
 	}
 
 	// 2. 从MinIO删除文件
-	if err := uc.storageClient.DeleteFile(ctx, doc.StoragePath); err != nil {
+	if err := uc.storageClient.DeleteFile(ctx, doc.FilePath); err != nil {
 		// 存储删除失败不阻塞，继续删除数据库记录
 		// TODO: 实现清理任务
 	}
@@ -222,14 +230,22 @@ func (uc *DocumentUsecase) DeleteDocument(ctx context.Context, id string) error 
 	}
 
 	// 4. 发布文档删除事件
+	// 转换 metadata
+	metadataStr := make(map[string]string)
+	for k, v := range doc.Metadata {
+		if str, ok := v.(string); ok {
+			metadataStr[k] = str
+		}
+	}
+
 	err = uc.eventPublisher.PublishDocumentDeleted(ctx, &event.DocumentDeletedEvent{
 		DocumentID:      doc.ID,
 		TenantID:        doc.TenantID,
-		UserID:          doc.UserID,
+		UserID:          doc.UploadedBy,
 		KnowledgeBaseID: doc.KnowledgeBaseID,
-		Filename:        doc.Filename,
-		StoragePath:     doc.StoragePath,
-		Metadata:        doc.Metadata,
+		Filename:        doc.FileName,
+		StoragePath:     doc.FilePath,
+		Metadata:        metadataStr,
 	})
 	if err != nil {
 		// 事件发布失败不阻塞
@@ -243,14 +259,9 @@ func (uc *DocumentUsecase) DeleteDocument(ctx context.Context, id string) error 
 func (uc *DocumentUsecase) ListDocuments(ctx context.Context, knowledgeBaseID string, page, pageSize int) ([]*domain.Document, int64, error) {
 	offset := (page - 1) * pageSize
 
-	docs, err := uc.repo.FindByKnowledgeBaseID(ctx, knowledgeBaseID, pageSize, offset)
+	docs, total, err := uc.repo.ListByKnowledgeBase(ctx, knowledgeBaseID, offset, pageSize)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to list documents: %w", err)
-	}
-
-	total, err := uc.repo.CountByKnowledgeBaseID(ctx, knowledgeBaseID)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count documents: %w", err)
 	}
 
 	return docs, total, nil
@@ -258,7 +269,7 @@ func (uc *DocumentUsecase) ListDocuments(ctx context.Context, knowledgeBaseID st
 
 // UpdateDocumentStatus 更新文档状态
 func (uc *DocumentUsecase) UpdateDocumentStatus(ctx context.Context, id string, status domain.DocumentStatus) error {
-	doc, err := uc.repo.FindByID(ctx, id)
+	doc, err := uc.repo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to find document: %w", err)
 	}
@@ -309,7 +320,7 @@ func (uc *DocumentUsecase) BatchDeleteDocuments(ctx context.Context, documentIDs
 
 	for _, docID := range documentIDs {
 		// 检查文档权限
-		doc, err := uc.repo.FindByID(ctx, docID)
+		doc, err := uc.repo.GetByID(ctx, docID)
 		if err != nil {
 			uc.log.Errorf("Failed to find document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -344,7 +355,7 @@ func (uc *DocumentUsecase) BatchUpdateDocumentStatus(ctx context.Context, docume
 
 	for _, docID := range documentIDs {
 		// 检查权限
-		doc, err := uc.repo.FindByID(ctx, docID)
+		doc, err := uc.repo.GetByID(ctx, docID)
 		if err != nil {
 			uc.log.Errorf("Failed to find document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -394,7 +405,7 @@ func (uc *DocumentUsecase) BatchMoveDocuments(ctx context.Context, documentIDs [
 
 	for _, docID := range documentIDs {
 		// 检查文档权限
-		doc, err := uc.repo.FindByID(ctx, docID)
+		doc, err := uc.repo.GetByID(ctx, docID)
 		if err != nil {
 			uc.log.Errorf("Failed to find document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -432,7 +443,7 @@ func (uc *DocumentUsecase) BatchExportDocuments(ctx context.Context, documentIDs
 
 	for _, docID := range documentIDs {
 		// 检查文档权限
-		doc, err := uc.repo.FindByID(ctx, docID)
+		doc, err := uc.repo.GetByID(ctx, docID)
 		if err != nil {
 			uc.log.Errorf("Failed to find document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -448,7 +459,7 @@ func (uc *DocumentUsecase) BatchExportDocuments(ctx context.Context, documentIDs
 		}
 
 		// 生成临时下载链接（有效期1小时）
-		downloadURL, err := uc.storageClient.GetPresignedURL(ctx, doc.StoragePath, time.Hour)
+		downloadURL, err := uc.storageClient.GetPresignedURL(ctx, doc.FilePath, time.Hour)
 		if err != nil {
 			uc.log.Errorf("Failed to generate download URL for document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -468,7 +479,7 @@ func (uc *DocumentUsecase) BatchReprocessDocuments(ctx context.Context, document
 
 	for _, docID := range documentIDs {
 		// 检查文档权限
-		doc, err := uc.repo.FindByID(ctx, docID)
+		doc, err := uc.repo.GetByID(ctx, docID)
 		if err != nil {
 			uc.log.Errorf("Failed to find document %s: %v", docID, err)
 			failedIDs = append(failedIDs, docID)
@@ -508,4 +519,25 @@ func (uc *DocumentUsecase) BatchReprocessDocuments(ctx context.Context, document
 	}
 
 	return successCount, failedIDs, nil
+}
+
+// inferDocumentType 从文件名推断文档类型
+func inferDocumentType(filename string) domain.DocumentType {
+	ext := filepath.Ext(filename)
+	switch ext {
+	case ".txt":
+		return domain.DocumentTypeText
+	case ".pdf":
+		return domain.DocumentTypePDF
+	case ".doc", ".docx":
+		return domain.DocumentTypeWord
+	case ".md":
+		return domain.DocumentTypeMarkdown
+	case ".html", ".htm":
+		return domain.DocumentTypeHTML
+	case ".json":
+		return domain.DocumentTypeJSON
+	default:
+		return domain.DocumentTypeText
+	}
 }

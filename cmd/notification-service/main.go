@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"os"
-	"os/signal"
 	"syscall"
 
 	"github.com/go-kratos/kratos/v2"

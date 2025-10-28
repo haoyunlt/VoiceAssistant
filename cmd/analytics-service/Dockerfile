@@ -1,29 +1,37 @@
 # Build stage
 FROM golang:1.23-alpine AS builder
 
-WORKDIR /app
+WORKDIR /build
 
-RUN apk add --no-cache git make
+RUN apk add --no-cache git make ca-certificates tzdata
 
+# Copy go module files from root
 COPY go.mod go.sum ./
 RUN go mod download
 
+# Copy the entire source tree
 COPY . .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o analytics-service .
+# Build the service
+WORKDIR /build/cmd/analytics-service
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o /analytics-service .
 
 # Runtime stage
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates tzdata
+RUN apk --no-cache add ca-certificates tzdata wget
 
-WORKDIR /root/
+WORKDIR /app
 
-COPY --from=builder /app/analytics-service .
+# Copy binary
+COPY --from=builder /analytics-service .
+
+# Copy config file
+COPY --from=builder /build/configs/analytics-service.yaml ./configs/
 
 EXPOSE 9006 8006
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget --quiet --tries=1 --spider http://localhost:8006/health || exit 1
 
-CMD ["./analytics-service"]
+CMD ["./analytics-service", "-config", "./configs/analytics-service.yaml"]

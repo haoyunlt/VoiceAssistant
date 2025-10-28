@@ -11,6 +11,14 @@ import (
 	"github.com/ledongthuc/pdf"
 )
 
+// ProcessedDocument 处理后的文档
+type ProcessedDocument struct {
+	FullText   string
+	Chunks     []string
+	ChunkCount int
+	CharCount  int
+}
+
 // DocumentProcessor 文档处理器
 type DocumentProcessor struct {
 	maxChunkSize int

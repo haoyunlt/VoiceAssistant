@@ -24,7 +24,7 @@ func NewGRPCServer(
 	knowledgeService *service.KnowledgeService,
 	logger log.Logger,
 ) *grpc.Server {
-	var opts = []grpc.ServerOption{
+	opts := []grpc.ServerOption{
 		grpc.Middleware(
 			recovery.Recovery(),
 			tracing.Server(),
@@ -52,9 +52,4 @@ func NewGRPCServer(
 
 	log.NewHelper(logger).Infof("gRPC server created on %s", config.Addr)
 	return srv
-}
-
-// parseDuration 解析时间字符串 (简单实现，建议使用time.ParseDuration)
-func parseDuration(s string) string {
-	return s
 }

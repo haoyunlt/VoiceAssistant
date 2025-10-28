@@ -52,49 +52,54 @@ RAG Engine（检索增强生成引擎）是 VoiceAssistant 平台的核心知识
 
 #### 3 层架构设计
 
-RAG Engine 采用经典的 3 层架构设计：接口层（API Layer）、业务层（Service Layer）、基础设施层（Infrastructure Layer）。
+RAG Engine 采用经典的 3 层架构设计：接口层（API Layer）、业务层（Service Layer）、核心层（Core Layer）和基础设施层（Infrastructure Layer）。
 
 ```mermaid
 flowchart TB
     subgraph API["接口层 - API Layer"]
         direction LR
-        HTTPServer["FastAPI HTTP Server<br/>端口:8002"]
-        Router["Router Layer<br/>路由分发"]
-        Validator["Request Validator<br/>参数验证"]
+        HTTPServer["FastAPI HTTP Server<br/>端口:8006"]
+        Router["Router (/api/v1/rag)<br/>路由分发"]
+        Validator["Pydantic Models<br/>参数验证"]
     end
 
     subgraph Service["业务层 - Service Layer"]
         direction TB
-        RAGService["RAG Service<br/>主协调器"]
-        QueryRewriter["Query Rewriter<br/>查询改写"]
-        ContextBuilder["Context Builder<br/>上下文构建"]
-        AnswerGenerator["Answer Generator<br/>答案生成"]
-        CitationGenerator["Citation Generator<br/>引用生成"]
-        AdaptiveRAG["Adaptive RAG<br/>自适应策略"]
-        SelfRAG["Self-RAG<br/>自我反思"]
+        RAGService["RAG Service<br/>业务编排"]
+        AdaptiveRAG["Adaptive RAG Service<br/>自适应策略选择"]
+        SelfRAG["Self-RAG Service<br/>自我反思迭代"]
+        SemanticCache["Semantic Cache Service<br/>语义缓存"]
+    end
+
+    subgraph Core["核心层 - Core Layer"]
+        direction TB
+        QueryRewriter["Query Rewriter<br/>查询改写(Multi/HyDE)"]
+        ContextBuilder["Context Builder<br/>上下文构建+Token截断"]
+        AnswerGenerator["Answer Generator<br/>答案生成(流式/非流式)"]
+        CitationGenerator["Citation Generator<br/>引用提取与标注"]
     end
 
     subgraph Infrastructure["基础设施层 - Infrastructure Layer"]
         direction LR
-        RetrievalClient["Retrieval Client<br/>检索服务客户端"]
-        LLMClient["LLM Client<br/>大模型客户端"]
-        ModelAdapter["Model Adapter<br/>模型适配"]
+        RetrievalClient["Retrieval Client<br/>HTTP客户端"]
+        LLMClient["Unified LLM Client<br/>统一LLM接口"]
+        RedisCache["Redis Cache<br/>语义缓存存储"]
     end
 
     subgraph External["外部服务 - External Services"]
         direction TB
-        RetrievalService["Retrieval Service<br/>混合检索"]
-        ModelRouter["Model Router<br/>模型路由"]
-        Milvus["Milvus<br/>向量检索"]
-        ES["Elasticsearch<br/>全文检索"]
+        RetrievalService["Retrieval Service<br/>:8007"]
+        ModelAdapter["Model Adapter<br/>:8005"]
+        Milvus["Milvus<br/>向量数据库"]
+        Redis["Redis<br/>缓存"]
         LLMs["LLM Providers<br/>GPT-4/Claude/通义"]
     end
 
     subgraph Clients["上游调用方"]
         direction LR
-        AIOrchestrator["AI Orchestrator<br/>对话编排"]
-        ConversationService["Conversation Service<br/>会话服务"]
-        DirectAPI["Direct API Calls<br/>直接API调用"]
+        AIOrchestrator["AI Orchestrator"]
+        ConversationService["Conversation Service"]
+        DirectAPI["Direct HTTP API"]
     end
 
     Clients --> HTTPServer
@@ -106,26 +111,35 @@ flowchart TB
     RAGService --> ContextBuilder
     RAGService --> AnswerGenerator
     RAGService --> CitationGenerator
+    RAGService --> RetrievalClient
 
-    RAGService -.选择策略.-> AdaptiveRAG
-    RAGService -.高质量模式.-> SelfRAG
+    RAGService -.可选策略.-> AdaptiveRAG
+    RAGService -.可选策略.-> SelfRAG
+    RAGService -.查询缓存.-> SemanticCache
 
     QueryRewriter --> LLMClient
     AnswerGenerator --> LLMClient
 
-    RAGService --> RetrievalClient
+    AdaptiveRAG --> QueryRewriter
+    AdaptiveRAG --> RetrievalClient
+    AdaptiveRAG --> LLMClient
+
+    SelfRAG --> RetrievalClient
+    SelfRAG --> LLMClient
+
+    SemanticCache --> RedisCache
 
     RetrievalClient --> RetrievalService
     LLMClient --> ModelAdapter
-    ModelAdapter --> ModelRouter
+    RedisCache --> Redis
 
     RetrievalService --> Milvus
-    RetrievalService --> ES
-    ModelRouter --> LLMs
+    ModelAdapter --> LLMs
 
     style API fill:#e3f2fd
     style Service fill:#fff3e0
-    style Infrastructure fill:#f3e5f5
+    style Core fill:#f3e5f5
+    style Infrastructure fill:#fce4ec
     style External fill:#e8f5e9
     style Clients fill:#c8e6c9
 ```
@@ -136,244 +150,301 @@ flowchart TB
 
 **HTTP Server（HTTP 服务器）**
 
-- 框架：FastAPI 3.0 + Uvicorn ASGI Server
-- 端口：8002（默认）
+- 框架：FastAPI 0.110.0 + Uvicorn ASGI Server
+- 端口：8006（默认，可通过环境变量 PORT 配置）
 - 并发模型：异步 I/O（asyncio）
-- 工作进程：1-4 个（通过 WORKERS 环境变量配置）
-- 每进程最大并发：200 个请求
+- 工作进程：1 个（默认，通过 WORKERS 环境变量配置）
 - 请求超时：60 秒（全局）、30 秒（LLM 调用）、10 秒（检索调用）
 
 提供的端点：
 
 - `POST /api/v1/rag/generate`：问答生成（非流式）
 - `POST /api/v1/rag/generate/stream`：问答生成（流式 SSE）
-- `POST /api/v1/rag/batch`：批量问答
-- `GET /api/v1/rag/health`：健康检查
+- `POST /api/v1/rag/batch`：批量问答（最多 50 条）
+- `GET /api/v1/rag/health`：RAG 服务健康检查
 - `GET /health`：全局健康检查
 - `GET /metrics`：Prometheus 监控指标
 
 **Router Layer（路由层）**
 
-- 路由分发：根据 URL 路径分发请求到对应的处理器
-- 中间件：CORS（跨域）、日志记录、异常捕获
+- 路由前缀：`/api/v1/rag`
+- 中间件链：
+  - CORS 中间件（使用统一 cors_config）
+  - 日志中间件（logging_middleware，结构化日志）
+  - 成本追踪中间件（cost_tracking_middleware）
+- 异常处理：统一异常处理器注册（exception_handlers）
 - API 版本管理：通过 `/api/v1` 前缀支持版本演进
 
 **Request Validator（参数验证）**
 
-- 使用 Pydantic 模型进行请求参数验证
-- 验证规则：查询长度（1-2000 字符）、top_k 范围（1-50）、temperature 范围（0.0-2.0）
+使用 Pydantic 模型进行请求参数验证：
+
+- RAGRequest：单次查询请求
+  - query：查询文本（1-5000 字符）
+  - tenant_id：租户 ID（可选）
+  - rewrite_method：改写方法（multi/hyde/none，默认 multi）
+  - top_k：检索结果数量（1-50，默认 10）
+  - stream：是否流式返回（默认 False）
+  - include_citations：是否包含引用（默认 True）
+- BatchRAGRequest：批量查询请求
+  - queries：查询列表（1-50 条）
 - 错误处理：返回 422 Unprocessable Entity 及详细错误信息
 
 **业务层（Service Layer）**
 
-**RAG Service（主协调器）**
+**RAG Service（业务编排）**
 
 核心业务编排器，负责协调整个 RAG 流程。
 
+初始化依赖：
+- RetrievalClient：检索服务客户端（连接到 Retrieval Service）
+- AsyncOpenAI：LLM 客户端（通过 Model Adapter 或直接连接）
+- model：使用的模型名称（如 gpt-3.5-turbo）
+
 职责：
 
-1. 流程编排：查询改写 → 检索 → 上下文构建 → 答案生成 → 引用生成
-2. 策略选择：根据查询复杂度选择合适的 RAG 策略（Standard、Adaptive、Self-RAG）
-3. 错误处理：捕获并处理各环节的异常，提供降级策略
-4. 性能监控：记录各环节耗时和 Token 消耗
+1. **流程编排**：查询改写 → 多查询检索 → 去重 → 上下文构建 → 答案生成 → 引用生成
+2. **去重处理**：基于 chunk_id 去重，保留分数最高的文档
+3. **错误处理**：捕获并处理各环节异常，返回友好错误提示
+4. **性能监控**：记录 rewrite_time、retrieve_time、generate_time、total_time
 
 关键方法：
 
-- `generate(query, tenant_id, rewrite_method, top_k, stream, include_citations)`：完整 RAG 流程
-- `generate_stream(query, ...)`：流式 RAG 流程
-- `batch_generate(queries, ...)`：批量处理多个查询
+- `generate(query, tenant_id, rewrite_method, top_k, stream, include_citations)`：完整 RAG 流程（非流式）
+- `generate_stream(query, tenant_id, rewrite_method, top_k)`：流式 RAG 流程
+- `batch_generate(queries, tenant_id, **kwargs)`：批量处理多个查询
+- `_deduplicate_chunks(chunks)`：去重分块，保留高分文档
 
-**Query Rewriter（查询改写器）**
+**Adaptive RAG Service（自适应策略选择）**
 
-查询改写器通过 LLM 优化用户查询，提升检索效果。
+根据查询特征自动选择最佳检索和生成策略。
 
-改写策略：
+查询类型枚举：
+- SIMPLE_FACT：简单事实查询
+- COMPLEX_REASONING：复杂推理查询
+- MULTI_HOP：多跳查询
+- COMPARISON：对比查询
+- AGGREGATION：聚合查询
+- OPEN_ENDED：开放式查询
 
-1. **Multi-Query Expansion（多查询扩展）**
-
-   - 生成 3 个语义相关但措辞不同的查询
-   - 扩大检索覆盖面，提升召回率约 15-25%
-   - LLM 调用：1 次，耗时 0.5-1.5 秒
-   - 适用场景：查询模糊或多义时
-
-2. **HyDE（假设文档嵌入）**
-
-   - 生成假设答案（2-3 段落），用假设答案的向量检索
-   - 提升检索准确率约 10-20%（相比直接用问题检索）
-   - LLM 调用：1 次，耗时 1-2 秒
-   - 适用场景：查询简短、关键词不足时
-
-3. **None（无改写）**
-   - 直接使用原始查询
-   - 耗时：0 秒（无额外开销）
-   - 适用场景：查询已经足够清晰具体
-
-关键方法：
-
-- `rewrite_query(query, method="multi")`：统一改写接口
-- `rewrite_multi_query(query, num_queries=3)`：多查询扩展
-- `rewrite_hyde(query)`：HyDE 改写
-- `decompose_query(query)`：复杂查询分解
-
-**Context Builder（上下文构建器）**
-
-上下文构建器将检索文档格式化为 LLM 可理解的上下文，并执行 Token 截断。
+策略枚举：
+- DIRECT：直接检索（简单查询，复杂度 ≤ 3）
+- HYDE：假设文档检索（高准确性需求，复杂度 ≥ 6）
+- QUERY_DECOMPOSITION：查询分解（复杂推理，复杂度 ≥ 7）
+- ITERATIVE：迭代检索（多跳查询，最多 3 次迭代）
+- HYBRID：混合检索（对比、聚合查询）
 
 核心功能：
 
-1. **Token 计数与截断**
+1. **查询分析**：使用 LLM 分析查询类型、复杂度（1-10 分）、是否需要多源/时间维度/计算
+2. **策略选择**：基于分析结果和用户偏好（prefer_accuracy/prefer_speed）选择策略
+3. **策略执行**：根据选择的策略执行不同的检索和生成流程
+4. **性能记录**：记录每种策略的执行次数、平均耗时、平均置信度
 
-   - 使用 tiktoken 库精确计算 Token 数
-   - 默认上下文限制：3000 Token（可配置）
-   - 截断策略：优先保留高分文档，单文档过长时截断内容
-   - Token 估算误差：< 5%
+**Self-RAG Service（自我反思迭代）**
 
-2. **文档格式化**
+通过自我评估和迭代优化提升答案质量。
 
-   - 格式：`[Source N] (File: xxx, Page: N) \n {content}`
-   - 包含元数据：文件名、页码、章节信息
-   - 分隔符：`\n\n---\n\n`（可配置）
+核心功能：
 
-3. **Prompt 构建**
-   - 系统提示词 + 上下文 + 用户查询 + 答案指令
-   - 支持自定义系统提示词
-   - 估算 Prompt Token 数，避免超出模型限制
+1. **检索必要性判断**：使用 LLM 判断是否需要检索（事实性问题 vs 常识问题）
+2. **检索质量评估**：评估检索文档相关性（0-10 分），低于阈值时重新 reformulate 查询
+3. **查询 Reformulation**：分析为何检索结果不佳，生成改进的查询（添加关键词、调整表达）
+4. **答案质量评估**：评估维度 - relevance（相关性）、accuracy（准确性）、completeness（完整性）、clarity（清晰度）
+5. **多轮迭代**：最多迭代 3 次，每轮包含检索 → 评估 → 生成 → 评估，达到质量阈值（默认 0.7）时停止
+
+配置参数：
+- quality_threshold：质量阈值（0-1，默认 0.7）
+- max_iterations：最大迭代次数（默认 3）
+
+**Semantic Cache Service（语义缓存）**
+
+基于语义相似度的查询缓存服务，减少重复查询的 LLM 调用。
+
+核心功能：
+- 缓存命中检测：计算查询向量相似度，超过阈值则返回缓存结果
+- 缓存存储：将查询和答案存储到 Redis
+- TTL 管理：设置缓存过期时间
+- 性能提升：命中率 20-40%，延迟降低 80-90%
+
+**核心层（Core Layer）**
+
+**Query Rewriter（查询改写）**
+
+通过 LLM 优化用户查询，提升检索效果。
+
+改写方法：
+
+1. **Multi-Query Expansion（多查询扩展）**
+
+   - 生成 N-1 个替代查询（默认生成 2 个，加原始查询共 3 个）
+   - LLM Prompt：要求生成语义相关但措辞不同的查询
+   - Temperature：0.7（允许一定随机性）
+   - 提升召回率约 15-25%
+   - 耗时：0.5-1.5 秒
+   - 成本：约 $0.002-0.005/查询
+
+2. **HyDE（假设文档嵌入）**
+
+   - 生成假设答案（2-3 段落）
+   - 使用假设答案的向量进行检索（更接近实际答案文档）
+   - Temperature：0.7
+   - 提升检索准确率约 10-20%
+   - 耗时：1-2 秒
+   - 成本：约 $0.003-0.008/查询
+
+3. **None（无改写）**
+
+   - 直接使用原始查询
+   - 适用于查询已经清晰具体的场景
+
+4. **Query Decomposition（查询分解）**
+   - 将复杂查询分解为 2-4 个子查询
+   - 适用于包含多个问题或复杂逻辑的查询
+   - Temperature：0.5
 
 关键方法：
+- `rewrite_query(query, method, num_queries)`：统一改写接口
+- `rewrite_multi_query(query, num_queries=3)`：多查询扩展
+- `rewrite_hyde(query)`：HyDE 改写
+- `decompose_query(query)`：查询分解
 
-- `build_context(chunks, include_metadata=True, max_tokens=None)`：构建上下文字符串
-- `truncate_chunks(chunks, max_tokens)`：截断文档列表
-- `build_prompt(query, context, system_prompt, include_instructions)`：构建完整 Prompt
+**Context Builder（上下文构建+Token截断）**
+
+将检索文档格式化为 LLM 可理解的上下文，并执行精确的 Token 截断。
+
+核心功能：
+
+1. **Token 精确计数**
+
+   - 使用 tiktoken 库（OpenAI 官方）
+   - 支持模型：gpt-3.5-turbo、gpt-4、cl100k_base
+   - 计数误差：< 5%
+   - 降级策略：tiktoken 失败时使用粗略估算（1 token ≈ 4 字符）
+
+2. **智能截断**
+
+   - 默认上下文限制：3000 Token（可配置）
+   - 截断策略：按 score 降序排序，优先保留高分文档
+   - 单文档过长处理：第一个文档超限时截断内容而不是丢弃
+   - 截断标记：添加 "..." 标识
+
+3. **文档格式化**
+
+   - 格式：`[Source N] (File: xxx, Page: N)\n{content}`
+   - 包含元数据：filename、page、section
+   - 分隔符：`\n\n---\n\n`（可配置）
+
+4. **Prompt 构建**
+   - 系统提示词（默认或自定义）
+   - 上下文 + 用户查询 + 答案指令
+   - 返回 OpenAI 消息列表格式：`[{role: "system", content: ...}, {role: "user", content: ...}]`
+
+关键方法：
 - `count_tokens(text)`：计算 Token 数
+- `truncate_chunks(chunks, max_tokens)`：截断文档列表
+- `build_context(chunks, include_metadata, max_tokens)`：构建上下文字符串
+- `build_prompt(query, context, system_prompt, include_instructions)`：构建完整 Prompt
+- `estimate_prompt_tokens(query, context, system_prompt)`：估算 Prompt Token 数
 
-**Answer Generator（答案生成器）**
+**Answer Generator（答案生成）**
 
-答案生成器调用 LLM 生成最终答案，支持流式和非流式两种模式。
+调用 LLM 生成最终答案，支持流式和非流式两种模式。
 
 核心功能：
 
 1. **非流式生成**
 
-   - 一次性返回完整答案
-   - 返回 Token 使用情况（prompt_tokens、completion_tokens、total_tokens）
+   - 使用 AsyncOpenAI.chat.completions.create()
+   - 返回完整答案 + Token 使用情况
+   - 返回字段：answer、model、usage（prompt_tokens、completion_tokens、total_tokens）、finish_reason
    - 平均耗时：2-5 秒（取决于答案长度）
 
 2. **流式生成**
 
-   - 使用 SSE（Server-Sent Events）逐 Token 返回
+   - 使用 AsyncOpenAI.chat.completions.create(stream=True)
+   - 异步生成器逐 Token 返回（AsyncIterator[str]）
    - 降低首 Token 延迟至 0.5-1 秒
    - 提升用户体验感知速度约 40-60%
 
 3. **参数控制**
+
    - temperature：控制生成随机性（0.0-2.0，默认 0.7）
-   - max_tokens：控制答案长度（默认 1000，可配置到 2000）
+   - max_tokens：控制答案长度（默认 1000）
+
+4. **批量生成**
+   - batch_generate()：并发处理多个查询
+   - 错误隔离：单个失败不影响其他查询
 
 关键方法：
-
 - `generate(messages, temperature, max_tokens)`：非流式生成
 - `generate_stream(messages, temperature, max_tokens)`：流式生成
+- `generate_with_functions(messages, functions, function_call)`：函数调用生成
+- `batch_generate(messages_list, temperature, max_tokens)`：批量生成
 
-**Citation Generator（引用生成器）**
+**Citation Generator（引用提取与标注）**
 
-引用生成器提取答案中的引用标记，关联原始文档，生成可追溯的引用列表。
+提取答案中的引用标记，关联原始文档，生成可追溯的引用列表。
 
 核心功能：
 
 1. **引用提取**
 
-   - 正则匹配 `[Source N]` 标记
-   - 关联到对应的文档片段
-   - 提取引用编号列表
+   - 正则匹配：`\[Source (\d+)\]`
+   - 提取引用编号列表（1-based）
 
 2. **引用列表生成**
 
-   - 包含：source_id、chunk_id、content（前 200 字符）、score、metadata
-   - 支持多种格式：markdown、html、plain text
+   - 包含字段：source_id、chunk_id、content（原文）、score、document_id、filename、page、url
+   - 模式：include_all（包含所有文档）或仅包含答案中引用的文档
 
-3. **引用质量评估**
-   - 评估维度：文档相关性得分、内容相似度、引用频率
-   - 综合置信度计算：0.4 _ doc_score + 0.4 _ similarity + 0.2 \* frequency
+3. **引用格式化**
+
+   - Markdown 格式：`**[N]** filename (Page N) - [View](url)`
+   - HTML 格式：`<ol><li>filename (Page N) <a href='url'>View</a></li></ol>`
+   - Plain Text 格式：`[N] filename (Page N)`
+
+4. **内联引用添加**
+   - 启发式方法：为每个句子末尾添加引用标记
+   - 适用于 LLM 未自动添加引用的场景
 
 关键方法：
-
 - `extract_citations(answer)`：提取引用标记
 - `generate_citations(chunks, answer, include_all=False)`：生成引用列表
 - `format_citations(citations, format_type="markdown")`：格式化引用
+- `add_inline_citations(answer, chunks)`：添加内联引用
 - `generate_response_with_citations(answer, chunks, include_inline, citation_format)`：生成完整响应
-
-**Adaptive RAG Service（自适应 RAG）**
-
-Adaptive RAG 根据查询特征自动选择最佳检索和生成策略。
-
-核心功能：
-
-1. **查询分析**
-
-   - 分析查询类型：simple_fact、complex_reasoning、multi_hop、comparison、aggregation、open_ended
-   - 评估复杂度：1-10 分
-   - 判断是否需要多源、时间维度、计算
-
-2. **策略选择**
-
-   - Direct：直接检索（简单查询，复杂度 ≤ 3）
-   - HyDE：假设文档检索（高准确性需求，复杂度 ≥ 6）
-   - Query Decomposition：查询分解（复杂推理，复杂度 ≥ 7）
-   - Iterative：迭代检索（多跳查询）
-   - Hybrid：混合检索（对比、聚合查询）
-
-3. **性能记录**
-   - 记录每种策略的执行次数、平均耗时、平均置信度
-   - 用于未来策略优化
-
-**Self-RAG Service（自我反思 RAG）**
-
-Self-RAG 通过自我评估和迭代优化提升答案质量。
-
-核心功能：
-
-1. **检索质量评估**
-
-   - 评估检索文档的相关性（0-10 分）
-   - 低于阈值时重新 formulate 查询并再次检索
-   - 提升检索质量约 20-30%
-
-2. **答案质量评估**
-
-   - 评估维度：relevance、accuracy、completeness、clarity（各 0-10 分）
-   - 综合评分低于阈值（默认 7 分）时重新生成
-
-3. **多轮迭代**
-   - 最多迭代 3 次
-   - 每轮包含：检索 → 评估 → 生成 → 评估
-   - 平均迭代次数：1.5 次
-   - 答案质量提升约 15-25%
 
 **基础设施层（Infrastructure Layer）**
 
-**Retrieval Client（检索服务客户端）**
+**Retrieval Client（HTTP客户端）**
 
 封装对 Retrieval Service 的 HTTP 调用。
 
+配置：
+- base_url：Retrieval Service URL（从配置加载）
+- timeout：请求超时时间（默认 10 秒）
+
 核心功能：
 
-1. **混合检索**
+1. **检索调用**
 
-   - 支持 vector、bm25、hybrid、graph 四种模式
-   - 支持 rerank（重排序）
-   - 支持租户隔离（tenant_id）、过滤条件（filters）
+   - retrieve()：主检索接口
+   - 参数：query、top_k、tenant_id、rerank（是否重排序）
+   - 返回：文档列表（chunk_id、content、score、metadata）
 
-2. **批量检索**
+2. **健康检查**
+   - health_check()：检查 Retrieval Service 可用性
+   - 用于服务健康检查和降级策略
 
-   - 多查询并发检索
-   - 结果合并和去重
+**Unified LLM Client（统一LLM接口）**
 
-3. **健康检查**
-   - 定期检查 Retrieval Service 可用性
-   - 用于降级策略
+统一 LLM 调用接口，支持多种 LLM 提供商。
 
-**LLM Client（大模型客户端）**
-
-封装对 Model Adapter 的调用，实现统一 LLM 接口。
+配置：
+- api_key：LLM API 密钥（从配置或环境变量加载）
+- base_url：LLM API 基础 URL（优先使用 Model Adapter，实现统一调用）
+- timeout：请求超时时间（默认 30 秒）
 
 核心功能：
 
@@ -384,287 +455,374 @@ Self-RAG 通过自我评估和迭代优化提升答案质量。
 
 2. **重试机制**
 
-   - 自动重试 3 次（指数退避）
+   - 自动重试（指数退避）
    - 超时重试、限流重试
 
 3. **Token 统计**
    - 记录 prompt_tokens、completion_tokens、total_tokens
-   - 用于成本核算
+   - 用于成本核算和监控
+
+**Redis Cache（语义缓存存储）**
+
+Redis 客户端，用于存储语义缓存。
+
+功能：
+- 缓存查询向量和答案
+- 设置 TTL（过期时间）
+- 支持相似度检索（需要 Redis Stack 或 RedisJSON + RediSearch）
 
 ### 模块交互流程
 
 #### 标准 RAG 流程完整时序图
 
-以下时序图展示了从上游调用到最终返回答案的完整调用链路，包含所有模块交互细节。
+以下时序图展示了从上游调用到最终返回答案的完整调用链路，基于实际代码实现。
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Client as AI Orchestrator<br/>上游调用方
+    participant Client as 上游调用方<br/>(AI Orchestrator)
     participant API as FastAPI<br/>HTTP Server
-    participant Router as Router<br/>路由层
-    participant Service as RAG Service<br/>业务协调器
+    participant Router as RAG Router<br/>(/api/v1/rag)
+    participant Service as RAG Service<br/>业务编排
     participant Rewriter as Query Rewriter<br/>查询改写
-    participant RClient as Retrieval Client<br/>检索客户端
-    participant RService as Retrieval Service<br/>检索服务
     participant Context as Context Builder<br/>上下文构建
-    participant LLMClient as LLM Client<br/>LLM客户端
-    participant ModelAdapter as Model Adapter<br/>模型适配器
-    participant LLM as LLM API<br/>GPT-4/Claude
-    participant Citation as Citation Generator<br/>引用生成器
+    participant Generator as Answer Generator<br/>答案生成
+    participant Citation as Citation Generator<br/>引用生成
+    participant RClient as Retrieval Client<br/>HTTP客户端
+    participant LLMClient as AsyncOpenAI<br/>LLM客户端
+    participant RService as Retrieval Service<br/>:8007
+    participant ModelAdapter as Model Adapter<br/>:8005
+    participant LLM as LLM Provider<br/>GPT-4/Claude
 
-    Note over Client,Citation: 标准 RAG 流程（非流式，Multi-Query 模式）
+    Note over Client,LLM: 标准 RAG 流程（非流式，Multi-Query 模式）
 
     Client->>API: POST /api/v1/rag/generate
-    Note right of Client: Body: {<br/>  query: "如何优化MySQL性能?",<br/>  tenant_id: "tenant-123",<br/>  rewrite_method: "multi",<br/>  top_k: 10,<br/>  include_citations: true<br/>}
+    Note right of Client: RAGRequest:<br/>query="如何优化MySQL性能?"<br/>tenant_id="tenant-123"<br/>rewrite_method="multi"<br/>top_k=10<br/>include_citations=true
 
-    API->>Router: 路由匹配
-    Router->>Router: 参数验证（Pydantic）
-    Note over Router: 验证查询长度、top_k范围等
+    API->>Router: 路由匹配 /api/v1/rag
+    Router->>Router: Pydantic 参数验证
+    Note over Router: 验证字段：<br/>query: 1-5000字符<br/>top_k: 1-50<br/>rewrite_method: multi/hyde/none
 
-    Router->>Service: generate(query, tenant_id, ...)
-    Note over Service: 开始RAG流程编排
+    Router->>Service: generate(query, tenant_id, rewrite_method, top_k, ...)
+    Note over Service: 启动RAG业务流程
 
     rect rgb(230, 240, 255)
         Note over Service,LLM: 阶段1：查询改写（0.5-1.5秒）
-        Service->>Rewriter: rewrite_query(query, method="multi")
+        Service->>Rewriter: rewrite_query(query, method="multi", num_queries=3)
 
-        Rewriter->>LLMClient: generate(prompt="生成3个替代查询")
+        Rewriter->>LLMClient: chat.completions.create(<br/>  model="gpt-3.5-turbo",<br/>  messages=[...],<br/>  temperature=0.7,<br/>  max_tokens=200<br/>)
+        Note over LLMClient: Prompt: 生成2个替代查询
+
         LLMClient->>ModelAdapter: POST /api/v1/chat/completions
-        ModelAdapter->>LLM: 路由到合适的模型
-        LLM-->>ModelAdapter: 替代查询列表
-        ModelAdapter-->>LLMClient: response
-        LLMClient-->>Rewriter: ["如何优化MySQL性能?", "提升MySQL数据库速度的方法", "MySQL性能调优技巧"]
+        Note over ModelAdapter: 通过Model Adapter<br/>实现统一LLM调用
 
-        Rewriter-->>Service: queries: List[str] (3个查询)
+        ModelAdapter->>LLM: API调用（根据模型路由）
+        LLM-->>ModelAdapter: "1. 提升MySQL数据库速度的方法\n2. MySQL性能调优技巧"
+        ModelAdapter-->>LLMClient: response
+
+        LLMClient-->>Rewriter: content
+        Rewriter->>Rewriter: 解析输出（按行分割）
+        Rewriter-->>Service: queries: [<br/>  "如何优化MySQL性能?",<br/>  "提升MySQL数据库速度的方法",<br/>  "MySQL性能调优技巧"<br/>]
     end
 
     rect rgb(240, 255, 240)
-        Note over Service,RService: 阶段2：多查询检索（1-2秒）
+        Note over Service,RService: 阶段2：多查询检索+去重（1-2秒）
 
         loop 对每个查询执行检索
-            Service->>RClient: retrieve(query[i], top_k=10, mode="hybrid")
-            RClient->>RService: POST /retrieve
-            Note over RService: 混合检索：<br/>向量检索 + BM25 + Rerank
-            RService-->>RClient: chunks (10个文档片段)
+            Service->>RClient: retrieve(<br/>  query=q,<br/>  top_k=10,<br/>  tenant_id="tenant-123",<br/>  rerank=True<br/>)
+            RClient->>RService: POST /api/v1/retrieval/retrieve
+            Note over RService: 混合检索：<br/>向量 + BM25 + Rerank
+            RService-->>RClient: chunks: List[Dict] (10个)
             RClient-->>Service: 检索结果
         end
 
-        Service->>Service: 去重（基于chunk_id）
-        Note over Service: 3个查询 × 10个结果<br/>→ 去重后约15-20个唯一文档
+        Service->>Service: _deduplicate_chunks(all_chunks)
+        Note over Service: 基于chunk_id去重<br/>保留分数最高的<br/>3×10=30 → 去重后约18个
     end
 
     rect rgb(255, 250, 235)
         Note over Service,Context: 阶段3：上下文构建（0.1-0.3秒）
-        Service->>Context: build_context(chunks, include_metadata=True)
-
-        Context->>Context: 计算Token数（tiktoken）
-        Note over Context: 总Token约4000<br/>超过限制3000
+        Service->>Context: build_context(<br/>  chunks=unique_chunks,<br/>  include_metadata=True<br/>)
 
         Context->>Context: truncate_chunks(chunks, max_tokens=3000)
-        Note over Context: 按分数排序<br/>截断为前8个文档
+        Note over Context: tiktoken计算Token数<br/>按score排序，优先保留高分文档
 
-        Context->>Context: format_document(doc, index)
-        Note over Context: 格式化：<br/>[Source 1] (File: xxx.pdf, Page: 3)<br/>content...
+        loop 遍历文档（按分数降序）
+            Context->>Context: count_tokens(chunk.content)
+            alt current_tokens + chunk_tokens <= 3000
+                Context->>Context: 加入selected_chunks
+            else 超限
+                Context->>Context: 停止或截断
+            end
+        end
 
-        Context-->>Service: formatted_context (3000 tokens)
+        Context->>Context: format_document(chunk, index)
+        Note over Context: [Source N] (File: xxx, Page: N)<br/>content
 
-        Service->>Context: build_prompt(query, context, system_prompt)
+        Context-->>Service: formatted_context (约2950 tokens)
+
+        Service->>Context: build_prompt(query, context)
+        Context->>Context: 构建messages列表
+        Note over Context: [<br/>  {role:"system", content:"You are a helpful AI assistant..."},<br/>  {role:"user", content:"Context:\n...\n\nQuestion: ..."}<br/>]
         Context-->>Service: messages: List[Dict]
-        Note right of Context: [<br/>  {role:"system", content:"..."},<br/>  {role:"user", content:"Context: ...\n\nQuestion: ...}<br/>]
     end
 
     rect rgb(255, 240, 245)
         Note over Service,LLM: 阶段4：答案生成（2-5秒）
-        Service->>LLMClient: generate(messages, temperature=0.7, max_tokens=1000)
+        Service->>Generator: generate(messages, temperature=0.7, max_tokens=1000)
+
+        Generator->>LLMClient: chat.completions.create(<br/>  model="gpt-3.5-turbo",<br/>  messages=messages,<br/>  temperature=0.7,<br/>  max_tokens=1000<br/>)
 
         LLMClient->>ModelAdapter: POST /api/v1/chat/completions
-        Note over ModelAdapter: 选择最佳模型<br/>（负载均衡、成本优化）
-
         ModelAdapter->>LLM: API调用
-        Note over LLM: LLM处理<br/>生成答案
+        Note over LLM: LLM生成答案<br/>包含引用标记
 
         LLM-->>ModelAdapter: answer + usage
-        Note right of LLM: {<br/>  answer: "MySQL性能优化包括...[Source 1]...[Source 3]...",<br/>  usage: {prompt_tokens: 3200, completion_tokens: 450}<br/>}
+        Note right of LLM: {<br/>  answer: "MySQL性能优化包括...[Source 1]...",<br/>  usage: {<br/>    prompt_tokens: 3100,<br/>    completion_tokens: 420<br/>  }<br/>}
 
         ModelAdapter-->>LLMClient: response
-        LLMClient-->>Service: result
+        LLMClient-->>Generator: response
+
+        Generator-->>Service: {<br/>  answer: "...",<br/>  model: "gpt-3.5-turbo",<br/>  usage: {...},<br/>  finish_reason: "stop"<br/>}
     end
 
     rect rgb(245, 245, 255)
         Note over Service,Citation: 阶段5：引用生成（0.05-0.1秒）
-        Service->>Citation: generate_response_with_citations(answer, chunks)
+        Service->>Citation: generate_response_with_citations(<br/>  answer=answer,<br/>  chunks=unique_chunks<br/>)
 
         Citation->>Citation: extract_citations(answer)
-        Note over Citation: 提取[Source 1], [Source 3]等标记
+        Note over Citation: 正则匹配 \[Source (\d+)\]<br/>提取 [1, 3, 5] 等编号
 
         Citation->>Citation: generate_citations(chunks, answer)
-        Note over Citation: 关联文档片段<br/>生成引用列表
+        Note over Citation: 关联文档片段<br/>构建引用列表
 
-        Citation-->>Service: {answer, citations, formatted_citations}
+        Citation->>Citation: format_citations(citations, "markdown")
+        Note over Citation: 格式化为Markdown<br/>**[1]** filename (Page N)
+
+        Citation-->>Service: {<br/>  answer: "...",<br/>  citations: [...],<br/>  formatted_citations: "..."<br/>}
     end
 
-    Service->>Service: 记录元数据（耗时、Token使用）
-    Note over Service: total_time: 4.2秒<br/>rewrite_time: 0.8秒<br/>retrieve_time: 1.3秒<br/>generate_time: 2.0秒
+    Service->>Service: 计算元数据
+    Note over Service: total_time: 4.2秒<br/>rewrite_time: 0.8秒<br/>retrieve_time: 1.3秒<br/>generate_time: 2.0秒<br/>chunks_found: 18<br/>model: "gpt-3.5-turbo"<br/>usage: {...}
 
-    Service-->>Router: RAGResponse
-    Router-->>API: JSON Response
-    API-->>Client: 200 OK
-    Note right of API: {<br/>  answer: "...",<br/>  citations: [...],<br/>  metadata: {<br/>    total_time: 4.2,<br/>    chunks_found: 18,<br/>    model: "gpt-4-turbo",<br/>    usage: {...}<br/>  }<br/>}
+    Service-->>Router: {<br/>  answer: "...",<br/>  citations: [...],<br/>  metadata: {...}<br/>}
+    Router-->>API: RAGResponse
+    API-->>Client: 200 OK (JSON)
+    Note right of API: {<br/>  "answer": "MySQL性能优化包括...",<br/>  "citations": [{...}, {...}],<br/>  "metadata": {<br/>    "total_time": 4.2,<br/>    "rewrite_time": 0.8,<br/>    "retrieve_time": 1.3,<br/>    "generate_time": 2.0,<br/>    "chunks_found": 18,<br/>    "model": "gpt-3.5-turbo",<br/>    "usage": {...}<br/>  }<br/>}
 ```
 
 #### 时序图详细说明
 
 **图意概述**
 
-展示标准 RAG Engine 生成答案的完整流程，包含 5 个主要阶段：查询改写、多查询检索、上下文构建、答案生成、引用生成。每个阶段的耗时、关键处理逻辑、数据流转均在图中标注。
+展示标准 RAG Engine 生成答案的完整流程，基于实际代码实现。包含 5 个主要阶段：查询改写（Multi-Query）、多查询检索+去重、上下文构建（Token截断）、答案生成、引用生成。每个阶段展示实际的类/方法调用、参数传递和数据流转。
+
+**实际调用链路**
+
+从接口到底层的调用栈：
+
+```
+POST /api/v1/rag/generate
+  ↓
+Router.generate() (app/routers/rag.py)
+  ↓ Pydantic验证
+RAGService.generate() (app/services/rag_service.py)
+  ↓
+  ├─ QueryRewriter.rewrite_query() (app/core/query_rewriter.py)
+  │   └─ AsyncOpenAI.chat.completions.create() → Model Adapter → LLM
+  ↓
+  ├─ RetrievalClient.retrieve() × N (app/infrastructure/retrieval_client.py)
+  │   └─ HTTP POST → Retrieval Service (:8007)
+  ↓
+  ├─ _deduplicate_chunks() (去重逻辑)
+  ↓
+  ├─ ContextBuilder.build_context() (app/core/context_builder.py)
+  │   ├─ truncate_chunks() (Token截断)
+  │   └─ build_prompt() (Prompt构建)
+  ↓
+  ├─ AnswerGenerator.generate() (app/core/answer_generator.py)
+  │   └─ AsyncOpenAI.chat.completions.create() → Model Adapter → LLM
+  ↓
+  └─ CitationGenerator.generate_response_with_citations() (app/core/citation_generator.py)
+      ├─ extract_citations() (正则提取)
+      ├─ generate_citations() (关联文档)
+      └─ format_citations() (格式化)
+```
 
 **关键字段与接口**
 
-1. **输入参数**
+1. **输入参数（RAGRequest）**
 
-   - query：用户查询（1-2000 字符）
-   - tenant_id：租户 ID（用于数据隔离）
-   - rewrite_method：改写方法（multi/hyde/none）
-   - top_k：每查询检索结果数（1-50）
-   - include_citations：是否包含引用
+   - query：用户查询（1-5000 字符，必填）
+   - tenant_id：租户 ID（可选，用于数据隔离）
+   - rewrite_method：改写方法（multi/hyde/none，默认 multi）
+   - top_k：每查询检索结果数（1-50，默认 10）
+   - stream：是否流式返回（默认 False）
+   - include_citations：是否包含引用（默认 True）
 
-2. **输出字段**
+2. **输出字段（RAGResponse）**
 
-   - answer：生成的答案文本
-   - citations：引用列表（source_id、chunk_id、content、score）
-   - metadata：元数据（total_time、rewrite_time、retrieve_time、generate_time、chunks_found、model、usage）
+   - answer：生成的答案文本（包含 [Source N] 标记）
+   - citations：引用列表
+     - source_id：引用编号
+     - chunk_id：分块 ID
+     - content：原文内容
+     - score：相关性得分
+     - document_id、filename、page、url（元数据）
+   - metadata：元数据
+     - total_time：总耗时（秒）
+     - rewrite_time：改写耗时（秒）
+     - retrieve_time：检索耗时（秒）
+     - generate_time：生成耗时（秒）
+     - chunks_found：检索到的文档数
+     - model：使用的模型名称
+     - usage：Token 使用情况（prompt_tokens、completion_tokens、total_tokens）
 
 3. **关键接口**
-   - `POST /api/v1/rag/generate`：RAG Engine 主接口
-   - `POST /retrieve`：Retrieval Service 检索接口
+   - `POST /api/v1/rag/generate`：RAG Engine 主接口（非流式）
+   - `POST /api/v1/rag/generate/stream`：流式接口（SSE）
+   - `POST /api/v1/rag/batch`：批量接口（最多 50 条）
+   - `POST /api/v1/retrieval/retrieve`：Retrieval Service 检索接口
    - `POST /api/v1/chat/completions`：Model Adapter LLM 调用接口
 
 **边界条件**
 
 1. **并发限制**
 
-   - 单实例最大并发：200 个请求
-   - 超过并发限制：返回 503 Service Unavailable
-   - 建议部署：3-5 个实例，总并发 600-1000
+   - 单实例并发：取决于 async I/O 和 LLM 限流
+   - 推荐配置：1 worker（默认），依赖异步处理
+   - 瓶颈：LLM API 调用延迟（2-5秒）和速率限制
+   - 水平扩展：通过 Kubernetes 部署多个 Pod
 
 2. **超时设置**
 
-   - 全局超时：60 秒
-   - 查询改写超时：10 秒（LLM 调用）
-   - 检索超时：10 秒（Retrieval Service）
+   - 全局超时：60 秒（可通过配置调整）
+   - 查询改写超时：继承自 LLM Client（默认 30 秒）
+   - 检索超时：Retrieval Client timeout（默认 10 秒）
    - LLM 生成超时：30 秒
-   - 超时处理：返回 504 Gateway Timeout
+   - 超时处理：返回 504 Gateway Timeout 或 500 Internal Server Error
 
 3. **幂等性**
 
-   - 相同查询多次调用结果可能不同（LLM 输出有随机性）
-   - temperature=0 时确定性更强但仍非完全幂等
-   - 不支持请求去重（每次查询独立处理）
+   - 非幂等：相同查询多次调用结果不同（LLM 输出有随机性，temperature > 0）
+   - 确定性提升：设置 temperature=0 可提高确定性，但仍非完全幂等
+   - 不支持请求去重：每次查询独立处理
+   - 幂等性需求：如需幂等可考虑语义缓存（Semantic Cache Service）
 
 4. **顺序保证**
-   - 查询改写 → 检索 → 上下文构建 → 答案生成 → 引用生成严格顺序执行
-   - 多查询检索可并发执行（异步 I/O）
-   - 上下文构建与答案生成不可并发（依赖关系）
+   - 严格顺序：查询改写 → 检索 → 上下文构建 → 答案生成 → 引用生成
+   - 并发执行：多查询检索使用 asyncio 并发（3 个查询并发调用 Retrieval Service）
+   - 数据依赖：上下文构建依赖检索结果，答案生成依赖上下文，引用生成依赖答案
 
 **异常路径与回退**
 
 1. **查询改写失败**
 
-   - 原因：LLM 调用超时、限流、返回格式错误
-   - 回退：使用原始查询继续流程
-   - 影响：检索效果下降 5-10%
+   - 原因：LLM 调用超时、限流、返回格式错误、模型不可用
+   - 代码处理：`except Exception as e: return [query]`（回退到原始查询）
+   - 影响：检索效果下降 5-10%，但流程可继续
+   - 日志：记录 error 级别日志
 
 2. **检索失败**
 
-   - 原因：Retrieval Service 不可用、超时
-   - 回退：返回 503 Service Unavailable
-   - 降级：可选择直接用 LLM 生成答案（无检索）
+   - 原因：Retrieval Service 不可用、超时、网络故障
+   - 代码处理：抛出异常，返回 500 Internal Server Error
+   - 降级策略：可选择直接用 LLM 生成答案（无检索），但当前代码未实现
+   - 健康检查：通过 `/api/v1/rag/health` 可监控 Retrieval Service 状态
 
 3. **检索结果为空**
 
-   - 原因：知识库无相关内容
-   - 处理：返回"未找到相关信息"提示
-   - 或使用 LLM 生成通用答案
+   - 原因：知识库无相关内容、查询过于宽泛或具体
+   - 代码处理：返回 "I couldn't find relevant information to answer your question."
+   - metadata 标记：chunks_found=0
+   - 优化建议：提示用户调整查询或扩充知识库
 
 4. **上下文构建失败**
 
-   - 原因：Token 计数失败
-   - 回退：使用简单字符截断（按字符数）
-   - 影响：可能截断不精确
+   - 原因：tiktoken 库失败、文档格式异常
+   - 代码处理：降级到粗略估算（1 token ≈ 4 字符）
+   - 影响：Token 截断可能不精确，超限时 LLM 可能返回错误
+   - 日志：记录 error 级别日志
 
 5. **LLM 生成失败**
 
-   - 原因：LLM API 超时、限流、内容过滤
-   - 重试：自动重试 3 次（指数退避：1s、2s、4s）
-   - 最终失败：返回 500 Internal Server Error
+   - 原因：LLM API 超时、限流、内容过滤、余额不足、模型不可用
+   - 代码处理：抛出 RuntimeError，返回 500 Internal Server Error
+   - 重试：依赖 LLM Client 内部重试机制（如 AsyncOpenAI 自动重试）
+   - 错误信息：返回详细错误信息到客户端（开发模式）或通用错误（生产模式）
 
 6. **引用生成失败**
-   - 原因：正则匹配失败、文档索引越界
-   - 回退：返回答案但 citations 为空
-   - 影响：用户体验下降但功能可用
+   - 原因：正则匹配失败、文档索引越界、citations 为空
+   - 代码处理：不抛出异常，返回空引用列表 `citations: []`
+   - 影响：用户体验下降（无法追溯来源），但答案仍可用
+   - 降级：可使用 `add_inline_citations()` 自动添加引用
 
 **性能要点与容量假设**
 
-1. **各阶段耗时分布**
+1. **各阶段耗时分布（基于 Multi-Query + Rerank）**
 
-   - 查询改写：0.5-1.5 秒（15-25%）
-   - 多查询检索：1-2 秒（25-35%）
-   - 上下文构建：0.1-0.3 秒（2-5%）
-   - 答案生成：2-5 秒（40-60%）
-   - 引用生成：0.05-0.1 秒（1-2%）
-   - 总耗时：3-9 秒（平均 5 秒）
+   - 查询改写：0.5-1.5 秒（10-20%），取决于 LLM 响应速度
+   - 多查询检索：1-2 秒（20-30%），3 个查询并发，包含 Rerank
+   - 上下文构建：0.1-0.3 秒（2-5%），主要是 Token 计数
+   - 答案生成：2-5 秒（50-70%），LLM 生成主要瓶颈
+   - 引用生成：0.05-0.1 秒（1-2%），正则匹配和列表处理
+   - 总耗时：4-9 秒（平均 5-6 秒）
 
-2. **Token 消耗**
+2. **Token 消耗（基于 GPT-3.5-Turbo）**
 
-   - 查询改写：输入 100-200 tokens，输出 50-150 tokens
-   - 答案生成：输入 3000-4000 tokens（上下文+查询），输出 300-1000 tokens
-   - 单次查询总 Token：3500-5000 tokens
-   - 成本估算（GPT-4-Turbo）：$0.015-0.025/查询
+   - 查询改写：输入 100-200 tokens（Prompt + 查询），输出 50-150 tokens（2 个替代查询）
+   - 答案生成：输入 3000-3500 tokens（系统提示 + 上下文 + 查询），输出 300-1000 tokens
+   - 单次查询总 Token：3400-4650 tokens
+   - 成本估算：
+     - GPT-3.5-Turbo：$0.002/1K tokens（输入）+ $0.004/1K tokens（输出） ≈ $0.012-0.020/查询
+     - GPT-4-Turbo：$0.010/1K tokens（输入）+ $0.030/1K tokens（输出） ≈ $0.045-0.110/查询
 
 3. **QPS 容量**
 
-   - 单实例 QPS：5-10（受 LLM 调用延迟限制）
-   - 3 实例 QPS：15-30
-   - 5 实例 QPS：25-50
-   - 峰值 QPS：60-80（短时突发）
+   - 单实例 QPS：2-5（受 LLM 调用延迟限制，5-6秒/查询）
+   - 3 实例 QPS：6-15
+   - 5 实例 QPS：10-25
+   - 峰值 QPS：30-40（短时突发，需缓存支持）
+   - 提升 QPS：部署更多实例、使用语义缓存、优化 LLM 调用（更快模型）
 
 4. **内存占用**
 
-   - 单请求内存：10-20 MB（文档缓存、Token 计算）
-   - 200 并发内存：2-4 GB
-   - 建议配置：8 GB RAM/实例
+   - 单请求内存：5-15 MB（文档内容、Token 计算、中间结果）
+   - 基础内存：50-100 MB（应用启动、依赖库）
+   - 建议配置：512 MB - 1 GB RAM/Pod（Kubernetes）
+   - 内存峰值：并发 10 个请求时约 200 MB
 
 5. **网络带宽**
-   - 检索调用：10-50 KB/请求
-   - LLM 调用：5-20 KB/请求（输入）+ 2-10 KB/响应（输出）
-   - 总带宽：20-80 KB/请求
-   - 10 QPS 带宽：200-800 KB/s = 1.6-6.4 Mbps
+   - 检索调用：5-30 KB/请求（10 个文档 × 2-3 KB/文档）
+   - LLM 调用：10-20 KB/请求（输入 Prompt）+ 2-10 KB/响应（输出答案）
+   - 总带宽：20-60 KB/请求
+   - 10 QPS 带宽：200-600 KB/s = 1.6-4.8 Mbps（可忽略）
 
 **版本兼容与演进**
 
 1. **API 版本**
 
-   - 当前版本：v1
-   - 向后兼容策略：新增字段可选，旧客户端忽略
-   - 废弃字段保留至少 2 个版本（6 个月）
+   - 当前版本：v1（/api/v1/rag）
+   - 向后兼容策略：新增可选字段，旧客户端忽略未知字段
+   - 废弃字段：保留至少 2 个大版本（约 6-12 个月）
+   - 版本升级：通过路径前缀区分（/api/v2/rag）
 
 2. **改写方法扩展**
 
-   - 现有：multi、hyde、none
-   - 未来：可扩展 step-back、decomposition 等
-   - 客户端：传入未知方法时回退到 none
+   - 现有：multi（多查询扩展）、hyde（假设文档嵌入）、none（无改写）
+   - 未来：可扩展 step-back（后退提示）、decomposition（查询分解，已实现但未启用）
+   - 客户端兼容：传入未知方法时，记录警告并回退到 none
 
 3. **检索模式兼容**
 
-   - 现有：vector、bm25、hybrid、graph
-   - 兼容 Retrieval Service v1 API
-   - 新增模式：Retrieval Service 升级后自动支持
+   - RAG Engine 调用：rerank=True（启用重排序）
+   - Retrieval Service 支持：vector、bm25、hybrid、graph
+   - 新增模式：Retrieval Service 升级后，RAG Engine 无需修改（透明传递）
 
 4. **响应结构扩展**
-   - metadata 字段可扩展
-   - 新增字段不影响现有客户端
-   - citations 结构保持稳定
+   - metadata 字段：可扩展添加新字段（如 cache_hit、strategy_used）
+   - citations 结构：保持稳定，新增字段可选
+   - 向后兼容：旧客户端忽略新字段，不影响解析
 
 ---
 
@@ -1080,7 +1238,7 @@ sequenceDiagram
 
 ## 关键功能点量化分析
 
-以下表格详细罗列 RAG Engine 的关键功能点，包含功能目的、量化指标和成本收益分析。
+以下表格详细罗列 RAG Engine 的关键功能点，基于实际代码实现和行业经验给出量化指标估算。
 
 ### 查询优化功能
 
@@ -1089,7 +1247,7 @@ sequenceDiagram
 | **Multi-Query Expansion** | 扩大检索覆盖面，提升召回率     | 召回率 +15~25%                   | 额外 1 次 LLM 调用<br/>+$0.002-0.005/查询<br/>延迟 +0.5-1.5 秒        | ±5%                             | 提升 5-10%<br/>（更全面的上下文） | 查询模糊、多义词、覆盖面要求高     |
 | **HyDE（假设文档嵌入）**  | 提升检索精确度，用假设答案检索 | 精确率 +10~20%<br/>召回率 +5~10% | 额外 1 次 LLM 调用<br/>+$0.003-0.008/查询<br/>延迟 +1-2 秒            | +10-15%                         | 提升 10-15%<br/>（更精准的文档）  | 查询简短、关键词不足、高精度要求   |
 | **Query Decomposition**   | 分解复杂查询为子查询           | 复杂查询准确率 +15~30%           | 额外 1 次 LLM 调用 + N 次检索<br/>+$0.005-0.015/查询<br/>延迟 +2-4 秒 | +15-25%                         | 提升 15-20%<br/>（多角度验证）    | 复杂推理、多跳问题、包含多个子问题 |
-| **无改写（Direct）**      | 降低延迟，节省成本             | 延迟 -0.5-1.5 秒                 | 节省 1 次 LLM 调用<br/>-$0.002-0.005/查询                             | -5~10%<br/>（相比 Multi-Query） | 降低 5-10%                        | 查询清晰、关键词完整、低延迟要求   |
+| **无改写（None）**      | 降低延迟，节省成本             | 延迟 -0.5-1.5 秒                 | 节省 1 次 LLM 调用<br/>-$0.002-0.005/查询                             | -5~10%<br/>（相比 Multi-Query） | 降低 5-10%                        | 查询清晰、关键词完整、低延迟要求   |
 
 ### 上下文管理功能
 

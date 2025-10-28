@@ -167,31 +167,6 @@ func (c *AdapterClient) ForwardEmbeddingRequest(ctx context.Context, req *Embedd
 	return &embResp, nil
 }
 
-// HealthCheck 健康检查
-func (c *AdapterClient) HealthCheck(ctx context.Context) error {
-	httpReq, err := http.NewRequestWithContext(
-		ctx,
-		"GET",
-		fmt.Sprintf("%s/health", c.baseURL),
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("health check failed: status=%d", resp.StatusCode)
-	}
-
-	return nil
-}
-
 // HealthCheckRequest 健康检查请求
 type HealthCheckRequest struct {
 	Model string `json:"model"`
@@ -199,11 +174,11 @@ type HealthCheckRequest struct {
 
 // HealthCheckResponse 健康检查响应
 type HealthCheckResponse struct {
-	Status     string  `json:"status"` // "healthy", "degraded", "unhealthy"
+	Status         string  `json:"status"` // "healthy", "degraded", "unhealthy"
 	ResponseTimeMs float64 `json:"response_time_ms"`
-	Available  bool    `json:"available"`
-	Message    string  `json:"message,omitempty"`
-	Error      string  `json:"error,omitempty"`
+	Available      bool    `json:"available"`
+	Message        string  `json:"message,omitempty"`
+	Error          string  `json:"error,omitempty"`
 }
 
 // HealthCheck 执行真实的健康检查
@@ -219,7 +194,7 @@ func (c *AdapterClient) HealthCheck(ctx context.Context, modelName string) (*Hea
 				"content": "Hello",
 			},
 		},
-		MaxTokens: 5,
+		MaxTokens:   5,
 		Temperature: 0.1,
 	}
 
@@ -266,7 +241,7 @@ func (c *AdapterClient) HealthCheck(ctx context.Context, modelName string) (*Hea
 // BatchHealthCheck 批量健康检查
 func (c *AdapterClient) BatchHealthCheck(ctx context.Context, modelNames []string) map[string]*HealthCheckResponse {
 	results := make(map[string]*HealthCheckResponse)
-	
+
 	// 并发检查所有模型
 	resultChan := make(chan struct {
 		modelName string

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"voiceassistant/cmd/identity-service/internal/biz"
 	"voiceassistant/cmd/identity-service/internal/domain"
 
@@ -10,11 +11,12 @@ import (
 
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // IdentityService is the identity service implementation.
 type IdentityService struct {
-	pb.UnimplementedIdentityServer
+	pb.UnimplementedIdentityServiceServer
 
 	userUC   *biz.UserUsecase
 	authUC   *biz.AuthUsecase
@@ -68,7 +70,12 @@ func (s *IdentityService) GetUser(ctx context.Context, req *pb.GetUserRequest) (
 func (s *IdentityService) UpdateUser(ctx context.Context, req *pb.UpdateUserRequest) (*pb.User, error) {
 	s.log.WithContext(ctx).Infof("UpdateUser called: %s", req.Id)
 
-	user, err := s.userUC.UpdateUserProfile(ctx, req.Id, req.Username, "")
+	displayName := ""
+	if req.DisplayName != nil {
+		displayName = *req.DisplayName
+	}
+
+	user, err := s.userUC.UpdateUserProfile(ctx, req.Id, displayName, "")
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +84,7 @@ func (s *IdentityService) UpdateUser(ctx context.Context, req *pb.UpdateUserRequ
 }
 
 // DeleteUser deletes a user.
-func (s *IdentityService) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*pb.DeleteUserResponse, error) {
+func (s *IdentityService) DeleteUser(ctx context.Context, req *pb.DeleteUserRequest) (*emptypb.Empty, error) {
 	s.log.WithContext(ctx).Infof("DeleteUser called: %s", req.Id)
 
 	err := s.userUC.DeleteUser(ctx, req.Id)
@@ -85,7 +92,7 @@ func (s *IdentityService) DeleteUser(ctx context.Context, req *pb.DeleteUserRequ
 		return nil, err
 	}
 
-	return &pb.DeleteUserResponse{Success: true}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // Login authenticates a user.
@@ -108,29 +115,31 @@ func (s *IdentityService) Login(ctx context.Context, req *pb.LoginRequest) (*pb.
 // domainUserToPB converts domain.User to pb.User
 func domainUserToPB(user *domain.User) *pb.User {
 	return &pb.User{
-		Id:        user.ID,
-		Email:     user.Email,
-		Username:  user.Username,
-		TenantId:  user.TenantID,
-		CreatedAt: user.CreatedAt.Unix(),
-		UpdatedAt: user.UpdatedAt.Unix(),
+		Id:          user.ID,
+		Email:       user.Email,
+		Username:    user.Username,
+		DisplayName: user.Username, // 使用 username 作为 display_name
+		TenantId:    user.TenantID,
+		CreatedAt:   timestamppb.New(user.CreatedAt),
+		UpdatedAt:   timestamppb.New(user.UpdatedAt),
 	}
 }
 
 // Logout logs out a user and revokes tokens.
-func (s *IdentityService) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.LogoutResponse, error) {
-	s.log.WithContext(ctx).Infof("Logout called")
+func (s *IdentityService) Logout(ctx context.Context, req *pb.LogoutRequest) (*emptypb.Empty, error) {
+	s.log.WithContext(ctx).Infof("Logout called for user: %s", req.UserId)
 
-	err := s.authUC.Logout(ctx, req.AccessToken, req.RefreshToken)
+	// 吊销用户的 token（使用提供的 token）
+	err := s.authUC.Logout(ctx, req.Token, "")
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.LogoutResponse{Success: true}, nil
+	return &emptypb.Empty{}, nil
 }
 
 // RefreshToken refreshes access token.
-func (s *IdentityService) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+func (s *IdentityService) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.TokenResponse, error) {
 	s.log.WithContext(ctx).Infof("RefreshToken called")
 
 	tokenPair, err := s.authUC.RefreshToken(ctx, req.RefreshToken)
@@ -138,7 +147,7 @@ func (s *IdentityService) RefreshToken(ctx context.Context, req *pb.RefreshToken
 		return nil, err
 	}
 
-	return &pb.RefreshTokenResponse{
+	return &pb.TokenResponse{
 		AccessToken:  tokenPair.AccessToken,
 		RefreshToken: tokenPair.RefreshToken,
 		ExpiresIn:    tokenPair.ExpiresIn,
@@ -146,7 +155,7 @@ func (s *IdentityService) RefreshToken(ctx context.Context, req *pb.RefreshToken
 }
 
 // VerifyToken verifies a token.
-func (s *IdentityService) VerifyToken(ctx context.Context, req *pb.VerifyTokenRequest) (*pb.VerifyTokenResponse, error) {
+func (s *IdentityService) VerifyToken(ctx context.Context, req *pb.VerifyTokenRequest) (*pb.TokenClaims, error) {
 	s.log.WithContext(ctx).Infof("VerifyToken called")
 
 	claims, err := s.authUC.VerifyToken(ctx, req.Token)
@@ -154,10 +163,8 @@ func (s *IdentityService) VerifyToken(ctx context.Context, req *pb.VerifyTokenRe
 		return nil, err
 	}
 
-	return &pb.VerifyTokenResponse{
-		Valid:    true,
+	return &pb.TokenClaims{
 		UserId:   claims.UserID,
-		Email:    claims.Email,
 		TenantId: claims.TenantID,
 		Roles:    claims.Roles,
 	}, nil

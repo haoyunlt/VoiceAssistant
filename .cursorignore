@@ -2,17 +2,24 @@
 # Cursor AI Performance Optimization - Ignore Rules
 # 排除不需要 AI 索引的文件和目录，提升 Cursor 性能与响应速度
 # 原则：忽略依赖、构建产物、数据文件，保留源码、配置、文档
+# 优化版本 - 针对 VoiceAssistant 平台特性
 # ==============================================================================
 
 # ============================================
 # Dependencies & Package Managers
 # ============================================
+# Node.js / Frontend
 node_modules/
 .pnpm-store/
 .yarn/
 .npm/
+.pnp/
+.pnp.js
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
 
-# Python virtual environments
+# Python virtual environments (所有服务的 venv)
 .venv/
 venv/
 env/
@@ -26,10 +33,13 @@ __pycache__/
 .nox/
 *.egg-info/
 .Python
+.ipynb_checkpoints/
+*.whl
 
 # Go dependencies
 vendor/
 go.work.sum
+go.sum
 
 # ============================================
 # Build & Distribution
@@ -51,6 +61,14 @@ target/
 *.a
 *.wasm
 
+# Frontend build caches
+.turbo/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
+
 # ============================================
 # Generated Code (可根据需要调整)
 # ============================================
@@ -68,8 +86,8 @@ api/generated/
 # IDE & Editor
 # ============================================
 .idea/
-.vscode/settings.json
-.vscode/launch.json
+#.vscode/settings.json
+#.vscode/launch.json
 *.swp
 *.swo
 *.swn
@@ -159,8 +177,6 @@ bin/
 tmp/
 temp/
 *.cache
-.turbo/
-.parcel-cache/
 
 # ============================================
 # AI/ML Large Files
@@ -172,9 +188,36 @@ temp/
 *.safetensors
 *.pt
 *.pth
+*.onnx
+*.tflite
+*.pb
 models/checkpoints/
 wandb/
 mlruns/
+.wandb/
+
+# Audio/Video files (语音助手相关)
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.aac
+*.m4a
+*.wma
+*.mp4
+*.avi
+*.mov
+*.mkv
+audio_cache/
+recordings/
+uploads/
+
+# Large data files
+*.csv
+*.json.gz
+*.parquet
+*.arrow
+*.feather
 
 # ============================================
 # Documentation (Doc-Light 原则)
@@ -222,3 +265,32 @@ nacos_config_cache/
 # ============================================
 ci-artifacts/
 .gitlab-ci-local/
+.github-actions-local/
+
+# ============================================
+# Platform Specific (平台特定大目录)
+# ============================================
+# Admin platform node_modules and build
+platforms/admin/node_modules/
+platforms/admin/dist/
+platforms/admin/.next/
+platforms/admin/out/
+
+# Web platform node_modules and build
+platforms/web/node_modules/
+platforms/web/dist/
+platforms/web/.next/
+platforms/web/out/
+
+# ============================================
+# Service Specific (服务特定目录)
+# ============================================
+# Algo services virtual environments
+algo/*/venv/
+algo/*/.venv/
+algo/*/build/
+algo/*/dist/
+
+# Flink job artifacts
+flink-jobs/*/checkpoints/
+flink-jobs/*/savepoints/

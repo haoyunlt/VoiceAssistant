@@ -22,7 +22,7 @@ asyncio-mqtt==0.16.1
 aiofiles==23.2.1
 
 # LLM & AI
-openai==1.10.0
+openai>=1.40.0
 anthropic==0.8.1
 tiktoken==0.5.2
 
@@ -62,7 +62,7 @@ pytest==7.4.4
 pytest-asyncio==0.23.3
 pytest-cov==4.1.0
 pytest-mock==3.12.0
-httpx-mock==0.7.0
+pytest-httpx==0.35.0
 faker==22.0.0
 
 # Code Quality

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"time"
 	"voiceassistant/cmd/knowledge-service/internal/data"
 )
 
@@ -22,15 +21,15 @@ type ServerConf struct {
 }
 
 type HTTPConf struct {
-	Network string        `yaml:"network"`
-	Addr    string        `yaml:"addr"`
-	Timeout time.Duration `yaml:"timeout"`
+	Network string `yaml:"network"`
+	Addr    string `yaml:"addr"`
+	Timeout string `yaml:"timeout"`
 }
 
 type GRPCConf struct {
-	Network string        `yaml:"network"`
-	Addr    string        `yaml:"addr"`
-	Timeout time.Duration `yaml:"timeout"`
+	Network string `yaml:"network"`
+	Addr    string `yaml:"addr"`
+	Timeout string `yaml:"timeout"`
 }
 
 // DataConf is data config.
@@ -59,9 +58,9 @@ type SecurityConf struct {
 }
 
 type ClamAVConf struct {
-	Host    string        `yaml:"host"`
-	Port    int           `yaml:"port"`
-	Timeout time.Duration `yaml:"timeout"`
+	Host    string `yaml:"host"`
+	Port    int    `yaml:"port"`
+	Timeout string `yaml:"timeout"`
 }
 
 // ObservabilityConf is observability config.

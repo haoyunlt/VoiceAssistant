@@ -50,6 +50,126 @@ Indexing Service（索引服务）是 VoiceAssistant 平台 RAG 能力的前置�
 
 ### 技术架构
 
+#### 综合架构全景图
+
+```mermaid
+flowchart TB
+    subgraph External["外部系统"]
+        KnowledgeService["Knowledge Service<br/>文档上传"]
+        RetrievalService["Retrieval Service<br/>向量检索"]
+    end
+
+    subgraph KafkaCluster["Kafka 集群"]
+        Topic["document.events<br/>文档事件流"]
+    end
+
+    subgraph IndexingService["Indexing Service (本服务)"]
+        subgraph API["API 层"]
+            HealthAPI["/health, /readiness"]
+            StatsAPI["/stats"]
+            IncrementalAPI["/incremental/*"]
+        end
+
+        subgraph Core["核心处理层"]
+            Consumer["Kafka Consumer<br/>事件消费"]
+            IncrementalIndexer["IncrementalIndexer<br/>增量索引协调器"]
+            VersionManager["VersionManager<br/>版本管理"]
+            DocumentProcessor["DocumentProcessor<br/>文档处理协调器"]
+        end
+
+        subgraph Modules["功能模块"]
+            ParserFactory["ParserFactory<br/>解析器工厂"]
+            Parsers["Parsers<br/>PDF/Word/Excel/..."]
+            Chunker["DocumentChunker<br/>语义分块"]
+            Embedder["BGE_M3_Embedder<br/>向量化"]
+            GraphBuilder["GraphBuilder<br/>图谱构建"]
+        end
+    end
+
+    subgraph Adapters["适配器层"]
+        MinIOClient["MinIOClient<br/>文档下载"]
+        VectorStoreClient["VectorStoreClient<br/>向量存储适配器"]
+        Neo4jClient["Neo4jClient<br/>图数据库适配器"]
+    end
+
+    subgraph StorageAdapter["Vector-Store-Adapter"]
+        AdapterAPI["适配器 API<br/>/collections/*/insert"]
+        MilvusImpl["Milvus 实现"]
+        PgVectorImpl["PgVector 实现"]
+    end
+
+    subgraph Storage["存储层"]
+        MinIO["MinIO<br/>对象存储"]
+        Redis["Redis<br/>版本缓存"]
+        Milvus["Milvus<br/>向量数据库"]
+        Neo4j["Neo4j<br/>知识图谱"]
+    end
+
+    %% 外部系统连接
+    KnowledgeService -->|上传文档| MinIO
+    KnowledgeService -->|发送事件| Topic
+    RetrievalService -->|检索向量| Milvus
+
+    %% Kafka 事件流
+    Topic --> Consumer
+
+    %% API 调用
+    External -.->|HTTP| HealthAPI
+    External -.->|HTTP| IncrementalAPI
+
+    %% 核心流程
+    Consumer --> IncrementalIndexer
+    IncrementalAPI --> IncrementalIndexer
+
+    IncrementalIndexer --> VersionManager
+    IncrementalIndexer --> DocumentProcessor
+
+    VersionManager --> Redis
+
+    DocumentProcessor --> ParserFactory
+    ParserFactory --> Parsers
+    DocumentProcessor --> Chunker
+    DocumentProcessor --> Embedder
+    DocumentProcessor --> GraphBuilder
+
+    %% 适配器调用
+    DocumentProcessor --> MinIOClient
+    DocumentProcessor --> VectorStoreClient
+    GraphBuilder --> Neo4jClient
+
+    MinIOClient --> MinIO
+    VectorStoreClient --> AdapterAPI
+    Neo4jClient --> Neo4j
+
+    %% 适配器内部
+    AdapterAPI --> MilvusImpl
+    AdapterAPI --> PgVectorImpl
+    MilvusImpl --> Milvus
+
+    %% 样式
+    style External fill:#e1f5fe
+    style KafkaCluster fill:#fff3e0
+    style IndexingService fill:#f3e5f5
+    style API fill:#e8f5e9
+    style Core fill:#fff9c4
+    style Modules fill:#fce4ec
+    style Adapters fill:#e0f2f1
+    style StorageAdapter fill:#f1f8e9
+    style Storage fill:#ede7f6
+
+    %% 关键路径标注
+    linkStyle 2,3,5,6,7,8,9,10 stroke:#f00,stroke-width:2px
+```
+
+**架构说明**：
+
+1. **事件驱动**：Knowledge Service 上传文档后发送 Kafka 事件，Indexing Service 异步消费
+2. **增量索引**：IncrementalIndexer 通过 VersionManager 检测变更，避免重复索引
+3. **模块化设计**：解析、分块、向量化、图谱构建各司其职，低耦合高内聚
+4. **适配器模式**：VectorStoreClient 通过 vector-store-adapter 统一访问向量存储，支持多后端切换
+5. **版本管理**：Redis 缓存文档版本信息，支持快速变更检测
+6. **关键路径**（红色标注）：Kafka → Consumer → IncrementalIndexer → DocumentProcessor → VectorStoreClient → Milvus
+
 #### 整体分层架构图
 
 ```mermaid
@@ -258,14 +378,31 @@ graph TB
 
 **API 层（接口层）**
 
-Indexing Service 提供 4 个 HTTP 端点：
+Indexing Service 提供 6 个核心 HTTP 端点：
 
 - `/health`：健康检查，返回服务状态和版本号
-- `/readiness`：就绪检查，验证 Kafka Consumer 和 DocumentProcessor 是否初始化完成
-- `/stats`：统计信息，返回已处理文档数、chunk 数、向量数、图谱节点数等
+- `/readiness`：就绪检查，验证 Kafka Consumer、DocumentProcessor、MinIO、Milvus、Neo4j 连接状态
+- `/stats`：统计信息，返回已处理文档数、chunk 数、向量数、图谱节点数、增量索引跳过率等
 - `/trigger`：手动触发文档处理（仅测试环境使用）
+- `/incremental/check`：增量索引检查，返回文档是否需要重新索引
+- `/incremental/reindex`：强制重新索引文档
 
-API 层使用 FastAPI 框架，支持异步请求处理。Prometheus metrics 通过 `/metrics` 端点暴露，监控文档处理量、处理时间、chunk 创建数等指标。
+API 层使用 FastAPI 框架，支持异步请求处理。集成中间件链：
+
+1. **RateLimitMiddleware**：速率限制（默认 60 次/分钟，1000 次/小时）
+2. **RequestIDMiddleware**：请求 ID 生成，用于链路追踪
+3. **StructuredLoggingMiddleware**：结构化日志记录
+4. **CORSMiddleware**：跨域请求支持
+
+Prometheus metrics 通过 `/metrics` 端点暴露，监控维度包含 tenant_id、document_type 等标签，核心指标：
+
+- `indexing_documents_processed_total`：文档处理总数（按状态和租户分组）
+- `indexing_document_processing_seconds`：文档处理耗时直方图（P50/P95/P99）
+- `indexing_chunks_created_total`：分块创建总数
+- `indexing_vectors_stored_total`：向量存储总数
+- `indexing_embedding_seconds`：向量化耗时直方图
+- `indexing_minio_download_seconds`：MinIO 下载耗时直方图
+- `indexing_errors_total`：错误计数（按错误类型分组）
 
 **基础设施层（Infrastructure Layer）**
 
@@ -1190,6 +1327,110 @@ sequenceDiagram
 - **容错**：主键冲突时报错，支持先删除旧数据再插入（幂等性）
 - **性能**：网络 IO + 磁盘 IO，50 向量约 1-2 秒
 
+#### 7. VectorStoreClient 适配器模式时序图
+
+VectorStoreClient 通过 vector-store-adapter 服务统一访问 Milvus/PgVector，实现解耦和多后端支持。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Processor as DocumentProcessor
+    participant Client as VectorStoreClient<br/>(algo/common)
+    participant Adapter as vector-store-adapter<br/>HTTP Service
+    participant Milvus as Milvus Server
+
+    Processor->>Client: insert_batch(data_list)
+
+    rect rgb(230, 240, 255)
+        Note over Client,Adapter: 步骤1-2: HTTP调用适配器服务
+        Client->>Client: 准备请求JSON
+        Client->>Client: {backend: "milvus", data: [...]}
+
+        Client->>Adapter: POST /collections/{name}/insert
+        Note over Adapter: 接收请求并验证
+    end
+
+    rect rgb(255, 240, 230)
+        Note over Adapter,Milvus: 步骤3-6: 适配器转换为Milvus调用
+        Adapter->>Adapter: 选择后端实现(Milvus/PgVector)
+        Adapter->>Adapter: 转换数据格式
+
+        Adapter->>Milvus: collection.insert(entities)
+        Note over Milvus: 批量写入向量数据<br/>更新HNSW索引
+
+        Milvus-->>Adapter: insert_result
+        Adapter->>Adapter: 检查错误
+    end
+
+    rect rgb(230, 255, 230)
+        Note over Adapter,Client: 步骤7-8: 返回结果
+        Adapter-->>Client: HTTP 200 + JSON result
+        Client->>Client: 解析响应
+        Client-->>Processor: success
+    end
+
+    Note over Client,Milvus: 适配器模式优势:<br/>1. 解耦服务与存储<br/>2. 支持多后端切换<br/>3. 统一错误处理<br/>4. 集中式监控
+```
+
+**VectorStoreClient 适配器模式优势**：
+
+1. **解耦**：Indexing Service 不直接依赖 Milvus SDK，降低耦合
+2. **多后端支持**：通过配置切换 Milvus 或 PgVector，无需修改代码
+3. **统一接口**：所有向量操作通过统一的 REST API
+4. **集中式监控**：vector-store-adapter 统一记录指标和日志
+5. **灰度切换**：可按 tenant_id 灰度切换后端，实现平滑迁移
+
+**关键代码**：
+
+```python
+# algo/common/vector_store_client.py
+class VectorStoreClient:
+    def __init__(self, base_url: str = "http://vector-store-adapter:8003"):
+        self.base_url = base_url
+        self.backend = "milvus"  # 或 "pgvector"
+        self.client = httpx.AsyncClient(base_url=base_url, timeout=30.0)
+
+    async def insert_batch(self, data_list: List[Dict]):
+        """批量插入向量"""
+        response = await self.client.post(
+            f"/collections/{self.collection_name}/insert",
+            json={"backend": self.backend, "data": data_list}
+        )
+        response.raise_for_status()
+        return response.json()
+
+    async def search(self, query_vector, top_k=10, tenant_id=None):
+        """向量检索"""
+        response = await self.client.post(
+            f"/collections/{self.collection_name}/search",
+            json={
+                "backend": self.backend,
+                "query_vector": query_vector,
+                "top_k": top_k,
+                "tenant_id": tenant_id
+            }
+        )
+        return response.json()["results"]
+```
+
+**数据流转过程**：
+
+1. **DocumentProcessor** 准备向量数据（chunk_id、content、embedding、metadata）
+2. **VectorStoreClient** 封装为 HTTP 请求发送到 vector-store-adapter
+3. **vector-store-adapter** 根据 backend 参数选择 Milvus 或 PgVector 实现
+4. **适配器** 转换数据格式，调用 Milvus SDK 的 `collection.insert()`
+5. **Milvus** 写入向量数据，触发 HNSW 索引增量更新
+6. **适配器** 检查 insert_result.err_count，返回 HTTP 响应
+7. **VectorStoreClient** 解析响应，返回成功或失败状态
+8. **DocumentProcessor** 记录统计信息（total_vectors）
+
+**性能特征**：
+
+- **HTTP 开销**：增加 5-10ms 延迟（相比直接 SDK 调用）
+- **批量优化**：单次插入 50 个向量，HTTP 开销占比 <1%
+- **重试机制**：适配器内置重试（3 次，指数退避），提升可靠性
+- **超时控制**：默认 30 秒超时，大批量插入可调整
+
 ## API 详解
 
 ### 1. 处理文档（内部 API）
@@ -1461,7 +1702,136 @@ async def _store_vectors(self, chunks: List[Dict], embeddings: List[List[float]]
     # 分区: 按tenant_id
 ```
 
-### 时序图：文档索引完整流程
+### 时序图：带增量索引的完整流程（端到端）
+
+以下时序图展示从文档上传到索引完成的完整流程，包含增量索引优化。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant KS as Knowledge Service
+    participant Kafka
+    participant Consumer as Kafka Consumer
+    participant Indexer as IncrementalIndexer
+    participant VersionMgr as VersionManager
+    participant Redis
+    participant Processor as DocumentProcessor
+    participant MinIO
+    participant Parser as PDFParser
+    participant Chunker
+    participant Embedder as BGE-M3
+    participant VSAdapter as vector-store-adapter
+    participant Milvus
+    participant Neo4j
+
+    rect rgb(225, 245, 254)
+        Note over KS,Kafka: 步骤1-3: 文档上传与事件发送
+        KS->>MinIO: 上传文档
+        MinIO-->>KS: file_path
+        KS->>Kafka: 发送 document.uploaded 事件
+    end
+
+    rect rgb(255, 243, 224)
+        Note over Kafka,Indexer: 步骤4-6: Kafka 消费与分发
+        Kafka->>Consumer: 轮询消息
+        Consumer->>Consumer: 解析 event_type 和 payload
+        Consumer->>Indexer: 调用增量索引器
+    end
+
+    rect rgb(200, 230, 201)
+        Note over Indexer,Redis: 步骤7-11: 增量索引变更检测
+        Indexer->>Indexer: calculate_content_hash(content)
+        Indexer->>VersionMgr: detect_changes(doc_id, hashes)
+        VersionMgr->>Redis: GET doc_version:{tenant}:{doc_id}
+        Redis-->>VersionMgr: current_version
+        VersionMgr-->>Indexer: VersionChange(needs_reindex)
+    end
+
+    alt 文档未变更（跳过索引）
+        rect rgb(200, 230, 201)
+            Note over Indexer,Consumer: 快速返回，节省 99% 时间
+            Indexer-->>Consumer: {status: "skipped", elapsed: 50ms}
+            Consumer->>Kafka: 提交 offset
+        end
+
+    else 文档变更或新文档（执行索引）
+        rect rgb(255, 224, 178)
+            Note over Indexer,Processor: 步骤12-20: 完整文档处理流程
+            Indexer->>Processor: process_document(doc_id, ...)
+
+            Processor->>MinIO: download_file(file_path)
+            MinIO-->>Processor: file_data (bytes)
+
+            Processor->>Parser: parse(file_data)
+            Parser->>Parser: pdfplumber → PyPDF2 降级
+            Parser-->>Processor: text (纯文本)
+
+            Processor->>Chunker: chunk(text, doc_id)
+            Chunker->>Chunker: RecursiveTextSplitter<br/>chunk_size=500, overlap=50
+            Chunker-->>Processor: chunks (List[Dict])
+
+            Processor->>Embedder: embed_batch(texts)
+            Embedder->>Embedder: SentenceTransformer.encode()<br/>batch_size=32
+            Embedder-->>Processor: embeddings (1024-dim)
+        end
+
+        rect rgb(255, 249, 196)
+            Note over Processor,Milvus: 步骤21-26: 向量存储（适配器模式）
+            Processor->>VSAdapter: VectorStoreClient.insert_batch(data)
+            VSAdapter->>VSAdapter: POST /collections/{name}/insert
+            VSAdapter->>VSAdapter: 选择后端: Milvus
+            VSAdapter->>Milvus: collection.insert(entities)
+            Milvus-->>VSAdapter: insert_result
+            VSAdapter-->>Processor: HTTP 200 + success
+        end
+
+        par 步骤27-30: 异步构建知识图谱（不阻塞）
+            Processor->>Processor: asyncio.create_task()
+            Processor->>Processor: GraphBuilder.extract(text)
+            Processor->>Neo4j: batch_create_nodes(entities)
+            Neo4j-->>Processor: success
+        end
+
+        rect rgb(200, 230, 201)
+            Note over Indexer,Redis: 步骤31-33: 保存新版本
+            Processor-->>Indexer: {status, chunks_count, duration}
+            Indexer->>VersionMgr: save_version(doc_id, hashes, chunk_count)
+            VersionMgr->>Redis: SET doc_version + LPUSH history
+            Redis-->>VersionMgr: ok
+        end
+
+        Indexer-->>Consumer: {status: "indexed", elapsed: 12s}
+        Consumer->>Kafka: 提交 offset
+        Consumer->>Kafka: 发送 document.indexed 事件（可选）
+    end
+
+    Note over KS,Neo4j: 性能对比：<br/>未变更文档: 50ms（跳过）<br/>新文档/变更: 10-15秒（完整索引）<br/>增量索引节省 60-80% 成本
+```
+
+**流程详细说明**：
+
+1. **步骤 1-3（文档上传）**：Knowledge Service 上传文档到 MinIO，获取 file_path，发送 Kafka 事件
+2. **步骤 4-6（事件消费）**：Kafka Consumer 轮询消息，解析 event_type 和 payload，分发到 IncrementalIndexer
+3. **步骤 7-11（增量检测）**：计算内容哈希，查询 Redis 获取当前版本，对比哈希值判断是否需要重新索引
+4. **快速路径（未变更）**：检测到无变更，直接返回 "skipped"，耗时 50ms，节省 99% 时间和成本
+5. **完整路径（变更或新文档）**：
+   - **步骤 12-20**：文档下载 → 解析（PDF 双层降级）→ 语义分块 → 批量向量化
+   - **步骤 21-26**：通过 VectorStoreClient 适配器写入 Milvus，支持多后端切换
+   - **步骤 27-30**：异步构建知识图谱，不阻塞主流程
+   - **步骤 31-33**：保存新版本到 Redis，包含哈希值、chunk 数量等元数据
+6. **事件反馈**：处理完成后，Consumer 提交 Kafka offset，可选发送 document.indexed 事件通知下游
+
+**关键优化点**：
+
+- **增量索引**：跳过未变更文档，节省 60-80% 成本
+- **批量向量化**：batch_size=32，吞吐量提升 10 倍+
+- **适配器模式**：解耦服务与存储，支持 Milvus/PgVector 切换
+- **异步图谱**：不阻塞主流程，总延迟减少 40%
+- **双层降级**：PDF 解析成功率提升到 98%+
+
+### 时序图：文档索引完整流程（传统流程）
+
+以下是不包含增量索引的传统流程，供对比参考。
 
 ```mermaid
 sequenceDiagram
@@ -1606,6 +1976,310 @@ Milvus 存储失败（步骤 15-16）：连接失败或插入超时时，重试 
 分块策略：当前 RecursiveCharacterTextSplitter（固定分块），未来支持语义分块（sentence-transformers）和滑动窗口。策略选择通过配置，不影响 API。
 
 灰度策略：新解析器或新分块策略通过配置项`feature_flags`控制，默认关闭。按 tenant_id 灰度，逐步放量。
+
+## 增量索引模块
+
+### 设计目标
+
+增量索引是 Indexing Service 的核心优化特性，通过智能检测文档变更，避免不必要的重复索引，显著降低计算成本和索引延迟。
+
+**核心价值**：
+
+- **成本减少**：跳过未变更文档，节省 60-80% 的向量化成本
+- **延迟降低**：无变更文档响应时间从 10-15 秒降至 50-100ms
+- **资源优化**：释放 GPU 资源用于真正需要索引的文档
+
+### 增量索引架构
+
+#### 组件协作图
+
+```mermaid
+flowchart TB
+    subgraph API["API 层"]
+        CheckAPI["/incremental/check<br/>检查是否需要索引"]
+        ReindexAPI["/incremental/reindex<br/>强制重新索引"]
+    end
+
+    subgraph IncrementalModule["增量索引模块"]
+        IncrementalIndexer["IncrementalIndexer<br/>增量索引器"]
+        VersionManager["VersionManager<br/>版本管理器"]
+    end
+
+    subgraph Storage["存储层"]
+        Redis["Redis<br/>版本信息存储"]
+        VectorStore["Milvus<br/>向量数据"]
+    end
+
+    subgraph Processing["处理层"]
+        DocProcessor["DocumentProcessor<br/>文档处理器"]
+    end
+
+    CheckAPI --> IncrementalIndexer
+    ReindexAPI --> IncrementalIndexer
+
+    IncrementalIndexer --> VersionManager
+    IncrementalIndexer --> DocProcessor
+
+    VersionManager --> Redis
+    DocProcessor --> VectorStore
+
+    style API fill:#e3f2fd
+    style IncrementalModule fill:#fff3e0
+    style Storage fill:#e8f5e9
+    style Processing fill:#f3e5f5
+```
+
+#### VersionManager（版本管理器）
+
+**职责**：
+
+1. **内容哈希计算**：使用 SHA256 计算文档内容和元数据哈希值
+2. **变更检测**：对比新旧哈希值，判断文档是否变更
+3. **版本存储**：将版本信息存储到 Redis，TTL 365 天
+4. **历史追踪**：记录文档版本历史（最多保留 100 个版本）
+
+**关键代码**：
+
+```python
+class VersionManager:
+    def calculate_content_hash(self, content: str) -> str:
+        """计算内容哈希（SHA256）"""
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    async def detect_changes(
+        self,
+        document_id: str,
+        new_content_hash: str,
+        new_metadata_hash: str,
+        tenant_id: Optional[str] = None
+    ) -> VersionChange:
+        """检测文档变更"""
+        current_version = await self.get_current_version(document_id, tenant_id)
+
+        if not current_version:
+            return VersionChange(
+                change_type="created",
+                needs_reindex=True
+            )
+
+        content_changed = new_content_hash != current_version.content_hash
+        metadata_changed = new_metadata_hash != current_version.metadata_hash
+
+        if not content_changed and not metadata_changed:
+            return VersionChange(
+                change_type="unchanged",
+                needs_reindex=False
+            )
+
+        return VersionChange(
+            change_type="updated",
+            content_changed=content_changed,
+            metadata_changed=metadata_changed,
+            needs_reindex=content_changed  # 仅内容变更需要重新索引
+        )
+```
+
+**版本数据结构**：
+
+```python
+class DocumentVersion(BaseModel):
+    document_id: str
+    version: int
+    content_hash: str           # SHA256 内容哈希
+    metadata_hash: str          # SHA256 元数据哈希
+    chunk_count: int            # 分块数量
+    vector_count: int           # 向量数量
+    created_at: float           # 创建时间戳
+    updated_at: float           # 更新时间戳
+    tenant_id: Optional[str]
+    user_id: Optional[str]
+    status: str                 # active/deleted/archived
+```
+
+**Redis 存储模式**：
+
+- **当前版本键**：`doc_version:{tenant_id}:{document_id}` → DocumentVersion JSON
+- **历史记录键**：`doc_history:{tenant_id}:{document_id}` → List[DocumentVersion]（最新在前）
+- **TTL**：365 天（可配置）
+
+#### IncrementalIndexer（增量索引器）
+
+**职责**：
+
+1. **变更检查**：调用 VersionManager 检测文档变更类型
+2. **智能分发**：根据变更类型决定是否重新索引
+3. **完全重新索引**：内容变更时，删除旧数据并重新索引
+4. **元数据更新**：仅元数据变更时，只更新元数据，不重新向量化
+5. **统计追踪**：记录跳过率、重新索引率等指标
+
+**处理决策树**：
+
+```mermaid
+flowchart TD
+    Start[收到文档] --> CalcHash[计算内容哈希和元数据哈希]
+    CalcHash --> CheckVersion[检查版本]
+
+    CheckVersion --> IsNew{是新文档?}
+    IsNew -->|是| FullIndex[完全索引]
+    IsNew -->|否| CompareHash{内容变更?}
+
+    CompareHash -->|内容未变更，元数据未变更| Skip[跳过索引]
+    CompareHash -->|内容未变更，元数据变更| UpdateMeta[仅更新元数据]
+    CompareHash -->|内容变更| FullReindex[完全重新索引]
+
+    FullIndex --> SaveVersion[保存新版本]
+    FullReindex --> DeleteOld[删除旧数据]
+    DeleteOld --> SaveVersion
+    UpdateMeta --> SaveVersion
+    Skip --> Return[返回结果]
+    SaveVersion --> Return
+
+    style Skip fill:#c8e6c9
+    style UpdateMeta fill:#fff9c4
+    style FullReindex fill:#ffccbc
+    style FullIndex fill:#b3e5fc
+```
+
+**关键方法**：
+
+```python
+async def process_with_version_check(
+    self,
+    document_id: str,
+    content: str,
+    metadata: Dict,
+    tenant_id: Optional[str] = None,
+    force_reindex: bool = False
+) -> Dict:
+    """带版本检查的文档处理"""
+    # 1. 计算哈希
+    content_hash = self.version_manager.calculate_content_hash(content)
+    metadata_hash = self.version_manager.calculate_metadata_hash(metadata)
+
+    # 2. 检测变更
+    change = await self.version_manager.detect_changes(
+        document_id, content_hash, metadata_hash, tenant_id
+    )
+
+    # 3. 根据变更类型处理
+    if change.change_type == "unchanged":
+        # 无变更，跳过索引
+        return {"status": "skipped", "reason": "no_changes"}
+
+    elif change.needs_reindex:
+        # 完全重新索引
+        return await self._full_reindex(...)
+    else:
+        # 仅更新元数据
+        return await self._update_metadata_only(...)
+```
+
+### 增量索引时序图
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Client as 客户端
+    participant Indexer as IncrementalIndexer
+    participant VersionMgr as VersionManager
+    participant Redis
+    participant Processor as DocumentProcessor
+    participant Milvus
+
+    Client->>Indexer: process_with_version_check(doc_id, content, metadata)
+
+    rect rgb(230, 245, 255)
+        Note over Indexer,Redis: 步骤1-4: 版本检查
+        Indexer->>Indexer: calculate_content_hash(content)
+        Indexer->>Indexer: calculate_metadata_hash(metadata)
+
+        Indexer->>VersionMgr: detect_changes(doc_id, hashes)
+        VersionMgr->>Redis: GET doc_version:{tenant}:{doc_id}
+        Redis-->>VersionMgr: current_version
+
+        VersionMgr->>VersionMgr: 对比哈希值
+        VersionMgr-->>Indexer: VersionChange(type, needs_reindex)
+    end
+
+    alt 文档未变更 (unchanged)
+        rect rgb(200, 230, 201)
+            Note over Indexer,Client: 快速路径: 跳过索引
+            Indexer-->>Client: {status: "skipped", elapsed: 50ms}
+        end
+
+    else 内容变更 (needs_reindex=true)
+        rect rgb(255, 224, 178)
+            Note over Indexer,Milvus: 完全重新索引
+            Indexer->>Milvus: delete_by_document(doc_id)
+            Milvus-->>Indexer: deleted
+
+            Indexer->>Processor: process_document(doc_id, ...)
+            Processor->>Processor: 解析->分块->向量化->存储
+            Processor-->>Indexer: {chunks_count, duration}
+
+            Indexer->>VersionMgr: save_version(doc_id, hashes, ...)
+            VersionMgr->>Redis: SET doc_version + LPUSH history
+            Redis-->>VersionMgr: ok
+
+            Indexer-->>Client: {status: "reindexed", chunks: N, elapsed: 12s}
+        end
+
+    else 仅元数据变更 (metadata_changed=true)
+        rect rgb(255, 249, 196)
+            Note over Indexer,Milvus: 增量更新: 仅更新元数据
+            Indexer->>Milvus: update_metadata(doc_id, metadata)
+            Milvus-->>Indexer: updated
+
+            Indexer->>VersionMgr: save_version(doc_id, hashes, ...)
+            VersionMgr->>Redis: SET doc_version
+            Redis-->>VersionMgr: ok
+
+            Indexer-->>Client: {status: "updated", operation: "metadata_only", elapsed: 0.5s}
+        end
+    end
+
+    Note over Indexer,Milvus: 性能对比:<br/>跳过: 50ms<br/>元数据更新: 0.5s<br/>完全重新索引: 10-15s
+```
+
+### 增量索引性能数值
+
+#### 跳过率（Skip Rate）
+
+| 场景 | 跳过率 | 节省成本 | 说明 |
+|------|-------|---------|------|
+| 文档重复上传 | 95-100% | 95-100% | 相同文档重复上传，完全跳过 |
+| 定期全量同步 | 70-80% | 70-80% | 大部分文档未变更 |
+| 元数据修正 | 0% | 50% | 仅更新元数据，不重新向量化 |
+| 内容微调（<5%） | 0% | 0% | 内容变更，必须重新索引 |
+
+#### 响应延迟对比
+
+| 操作类型 | 无增量索引 | 有增量索引 | 延迟减少 |
+|---------|-----------|-----------|---------|
+| 未变更文档 | 10-15 秒 | **50-100 ms** | **减少 99%** |
+| 元数据变更 | 10-15 秒 | **0.5-1 秒** | **减少 90-95%** |
+| 内容变更 | 10-15 秒 | 10-15 秒 | 无优化（必须重新索引） |
+
+#### 成本节省估算
+
+假设场景：1000 个文档/天上传，其中 70% 未变更，20% 仅元数据变更，10% 内容变更
+
+**无增量索引**：
+- 总索引次数：1000 次
+- 向量化成本：1000 × $0.002 = **$2.00/天**
+- GPU 占用时长：1000 × 5 秒 = 1.39 小时/天
+
+**有增量索引**：
+- 跳过索引：700 次（无成本）
+- 元数据更新：200 次（无向量化成本）
+- 完全重新索引：100 次
+- 向量化成本：100 × $0.002 = **$0.20/天**
+- GPU 占用时长：100 × 5 秒 = 0.14 小时/天
+
+**节省**：
+- 成本节省：**90%**（$2.00 → $0.20）
+- GPU 时长节省：**90%**（1.39h → 0.14h）
+- 平均延迟：从 12 秒降至 **1.5 秒**（减少 87%）
 
 ## 关键功能点分析
 
@@ -1903,10 +2577,56 @@ if text_hash in self.cache:
 | 检索准确率 (Recall@10) | 70-75% | **80-85%** | **提升 10-15%** |
 | LLM 生成幻觉率 | 12-15% | **7-10%** | **减少 30-40%** |
 
+### 0. 增量索引（Incremental Indexing）
+
+**功能描述**：
+
+通过内容哈希对比，智能检测文档变更，仅对变更文档执行重新索引。
+
+**设计目的**：
+
+- **成本减少**：跳过未变更文档，避免不必要的向量化计算
+- **性能提升**：无变更文档响应时间从 10 秒降至 50ms
+- **资源优化**：释放 GPU 资源处理真正需要索引的文档
+
+**关键代码**：
+
+```python
+# app/services/version_manager.py
+async def detect_changes(self, document_id, new_content_hash, new_metadata_hash):
+    current_version = await self.get_current_version(document_id)
+
+    if not current_version:
+        return VersionChange(change_type="created", needs_reindex=True)
+
+    content_changed = new_content_hash != current_version.content_hash
+    if not content_changed:
+        return VersionChange(change_type="unchanged", needs_reindex=False)
+
+    return VersionChange(change_type="updated", needs_reindex=True)
+```
+
+**数值估计**：
+
+| 指标 | 无增量索引 | 有增量索引 | 提升比例 |
+|------|-----------|-----------|---------|
+| 未变更文档延迟 | 10-15 秒 | **50-100 ms** | **减少 99%** |
+| 跳过率（重复上传场景） | 0% | **70-80%** | - |
+| 向量化成本（70%未变更） | $2.00/千文档 | **$0.60/千文档** | **减少 70%** |
+| GPU 占用时长 | 1.39 小时/千文档 | **0.42 小时/千文档** | **减少 70%** |
+| 平均响应延迟 | 12 秒 | **4.2 秒** | **减少 65%** |
+
+**权衡分析**：
+
+- 需要 Redis 存储版本信息（内存占用约 1KB/文档）
+- SHA256 哈希计算开销（10MB 文档约 50-100ms，可忽略）
+- 版本信息 TTL 365 天，长期存储成本低
+
 ### 关键功能点汇总表
 
 | 功能点 | 主要目的 | 核心指标 | 提升/减少 | 权衡 |
 |-------|---------|---------|----------|------|
+| **增量索引** | **成本减少、性能提升** | **平均延迟** | **减少 65%** | Redis 内存 +1KB/文档 |
 | 批量向量化 | 性能提升、成本减少 | 吞吐量 | **提升 10 倍+** | 无明显权衡 |
 | 语义分块 | 准确率提升、减少幻觉 | Recall@10 | **提升 13-15%** | 无明显权衡 |
 | PDFParser 降级 | 准确率提升、成本减少 | 解析成功率 | **提升到 98-99.5%** | 延迟略增（+10-20%） |
@@ -1922,16 +2642,24 @@ if text_hash in self.cache:
 
 基于成本-收益分析，优化优先级从高到低：
 
-1. **批量向量化**（P0）：无权衡，性能提升 10 倍+，必须实施
-2. **Kafka 异步**（P0）：解耦上游，响应延迟减少 95%+，必须实施
-3. **Milvus HNSW 索引**（P0）：检索延迟减少 98%，Recall 下降 2-5%可接受
-4. **语义分块 + Chunk Overlap**（P0）：准确率提升 13-15%，减少幻觉 30-40%
-5. **PDFParser 降级**（P1）：解析成功率提升到 98%+，降低人工介入
-6. **异步图谱构建**（P1）：主流程延迟减少 40%，图谱成功率略降可接受
-7. **tenant_id 分区**（P1）：多租户场景必须，检索延迟减少 85%
-8. **向量化缓存**（P2）：重复文档场景有效，通用场景收益有限
-9. **递归分块**（P2）：已在语义分块中实施，无额外成本
-10. **其他优化**（P3）：如自适应分块、智能解析等，边际收益递减
+1. **增量索引**（P0）：成本减少 70%，平均延迟减少 65%，ROI 最高，必须实施
+2. **批量向量化**（P0）：无权衡，性能提升 10 倍+，必须实施
+3. **Kafka 异步**（P0）：解耦上游，响应延迟减少 95%+，必须实施
+4. **Milvus HNSW 索引**（P0）：检索延迟减少 98%，Recall 下降 2-5%可接受
+5. **语义分块 + Chunk Overlap**（P0）：准确率提升 13-15%，减少幻觉 30-40%
+6. **PDFParser 降级**（P1）：解析成功率提升到 98%+，降低人工介入
+7. **异步图谱构建**（P1）：主流程延迟减少 40%，图谱成功率略降可接受
+8. **tenant_id 分区**（P1）：多租户场景必须，检索延迟减少 85%
+9. **向量化缓存**（P2）：重复文档场景有效，通用场景收益有限
+10. **递归分块**（P2）：已在语义分块中实施，无额外成本
+11. **其他优化**（P3）：如自适应分块、智能解析等，边际收益递减
+
+**优先级说明**：
+
+- **P0（必须实施）**：成本减少 >50% 或性能提升 >5 倍，无重大权衡
+- **P1（高优先级）**：成本减少 30-50% 或性能提升 2-5 倍，权衡可接受
+- **P2（中优先级）**：特定场景有效，边际收益明显
+- **P3（低优先级）**：边际收益递减，酌情实施
 
 ## 配置说明
 

@@ -6,6 +6,7 @@
 package main
 
 import (
+	"time"
 	"voiceassistant/cmd/knowledge-service/internal/biz"
 	"voiceassistant/cmd/knowledge-service/internal/data"
 	"voiceassistant/cmd/knowledge-service/internal/infrastructure/event"
@@ -34,16 +35,13 @@ func wireApp(c *Config, logger log.Logger) (*kratos.App, func(), error) {
 		storage.NewMinIOClient,
 		security.NewClamAVScanner,
 		wire.Bind(new(security.VirusScanner), new(*security.ClamAVScanner)),
-		event.NewKafkaPublisher,
-		wire.Bind(new(event.EventPublisher), new(*event.KafkaPublisher)),
+		event.NewEventPublisher,
 
 		// Data layer
 		data.NewDB,
 		data.NewData,
 		data.NewKnowledgeBaseRepo,
 		data.NewDocumentRepo,
-		wire.Bind(new(biz.DocumentRepository), new(*data.DocumentRepository)),
-		data.NewChunkRepo,
 
 		// Business logic layer
 		biz.NewKnowledgeBaseUsecase,
@@ -87,10 +85,14 @@ func provideEventConfig(c *Config) event.EventPublisherConfig {
 
 // provideSecurityConfig converts main Config to security.ClamAVConfig
 func provideSecurityConfig(c *Config) security.ClamAVConfig {
+	timeout, _ := time.ParseDuration(c.Security.ClamAV.Timeout)
+	if timeout == 0 {
+		timeout = 30 * time.Second // 默认值
+	}
 	return security.ClamAVConfig{
 		Host:    c.Security.ClamAV.Host,
 		Port:    c.Security.ClamAV.Port,
-		Timeout: c.Security.ClamAV.Timeout,
+		Timeout: timeout,
 	}
 }
 
@@ -99,7 +101,7 @@ func provideHTTPConfig(c *Config) *server.HTTPConfig {
 	return &server.HTTPConfig{
 		Network: c.Server.HTTP.Network,
 		Addr:    c.Server.HTTP.Addr,
-		Timeout: c.Server.HTTP.Timeout.String(),
+		Timeout: c.Server.HTTP.Timeout,
 	}
 }
 
@@ -108,6 +110,6 @@ func provideGRPCConfig(c *Config) *server.GRPCConfig {
 	return &server.GRPCConfig{
 		Network: c.Server.GRPC.Network,
 		Addr:    c.Server.GRPC.Addr,
-		Timeout: c.Server.GRPC.Timeout.String(),
+		Timeout: c.Server.GRPC.Timeout,
 	}
 }

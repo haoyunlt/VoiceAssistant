@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"voiceassistant/cmd/model-router/internal/server"
-	"voiceassistant/pkg/config"
 	"voiceassistant/pkg/observability"
 
 	"github.com/go-kratos/kratos/v2"
@@ -47,7 +46,15 @@ func main() {
 	helper := kratoslog.NewHelper(logger)
 
 	// 3. 初始化可观测性（OpenTelemetry）
-	shutdown, err := observability.InitTracing(context.Background(), "model-router", "v1.0.0")
+	tracingConfig := observability.TracingConfig{
+		ServiceName:    "model-router",
+		ServiceVersion: "v1.0.0",
+		Environment:    "development",
+		Endpoint:       cfg.Observability.Tracing.Endpoint,
+		SamplingRate:   cfg.Observability.Tracing.Sampler,
+		Enabled:        cfg.Observability.Tracing.Enabled,
+	}
+	shutdown, err := observability.InitTracing(context.Background(), tracingConfig)
 	if err != nil {
 		helper.Warnf("Failed to initialize tracing: %v", err)
 	} else {
@@ -100,9 +107,9 @@ func loadConfig(path string) (*Config, error) {
 
 // newApp 创建 Kratos 应用
 func newApp(
+	cfg *Config,
 	logger kratoslog.Logger,
 	httpServer *server.HTTPServer,
-	grpcServer *kratoslog.Logger, // TODO: 添加实际的 gRPC server
 ) *kratos.App {
 	return kratos.New(
 		kratos.Name("model-router"),

@@ -19,6 +19,33 @@ type AuthConf struct {
 	AccessTokenExpiry    string // 如 "1h"
 	RefreshTokenExpiry   string // 如 "168h" (7天)
 	PasswordPolicy       PasswordPolicyConf
+	OAuth                OAuthProvidersConf
+}
+
+// OAuthProvidersConf OAuth提供商配置
+type OAuthProvidersConf struct {
+	Wechat WechatOAuthConf
+	Github GithubOAuthConf
+	Google GoogleOAuthConf
+}
+
+// WechatOAuthConf 微信OAuth配置
+type WechatOAuthConf struct {
+	AppID     string
+	AppSecret string
+}
+
+// GithubOAuthConf GitHub OAuth配置
+type GithubOAuthConf struct {
+	ClientID     string
+	ClientSecret string
+}
+
+// GoogleOAuthConf Google OAuth配置
+type GoogleOAuthConf struct {
+	ClientID     string
+	ClientSecret string
+	RedirectURI  string
 }
 
 // PasswordPolicyConf 密码策略配置

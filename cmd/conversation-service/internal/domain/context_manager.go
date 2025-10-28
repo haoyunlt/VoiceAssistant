@@ -66,8 +66,9 @@ func (m *ContextManagerImpl) GetContext(
 
 	// 1. 尝试从缓存获取
 	cached, err := m.contextRepo.GetCached(ctx, conversationID)
-	if err == nil && cached != nil && m.isValid(cached) {
-		return cached, nil
+	if err == nil && cached != nil && m.isValidConversationContext(cached) {
+		// 转换为 ManagedContext
+		return m.convertToManagedContext(cached), nil
 	}
 
 	// 2. 根据策略获取消息
@@ -96,7 +97,8 @@ func (m *ContextManagerImpl) GetContext(
 	}
 
 	// 6. 缓存结果
-	_ = m.contextRepo.Cache(ctx, contextData, 5*time.Minute)
+	convContext := m.convertToConversationContext(contextData)
+	_ = m.contextRepo.Cache(ctx, convContext, 5*time.Minute)
 
 	return contextData, nil
 }
@@ -114,20 +116,24 @@ func (m *ContextManagerImpl) UpdateContext(
 		return nil
 	}
 
-	// 2. 追加新消息
-	cached.Messages = append(cached.Messages, newMessage)
-	cached.TotalTokens += m.estimateTokens([]*Message{newMessage})
-	cached.GeneratedAt = time.Now()
+	// 2. 转换为 ManagedContext
+	managed := m.convertToManagedContext(cached)
 
-	// 3. 检查是否超过限制
-	if cached.TotalTokens > m.maxTokens {
+	// 3. 追加新消息
+	managed.Messages = append(managed.Messages, newMessage)
+	managed.TotalTokens += m.estimateTokens([]*Message{newMessage})
+	managed.GeneratedAt = time.Now()
+
+	// 4. 检查是否超过限制
+	if managed.TotalTokens > m.maxTokens {
 		// 裁剪旧消息
-		cached.Messages = m.trimMessages(cached.Messages, m.maxTokens)
-		cached.TotalTokens = m.estimateTokens(cached.Messages)
+		managed.Messages = m.trimMessages(managed.Messages, m.maxTokens)
+		managed.TotalTokens = m.estimateTokens(managed.Messages)
 	}
 
-	// 4. 更新缓存
-	return m.contextRepo.Cache(ctx, cached, 5*time.Minute)
+	// 5. 转换回 ConversationContext 并更新缓存
+	convContext := m.convertToConversationContext(managed)
+	return m.contextRepo.Cache(ctx, convContext, 5*time.Minute)
 }
 
 // CompressContext 压缩上下文（长对话优化）
@@ -136,7 +142,7 @@ func (m *ContextManagerImpl) CompressContext(
 	conversationID string,
 ) error {
 	// 获取对话历史
-	messages, err := m.messageRepo.GetByConversationID(ctx, conversationID, 100)
+	messages, err := m.messageRepo.GetRecentMessages(ctx, conversationID, 100)
 	if err != nil {
 		return err
 	}
@@ -159,11 +165,11 @@ func (m *ContextManagerImpl) CompressContext(
 	// 3. 创建系统摘要消息
 	summaryMsg := &Message{
 		ConversationID: conversationID,
-		Role:           "system",
+		Role:           RoleSystem,
 		Content:        fmt.Sprintf("Previous conversation summary: %s", summary),
-		Type:           "summary",
-		Metadata: map[string]interface{}{
-			"compressed_message_count": len(oldMessages),
+		ContentType:    ContentTypeText,
+		Metadata: map[string]string{
+			"compressed_message_count": fmt.Sprintf("%d", len(oldMessages)),
 			"compression_time":         time.Now().Format(time.RFC3339),
 		},
 	}
@@ -176,7 +182,7 @@ func (m *ContextManagerImpl) CompressContext(
 	// - 或者直接删除非关键消息
 
 	// 保存摘要消息
-	if err := m.messageRepo.Create(ctx, summaryMsg); err != nil {
+	if err := m.messageRepo.CreateMessage(ctx, summaryMsg); err != nil {
 		return fmt.Errorf("save summary message: %w", err)
 	}
 
@@ -280,7 +286,62 @@ func (m *ContextManagerImpl) isValid(context *ManagedContext) bool {
 	return time.Since(context.GeneratedAt) < 5*time.Minute
 }
 
+// isValidConversationContext 检查 ConversationContext 是否有效
+func (m *ContextManagerImpl) isValidConversationContext(context *ConversationContext) bool {
+	// 缓存5分钟内有效
+	return time.Since(context.UpdatedAt) < 5*time.Minute
+}
+
 // SetStrategy 设置窗口策略
 func (m *ContextManagerImpl) SetStrategy(strategy WindowStrategy) {
 	m.windowStrategy = strategy
+}
+
+// convertToManagedContext 将 ConversationContext 转换为 ManagedContext
+func (m *ContextManagerImpl) convertToManagedContext(convCtx *ConversationContext) *ManagedContext {
+	messages := make([]*Message, len(convCtx.Messages))
+	for i, ctxMsg := range convCtx.Messages {
+		messages[i] = &Message{
+			ID:             ctxMsg.ID,
+			ConversationID: convCtx.ConversationID,
+			TenantID:       convCtx.TenantID,
+			UserID:         convCtx.UserID,
+			Role:           MessageRole(ctxMsg.Role),
+			Content:        ctxMsg.Content,
+			ContentType:    ContentTypeText,
+			Tokens:         ctxMsg.Tokens,
+			CreatedAt:      ctxMsg.Timestamp,
+		}
+	}
+
+	return &ManagedContext{
+		ConversationID: convCtx.ConversationID,
+		Messages:       messages,
+		TotalTokens:    convCtx.TotalTokens,
+		GeneratedAt:    convCtx.UpdatedAt,
+		CacheKey:       fmt.Sprintf("context:%s", convCtx.ConversationID),
+	}
+}
+
+// convertToConversationContext 将 ManagedContext 转换为 ConversationContext
+func (m *ContextManagerImpl) convertToConversationContext(managed *ManagedContext) *ConversationContext {
+	messages := make([]ContextMessage, len(managed.Messages))
+	for i, msg := range managed.Messages {
+		messages[i] = ContextMessage{
+			ID:        msg.ID,
+			Role:      string(msg.Role),
+			Content:   msg.Content,
+			Tokens:    msg.Tokens,
+			Timestamp: msg.CreatedAt,
+		}
+	}
+
+	return &ConversationContext{
+		ConversationID: managed.ConversationID,
+		Messages:       messages,
+		TotalTokens:    managed.TotalTokens,
+		MessageCount:   len(managed.Messages),
+		UpdatedAt:      managed.GeneratedAt,
+		CreatedAt:      managed.GeneratedAt,
+	}
 }

@@ -1,5 +1,5 @@
 """
-Vector Store Adapter Service - 向量库适配服务
+Vector Store Adapter Service - 向量库适配服务（重构版）
 
 提供统一的向量数据库访问接口，支持：
 - Milvus
@@ -14,18 +14,35 @@ Vector Store Adapter Service - 向量库适配服务
 """
 
 import logging
-import os
 from contextlib import asynccontextmanager
-from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from app.core.settings import settings
+from app.middleware import (
+    IdempotencyMiddleware,
+    LoggingMiddleware,
+    RateLimiterMiddleware,
+    error_handler_middleware,
+)
+from app.models import (
+    CollectionCountResponse,
+    DeleteResponse,
+    HealthResponse,
+    InsertResponse,
+    InsertVectorsRequest,
+    ReadyResponse,
+    SearchResponse,
+    SearchVectorsRequest,
+    StatsResponse,
+)
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
 
 # 配置日志
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=getattr(logging, settings.log_level.upper()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s - [trace_id=%(trace_id)s]",
 )
 logger = logging.getLogger(__name__)
 
@@ -43,16 +60,32 @@ VECTOR_OPERATION_DURATION = Histogram(
 
 # 全局变量
 vector_store_manager = None
+redis_client = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    global vector_store_manager
+    global vector_store_manager, redis_client
 
     logger.info("Starting Vector Store Adapter Service...")
 
     try:
+        # 初始化 Redis（如果启用）
+        if settings.rate_limit_enabled or settings.idempotency_enabled:
+            try:
+                import redis.asyncio as aioredis
+
+                redis_url = f"redis://:{settings.redis_password}@{settings.redis_host}:{settings.redis_port}/{settings.redis_db}" if settings.redis_password else f"redis://{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+                redis_client = await aioredis.from_url(
+                    redis_url,
+                    encoding="utf-8",
+                    decode_responses=True,
+                )
+                logger.info("Redis connected")
+            except Exception as e:
+                logger.warning(f"Redis connection failed: {e}, will use memory cache")
+
         # 初始化向量存储管理器
         from app.core.vector_store_manager import VectorStoreManager
 
@@ -70,6 +103,9 @@ async def lifespan(app: FastAPI):
         if vector_store_manager:
             await vector_store_manager.cleanup()
 
+        if redis_client:
+            await redis_client.close()
+
         logger.info("Vector Store Adapter Service shut down complete")
 
 
@@ -77,11 +113,12 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Vector Store Adapter Service",
     description="统一的向量数据库访问服务 - 支持 Milvus、pgvector 等",
-    version="1.0.0",
+    version=settings.version,
     lifespan=lifespan,
 )
 
-# CORS 中间件
+# 添加中间件（顺序很重要）
+# 1. CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -89,6 +126,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 2. 日志中间件（最外层，记录所有请求）
+app.add_middleware(LoggingMiddleware)
+
+# 3. 限流中间件
+if settings.rate_limit_enabled:
+    app.add_middleware(
+        RateLimiterMiddleware,
+        redis_client=redis_client,
+        max_requests=settings.rate_limit_requests,
+        window_seconds=settings.rate_limit_window,
+        enabled=True,
+    )
+
+# 4. 幂等性中间件
+if settings.idempotency_enabled:
+    app.add_middleware(
+        IdempotencyMiddleware,
+        redis_client=redis_client,
+        ttl_seconds=settings.idempotency_ttl,
+        enabled=True,
+    )
 
 # Prometheus 指标
 metrics_app = make_asgi_app()
@@ -99,162 +158,144 @@ app.mount("/metrics", metrics_app)
 # 健康检查
 # ========================================
 
-@app.get("/health")
+
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
     """健康检查"""
-    return {
-        "status": "healthy",
-        "service": "vector-store-adapter",
-        "version": "1.0.0",
-    }
+    return HealthResponse(
+        status="healthy",
+        service=settings.service_name,
+        version=settings.version,
+    )
 
 
-@app.get("/ready")
+@app.get("/ready", response_model=ReadyResponse)
 async def readiness_check():
     """就绪检查"""
     global vector_store_manager
 
     if not vector_store_manager:
-        return {"ready": False, "reason": "VectorStoreManager not initialized"}
+        return ReadyResponse(
+            ready=False, reason="VectorStoreManager not initialized"
+        )
 
     checks = await vector_store_manager.health_check()
 
-    return {
-        "ready": all(checks.values()),
-        "checks": checks,
-    }
+    return ReadyResponse(
+        ready=all(checks.values()),
+        checks=checks,
+    )
 
 
 # ========================================
 # 向量操作 API
 # ========================================
 
-@app.post("/collections/{collection_name}/insert")
-async def insert_vectors(collection_name: str, request: dict):
+
+@app.post("/collections/{collection_name}/insert", response_model=InsertResponse)
+async def insert_vectors(collection_name: str, request: InsertVectorsRequest):
     """
     插入向量（单条或批量）
 
     Args:
         collection_name: 集合名称
-        request:
-            backend: 后端类型 (milvus/pgvector)
-            data: 向量数据（单条或列表）
-                - chunk_id: 分块ID
-                - document_id: 文档ID
-                - content: 内容
-                - embedding: 向量
-                - tenant_id: 租户ID
-                - metadata: 元数据（可选）
+        request: 插入请求
     """
     global vector_store_manager
 
     if not vector_store_manager:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
-    backend = request.get("backend", "milvus")
-    data = request.get("data")
-
-    if not data:
-        raise HTTPException(status_code=400, detail="Data is required")
-
     try:
-        # 确保是列表
-        if isinstance(data, dict):
-            data = [data]
+        # 转换数据
+        data = [item.model_dump() for item in request.data]
 
         result = await vector_store_manager.insert_vectors(
             collection_name=collection_name,
-            backend=backend,
+            backend=request.backend,
             data=data,
         )
 
         VECTOR_OPERATIONS.labels(
             operation="insert",
-            backend=backend,
+            backend=request.backend,
             status="success",
         ).inc(len(data))
 
-        return {
-            "status": "success",
-            "collection": collection_name,
-            "backend": backend,
-            "inserted": len(data),
-            "result": result,
-        }
+        return InsertResponse(
+            status="success",
+            collection=collection_name,
+            backend=request.backend,
+            inserted=len(data),
+            result=result,
+        )
 
     except Exception as e:
         logger.error(f"Error inserting vectors: {e}", exc_info=True)
         VECTOR_OPERATIONS.labels(
             operation="insert",
-            backend=backend,
+            backend=request.backend,
             status="error",
         ).inc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise
 
 
-@app.post("/collections/{collection_name}/search")
-async def search_vectors(collection_name: str, request: dict):
+@app.post("/collections/{collection_name}/search", response_model=SearchResponse)
+async def search_vectors(collection_name: str, request: SearchVectorsRequest):
     """
     向量检索
 
     Args:
         collection_name: 集合名称
-        request:
-            backend: 后端类型 (milvus/pgvector)
-            query_vector: 查询向量
-            top_k: 返回结果数（默认10）
-            tenant_id: 租户ID（可选，用于过滤）
-            filters: 额外过滤条件（可选）
-            search_params: 搜索参数（可选）
+        request: 搜索请求
     """
     global vector_store_manager
 
     if not vector_store_manager:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
-    backend = request.get("backend", "milvus")
-    query_vector = request.get("query_vector")
-
-    if not query_vector:
-        raise HTTPException(status_code=400, detail="query_vector is required")
-
     try:
         results = await vector_store_manager.search_vectors(
             collection_name=collection_name,
-            backend=backend,
-            query_vector=query_vector,
-            top_k=request.get("top_k", 10),
-            tenant_id=request.get("tenant_id"),
-            filters=request.get("filters"),
-            search_params=request.get("search_params"),
+            backend=request.backend,
+            query_vector=request.query_vector,
+            top_k=request.top_k,
+            tenant_id=request.tenant_id,
+            filters=request.filters,
+            search_params=request.search_params,
         )
 
         VECTOR_OPERATIONS.labels(
             operation="search",
-            backend=backend,
+            backend=request.backend,
             status="success",
         ).inc()
 
-        return {
-            "status": "success",
-            "collection": collection_name,
-            "backend": backend,
-            "results": results,
-            "count": len(results),
-        }
+        return SearchResponse(
+            status="success",
+            collection=collection_name,
+            backend=request.backend,
+            results=results,
+            count=len(results),
+        )
 
     except Exception as e:
         logger.error(f"Error searching vectors: {e}", exc_info=True)
         VECTOR_OPERATIONS.labels(
             operation="search",
-            backend=backend,
+            backend=request.backend,
             status="error",
         ).inc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise
 
 
-@app.delete("/collections/{collection_name}/documents/{document_id}")
-async def delete_by_document(collection_name: str, document_id: str, backend: str = "milvus"):
+@app.delete(
+    "/collections/{collection_name}/documents/{document_id}",
+    response_model=DeleteResponse,
+)
+async def delete_by_document(
+    collection_name: str, document_id: str, backend: str = "milvus"
+):
     """
     删除文档的所有向量
 
@@ -281,13 +322,13 @@ async def delete_by_document(collection_name: str, document_id: str, backend: st
             status="success",
         ).inc()
 
-        return {
-            "status": "success",
-            "collection": collection_name,
-            "backend": backend,
-            "document_id": document_id,
-            "result": result,
-        }
+        return DeleteResponse(
+            status="success",
+            collection=collection_name,
+            backend=backend,
+            document_id=document_id,
+            result=result,
+        )
 
     except Exception as e:
         logger.error(f"Error deleting vectors: {e}", exc_info=True)
@@ -296,10 +337,12 @@ async def delete_by_document(collection_name: str, document_id: str, backend: st
             backend=backend,
             status="error",
         ).inc()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise
 
 
-@app.get("/collections/{collection_name}/count")
+@app.get(
+    "/collections/{collection_name}/count", response_model=CollectionCountResponse
+)
 async def get_collection_count(collection_name: str, backend: str = "milvus"):
     """
     获取集合中的向量数量
@@ -319,19 +362,19 @@ async def get_collection_count(collection_name: str, backend: str = "milvus"):
             backend=backend,
         )
 
-        return {
-            "status": "success",
-            "collection": collection_name,
-            "backend": backend,
-            "count": count,
-        }
+        return CollectionCountResponse(
+            status="success",
+            collection=collection_name,
+            backend=backend,
+            count=count,
+        )
 
     except Exception as e:
         logger.error(f"Error getting count: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise
 
 
-@app.get("/stats")
+@app.get("/stats", response_model=StatsResponse)
 async def get_stats():
     """获取统计信息"""
     global vector_store_manager
@@ -342,22 +385,25 @@ async def get_stats():
     return await vector_store_manager.get_stats()
 
 
+# 添加全局异常处理
+@app.middleware("http")
+async def error_handler(request: Request, call_next):
+    """全局错误处理中间件"""
+    return await error_handler_middleware(request, call_next)
+
+
 if __name__ == "__main__":
     import uvicorn
 
-    # 配置
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8003"))
-    workers = int(os.getenv("WORKERS", "1"))
-    reload = os.getenv("RELOAD", "false").lower() == "true"
-
-    logger.info(f"Starting server on {host}:{port} with {workers} workers")
+    logger.info(
+        f"Starting server on {settings.host}:{settings.port} with {settings.workers} workers"
+    )
 
     uvicorn.run(
-        "main:app",
-        host=host,
-        port=port,
-        workers=workers,
-        reload=reload,
-        log_level="info",
+        "main_refactored:app",
+        host=settings.host,
+        port=settings.port,
+        workers=settings.workers,
+        reload=settings.reload,
+        log_level=settings.log_level.lower(),
     )

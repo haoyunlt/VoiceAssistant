@@ -60,7 +60,7 @@ func (r *UserRepositoryImpl) ListByTenant(ctx context.Context, tenantID string, 
 			&user.Email,
 			&user.Name,
 			&user.Status,
-			&user.Created At,
+			&user.CreatedAt,
 			&user.UpdatedAt,
 		); err != nil {
 			r.log.Warnf("Failed to scan user row: %v", err)
@@ -157,7 +157,6 @@ func (r *UserRepositoryImpl) Create(ctx context.Context, user *User) error {
 		user.CreatedAt,
 		user.UpdatedAt,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
@@ -183,7 +182,6 @@ func (r *UserRepositoryImpl) Update(ctx context.Context, user *User) error {
 		user.Status,
 		user.UpdatedAt,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}

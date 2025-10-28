@@ -2,15 +2,14 @@ package biz
 
 import (
 	"context"
-	"fmt"
 
 	"voiceassistant/cmd/conversation-service/internal/domain"
 )
 
 // MessageUsecase 消息用例
 type MessageUsecase struct {
-	conversationRepo domain.ConversationRepository
 	messageRepo      domain.MessageRepository
+	conversationRepo domain.ConversationRepository
 }
 
 // NewMessageUsecase 创建消息用例
@@ -19,137 +18,116 @@ func NewMessageUsecase(
 	messageRepo domain.MessageRepository,
 ) *MessageUsecase {
 	return &MessageUsecase{
-		conversationRepo: conversationRepo,
 		messageRepo:      messageRepo,
+		conversationRepo: conversationRepo,
 	}
 }
 
 // SendMessage 发送消息
-func (uc *MessageUsecase) SendMessage(ctx context.Context, conversationID, userID string, role domain.MessageRole, content string) (*domain.Message, error) {
-	// 获取对话
+func (uc *MessageUsecase) SendMessage(
+	ctx context.Context,
+	conversationID string,
+	userID string,
+	role domain.MessageRole,
+	content string,
+) (*domain.Message, error) {
+	// 1. 获取对话
 	conversation, err := uc.conversationRepo.GetConversation(ctx, conversationID)
 	if err != nil {
 		return nil, err
 	}
 
-	// 权限检查
+	// 2. 检查权限（确保用户拥有该对话）
 	if conversation.UserID != userID {
-		return nil, domain.ErrUnauthorized
+		return nil, domain.ErrPermissionDenied
 	}
 
-	// 检查是否可以发送消息
+	// 3. 检查是否可以发送消息
 	if !conversation.CanSendMessage() {
-		return nil, domain.ErrConversationFull
+		return nil, domain.ErrConversationLimitReached
 	}
 
-	// 创建消息
-	message := domain.NewMessage(conversationID, conversation.TenantID, userID, role, content)
+	// 4. 创建消息
+	message := domain.NewMessage(
+		conversationID,
+		conversation.TenantID,
+		userID,
+		role,
+		content,
+	)
 
-	// 保存消息
+	// 5. 保存消息
 	if err := uc.messageRepo.CreateMessage(ctx, message); err != nil {
-		return nil, fmt.Errorf("failed to create message: %w", err)
+		return nil, err
 	}
 
-	// 更新对话统计
+	// 6. 更新对话
 	conversation.IncrementMessageCount()
 	if err := uc.conversationRepo.UpdateConversation(ctx, conversation); err != nil {
-		return nil, err
+		// 记录错误但不影响消息创建结果
+		// TODO: 添加日志
 	}
 
 	return message, nil
 }
 
 // GetMessage 获取消息
-func (uc *MessageUsecase) GetMessage(ctx context.Context, id, userID string) (*domain.Message, error) {
+func (uc *MessageUsecase) GetMessage(ctx context.Context, id string, userID string) (*domain.Message, error) {
+	// 1. 获取消息
 	message, err := uc.messageRepo.GetMessage(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 
-	// 权限检查
+	// 2. 检查权限（确保用户拥有该消息）
 	if message.UserID != userID {
-		return nil, domain.ErrUnauthorized
+		return nil, domain.ErrPermissionDenied
 	}
 
 	return message, nil
 }
 
 // ListMessages 列出消息
-func (uc *MessageUsecase) ListMessages(ctx context.Context, conversationID, userID string, limit, offset int) ([]*domain.Message, int, error) {
-	// 获取对话并检查权限
+func (uc *MessageUsecase) ListMessages(
+	ctx context.Context,
+	conversationID string,
+	userID string,
+	limit int,
+	offset int,
+) ([]*domain.Message, int, error) {
+	// 1. 获取对话
 	conversation, err := uc.conversationRepo.GetConversation(ctx, conversationID)
 	if err != nil {
 		return nil, 0, err
 	}
 
+	// 2. 检查权限（确保用户拥有该对话）
 	if conversation.UserID != userID {
-		return nil, 0, domain.ErrUnauthorized
+		return nil, 0, domain.ErrPermissionDenied
 	}
 
-	// 获取消息列表
+	// 3. 列出消息
 	return uc.messageRepo.ListMessages(ctx, conversationID, limit, offset)
 }
 
 // GetRecentMessages 获取最近的消息
-func (uc *MessageUsecase) GetRecentMessages(ctx context.Context, conversationID, userID string, limit int) ([]*domain.Message, error) {
-	// 获取对话并检查权限
-	conversation, err := uc.conversationRepo.GetConversation(ctx, conversationID)
-	if err != nil {
-		return nil, err
-	}
-
-	if conversation.UserID != userID {
-		return nil, domain.ErrUnauthorized
-	}
-
-	// 获取最近消息
-	return uc.messageRepo.GetRecentMessages(ctx, conversationID, limit)
-}
-
-// GetCompressedContext 获取压缩后的上下文
-func (uc *MessageUsecase) GetCompressedContext(
+func (uc *MessageUsecase) GetRecentMessages(
 	ctx context.Context,
 	conversationID string,
 	userID string,
-	maxTokens int,
-	compressionService *ContextCompressionService,
+	limit int,
 ) ([]*domain.Message, error) {
-	// 获取对话并检查权限
+	// 1. 获取对话
 	conversation, err := uc.conversationRepo.GetConversation(ctx, conversationID)
 	if err != nil {
 		return nil, err
 	}
 
+	// 2. 检查权限（确保用户拥有该对话）
 	if conversation.UserID != userID {
-		return nil, domain.ErrUnauthorized
+		return nil, domain.ErrPermissionDenied
 	}
 
-	// 获取所有消息
-	messages, _, err := uc.messageRepo.ListMessages(ctx, conversationID, 1000, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list messages: %w", err)
-	}
-
-	// 计算当前token总数
-	currentTokens := 0
-	for _, msg := range messages {
-		currentTokens += msg.Tokens
-		if msg.Tokens == 0 {
-			// 估算
-			currentTokens += len(msg.Content) / 3
-		}
-	}
-
-	// 如果未超过限制，直接返回
-	if currentTokens <= maxTokens {
-		return messages, nil
-	}
-
-	// 压缩上下文
-	compressed, err := compressionService.CompressContext(ctx, messages, currentTokens)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compress context: %w", err)
-	}
-
-	return compressed, nil
+	// 3. 获取最近的消息
+	return uc.messageRepo.GetRecentMessages(ctx, conversationID, limit)
 }

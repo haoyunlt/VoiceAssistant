@@ -57,6 +57,12 @@ yarn-error.log*
 .pnpm-debug.log*
 .yarn/
 .npm/
+.pnp/
+.pnp.js
+.eslintcache
+.stylelintcache
+tsconfig.tsbuildinfo
+*.tsbuildinfo
 
 # ============================================
 # Build Outputs & Binaries
@@ -73,6 +79,8 @@ bin/
 *.pyc
 *.pyo
 *.pyd
+*.whl
+.ipynb_checkpoints/
 
 # Shared libraries
 *.so
@@ -225,13 +233,42 @@ package-lock.json.backup
 *.h5
 *.hdf5
 *.safetensors
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.pb
 models/checkpoints/
 wandb/
 mlruns/
+.wandb/
 
 # Vector databases
 faiss_index/
 chroma_db/
+
+# Audio/Video files (voice assistant data)
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.aac
+*.m4a
+*.wma
+*.mp4
+*.avi
+*.mov
+*.mkv
+audio_cache/
+recordings/
+uploads/
+
+# Large data files
+*.csv.gz
+*.json.gz
+*.parquet
+*.arrow
+*.feather
 
 # ============================================
 # Project Specific

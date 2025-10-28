@@ -3,7 +3,6 @@ package server
 import (
 	"time"
 
-	pb "voiceassistant/api/proto/identity/v1"
 	"voiceassistant/cmd/identity-service/internal/service"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -52,8 +51,11 @@ func NewHTTPServer(
 
 	srv := http.NewServer(opts...)
 
-	// Register service (gRPC-Gateway)
-	pb.RegisterIdentityHTTPServer(srv, identityService)
+	// Register service routes
+	// Note: Kratos HTTP server requires manual route registration or proto with HTTP annotations
+	// For now, we'll register gRPC and let gateway handle HTTP
+	// TODO: Add HTTP route registration when needed
+	_ = identityService // unused for now
 
 	return srv
 }

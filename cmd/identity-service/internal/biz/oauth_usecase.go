@@ -18,15 +18,30 @@ type OAuthClient interface {
 	GetUserInfo(ctx context.Context, code string) (*domain.OAuthUserInfo, error)
 }
 
+// WechatClient 微信客户端类型（用于Wire区分）
+type WechatClient struct {
+	OAuthClient
+}
+
+// GithubClient GitHub客户端类型（用于Wire区分）
+type GithubClient struct {
+	OAuthClient
+}
+
+// GoogleClient Google客户端类型（用于Wire区分）
+type GoogleClient struct {
+	OAuthClient
+}
+
 // OAuthUsecase OAuth业务逻辑
 type OAuthUsecase struct {
 	userRepo     domain.UserRepository
 	oauthRepo    domain.OAuthRepository
 	tenantRepo   domain.TenantRepository
 	authUC       *AuthUsecase
-	wechatClient OAuthClient
-	githubClient OAuthClient
-	googleClient OAuthClient
+	wechatClient *WechatClient
+	githubClient *GithubClient
+	googleClient *GoogleClient
 }
 
 // NewOAuthUsecase 创建OAuth用例
@@ -35,9 +50,9 @@ func NewOAuthUsecase(
 	oauthRepo domain.OAuthRepository,
 	tenantRepo domain.TenantRepository,
 	authUC *AuthUsecase,
-	wechatClient OAuthClient,
-	githubClient OAuthClient,
-	googleClient OAuthClient,
+	wechatClient *WechatClient,
+	githubClient *GithubClient,
+	googleClient *GoogleClient,
 ) *OAuthUsecase {
 	return &OAuthUsecase{
 		userRepo:     userRepo,

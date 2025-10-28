@@ -8,6 +8,7 @@ package main
 import (
 	"voiceassistant/cmd/identity-service/internal/biz"
 	"voiceassistant/cmd/identity-service/internal/data"
+	"voiceassistant/cmd/identity-service/internal/infra/oauth"
 	"voiceassistant/cmd/identity-service/internal/server"
 	"voiceassistant/cmd/identity-service/internal/service"
 
@@ -25,8 +26,8 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 		// Consul Registry (commented out due to multiple int params issue)
 		// server.NewConsulRegistry,
 
-		// Cache layer
-		data.NewCacheManager,
+		// Cache layer (commented out as it's not used yet)
+		// data.NewCacheManager,
 
 		// Token Blacklist
 		data.NewTokenBlacklistService,
@@ -38,6 +39,8 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 		data.NewData,
 		data.NewUserRepo,
 		data.NewTenantRepo,
+		data.NewAuditLogRepository,
+		data.NewOAuthRepo,
 
 		// Audit Log Service
 		biz.NewAuditLogService,
@@ -45,7 +48,12 @@ func wireApp(*Config, log.Logger) (*kratos.App, func(), error) {
 		// Provide Auth Config
 		ProvideAuthConfig,
 
-		// OAuth Usecase (placeholder for now)
+		// OAuth Clients
+		ProvideWechatClient,
+		ProvideGithubClient,
+		ProvideGoogleClient,
+
+		// OAuth Usecase
 		biz.NewOAuthUsecase,
 
 		// Business logic layer
@@ -97,4 +105,26 @@ func ProvideGRPCConfig(cfg *Config) *server.GRPCConfig {
 		Addr:    cfg.Server.GRPC.Addr,
 		Timeout: cfg.Server.GRPC.Timeout,
 	}
+}
+
+// ProvideWechatClient provides Wechat OAuth client
+func ProvideWechatClient(cfg *Config) *biz.WechatClient {
+	client := oauth.NewWechatClient(cfg.Auth.OAuth.Wechat.AppID, cfg.Auth.OAuth.Wechat.AppSecret)
+	return &biz.WechatClient{OAuthClient: client}
+}
+
+// ProvideGithubClient provides GitHub OAuth client
+func ProvideGithubClient(cfg *Config) *biz.GithubClient {
+	client := oauth.NewGitHubClient(cfg.Auth.OAuth.Github.ClientID, cfg.Auth.OAuth.Github.ClientSecret)
+	return &biz.GithubClient{OAuthClient: client}
+}
+
+// ProvideGoogleClient provides Google OAuth client
+func ProvideGoogleClient(cfg *Config) *biz.GoogleClient {
+	client := oauth.NewGoogleClient(
+		cfg.Auth.OAuth.Google.ClientID,
+		cfg.Auth.OAuth.Google.ClientSecret,
+		cfg.Auth.OAuth.Google.RedirectURI,
+	)
+	return &biz.GoogleClient{OAuthClient: client}
 }
