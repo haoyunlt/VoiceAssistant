@@ -254,6 +254,114 @@ class VoiceEngine:
             ),
         }
 
+    async def denoise_audio(self, audio_data: bytes, strength: float = 0.5, **kwargs) -> bytes:
+        """
+        音频降噪处理
+
+        Args:
+            audio_data: 原始音频数据
+            strength: 降噪强度 (0.0-1.0)
+            **kwargs: 其他参数
+
+        Returns:
+            降噪后的音频数据
+        """
+        try:
+            import io
+
+            import numpy as np
+            from pydub import AudioSegment
+            from scipy import signal
+
+            # 将字节转换为AudioSegment
+            audio = AudioSegment.from_file(io.BytesIO(audio_data))
+
+            # 转换为numpy数组
+            samples = np.array(audio.get_array_of_samples())
+
+            # 应用低通滤波器去除高频噪声
+            nyquist = audio.frame_rate // 2
+            cutoff = 3000  # 3kHz 低通滤波
+            normal_cutoff = cutoff / nyquist
+
+            # 设计巴特沃斯滤波器
+            b, a = signal.butter(4, normal_cutoff, btype="low", analog=False)
+            filtered_samples = signal.filtfilt(b, a, samples)
+
+            # 应用降噪强度
+            denoised_samples = samples * (1 - strength) + filtered_samples * strength
+            denoised_samples = denoised_samples.astype(np.int16)
+
+            # 转换回AudioSegment
+            denoised_audio = AudioSegment(
+                denoised_samples.tobytes(),
+                frame_rate=audio.frame_rate,
+                sample_width=audio.sample_width,
+                channels=audio.channels,
+            )
+
+            # 导出为字节
+            output = io.BytesIO()
+            denoised_audio.export(output, format="wav")
+            output.seek(0)
+
+            logger.info(f"Audio denoised with strength={strength}")
+            return output.read()
+
+        except ImportError as e:
+            logger.error(f"Missing required package for audio processing: {e}")
+            raise Exception("Audio processing dependencies not installed (numpy, scipy, pydub)")
+        except Exception as e:
+            logger.error(f"Audio denoising failed: {e}", exc_info=True)
+            raise
+
+    async def enhance_audio(
+        self, audio_data: bytes, normalize: bool = True, denoise_strength: float = 0.3, **kwargs
+    ) -> bytes:
+        """
+        音频增强处理（降噪 + 音量标准化）
+
+        Args:
+            audio_data: 原始音频数据
+            normalize: 是否进行音量标准化
+            denoise_strength: 降噪强度
+            **kwargs: 其他参数
+
+        Returns:
+            增强后的音频数据
+        """
+        try:
+            import io
+
+            import numpy as np
+            from pydub import AudioSegment
+            from pydub.effects import normalize as pydub_normalize
+
+            # 先进行降噪
+            denoised_data = await self.denoise_audio(audio_data, strength=denoise_strength)
+
+            # 将字节转换为AudioSegment
+            audio = AudioSegment.from_file(io.BytesIO(denoised_data))
+
+            # 音量标准化
+            if normalize:
+                audio = pydub_normalize(audio)
+
+            # 可选：动态范围压缩
+            # audio = audio.compress_dynamic_range(threshold=-20.0, ratio=4.0)
+
+            # 导出为字节
+            output = io.BytesIO()
+            audio.export(output, format="wav")
+            output.seek(0)
+
+            logger.info(f"Audio enhanced (denoise={denoise_strength}, normalize={normalize})")
+            return output.read()
+
+        except Exception as e:
+            logger.error(f"Audio enhancement failed: {e}", exc_info=True)
+            raise
+
     async def cleanup(self) -> None:
         """清理资源"""
         logger.info("Cleaning up Voice Engine...")

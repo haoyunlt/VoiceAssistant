@@ -57,10 +57,14 @@ lint:
 	@echo "Linting code..."
 	golangci-lint run
 
-# Proto generation (when proto files are ready)
+# Proto generation
 proto:
 	@echo "Generating proto code..."
-	# TODO: Add proto generation command
+	protoc --proto_path=../../api/proto \
+		--go_out=. --go_opt=paths=source_relative \
+		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		../../api/proto/notification/*.proto
+	@echo "Proto code generated successfully"
 
 # Docker
 docker-build:

@@ -47,7 +47,6 @@ def get_voice_engine():  # type: ignore
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore
-
     """应用生命周期管理"""
     logger.info("Starting Voice Engine...")
 
@@ -105,18 +104,42 @@ from app.middleware.rate_limiter import RateLimiterMiddleware
 
 settings = get_settings()
 
+# Redis 客户端初始化
+redis_client = None
+try:
+    import redis.asyncio as aioredis
+
+    redis_client = aioredis.from_url(
+        settings.REDIS_URL,
+        encoding="utf-8",
+        decode_responses=True,
+        max_connections=20,
+        socket_timeout=5.0,
+        socket_connect_timeout=5.0,
+    )
+    logger.info(f"Redis client initialized: {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+except ImportError:
+    logger.warning("redis package not installed, rate limiting disabled")
+except Exception as e:
+    logger.error(f"Failed to initialize Redis client: {e}")
+
 # 幂等性中间件（需要 Redis）
-# app.add_middleware(IdempotencyMiddleware, redis_client=None, ttl=120)
+if redis_client:
+    app.add_middleware(IdempotencyMiddleware, redis_client=redis_client, ttl=120)
+    logger.info("Idempotency middleware enabled")
 
 # 限流中间件
-if settings.RATE_LIMIT_ENABLED:
+if settings.RATE_LIMIT_ENABLED and redis_client:
     app.add_middleware(
         RateLimiterMiddleware,
-        redis_client=None,  # TODO: 集成 Redis
+        redis_client=redis_client,
         tenant_limit=settings.RATE_LIMIT_TENANT_PER_MINUTE,
         user_limit=settings.RATE_LIMIT_USER_PER_MINUTE,
         ip_limit=settings.RATE_LIMIT_IP_PER_MINUTE,
     )
+    logger.info("Rate limiter middleware enabled")
+elif settings.RATE_LIMIT_ENABLED and not redis_client:
+    logger.warning("Rate limiting disabled: Redis client not available")
 
 # 日志中间件
 app.add_middleware(BaseHTTPMiddleware, dispatch=logging_middleware)
@@ -332,11 +355,21 @@ async def process_audio(
         if operation == "asr":
             return await voice_engine.speech_to_text(audio_data, **params)
         elif operation == "denoise":
-            # TODO: 实现降噪
-            raise HTTPException(status_code=501, detail="Denoise not yet implemented")
+            # 音频降噪处理
+            processed_audio = await voice_engine.denoise_audio(audio_data, **params)
+            return {
+                "audio": processed_audio,
+                "format": params.get("output_format", "wav"),
+                "sample_rate": settings.AUDIO_SAMPLE_RATE,
+            }
         elif operation == "enhance":
-            # TODO: 实现音频增强
-            raise HTTPException(status_code=501, detail="Enhance not yet implemented")
+            # 音频增强处理（降噪 + 音量标准化）
+            enhanced_audio = await voice_engine.enhance_audio(audio_data, **params)
+            return {
+                "audio": enhanced_audio,
+                "format": params.get("output_format", "wav"),
+                "sample_rate": settings.AUDIO_SAMPLE_RATE,
+            }
         else:
             raise HTTPException(status_code=400, detail=f"Unknown operation: {operation}")
 
@@ -370,6 +403,35 @@ async def get_stats() -> dict:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     return await voice_engine.get_stats()
+
+
+# 应用生命周期管理
+@app.on_event("startup")
+async def startup_event():
+    """应用启动事件"""
+    logger.info("Voice Engine starting up...")
+
+    # 测试 Redis 连接
+    if redis_client:
+        try:
+            await redis_client.ping()
+            logger.info("Redis connection verified")
+        except Exception as e:
+            logger.error(f"Redis ping failed: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """应用关闭事件"""
+    logger.info("Voice Engine shutting down...")
+
+    # 关闭 Redis 连接
+    if redis_client:
+        try:
+            await redis_client.close()
+            logger.info("Redis connection closed")
+        except Exception as e:
+            logger.error(f"Failed to close Redis connection: {e}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,315 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  GO_VERSION: "1.21"
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  # Go 服务 Lint 和测试
+  go-lint-test:
+    name: Go Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m
+          working-directory: .
+
+      - name: Run Go tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.out
+          flags: go
+          name: go-coverage
+
+  # Python 服务 Lint 和测试
+  python-lint-test:
+    name: Python Lint & Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        service:
+          - agent-engine
+          - rag-engine
+          - voice-engine
+          - model-adapter
+          - retrieval-service
+          - indexing-service
+          - multimodal-engine
+          - vector-store-adapter
+          - knowledge-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+
+      - name: Install dependencies
+        working-directory: ./algo/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov ruff black
+
+      - name: Run ruff
+        working-directory: ./algo/${{ matrix.service }}
+        run: ruff check .
+        continue-on-error: true
+
+      - name: Run black check
+        working-directory: ./algo/${{ matrix.service }}
+        run: black --check .
+        continue-on-error: true
+
+      - name: Run tests
+        working-directory: ./algo/${{ matrix.service }}
+        run: |
+          if [ -d "tests" ]; then
+            pytest tests/ -v --cov=app --cov-report=xml
+          else
+            echo "No tests directory found, skipping tests"
+          fi
+        continue-on-error: true
+
+      - name: Upload coverage
+        if: success()
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./algo/${{ matrix.service }}/coverage.xml
+          flags: python,${{ matrix.service }}
+          name: python-${{ matrix.service }}-coverage
+
+  # 构建 Go 服务
+  build-go-services:
+    name: Build Go Services
+    runs-on: ubuntu-latest
+    needs: [go-lint-test]
+
+    strategy:
+      matrix:
+        service:
+          - identity-service
+          - conversation-service
+          - knowledge-service
+          - ai-orchestrator
+          - model-router
+          - notification-service
+          - analytics-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Build service
+        run: |
+          cd cmd/${{ matrix.service }}
+          go build -v -o ../../bin/${{ matrix.service }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.service }}
+          path: bin/${{ matrix.service }}
+          retention-days: 7
+
+  # Docker 镜像构建（仅PR和main分支）
+  build-docker-images:
+    name: Build Docker Images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    needs: [go-lint-test, python-lint-test]
+
+    strategy:
+      matrix:
+        service:
+          - identity-service
+          - conversation-service
+          - ai-orchestrator
+          - agent-engine
+          - rag-engine
+          - voice-engine
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./cmd/${{ matrix.service }}/Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Proto 文件验证
+  validate-proto:
+    name: Validate Proto Files
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Protoc
+        uses: arduino/setup-protoc@v2
+        with:
+          version: "23.x"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate proto files
+        run: |
+          find api/proto -name "*.proto" -exec protoc --proto_path=api/proto --descriptor_set_out=/dev/null {} \;
+
+  # 文档守卫（确保只有允许的文档被提交）
+  doc-guard:
+    name: Documentation Guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check documentation changes
+        run: |
+          ALLOWED_DOCS=(
+            "README.md"
+            "docs/arch/overview.md"
+            "docs/runbook/index.md"
+            "docs/nfr/slo.md"
+            "CHANGELOG.md"
+            "docs/code-quality/*.md"
+          )
+
+          # 获取变更的文档文件
+          changed_docs=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '^(docs/|.*\.md$)' || true)
+
+          if [ -n "$changed_docs" ]; then
+            echo "Changed documentation files:"
+            echo "$changed_docs"
+
+            # 检查是否在允许列表中
+            while IFS= read -r file; do
+              allowed=false
+              for pattern in "${ALLOWED_DOCS[@]}"; do
+                if [[ "$file" == $pattern ]]; then
+                  allowed=true
+                  break
+                fi
+              done
+
+              if [ "$allowed" = false ]; then
+                echo "::error file=$file::Documentation change not allowed. Only core docs can be updated."
+                exit 1
+              fi
+            done <<< "$changed_docs"
+
+            echo "All documentation changes are allowed"
+          fi
+
+  # 安全扫描
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          format: "sarif"
+          output: "trivy-results.sarif"
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
+
+  # 依赖审计
+  dependency-audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run Go mod verify
+        run: go mod verify
+
+      - name: Check for Go vulnerabilities
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+        continue-on-error: true

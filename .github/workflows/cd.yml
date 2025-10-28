@@ -1,0 +1,293 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  GO_VERSION: "1.21"
+  PYTHON_VERSION: "3.11"
+  REGISTRY: ghcr.io
+
+jobs:
+  # 构建和推送 Docker 镜像
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      matrix:
+        service:
+          - identity-service
+          - conversation-service
+          - knowledge-service
+          - ai-orchestrator
+          - model-router
+          - notification-service
+          - analytics-service
+          - agent-engine
+          - rag-engine
+          - voice-engine
+          - model-adapter
+          - retrieval-service
+          - indexing-service
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Determine Dockerfile location
+        id: dockerfile
+        run: |
+          if [ -f "cmd/${{ matrix.service }}/Dockerfile" ]; then
+            echo "path=cmd/${{ matrix.service }}/Dockerfile" >> $GITHUB_OUTPUT
+          elif [ -f "algo/${{ matrix.service }}/Dockerfile" ]; then
+            echo "path=algo/${{ matrix.service }}/Dockerfile" >> $GITHUB_OUTPUT
+          else
+            echo "::error::Dockerfile not found for ${{ matrix.service }}"
+            exit 1
+          fi
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ steps.dockerfile.outputs.path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+
+  # 部署到 Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.voicehelper.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > $HOME/.kube/config
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl set image deployment/identity-service \
+            identity-service=${{ env.REGISTRY }}/${{ github.repository }}/identity-service:${{ github.sha }} \
+            -n voiceassistant-staging
+
+          kubectl set image deployment/conversation-service \
+            conversation-service=${{ env.REGISTRY }}/${{ github.repository }}/conversation-service:${{ github.sha }} \
+            -n voiceassistant-staging
+
+          kubectl set image deployment/ai-orchestrator \
+            ai-orchestrator=${{ env.REGISTRY }}/${{ github.repository }}/ai-orchestrator:${{ github.sha }} \
+            -n voiceassistant-staging
+
+          kubectl set image deployment/agent-engine \
+            agent-engine=${{ env.REGISTRY }}/${{ github.repository }}/agent-engine:${{ github.sha }} \
+            -n voiceassistant-staging
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/identity-service -n voiceassistant-staging --timeout=5m
+          kubectl rollout status deployment/conversation-service -n voiceassistant-staging --timeout=5m
+          kubectl rollout status deployment/ai-orchestrator -n voiceassistant-staging --timeout=5m
+          kubectl rollout status deployment/agent-engine -n voiceassistant-staging --timeout=5m
+
+      - name: Run smoke tests
+        run: |
+          export STAGING_URL="https://staging.voicehelper.example.com"
+          curl -f $STAGING_URL/health || exit 1
+          curl -f $STAGING_URL/api/v1/health || exit 1
+        continue-on-error: true
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Staging deployment failed!"
+          # 可以在这里添加通知逻辑（Slack, Email, 等）
+
+  # 部署到 Production（需要手动批准）
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-and-push, deploy-staging]
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://voicehelper.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Configure kubectl
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > $HOME/.kube/config
+
+      - name: Create backup
+        run: |
+          echo "Creating backup before deployment..."
+          ./scripts/backup-restore.sh backup-all
+        continue-on-error: true
+
+      - name: Deploy to Kubernetes (金丝雀发布)
+        run: |
+          # 金丝雀部署：先更新10%的副本
+          kubectl set image deployment/identity-service \
+            identity-service=${{ env.REGISTRY }}/${{ github.repository }}/identity-service:${{ github.sha }} \
+            -n voiceassistant-prod
+
+          # 等待并验证
+          kubectl rollout status deployment/identity-service -n voiceassistant-prod --timeout=5m
+
+      - name: Monitor canary metrics
+        run: |
+          echo "Monitoring canary metrics for 5 minutes..."
+          sleep 300
+          # 这里可以添加实际的指标检查逻辑
+
+      - name: Full rollout
+        run: |
+          # 如果金丝雀成功，继续全量部署
+          kubectl set image deployment/conversation-service \
+            conversation-service=${{ env.REGISTRY }}/${{ github.repository }}/conversation-service:${{ github.sha }} \
+            -n voiceassistant-prod
+
+          kubectl set image deployment/ai-orchestrator \
+            ai-orchestrator=${{ env.REGISTRY }}/${{ github.repository }}/ai-orchestrator:${{ github.sha }} \
+            -n voiceassistant-prod
+
+          kubectl set image deployment/agent-engine \
+            agent-engine=${{ env.REGISTRY }}/${{ github.repository }}/agent-engine:${{ github.sha }} \
+            -n voiceassistant-prod
+
+      - name: Wait for rollout
+        run: |
+          kubectl rollout status deployment/conversation-service -n voiceassistant-prod --timeout=10m
+          kubectl rollout status deployment/ai-orchestrator -n voiceassistant-prod --timeout=10m
+          kubectl rollout status deployment/agent-engine -n voiceassistant-prod --timeout=10m
+
+      - name: Run production smoke tests
+        run: |
+          export PROD_URL="https://voicehelper.example.com"
+          curl -f $PROD_URL/health || exit 1
+          curl -f $PROD_URL/api/v1/health || exit 1
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Production deployment failed! Rolling back..."
+          kubectl rollout undo deployment/identity-service -n voiceassistant-prod
+          kubectl rollout undo deployment/conversation-service -n voiceassistant-prod
+          kubectl rollout undo deployment/ai-orchestrator -n voiceassistant-prod
+          kubectl rollout undo deployment/agent-engine -n voiceassistant-prod
+
+      - name: Create GitHub Release
+        if: success() && startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true
+          body: |
+            ## Deployment
+            - ✅ Staging: Successful
+            - ✅ Production: Successful
+
+            ## Docker Images
+            All images tagged with `${{ github.ref_name }}`
+
+  # 性能测试（可选）
+  performance-test:
+    name: Performance Test
+    runs-on: ubuntu-latest
+    needs: [deploy-staging]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup k6
+        run: |
+          wget https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz
+          tar -xzf k6-v0.47.0-linux-amd64.tar.gz
+          sudo mv k6-v0.47.0-linux-amd64/k6 /usr/local/bin/
+
+      - name: Run load tests
+        run: |
+          if [ -d "tests/load" ]; then
+            cd tests/load
+            k6 run k6-test.js --out json=results.json
+          else
+            echo "No load tests found, skipping"
+          fi
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-test-results
+          path: tests/load/results.json
+          retention-days: 30

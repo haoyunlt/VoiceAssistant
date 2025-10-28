@@ -1,4 +1,4 @@
-.PHONY: help verify test build deploy clean
+ .PHONY: help verify test build deploy clean
 
 help: ## 显示帮助信息
 	@echo "VoiceHelper - 可用命令:"
