@@ -280,6 +280,360 @@ func (c *AIServiceClient) CallRetrievalService(ctx context.Context, req *Retriev
 	return &result, nil
 }
 
+// ============ Multi-Agent 协作相关方法 ============
+
+// MultiAgentCollaborate 调用Multi-Agent协作
+func (c *AIServiceClient) MultiAgentCollaborate(ctx context.Context, req *MultiAgentCollaborateRequest) (*MultiAgentCollaborateResponse, error) {
+	url := fmt.Sprintf("%s/multi-agent/collaborate", c.baseURLs["agent-engine"])
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	respBody, err := c.callWithRetry(ctx, "agent-engine", url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	var result MultiAgentCollaborateResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RegisterAgent 注册Agent
+func (c *AIServiceClient) RegisterAgent(ctx context.Context, req *RegisterAgentRequest) (*RegisterAgentResponse, error) {
+	url := fmt.Sprintf("%s/multi-agent/agents/register", c.baseURLs["agent-engine"])
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	respBody, err := c.callWithRetry(ctx, "agent-engine", url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	var result RegisterAgentResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ListAgents 列出所有Agents
+func (c *AIServiceClient) ListAgents(ctx context.Context, tenantID, userID string) (*ListAgentsResponse, error) {
+	url := fmt.Sprintf("%s/multi-agent/agents?tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result ListAgentsResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// UnregisterAgent 注销Agent
+func (c *AIServiceClient) UnregisterAgent(ctx context.Context, agentID, tenantID, userID string) error {
+	url := fmt.Sprintf("%s/multi-agent/agents/%s?tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], agentID, tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+// GetMultiAgentStats 获取Multi-Agent统计信息
+func (c *AIServiceClient) GetMultiAgentStats(ctx context.Context, tenantID, userID string) (*MultiAgentStatsResponse, error) {
+	url := fmt.Sprintf("%s/multi-agent/stats?tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result MultiAgentStatsResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ============ Self-RAG 相关方法 ============
+
+// SelfRAGQuery 执行Self-RAG查询
+func (c *AIServiceClient) SelfRAGQuery(ctx context.Context, req *SelfRAGQueryRequest) (*SelfRAGQueryResponse, error) {
+	url := fmt.Sprintf("%s/self-rag/query", c.baseURLs["agent-engine"])
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	respBody, err := c.callWithRetry(ctx, "agent-engine", url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	var result SelfRAGQueryResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetSelfRAGStats 获取Self-RAG统计信息
+func (c *AIServiceClient) GetSelfRAGStats(ctx context.Context, tenantID, userID string) (*SelfRAGStatsResponse, error) {
+	url := fmt.Sprintf("%s/self-rag/stats?tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result SelfRAGStatsResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// ============ Smart Memory 相关方法 ============
+
+// AddMemory 添加记忆
+func (c *AIServiceClient) AddMemory(ctx context.Context, req *AddMemoryRequest) (*AddMemoryResponse, error) {
+	url := fmt.Sprintf("%s/smart-memory/add", c.baseURLs["agent-engine"])
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	respBody, err := c.callWithRetry(ctx, "agent-engine", url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	var result AddMemoryResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// RetrieveMemory 检索记忆
+func (c *AIServiceClient) RetrieveMemory(ctx context.Context, req *RetrieveMemoryRequest) (*RetrieveMemoryResponse, error) {
+	url := fmt.Sprintf("%s/smart-memory/retrieve", c.baseURLs["agent-engine"])
+
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	respBody, err := c.callWithRetry(ctx, "agent-engine", url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	var result RetrieveMemoryResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// CompressMemory 压缩记忆
+func (c *AIServiceClient) CompressMemory(ctx context.Context, tier, tenantID, userID string) (*CompressMemoryResponse, error) {
+	url := fmt.Sprintf("%s/smart-memory/compress?tier=%s&tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], tier, tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result CompressMemoryResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// MaintainMemory 维护记忆
+func (c *AIServiceClient) MaintainMemory(ctx context.Context, tenantID, userID string) (*MemoryStatsResponse, error) {
+	url := fmt.Sprintf("%s/smart-memory/maintain?tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// 响应包含 message 和 stats
+	var result struct {
+		Message string              `json:"message"`
+		Stats   MemoryStatsResponse `json:"stats"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result.Stats, nil
+}
+
+// GetMemoryStats 获取记忆统计信息
+func (c *AIServiceClient) GetMemoryStats(ctx context.Context, tenantID, userID string) (*MemoryStatsResponse, error) {
+	url := fmt.Sprintf("%s/smart-memory/stats?tenant_id=%s&user_id=%s",
+		c.baseURLs["agent-engine"], tenantID, userID)
+
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result MemoryStatsResponse
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}
+
 // --- 请求和响应结构 ---
 
 // ModelRequest 模型请求
@@ -370,4 +724,183 @@ type RetrievalResult struct {
 	Content  string                 `json:"content"`
 	Score    float64                `json:"score"`
 	Metadata map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// ============ Multi-Agent 协作相关 ============
+
+// MultiAgentCollaborateRequest Multi-Agent协作请求
+type MultiAgentCollaborateRequest struct {
+	Task     string   `json:"task"`
+	Mode     string   `json:"mode"`                // sequential/parallel/debate/voting/hierarchical
+	AgentIDs []string `json:"agent_ids,omitempty"` // 参与的agent ID列表
+	Priority int      `json:"priority,omitempty"`  // 任务优先级（1-10）
+	TenantID string   `json:"tenant_id,omitempty"`
+	UserID   string   `json:"user_id,omitempty"`
+}
+
+// MultiAgentCollaborateResponse Multi-Agent协作响应
+type MultiAgentCollaborateResponse struct {
+	Task           string                 `json:"task"`
+	Mode           string                 `json:"mode"`
+	AgentsInvolved []string               `json:"agents_involved"`
+	FinalResult    interface{}            `json:"final_result"`
+	QualityScore   float64                `json:"quality_score,omitempty"`
+	CompletionTime float64                `json:"completion_time"`
+	Status         string                 `json:"status"`
+	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// RegisterAgentRequest 注册Agent请求
+type RegisterAgentRequest struct {
+	AgentID  string   `json:"agent_id"`
+	Role     string   `json:"role"` // coordinator/researcher/planner/executor/reviewer
+	Tools    []string `json:"tools,omitempty"`
+	TenantID string   `json:"tenant_id,omitempty"`
+	UserID   string   `json:"user_id,omitempty"`
+}
+
+// RegisterAgentResponse 注册Agent响应
+type RegisterAgentResponse struct {
+	AgentID string `json:"agent_id"`
+	Role    string `json:"role"`
+	Message string `json:"message"`
+}
+
+// ListAgentsResponse 列出Agents响应
+type ListAgentsResponse struct {
+	Agents []AgentInfo `json:"agents"`
+	Count  int         `json:"count"`
+}
+
+// AgentInfo Agent信息
+type AgentInfo struct {
+	AgentID           string `json:"agent_id"`
+	Role              string `json:"role"`
+	ToolsCount        int    `json:"tools_count"`
+	ProcessedMessages int    `json:"processed_messages"`
+}
+
+// MultiAgentStatsResponse Multi-Agent统计响应
+type MultiAgentStatsResponse struct {
+	TotalTasks              int            `json:"total_tasks"`
+	CompletedTasks          int            `json:"completed_tasks"`
+	FailedTasks             int            `json:"failed_tasks"`
+	SuccessRate             float64        `json:"success_rate"`
+	AvgCompletionTime       float64        `json:"avg_completion_time"`
+	CollaborationQualityAvg float64        `json:"collaboration_quality_avg"`
+	ActiveAgents            int            `json:"active_agents"`
+	AgentLoad               map[string]int `json:"agent_load"`
+}
+
+// ============ Self-RAG 相关 ============
+
+// SelfRAGQueryRequest Self-RAG查询请求
+type SelfRAGQueryRequest struct {
+	Query           string                 `json:"query"`
+	Mode            string                 `json:"mode,omitempty"` // standard/adaptive/strict/fast
+	Context         map[string]interface{} `json:"context,omitempty"`
+	EnableCitations bool                   `json:"enable_citations,omitempty"`
+	MaxRefinements  int                    `json:"max_refinements,omitempty"`
+	TenantID        string                 `json:"tenant_id,omitempty"`
+	UserID          string                 `json:"user_id,omitempty"`
+}
+
+// SelfRAGQueryResponse Self-RAG查询响应
+type SelfRAGQueryResponse struct {
+	Query              string                 `json:"query"`
+	Answer             string                 `json:"answer"`
+	Confidence         float64                `json:"confidence"`
+	RetrievalStrategy  string                 `json:"retrieval_strategy"`
+	RefinementCount    int                    `json:"refinement_count"`
+	HallucinationLevel string                 `json:"hallucination_level,omitempty"`
+	IsGrounded         bool                   `json:"is_grounded,omitempty"`
+	Citations          []Citation             `json:"citations,omitempty"`
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`
+}
+
+// Citation 引用
+type Citation struct {
+	Source         string  `json:"source"`
+	Content        string  `json:"content"`
+	URL            string  `json:"url,omitempty"`
+	RelevanceScore float64 `json:"relevance_score"`
+}
+
+// SelfRAGStatsResponse Self-RAG统计响应
+type SelfRAGStatsResponse struct {
+	TotalQueries          int     `json:"total_queries"`
+	RefinementTriggered   int     `json:"refinement_triggered"`
+	HallucinationDetected int     `json:"hallucination_detected"`
+	QueryRewrites         int     `json:"query_rewrites"`
+	RefinementRate        float64 `json:"refinement_rate"`
+	HallucinationRate     float64 `json:"hallucination_rate"`
+	CacheHitRate          float64 `json:"cache_hit_rate"`
+}
+
+// ============ Smart Memory 相关 ============
+
+// AddMemoryRequest 添加记忆请求
+type AddMemoryRequest struct {
+	Content    string                 `json:"content"`
+	Tier       string                 `json:"tier,omitempty"`       // working/short_term/long_term
+	Importance float64                `json:"importance,omitempty"` // 0-1
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
+	TenantID   string                 `json:"tenant_id,omitempty"`
+	UserID     string                 `json:"user_id,omitempty"`
+}
+
+// AddMemoryResponse 添加记忆响应
+type AddMemoryResponse struct {
+	MemoryID   string  `json:"memory_id"`
+	Tier       string  `json:"tier"`
+	Importance float64 `json:"importance"`
+	Message    string  `json:"message"`
+}
+
+// RetrieveMemoryRequest 检索记忆请求
+type RetrieveMemoryRequest struct {
+	Query         string  `json:"query"`
+	TopK          int     `json:"top_k,omitempty"`
+	TierFilter    string  `json:"tier_filter,omitempty"`
+	MinImportance float64 `json:"min_importance,omitempty"`
+	TenantID      string  `json:"tenant_id,omitempty"`
+	UserID        string  `json:"user_id,omitempty"`
+}
+
+// RetrieveMemoryResponse 检索记忆响应
+type RetrieveMemoryResponse struct {
+	Memories []MemoryItem `json:"memories"`
+	Count    int          `json:"count"`
+}
+
+// MemoryItem 记忆项
+type MemoryItem struct {
+	MemoryID          string  `json:"memory_id"`
+	Content           string  `json:"content"`
+	Tier              string  `json:"tier"`
+	Importance        float64 `json:"importance"`
+	CurrentImportance float64 `json:"current_importance"`
+	AccessCount       int     `json:"access_count"`
+	CreatedAt         string  `json:"created_at"`
+	LastAccessed      string  `json:"last_accessed"`
+}
+
+// CompressMemoryResponse 压缩记忆响应
+type CompressMemoryResponse struct {
+	Summary         string  `json:"summary"`
+	OriginalCount   int     `json:"original_count"`
+	CompressedRatio float64 `json:"compressed_ratio"`
+	Message         string  `json:"message"`
+}
+
+// MemoryStatsResponse 记忆统计响应
+type MemoryStatsResponse struct {
+	TotalAdded      int            `json:"total_added"`
+	TotalForgotten  int            `json:"total_forgotten"`
+	TotalPromoted   int            `json:"total_promoted"`
+	TotalDemoted    int            `json:"total_demoted"`
+	TotalCompressed int            `json:"total_compressed"`
+	MemoryCounts    map[string]int `json:"memory_counts"`
+	TotalMemories   int            `json:"total_memories"`
+	AvgImportance   float64        `json:"avg_importance"`
 }
