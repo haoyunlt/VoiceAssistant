@@ -29,6 +29,23 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 启动时
     logger.info("Starting Knowledge Service...")
 
+    # 初始化 PostgreSQL 数据库
+    try:
+        from app.db.database import init_database, create_tables
+
+        init_database(
+            database_url=settings.DATABASE_URL,
+            echo=settings.DATABASE_ECHO
+        )
+        logger.info("Database initialized successfully")
+
+        # 创建表（如果不存在）
+        await create_tables()
+        logger.info("Database tables created/verified")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}")
+        # 不阻塞启动，但记录错误
+
     # 初始化 Neo4j 客户端
     neo4j_client = get_neo4j_client()
     health = await neo4j_client.health_check()
@@ -144,6 +161,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         except Exception as e:
             logger.error(f"Failed to close Kafka producer: {e}")
 
+    # 关闭数据库连接
+    try:
+        from app.db.database import close_database
+        await close_database()
+        logger.info("Database connection closed")
+    except Exception as e:
+        logger.error(f"Failed to close database: {e}")
+
     # 关闭 Neo4j 客户端
     await neo4j_client.close()
 
@@ -175,13 +200,15 @@ app.add_middleware(
 # 注意：需要在启动后才能使用redis_client，所以在启动事件中添加
 
 # 注册路由
-from app.routers import admin, community, disambiguation, graphrag
+from app.routers import admin, community, disambiguation, graphrag, document, version
 
 app.include_router(knowledge_graph.router)
 app.include_router(community.router)
 app.include_router(disambiguation.router)
 app.include_router(admin.router)
-app.include_router(graphrag.router)  # 新增GraphRAG路由
+app.include_router(graphrag.router)  # GraphRAG路由
+app.include_router(document.router)  # 文档管理路由
+app.include_router(version.router)   # 版本管理路由
 
 
 @app.get("/")

@@ -505,35 +505,39 @@ services:
       timeout: 10s
       retries: 3
 
-  # Knowledge Service (Python)
-  knowledge-service-py:
+  # Knowledge Service (统一合并后的Python版本)
+  knowledge-service:
     build:
       context: ./algo/knowledge-service
       dockerfile: Dockerfile
-    container_name: va-knowledge-service-py
+    container_name: va-knowledge-service
     environment:
       - HOST=0.0.0.0
-      - PORT=8010
-      - MILVUS_HOST=milvus
+      - PORT=8006
       - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_ADAPTER_URL=http://model-adapter:8002
     ports:
-      - "8010:8010"
+      - "8006:8006"
     volumes:
       - ./configs:/app/configs
     depends_on:
-      - milvus
+      - redis
+      - minio
     networks:
       - voice-assistant
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8008/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-    profiles:
-      - python-knowledge
 
   # Multimodal Engine
   multimodal-engine:

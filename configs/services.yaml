@@ -13,10 +13,11 @@ grpc_services:
     discovery_name: "conversation-service"
     timeout: 30s
 
-  knowledge-service:
-    address: "localhost:50053"
-    discovery_name: "knowledge-service"
-    timeout: 30s
+  # knowledge-service (Go版本已废弃，已合并到Python版本)
+  # knowledge-service:
+  #   address: "localhost:50053"
+  #   discovery_name: "knowledge-service"
+  #   timeout: 30s
 
   ai-orchestrator:
     address: "localhost:50054"
@@ -46,11 +47,11 @@ http_services:
     timeout: 30s
     description: "混合检索服务（Vector + BM25 + Rerank）"
 
-  # RAG引擎
-  rag-engine:
-    url: "http://localhost:8006"
-    timeout: 60s
-    description: "RAG检索增强生成"
+  # rag-engine (已合并到knowledge-service)
+  # rag-engine:
+  #   url: "http://localhost:8006"
+  #   timeout: 60s
+  #   description: "RAG检索增强生成"
 
   # Agent引擎
   agent-engine:
@@ -82,11 +83,11 @@ http_services:
     timeout: 30s
     description: "统一向量数据库访问"
 
-  # 知识图谱服务（Python）
-  knowledge-service-py:
-    url: "http://localhost:8010"
+  # 知识服务（合并后的统一Python版本）
+  knowledge-service:
+    url: "http://localhost:8006"
     timeout: 30s
-    description: "知识图谱管理"
+    description: "知识图谱管理 + 文档管理 + 版本控制 + 权限管理"
 
   # 多模态引擎
   multimodal-engine:
@@ -101,7 +102,7 @@ docker_services:
   grpc:
     identity-service: "identity-service:50051"
     conversation-service: "conversation-service:50052"
-    knowledge-service: "knowledge-service:50053"
+    # knowledge-service: "knowledge-service:50053"  # Go版本已废弃
     ai-orchestrator: "ai-orchestrator:50054"
     model-router: "model-router:50055"
     analytics-service: "analytics-service:50056"
@@ -110,13 +111,13 @@ docker_services:
   # Python HTTP 服务
   http:
     retrieval-service: "http://retrieval-service:8012"
-    rag-engine: "http://rag-engine:8006"
+    # rag-engine: "http://rag-engine:8006"  # 已合并到knowledge-service
     agent-engine: "http://agent-engine:8003"
     voice-engine: "http://voice-engine:8004"
     model-adapter: "http://model-adapter:8005"
     indexing-service: "http://indexing-service:8011"
     vector-store-adapter: "http://vector-store-adapter:8009"
-    knowledge-service-py: "http://knowledge-service-py:8010"
+    knowledge-service: "http://knowledge-service:8006"  # Python版本（合并后）
     multimodal-engine: "http://multimodal-engine:8008"
 
 # ==================== 服务端口快速参考 ====================
@@ -124,7 +125,7 @@ port_reference:
   # Go Services (gRPC)
   "50051": "identity-service"
   "50052": "conversation-service"
-  "50053": "knowledge-service"
+  # "50053": "knowledge-service"  # Go版本已废弃
   "50054": "ai-orchestrator"
   "50055": "model-router"
   "50056": "analytics-service"
@@ -134,10 +135,9 @@ port_reference:
   "8003": "agent-engine"
   "8004": "voice-engine"
   "8005": "model-adapter"
-  "8006": "rag-engine"
+  "8006": "knowledge-service"  # Python版本（合并后，统一知识服务）
   "8008": "multimodal-engine"
   "8009": "vector-store-adapter"
-  "8010": "knowledge-service-py"
   "8011": "indexing-service"
   "8012": "retrieval-service"
 

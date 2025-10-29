@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     PORT: int = 8006
     ENVIRONMENT: str = "development"
 
+    # PostgreSQL 配置
+    DATABASE_URL: str = "postgresql+asyncpg://voicehelper:password@localhost:5432/voicehelper"
+    DATABASE_ECHO: bool = False  # 是否输出 SQL 日志
+    DATABASE_POOL_SIZE: int = 10
+    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_PRE_PING: bool = True
+    DATABASE_POOL_RECYCLE: int = 3600  # 1小时
+
     # Neo4j 配置
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
@@ -68,6 +76,18 @@ class Settings(BaseSettings):
     # 健康检查配置
     HEALTH_CHECK_INTERVAL: int = 30  # 秒
 
+    # MinIO 配置
+    MINIO_ENDPOINT: str = "localhost:9000"
+    MINIO_ACCESS_KEY: str = "minioadmin"
+    MINIO_SECRET_KEY: str = "minioadmin"
+    MINIO_BUCKET_NAME: str = "knowledge-documents"
+    MINIO_SECURE: bool = False
+
+    # ClamAV 配置（可选）
+    CLAMAV_ENABLED: bool = False
+    CLAMAV_HOST: str = "localhost"
+    CLAMAV_PORT: int = 3310
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -75,4 +95,3 @@ class Settings(BaseSettings):
 
 # 全局配置实例
 settings = Settings()
-
