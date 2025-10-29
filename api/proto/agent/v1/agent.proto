@@ -31,6 +31,45 @@ service AgentService {
 
   // 健康检查
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // ============ Multi-Agent 协作 ============
+  // Multi-Agent 协作执行
+  rpc MultiAgentCollaborate(MultiAgentCollaborateRequest) returns (MultiAgentCollaborateResponse);
+  
+  // 注册Agent
+  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+  
+  // 列出Agents
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  
+  // 注销Agent
+  rpc UnregisterAgent(UnregisterAgentRequest) returns (UnregisterAgentResponse);
+  
+  // Multi-Agent统计
+  rpc GetMultiAgentStats(GetMultiAgentStatsRequest) returns (MultiAgentStatsResponse);
+
+  // ============ Self-RAG ============
+  // Self-RAG 查询
+  rpc SelfRAGQuery(SelfRAGQueryRequest) returns (SelfRAGQueryResponse);
+  
+  // Self-RAG 统计
+  rpc GetSelfRAGStats(GetSelfRAGStatsRequest) returns (SelfRAGStatsResponse);
+
+  // ============ Smart Memory ============
+  // 添加记忆
+  rpc AddMemory(AddMemoryRequest) returns (AddMemoryResponse);
+  
+  // 检索记忆
+  rpc RetrieveMemory(RetrieveMemoryRequest) returns (RetrieveMemoryResponse);
+  
+  // 压缩记忆
+  rpc CompressMemory(CompressMemoryRequest) returns (CompressMemoryResponse);
+  
+  // 维护记忆
+  rpc MaintainMemory(MaintainMemoryRequest) returns (MaintainMemoryResponse);
+  
+  // 记忆统计
+  rpc GetMemoryStats(GetMemoryStatsRequest) returns (MemoryStatsResponse);
 }
 
 // ============ 执行相关 ============
@@ -205,4 +244,211 @@ message HealthCheckRequest {}
 
 message HealthCheckResponse {
   string status = 1;
+}
+
+// ============ Multi-Agent 协作相关 ============
+
+message MultiAgentCollaborateRequest {
+  string task = 1;                      // 任务描述
+  string mode = 2;                      // 协作模式: sequential/parallel/debate/voting/hierarchical
+  repeated string agent_ids = 3;        // 参与的agent ID列表（未指定则自动选择）
+  int32 priority = 4;                   // 任务优先级（1-10）
+  string tenant_id = 5;
+  string user_id = 6;
+}
+
+message MultiAgentCollaborateResponse {
+  string task = 1;
+  string mode = 2;
+  repeated string agents_involved = 3;
+  string final_result = 4;              // 最终结果（可能是JSON）
+  float quality_score = 5;
+  float completion_time = 6;
+  string status = 7;
+  map<string, string> metadata = 8;
+}
+
+message RegisterAgentRequest {
+  string agent_id = 1;
+  string role = 2;                      // 角色: coordinator/researcher/planner/executor/reviewer
+  repeated string tools = 3;            // 工具列表
+  string tenant_id = 4;
+  string user_id = 5;
+}
+
+message RegisterAgentResponse {
+  string agent_id = 1;
+  string role = 2;
+  string message = 3;
+}
+
+message ListAgentsRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message ListAgentsResponse {
+  repeated AgentInfo agents = 1;
+  int32 count = 2;
+}
+
+message AgentInfo {
+  string agent_id = 1;
+  string role = 2;
+  int32 tools_count = 3;
+  int32 processed_messages = 4;
+}
+
+message UnregisterAgentRequest {
+  string agent_id = 1;
+  string tenant_id = 2;
+  string user_id = 3;
+}
+
+message UnregisterAgentResponse {
+  string message = 1;
+}
+
+message GetMultiAgentStatsRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message MultiAgentStatsResponse {
+  int32 total_tasks = 1;
+  int32 completed_tasks = 2;
+  int32 failed_tasks = 3;
+  float success_rate = 4;
+  float avg_completion_time = 5;
+  float collaboration_quality_avg = 6;
+  int32 active_agents = 7;
+  map<string, int32> agent_load = 8;
+}
+
+// ============ Self-RAG 相关 ============
+
+message SelfRAGQueryRequest {
+  string query = 1;                     // 用户查询
+  string mode = 2;                      // Self-RAG 模式: standard/adaptive/strict/fast
+  map<string, string> context = 3;      // 上下文信息
+  bool enable_citations = 4;            // 是否添加引用
+  int32 max_refinements = 5;            // 最大修正次数
+  string tenant_id = 6;
+  string user_id = 7;
+}
+
+message SelfRAGQueryResponse {
+  string query = 1;
+  string answer = 2;
+  float confidence = 3;
+  string retrieval_strategy = 4;
+  int32 refinement_count = 5;
+  string hallucination_level = 6;      // none/low/medium/high
+  bool is_grounded = 7;
+  repeated Citation citations = 8;
+  map<string, string> metadata = 9;
+}
+
+message Citation {
+  string source = 1;
+  string content = 2;
+  string url = 3;
+  float relevance_score = 4;
+}
+
+message GetSelfRAGStatsRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message SelfRAGStatsResponse {
+  int32 total_queries = 1;
+  int32 refinement_triggered = 2;
+  int32 hallucination_detected = 3;
+  int32 query_rewrites = 4;
+  float refinement_rate = 5;
+  float hallucination_rate = 6;
+  float cache_hit_rate = 7;
+}
+
+// ============ Smart Memory 相关 ============
+
+message AddMemoryRequest {
+  string content = 1;                   // 记忆内容
+  string tier = 2;                      // 记忆层级: working/short_term/long_term
+  float importance = 3;                 // 重要性（0-1），未提供则自动评估
+  map<string, string> metadata = 4;     // 元数据
+  string tenant_id = 5;
+  string user_id = 6;
+}
+
+message AddMemoryResponse {
+  string memory_id = 1;
+  string tier = 2;
+  float importance = 3;
+  string message = 4;
+}
+
+message RetrieveMemoryRequest {
+  string query = 1;                     // 查询文本
+  int32 top_k = 2;                      // 返回数量
+  string tier_filter = 3;               // 层级过滤
+  float min_importance = 4;             // 最小重要性
+  string tenant_id = 5;
+  string user_id = 6;
+}
+
+message RetrieveMemoryResponse {
+  repeated MemoryItem memories = 1;
+  int32 count = 2;
+}
+
+message MemoryItem {
+  string memory_id = 1;
+  string content = 2;
+  string tier = 3;
+  float importance = 4;
+  float current_importance = 5;
+  int32 access_count = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp last_accessed = 8;
+}
+
+message CompressMemoryRequest {
+  string tier = 1;                      // 要压缩的层级
+  string tenant_id = 2;
+  string user_id = 3;
+}
+
+message CompressMemoryResponse {
+  string summary = 1;
+  int32 original_count = 2;
+  float compressed_ratio = 3;
+  string message = 4;
+}
+
+message MaintainMemoryRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message MaintainMemoryResponse {
+  string message = 1;
+  MemoryStatsResponse stats = 2;
+}
+
+message GetMemoryStatsRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+}
+
+message MemoryStatsResponse {
+  int32 total_added = 1;
+  int32 total_forgotten = 2;
+  int32 total_promoted = 3;
+  int32 total_demoted = 4;
+  int32 total_compressed = 5;
+  map<string, int32> memory_counts = 6;
+  int32 total_memories = 7;
+  float avg_importance = 8;
 }

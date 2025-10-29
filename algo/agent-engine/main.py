@@ -270,12 +270,22 @@ from app.routers import permissions as permissions_router
 from app.routers import tools as tools_router
 from app.routers import websocket as websocket_router
 
+# Iteration 2 新增路由
+from app.routers import self_rag as self_rag_router
+from app.routers import smart_memory as smart_memory_router
+from app.routers import multi_agent as multi_agent_router
+
 app.include_router(memory_router.router)
 app.include_router(tools_router.router)
 app.include_router(executor_router.router)
 app.include_router(llm_router.router)
 app.include_router(websocket_router.router)
 app.include_router(permissions_router.router)
+
+# Iteration 2 新增路由
+app.include_router(self_rag_router.router)
+app.include_router(smart_memory_router.router)
+app.include_router(multi_agent_router.router)
 
 # Prometheus 指标
 metrics_app = make_asgi_app()

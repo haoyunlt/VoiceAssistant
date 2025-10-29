@@ -40,6 +40,26 @@ class AgentConfig(BaseSettings):
     memory_max_tokens: int = Field(default=2000, env="MEMORY_MAX_TOKENS")
     redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
 
+    # Iter 2: 智能记忆配置
+    smart_memory_enabled: bool = Field(default=True, env="SMART_MEMORY_ENABLED")
+    memory_compression_enabled: bool = Field(default=True, env="MEMORY_COMPRESSION_ENABLED")
+    memory_compression_threshold: int = Field(default=20, env="MEMORY_COMPRESSION_THRESHOLD")
+    memory_forgetting_strategy: str = Field(default="hybrid", env="MEMORY_FORGETTING_STRATEGY")
+    memory_importance_threshold: float = Field(default=0.3, env="MEMORY_IMPORTANCE_THRESHOLD")
+
+    # Iter 2: Self-RAG 配置
+    self_rag_enabled: bool = Field(default=True, env="SELF_RAG_ENABLED")
+    self_rag_mode: str = Field(default="adaptive", env="SELF_RAG_MODE")
+    self_rag_max_refinements: int = Field(default=2, env="SELF_RAG_MAX_REFINEMENTS")
+    self_rag_hallucination_threshold: float = Field(default=0.3, env="SELF_RAG_HALLUCINATION_THRESHOLD")
+    self_rag_enable_citations: bool = Field(default=True, env="SELF_RAG_ENABLE_CITATIONS")
+
+    # Iter 2: Multi-Agent 配置
+    multi_agent_enabled: bool = Field(default=False, env="MULTI_AGENT_ENABLED")
+    multi_agent_default_mode: str = Field(default="parallel", env="MULTI_AGENT_DEFAULT_MODE")
+    multi_agent_max_concurrent: int = Field(default=5, env="MULTI_AGENT_MAX_CONCURRENT")
+    multi_agent_quality_check: bool = Field(default=True, env="MULTI_AGENT_QUALITY_CHECK")
+
     # 性能配置
     timeout: int = Field(default=60, env="AGENT_TIMEOUT")
     max_retries: int = Field(default=3, env="AGENT_MAX_RETRIES")
