@@ -2,6 +2,8 @@
 实时语音流 WebSocket API
 """
 
+import builtins
+import contextlib
 import logging
 import uuid
 
@@ -106,10 +108,8 @@ async def websocket_voice_stream(websocket: WebSocket):
 
     except Exception as e:
         logger.error(f"[Session {session_id}] 异常: {e}", exc_info=True)
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.close(code=1011, reason=str(e))
-        except:
-            pass
 
     finally:
         await service.cleanup_session(session_id)

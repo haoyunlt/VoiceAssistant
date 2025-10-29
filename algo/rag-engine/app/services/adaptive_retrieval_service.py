@@ -1,6 +1,5 @@
 """自适应检索服务"""
 import re
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -43,7 +42,7 @@ class AdaptiveRetrievalService:
         tenant_id: str,
         knowledge_base_id: str,
         max_results: int = 10
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """自适应检索
 
         根据查询复杂度自动选择检索策略
@@ -160,7 +159,7 @@ class AdaptiveRetrievalService:
         tenant_id: str,
         knowledge_base_id: str,
         top_k: int = 5
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """简单检索：仅向量检索
 
         Args:
@@ -186,7 +185,7 @@ class AdaptiveRetrievalService:
         tenant_id: str,
         knowledge_base_id: str,
         top_k: int = 10
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """中等检索：混合检索
 
         Args:
@@ -213,7 +212,7 @@ class AdaptiveRetrievalService:
         tenant_id: str,
         knowledge_base_id: str,
         top_k: int = 20
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """复杂检索：混合检索 + 查询扩展 + 重排序
 
         Args:
@@ -258,7 +257,7 @@ class AdaptiveRetrievalService:
 
         return reranked_docs
 
-    def _deduplicate(self, documents: List[RetrievedDocument]) -> List[RetrievedDocument]:
+    def _deduplicate(self, documents: list[RetrievedDocument]) -> list[RetrievedDocument]:
         """去重
 
         Args:

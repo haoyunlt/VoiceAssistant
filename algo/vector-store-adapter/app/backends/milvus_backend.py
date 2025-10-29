@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pymilvus import (
     Collection,
@@ -21,9 +21,9 @@ logger = logging.getLogger(__name__)
 class MilvusBackend(VectorStoreBackend):
     """Milvus 向量数据库后端"""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         super().__init__(config)
-        self.collections: Dict[str, Collection] = {}
+        self.collections: dict[str, Collection] = {}
         self.alias = "default"
 
     async def initialize(self):
@@ -117,7 +117,7 @@ class MilvusBackend(VectorStoreBackend):
     async def insert_vectors(
         self,
         collection_name: str,
-        data: List[Dict],
+        data: list[dict],
     ) -> Any:
         """插入向量"""
         if not data:
@@ -151,12 +151,12 @@ class MilvusBackend(VectorStoreBackend):
     async def search_vectors(
         self,
         collection_name: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[str] = None,
-        search_params: Optional[Dict] = None,
-    ) -> List[Dict]:
+        tenant_id: str | None = None,
+        filters: str | None = None,
+        search_params: dict | None = None,
+    ) -> list[dict]:
         """向量检索"""
         # 获取集合
         dimension = len(query_vector)

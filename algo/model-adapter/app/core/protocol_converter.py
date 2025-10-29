@@ -1,7 +1,7 @@
 """协议转换器 - 统一不同Provider的API格式."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +16,9 @@ class ProtocolConverter:
 
     @staticmethod
     def to_openai_format(
-        messages: List[Dict[str, Any]],
-        parameters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, Any]],
+        parameters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         转换为OpenAI格式.
 
@@ -52,9 +52,9 @@ class ProtocolConverter:
 
     @staticmethod
     def to_claude_format(
-        messages: List[Dict[str, Any]],
-        parameters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, Any]],
+        parameters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         转换为Claude格式.
 
@@ -105,9 +105,9 @@ class ProtocolConverter:
 
     @staticmethod
     def to_zhipu_format(
-        messages: List[Dict[str, Any]],
-        parameters: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, Any]],
+        parameters: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         转换为智谱AI格式.
 
@@ -137,7 +137,7 @@ class ProtocolConverter:
         return request
 
     @staticmethod
-    def from_openai_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    def from_openai_response(response: dict[str, Any]) -> dict[str, Any]:
         """
         从OpenAI响应转换为统一格式.
 
@@ -177,7 +177,7 @@ class ProtocolConverter:
         return unified_response
 
     @staticmethod
-    def from_claude_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    def from_claude_response(response: dict[str, Any]) -> dict[str, Any]:
         """
         从Claude响应转换为统一格式.
 
@@ -213,7 +213,7 @@ class ProtocolConverter:
         }
 
     @staticmethod
-    def from_zhipu_response(response: Dict[str, Any]) -> Dict[str, Any]:
+    def from_zhipu_response(response: dict[str, Any]) -> dict[str, Any]:
         """
         从智谱AI响应转换为统一格式.
 
@@ -254,7 +254,7 @@ class ProtocolConverter:
         return unified_response
 
     @staticmethod
-    def convert_functions_to_tools(functions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def convert_functions_to_tools(functions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         将OpenAI functions格式转换为tools格式 (用于Claude/智谱).
 
@@ -281,9 +281,9 @@ class ProtocolConverter:
 
     @staticmethod
     def normalize_messages(
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         provider: str,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         规范化消息格式.
 

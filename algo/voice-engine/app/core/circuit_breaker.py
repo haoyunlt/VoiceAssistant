@@ -5,8 +5,8 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +49,7 @@ class CircuitBreaker:
         self.name = name
 
         self.failure_count = 0
-        self.last_failure_time: Optional[float] = None
+        self.last_failure_time: float | None = None
         self.state = CircuitState.CLOSED
 
         logger.info(
@@ -98,7 +98,7 @@ class CircuitBreaker:
 
             return result
 
-        except self.expected_exception as e:
+        except self.expected_exception:
             # 失败：增加计数器
             self._on_failure()
             raise

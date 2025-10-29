@@ -5,9 +5,10 @@
 
 import logging
 import os
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
-import httpx
+import httpx  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ class UnifiedLLMClient:
 
     def __init__(
         self,
-        model_adapter_url: Optional[str] = None,
+        model_adapter_url: str | None = None,
         timeout: int = 60,
         default_model: str = "gpt-3.5-turbo",
     ):
@@ -29,10 +30,10 @@ class UnifiedLLMClient:
             timeout: 请求超时时间（秒）
             default_model: 默认模型名称
         """
-        self.base_url = (
-            model_adapter_url
-            or os.getenv("MODEL_ADAPTER_URL", "http://model-adapter:8005")
-        ).rstrip("/")
+        base_url_raw = model_adapter_url or os.getenv(
+            "MODEL_ADAPTER_URL", "http://model-adapter:8005"
+        )
+        self.base_url = base_url_raw.rstrip("/") if base_url_raw else ""
         self.timeout = timeout
         self.default_model = default_model
 
@@ -42,13 +43,13 @@ class UnifiedLLMClient:
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
-        model: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         stream: bool = False,
-        **kwargs,
-    ) -> Dict[str, Any]:
+        **kwargs: Any,
+    ) -> dict[str, Any]:
         """
         聊天接口（非流式）
 
@@ -95,21 +96,21 @@ class UnifiedLLMClient:
 
         except httpx.HTTPStatusError as e:
             logger.error(f"LLM API error: {e.response.status_code} - {e.response.text}")
-            raise RuntimeError(f"LLM request failed: {e.response.text}")
-        except httpx.TimeoutException:
+            raise RuntimeError(f"LLM request failed: {e.response.text}") from e
+        except httpx.TimeoutException as e:
             logger.error(f"LLM request timeout after {self.timeout}s")
-            raise RuntimeError(f"LLM request timeout")
+            raise RuntimeError("LLM request timeout") from e
         except Exception as e:
             logger.error(f"Unexpected error in LLM request: {e}", exc_info=True)
             raise
 
     async def chat_stream(
         self,
-        messages: List[Dict[str, str]],
-        model: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        **kwargs,
+        max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> AsyncIterator[str]:
         """
         聊天接口（流式）
@@ -136,34 +137,36 @@ class UnifiedLLMClient:
             payload["max_tokens"] = max_tokens
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream(
+            async with (
+                httpx.AsyncClient(timeout=self.timeout) as client,
+                client.stream(
                     "POST", f"{self.base_url}/api/v1/chat/completions", json=payload
-                ) as response:
-                    response.raise_for_status()
+                ) as response,
+            ):
+                response.raise_for_status()
 
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            data_str = line[6:]  # Remove "data: " prefix
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # Remove "data: " prefix
 
-                            if data_str == "[DONE]":
-                                break
+                        if data_str == "[DONE]":
+                            break
 
-                            try:
-                                import json
+                        try:
+                            import json
 
-                                data = json.loads(data_str)
-                                delta = data["choices"][0]["delta"]
+                            data = json.loads(data_str)
+                            delta = data["choices"][0]["delta"]
 
-                                if "content" in delta:
-                                    yield delta["content"]
-                            except json.JSONDecodeError:
-                                logger.warning(f"Failed to parse SSE data: {data_str}")
-                                continue
+                            if "content" in delta:
+                                yield delta["content"]
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse SSE data: {data_str}")
+                            continue
 
         except httpx.HTTPStatusError as e:
             logger.error(f"LLM stream error: {e.response.status_code}")
-            raise RuntimeError(f"LLM stream failed: {e.response.status_code}")
+            raise RuntimeError(f"LLM stream failed: {e.response.status_code}") from e
         except Exception as e:
             logger.error(f"Unexpected error in LLM stream: {e}", exc_info=True)
             raise
@@ -171,10 +174,10 @@ class UnifiedLLMClient:
     async def generate(
         self,
         prompt: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        **kwargs,
+        max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> str:
         """
         简单生成接口（便捷方法）
@@ -199,11 +202,11 @@ class UnifiedLLMClient:
             **kwargs,
         )
 
-        return result["content"]
+        return str(result.get("content", ""))
 
     async def create_embedding(
-        self, input_texts: List[str], model: str = "text-embedding-3-small"
-    ) -> List[List[float]]:
+        self, input_texts: list[str], model: str = "text-embedding-3-small"
+    ) -> list[list[float]]:
         """
         创建文本向量
 
@@ -230,14 +233,14 @@ class UnifiedLLMClient:
 
         except httpx.HTTPStatusError as e:
             logger.error(f"Embedding API error: {e.response.status_code}")
-            raise RuntimeError(f"Embedding request failed: {e.response.status_code}")
+            raise RuntimeError(f"Embedding request failed: {e.response.status_code}") from e
         except Exception as e:
             logger.error(f"Unexpected error in embedding request: {e}", exc_info=True)
             raise
 
 
 # 全局单例（可选）
-_default_client: Optional[UnifiedLLMClient] = None
+_default_client: UnifiedLLMClient | None = None
 
 
 def get_default_client() -> UnifiedLLMClient:

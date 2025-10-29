@@ -1,9 +1,7 @@
 """幂等性管理 - 防止重复处理"""
 import hashlib
-import json
 import logging
 import time
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -136,7 +134,7 @@ class IdempotencyManager:
 
         logger.debug(f"Marked document {document_id} as failed")
 
-    def get_cached_result(self, document_id: str, tenant_id: str) -> Optional[dict]:
+    def get_cached_result(self, document_id: str, tenant_id: str) -> dict | None:
         """
         获取缓存的处理结果
 

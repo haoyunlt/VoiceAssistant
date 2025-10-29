@@ -2,13 +2,13 @@
 Vector search service using Milvus
 """
 
+import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pymilvus import Collection, connections
 
 from app.core.config import settings
-import logging
 from app.models.retrieval import RetrievalDocument
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class VectorService:
     """向量检索服务（Milvus）"""
 
     def __init__(self):
-        self.collection: Optional[Collection] = None
+        self.collection: Collection | None = None
         self._connect()
 
     def _connect(self):
@@ -40,11 +40,11 @@ class VectorService:
 
     async def search(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int,
-        tenant_id: Optional[str] = None,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> list[RetrievalDocument]:
         """
         向量检索
 
@@ -106,7 +106,7 @@ class VectorService:
             return []
 
     def _build_expression(
-        self, tenant_id: Optional[str] = None, filters: Optional[Dict[str, Any]] = None
+        self, tenant_id: str | None = None, filters: dict[str, Any] | None = None
     ) -> str:
         """构建 Milvus 表达式"""
         expressions = []

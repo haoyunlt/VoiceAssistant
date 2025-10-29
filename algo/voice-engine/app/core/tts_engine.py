@@ -6,7 +6,8 @@ TTS (Text-to-Speech) 引擎
 import asyncio
 import io
 import logging
-from typing import Any, Dict, Generator, List, Optional
+from collections.abc import Generator
+from typing import Any
 
 import edge_tts
 from pydub import AudioSegment
@@ -136,8 +137,8 @@ class TTSEngine:
 
     async def batch_synthesize(
         self,
-        texts: List[str]
-    ) -> List[bytes]:
+        texts: list[str]
+    ) -> list[bytes]:
         """
         批量合成
 
@@ -151,7 +152,7 @@ class TTSEngine:
         results = await asyncio.gather(*tasks)
         return results
 
-    def get_available_voices(self) -> List[Dict[str, Any]]:
+    def get_available_voices(self) -> list[dict[str, Any]]:
         """
         获取可用语音列表
 
@@ -286,12 +287,12 @@ class StreamingTTSSession:
                 # 添加到音频队列
                 await self.audio_queue.put(audio)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
             except Exception as e:
                 logger.error(f"Error processing TTS queue: {e}")
 
-    def split_into_sentences(self, text: str) -> List[str]:
+    def split_into_sentences(self, text: str) -> list[str]:
         """
         将文本分割为句子（用于流式输出）
 
@@ -319,7 +320,7 @@ class StreamingTTSSession:
 class VoiceCloner:
     """语音克隆（可选功能）"""
 
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self, model_path: str | None = None):
         """
         初始化语音克隆器
 

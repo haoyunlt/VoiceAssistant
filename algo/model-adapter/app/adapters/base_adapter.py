@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class BaseAdapter(ABC):
@@ -20,12 +20,12 @@ class BaseAdapter(ABC):
     async def chat_completion(
         self,
         model: str,
-        messages: list[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         聊天补全接口。
 
@@ -55,9 +55,9 @@ class BaseAdapter(ABC):
         self,
         model: str,
         input: str | list[str],
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         嵌入向量生成接口。
 
@@ -77,7 +77,7 @@ class BaseAdapter(ABC):
         """
         pass
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取适配器的统计信息"""
         return self.stats
 

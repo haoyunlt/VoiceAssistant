@@ -2,7 +2,6 @@
 import json
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional
 
 import redis.asyncio as redis
 
@@ -16,7 +15,7 @@ class TaskManager:
     """任务状态管理器（Redis持久化）"""
 
     def __init__(self):
-        self.redis_client: Optional[redis.Redis] = None
+        self.redis_client: redis.Redis | None = None
         self.task_prefix = "agent:task:"
         self.task_list_key = "agent:tasks:list"
         self.task_ttl = 86400 * 7  # 7天
@@ -72,7 +71,7 @@ class TaskManager:
     def _deserialize_result(self, data_str: str) -> AgentResult:
         """反序列化JSON为AgentResult"""
         data = json.loads(data_str)
-        
+
         # 重建steps
         from app.models.agent import AgentStep, StepType
         steps = []
@@ -111,23 +110,23 @@ class TaskManager:
         try:
             key = f"{self.task_prefix}{result.task_id}"
             data = self._serialize_result(result)
-            
+
             # 保存任务数据
             await self.redis_client.setex(key, self.task_ttl, data)
-            
+
             # 添加到任务列表（用于查询所有任务）
             await self.redis_client.zadd(
                 self.task_list_key,
                 {result.task_id: datetime.utcnow().timestamp()}
             )
-            
+
             logger.info(f"Task {result.task_id} saved to Redis")
             return True
         except Exception as e:
             logger.error(f"Failed to save task {result.task_id}: {e}")
             return False
 
-    async def get_task(self, task_id: str) -> Optional[AgentResult]:
+    async def get_task(self, task_id: str) -> AgentResult | None:
         """从Redis获取任务状态"""
         if not self.redis_client:
             logger.warning(f"Redis not available, cannot retrieve task {task_id}")
@@ -136,7 +135,7 @@ class TaskManager:
         try:
             key = f"{self.task_prefix}{task_id}"
             data = await self.redis_client.get(key)
-            
+
             if data:
                 result = self._deserialize_result(data)
                 logger.info(f"Task {task_id} retrieved from Redis")
@@ -152,7 +151,7 @@ class TaskManager:
         self,
         task_id: str,
         status: AgentStatus,
-        error: Optional[str] = None
+        error: str | None = None
     ) -> bool:
         """更新任务状态"""
         if not self.redis_client:
@@ -185,13 +184,13 @@ class TaskManager:
 
         try:
             key = f"{self.task_prefix}{task_id}"
-            
+
             # 删除任务数据
             await self.redis_client.delete(key)
-            
+
             # 从任务列表中移除
             await self.redis_client.zrem(self.task_list_key, task_id)
-            
+
             logger.info(f"Task {task_id} deleted from Redis")
             return True
         except Exception as e:
@@ -202,8 +201,8 @@ class TaskManager:
         self,
         limit: int = 100,
         offset: int = 0,
-        status: Optional[AgentStatus] = None
-    ) -> List[AgentResult]:
+        status: AgentStatus | None = None
+    ) -> list[AgentResult]:
         """列出任务（按创建时间倒序）"""
         if not self.redis_client:
             return []
@@ -215,7 +214,7 @@ class TaskManager:
                 offset,
                 offset + limit - 1
             )
-            
+
             # 获取任务详情
             results = []
             for task_id in task_ids:
@@ -224,14 +223,14 @@ class TaskManager:
                     # 如果指定了状态过滤
                     if status is None or result.status == status:
                         results.append(result)
-            
+
             logger.info(f"Retrieved {len(results)} tasks from Redis")
             return results
         except Exception as e:
             logger.error(f"Failed to list tasks: {e}")
             return []
 
-    async def get_task_stats(self) -> Dict:
+    async def get_task_stats(self) -> dict:
         """获取任务统计信息"""
         if not self.redis_client:
             return {
@@ -242,10 +241,10 @@ class TaskManager:
         try:
             # 获取任务总数
             total_tasks = await self.redis_client.zcard(self.task_list_key)
-            
+
             # 获取所有任务ID
             task_ids = await self.redis_client.zrange(self.task_list_key, 0, -1)
-            
+
             # 统计各状态数量
             status_counts = {
                 "running": 0,
@@ -253,14 +252,14 @@ class TaskManager:
                 "failed": 0,
                 "pending": 0
             }
-            
+
             for task_id in task_ids:
                 result = await self.get_task(task_id)
                 if result:
                     status_key = result.status.value if hasattr(result.status, 'value') else str(result.status).lower()
                     if status_key in status_counts:
                         status_counts[status_key] += 1
-            
+
             return {
                 "total_tasks": total_tasks,
                 "status_counts": status_counts,
@@ -282,20 +281,20 @@ class TaskManager:
         try:
             import time
             cutoff_timestamp = time.time() - (days * 86400)
-            
+
             # 获取过期的任务ID
             old_task_ids = await self.redis_client.zrangebyscore(
                 self.task_list_key,
                 0,
                 cutoff_timestamp
             )
-            
+
             # 删除这些任务
             deleted_count = 0
             for task_id in old_task_ids:
                 if await self.delete_task(task_id):
                     deleted_count += 1
-            
+
             logger.info(f"Cleaned up {deleted_count} old tasks")
             return deleted_count
         except Exception as e:

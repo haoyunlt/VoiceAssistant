@@ -2,7 +2,6 @@
 测试自定义异常
 """
 
-import pytest
 from app.core.exceptions import (
     AgentEngineException,
     AuthenticationError,

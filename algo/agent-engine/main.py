@@ -16,9 +16,8 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,17 +33,14 @@ from app.api.dependencies import (
     check_permissions,
     get_agent_engine,
     get_config_manager,
-    get_memory_manager,
     get_request_id,
     get_tenant_id,
     get_tool_registry,
-    get_user_id,
     optional_verify_token,
     verify_token,
 )
 from app.api.exception_handlers import register_exception_handlers
 from app.core.exceptions import (
-    ServiceNotInitializedException,
     ToolNotFoundError,
     ToolRegistrationError,
 )
@@ -376,7 +372,7 @@ async def execute_task(
     user: dict = Depends(verify_token),
     _: None = Depends(check_permissions(["agent:execute"])),
     request_id: str = Depends(get_request_id),
-    tenant_id: Optional[str] = Depends(get_tenant_id),
+    tenant_id: str | None = Depends(get_tenant_id),
 ):
     """执行 Agent 任务（非流式）"""
     import time
@@ -430,7 +426,7 @@ async def execute_task_stream(
     agent_engine=Depends(get_agent_engine),
     user: dict = Depends(verify_token),
     _: None = Depends(check_permissions(["agent:execute"])),
-    tenant_id: Optional[str] = Depends(get_tenant_id),
+    tenant_id: str | None = Depends(get_tenant_id),
 ):
     """执行 Agent 任务（流式）"""
     effective_tenant_id = request.tenant_id or tenant_id or user.get("tenant_id")
@@ -469,7 +465,7 @@ async def execute_task_stream(
 )
 async def list_tools(
     tool_registry=Depends(get_tool_registry),
-    category: Optional[str] = Query(None, description="按分类过滤"),
+    category: str | None = Query(None, description="按分类过滤"),
 ):
     """列出所有可用工具"""
     tools = tool_registry.list_tools()
@@ -575,7 +571,7 @@ async def register_tool(
                 instance = self._callable(*self._args, **self._kwargs)
                 if not hasattr(instance, "execute"):
                     raise ValueError("Tool class must define an 'execute' method")
-                execute_method = getattr(instance, "execute")
+                execute_method = instance.execute
                 if inspect.iscoroutinefunction(execute_method):
                     return await execute_method(**kwargs)
                 return await asyncio.to_thread(execute_method, **kwargs)
@@ -650,7 +646,7 @@ async def unregister_tool(
 )
 async def get_stats(
     agent_engine=Depends(get_agent_engine),
-    user: Optional[dict] = Depends(optional_verify_token),
+    user: dict | None = Depends(optional_verify_token),
 ):
     """获取统计信息"""
     stats = await agent_engine.get_stats()

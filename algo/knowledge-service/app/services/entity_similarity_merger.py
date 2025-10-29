@@ -9,7 +9,6 @@
 """
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -52,10 +51,10 @@ class EntitySimilarityMerger:
 
     async def find_duplicate_candidates(
         self,
-        entity_type: Optional[str] = None,
+        entity_type: str | None = None,
         batch_size: int = 100,
         max_candidates: int = 1000
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         查找重复实体候选
 
@@ -175,8 +174,8 @@ class EntitySimilarityMerger:
 
     def _calculate_confidence(
         self,
-        entity1: Dict,
-        entity2: Dict,
+        entity1: dict,
+        entity2: dict,
         vector_similarity: float
     ) -> float:
         """
@@ -227,17 +226,17 @@ class EntitySimilarityMerger:
         weights.append(0.1)
 
         # 加权平均
-        confidence = sum(s * w for s, w in zip(scores, weights))
+        confidence = sum(s * w for s, w in zip(scores, weights, strict=False))
 
         return confidence
 
     async def auto_merge_duplicates(
         self,
-        entity_type: Optional[str] = None,
-        min_confidence: Optional[float] = None,
+        entity_type: str | None = None,
+        min_confidence: float | None = None,
         dry_run: bool = True,
         max_merges: int = 100
-    ) -> Dict:
+    ) -> dict:
         """
         自动合并重复实体
 
@@ -324,7 +323,7 @@ class EntitySimilarityMerger:
         self,
         source_id: str,
         target_id: str
-    ) -> Dict:
+    ) -> dict:
         """
         合并一对实体
 
@@ -408,7 +407,7 @@ class EntitySimilarityMerger:
         self,
         source_id: str,
         target_id: str
-    ) -> Dict:
+    ) -> dict:
         """
         预览合并效果（不实际执行）
 

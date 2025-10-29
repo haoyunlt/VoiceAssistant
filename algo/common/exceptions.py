@@ -3,7 +3,7 @@
 为所有 Python 服务提供标准化的异常处理
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class VoiceHelperError(Exception):
@@ -15,9 +15,9 @@ class VoiceHelperError(Exception):
     def __init__(
         self,
         message: str,
-        code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        cause: Optional[Exception] = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+        cause: Exception | None = None,
     ):
         """
         初始化异常
@@ -34,7 +34,7 @@ class VoiceHelperError(Exception):
         self.details = details or {}
         self.cause = cause
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典格式（用于 API 响应）"""
         result = {
             "error": self.code,
@@ -209,7 +209,7 @@ class InvalidConfigError(ConfigurationError):
 
 
 def wrap_exception(
-    exc: Exception, message: Optional[str] = None, error_class: type = VoiceHelperError
+    exc: Exception, message: str | None = None, error_class: type = VoiceHelperError
 ) -> VoiceHelperError:
     """
     包装外部异常为内部异常

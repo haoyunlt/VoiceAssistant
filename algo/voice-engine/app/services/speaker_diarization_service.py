@@ -1,9 +1,7 @@
 """说话人分离服务"""
-import io
 import os
 import tempfile
 from dataclasses import dataclass
-from typing import List, Optional
 
 import torch
 from pyannote.audio import Pipeline
@@ -26,7 +24,7 @@ class SpeakerSegment:
 
 class DiarizationResult(BaseModel):
     """说话人分离结果"""
-    segments: List[SpeakerSegment]
+    segments: list[SpeakerSegment]
     num_speakers: int
 
 
@@ -41,14 +39,14 @@ class SpeakerTranscript(BaseModel):
 
 class TranscriptWithSpeakers(BaseModel):
     """完整的说话人转写"""
-    transcripts: List[SpeakerTranscript]
+    transcripts: list[SpeakerTranscript]
     num_speakers: int
 
 
 class SpeakerDiarizationService:
     """说话人分离服务"""
 
-    def __init__(self, asr_service: Optional[ASRService] = None):
+    def __init__(self, asr_service: ASRService | None = None):
         """初始化
 
         Args:
@@ -85,7 +83,7 @@ class SpeakerDiarizationService:
     async def diarize(
         self,
         audio_data: bytes,
-        num_speakers: Optional[int] = None,
+        num_speakers: int | None = None,
         min_speakers: int = 1,
         max_speakers: int = 10
     ) -> DiarizationResult:
@@ -137,7 +135,7 @@ class SpeakerDiarizationService:
 
             return DiarizationResult(
                 segments=segments,
-                num_speakers=len(set(seg.speaker_id for seg in segments))
+                num_speakers=len({seg.speaker_id for seg in segments})
             )
         finally:
             # 4. 清理临时文件
@@ -148,7 +146,7 @@ class SpeakerDiarizationService:
         self,
         audio_data: bytes,
         language: str = "zh",
-        num_speakers: Optional[int] = None
+        num_speakers: int | None = None
     ) -> TranscriptWithSpeakers:
         """说话人分离 + 语音识别
 

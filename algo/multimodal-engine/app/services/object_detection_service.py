@@ -1,6 +1,5 @@
 """目标检测服务"""
 import io
-from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
@@ -15,15 +14,15 @@ class DetectedObject(BaseModel):
     """检测到的对象"""
     class_name: str
     confidence: float
-    bbox: List[int]  # [x, y, width, height]
-    center: List[int]  # [x, y]
+    bbox: list[int]  # [x, y, width, height]
+    center: list[int]  # [x, y]
 
 
 class DetectionResult(BaseModel):
     """检测结果"""
-    objects: List[DetectedObject]
+    objects: list[DetectedObject]
     num_objects: int
-    image_size: List[int]  # [width, height]
+    image_size: list[int]  # [width, height]
     processing_time_ms: float
 
 
@@ -77,7 +76,7 @@ class ObjectDetectionService:
         except Exception as e:
             logger.error(f"Failed to load OpenCV YOLO: {e}")
 
-    def _load_coco_names(self) -> List[str]:
+    def _load_coco_names(self) -> list[str]:
         """加载COCO数据集类别名称"""
         return [
             "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
@@ -95,8 +94,8 @@ class ObjectDetectionService:
     async def detect_objects(
         self,
         image_data: bytes,
-        confidence_threshold: Optional[float] = None,
-        nms_threshold: Optional[float] = None
+        confidence_threshold: float | None = None,
+        nms_threshold: float | None = None
     ) -> DetectionResult:
         """检测图像中的对象
 
@@ -173,7 +172,7 @@ class ObjectDetectionService:
         image: np.ndarray,
         confidence_threshold: float,
         nms_threshold: float
-    ) -> List[DetectedObject]:
+    ) -> list[DetectedObject]:
         """使用OpenCV DNN检测"""
         height, width = image.shape[:2]
 
@@ -233,7 +232,7 @@ class ObjectDetectionService:
     async def detect_and_annotate(
         self,
         image_data: bytes,
-        confidence_threshold: Optional[float] = None
+        confidence_threshold: float | None = None
     ) -> tuple[DetectionResult, bytes]:
         """检测并标注图像
 
@@ -283,7 +282,7 @@ class ObjectDetectionService:
     async def count_objects_by_class(
         self,
         detection_result: DetectionResult
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """统计各类对象数量
 
         Args:

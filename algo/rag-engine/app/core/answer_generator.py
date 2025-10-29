@@ -2,7 +2,8 @@
 
 import json
 import logging
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -35,10 +36,10 @@ class AnswerGenerator:
 
     async def generate(
         self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, str]],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
         """
         生成答案 (非流式).
 
@@ -82,9 +83,9 @@ class AnswerGenerator:
 
     async def generate_stream(
         self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncIterator[str]:
         """
         生成答案 (流式).
@@ -118,10 +119,10 @@ class AnswerGenerator:
 
     async def generate_with_functions(
         self,
-        messages: List[Dict[str, str]],
-        functions: List[Dict[str, Any]],
-        function_call: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        messages: list[dict[str, str]],
+        functions: list[dict[str, Any]],
+        function_call: str | None = None,
+    ) -> dict[str, Any]:
         """
         使用函数调用生成答案.
 
@@ -176,10 +177,10 @@ class AnswerGenerator:
 
     async def batch_generate(
         self,
-        messages_list: List[List[Dict[str, str]]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        messages_list: list[list[dict[str, str]]],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         批量生成答案.
 

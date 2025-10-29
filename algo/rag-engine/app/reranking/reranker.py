@@ -5,8 +5,8 @@ Re-ranker - 检索结果重排序器
 提升检索精度
 """
 
-from typing import List, Dict, Any, Optional
 import os
+from typing import Any
 
 try:
     from sentence_transformers import CrossEncoder
@@ -54,8 +54,8 @@ class ReRanker:
         self.top_k = top_k
 
     def rerank(
-        self, query: str, documents: List[Dict[str, Any]], score_key: str = "score"
-    ) -> List[Dict[str, Any]]:
+        self, query: str, documents: list[dict[str, Any]], score_key: str = "score"
+    ) -> list[dict[str, Any]]:
         """
         重新排序文档
 
@@ -108,10 +108,10 @@ class ReRanker:
     def rerank_with_fusion(
         self,
         query: str,
-        documents: List[Dict[str, Any]],
+        documents: list[dict[str, Any]],
         original_weight: float = 0.3,
         rerank_weight: float = 0.7,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         使用分数融合进行重排序
 
@@ -169,7 +169,7 @@ class ReRanker:
             logger.error(f"Re-ranking with fusion failed: {e}")
             return documents[: self.top_k]
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 
@@ -196,7 +196,7 @@ class ReRanker:
 
 
 # 全局实例
-_reranker: Optional[ReRanker] = None
+_reranker: ReRanker | None = None
 
 
 def get_reranker() -> ReRanker:

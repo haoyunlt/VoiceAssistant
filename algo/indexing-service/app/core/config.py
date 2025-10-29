@@ -1,5 +1,4 @@
 """配置管理"""
-from typing import List
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -22,7 +21,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
 
     # CORS配置
-    CORS_ORIGINS: List[str] = Field(
+    CORS_ORIGINS: list[str] = Field(
         default=["*"],
         env="CORS_ORIGINS",
     )
@@ -39,7 +38,7 @@ class Settings(BaseSettings):
     # 文档处理配置
     MAX_CHUNK_SIZE: int = Field(default=512, env="MAX_CHUNK_SIZE")
     CHUNK_OVERLAP: int = Field(default=50, env="CHUNK_OVERLAP")
-    SUPPORTED_FORMATS: List[str] = Field(
+    SUPPORTED_FORMATS: list[str] = Field(
         default=["pdf", "docx", "txt", "md", "html"],
         env="SUPPORTED_FORMATS",
     )

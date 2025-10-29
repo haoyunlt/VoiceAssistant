@@ -3,7 +3,6 @@
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
 
 
 class BaseParser(ABC):
@@ -23,7 +22,7 @@ class BaseParser(ABC):
         """
         pass
 
-    def extract_metadata(self, file_data: bytes) -> Dict:
+    def extract_metadata(self, file_data: bytes) -> dict:
         """
         提取文档元数据（可选实现）
 

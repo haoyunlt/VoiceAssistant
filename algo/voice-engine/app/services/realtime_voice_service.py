@@ -4,10 +4,10 @@ WebSocket双向通信 + 实时VAD触发ASR
 """
 
 import asyncio
+import builtins
+import contextlib
 import logging
 import time
-import uuid
-from typing import Dict, Optional
 
 import numpy as np
 from fastapi import WebSocket
@@ -63,7 +63,7 @@ class RealtimeVoiceService:
         self.max_audio_duration_seconds = max_audio_duration_seconds
 
         # 会话管理
-        self.sessions: Dict[str, Dict] = {}
+        self.sessions: dict[str, dict] = {}
 
         # 统计信息
         self.total_sessions_created = 0
@@ -231,27 +231,21 @@ class RealtimeVoiceService:
 
         except Exception as e:
             logger.error(f"[Session {session_id}] Stream error: {e}", exc_info=True)
-            try:
+            with contextlib.suppress(builtins.BaseException):
                 await websocket.send_json(
                     {"type": "error", "message": f"Stream error: {str(e)}"}
                 )
-            except:
-                pass
 
         finally:
             # 取消后台任务
             heartbeat_task.cancel()
             timeout_task.cancel()
 
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await heartbeat_task
-            except asyncio.CancelledError:
-                pass
 
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await timeout_task
-            except asyncio.CancelledError:
-                pass
 
     async def _detect_speech(self, audio_array: np.ndarray) -> float:
         """
@@ -325,12 +319,10 @@ class RealtimeVoiceService:
 
         except Exception as e:
             logger.error(f"[Session {session_id}] ASR failed: {e}", exc_info=True)
-            try:
+            with contextlib.suppress(builtins.BaseException):
                 await websocket.send_json(
                     {"type": "error", "message": f"ASR failed: {str(e)}"}
                 )
-            except:
-                pass
 
     async def _send_heartbeats(self, websocket: WebSocket, session_id: str):
         """
@@ -427,11 +419,11 @@ class RealtimeVoiceService:
         """获取当前会话数"""
         return len(self.sessions)
 
-    def get_session_info(self, session_id: str) -> Optional[Dict]:
+    def get_session_info(self, session_id: str) -> dict | None:
         """获取会话信息"""
         return self.sessions.get(session_id)
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """
         获取服务统计信息
 

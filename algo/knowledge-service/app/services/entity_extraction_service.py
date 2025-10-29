@@ -3,7 +3,7 @@ Entity and Relation Extraction Service
 """
 
 import logging
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class EntityExtractionService:
         self.llm_client = llm_client
         self.ner_model = ner_model
 
-    async def extract(self, text: str) -> Dict[str, Any]:
+    async def extract(self, text: str) -> dict[str, Any]:
         """抽取实体和关系"""
         # 1. 命名实体识别
         entities = await self._extract_entities(text)
@@ -32,7 +32,7 @@ class EntityExtractionService:
             "triples": triples
         }
 
-    async def _extract_entities(self, text: str) -> List[Dict]:
+    async def _extract_entities(self, text: str) -> list[dict]:
         """命名实体识别"""
         if self.ner_model:
             # 使用NER模型
@@ -41,7 +41,7 @@ class EntityExtractionService:
             # 使用LLM
             return await self._ner_with_llm(text)
 
-    async def _ner_with_llm(self, text: str) -> List[Dict]:
+    async def _ner_with_llm(self, text: str) -> list[dict]:
         """使用LLM进行NER"""
         prompt = f"""Extract named entities from the text:
 
@@ -67,7 +67,7 @@ Entity types: PERSON, ORG, LOC, DATE, PRODUCT, EVENT"""
         except:
             return []
 
-    async def _ner_with_model(self, text: str) -> List[Dict]:
+    async def _ner_with_model(self, text: str) -> list[dict]:
         """使用NER模型"""
         entities = await self.ner_model.predict(text)
         return entities
@@ -75,8 +75,8 @@ Entity types: PERSON, ORG, LOC, DATE, PRODUCT, EVENT"""
     async def _extract_relations(
         self,
         text: str,
-        entities: List[Dict]
-    ) -> List[Dict]:
+        entities: list[dict]
+    ) -> list[dict]:
         """关系抽取"""
         if len(entities) < 2:
             return []
@@ -108,9 +108,9 @@ Return JSON array:
 
     def _build_triples(
         self,
-        entities: List[Dict],
-        relations: List[Dict]
-    ) -> List[Tuple[str, str, str]]:
+        entities: list[dict],
+        relations: list[dict]
+    ) -> list[tuple[str, str, str]]:
         """构建三元组"""
         triples = []
         for rel in relations:
@@ -125,8 +125,8 @@ Return JSON array:
 
     async def build_knowledge_graph(
         self,
-        documents: List[str]
-    ) -> Dict[str, Any]:
+        documents: list[str]
+    ) -> dict[str, Any]:
         """从文档构建知识图谱"""
         all_entities = []
         all_relations = []
@@ -153,7 +153,7 @@ Return JSON array:
             }
         }
 
-    def _deduplicate_entities(self, entities: List[Dict]) -> List[Dict]:
+    def _deduplicate_entities(self, entities: list[dict]) -> list[dict]:
         """实体去重"""
         seen = set()
         unique = []
@@ -164,7 +164,7 @@ Return JSON array:
                 unique.append(entity)
         return unique
 
-    def _deduplicate_relations(self, relations: List[Dict]) -> List[Dict]:
+    def _deduplicate_relations(self, relations: list[dict]) -> list[dict]:
         """关系去重"""
         seen = set()
         unique = []

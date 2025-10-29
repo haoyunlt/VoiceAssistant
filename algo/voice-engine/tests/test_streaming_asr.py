@@ -2,8 +2,7 @@
 流式 ASR 服务单元测试
 """
 
-import asyncio
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pytest
@@ -46,7 +45,7 @@ async def test_service_initialization(streaming_asr_service):
     """测试服务初始化"""
     assert streaming_asr_service.model_size == "base"
     assert streaming_asr_service.language == "zh"
-    assert streaming_asr_service.vad_enabled == True
+    assert streaming_asr_service.vad_enabled
     assert streaming_asr_service.sample_rate == 16000
 
 
@@ -76,7 +75,7 @@ async def test_detect_speech_vad_disabled():
 
     # VAD 禁用时应该始终返回 True
     is_speech = service._detect_speech(audio_chunk)
-    assert is_speech == True
+    assert is_speech
 
 
 @pytest.mark.asyncio
@@ -85,30 +84,29 @@ async def test_process_stream_session_lifecycle():
     service = StreamingASRService(model_size="base", vad_enabled=False)
 
     # Mock Whisper 模型
-    with patch.object(service, '_init_whisper_model'):
-        with patch.object(service, '_init_vad'):
-            with patch.object(service, '_recognize_partial', return_value="测试文本"):
-                with patch.object(service, '_recognize_final', return_value=("最终文本", 0.95)):
+    with patch.object(service, '_init_whisper_model'), patch.object(service, '_init_vad'):
+        with patch.object(service, '_recognize_partial', return_value="测试文本"):
+            with patch.object(service, '_recognize_final', return_value=("最终文本", 0.95)):
 
-                    # 创建音频流
-                    async def audio_stream():
-                        # 发送一些音频数据
-                        for _ in range(5):
-                            yield generate_test_audio(0.3)  # 300ms 块
+                # 创建音频流
+                async def audio_stream():
+                    # 发送一些音频数据
+                    for _ in range(5):
+                        yield generate_test_audio(0.3)  # 300ms 块
 
-                    # 处理流
-                    results = []
-                    async for result in service.process_stream(audio_stream()):
-                        results.append(result)
+                # 处理流
+                results = []
+                async for result in service.process_stream(audio_stream()):
+                    results.append(result)
 
-                    # 验证结果
-                    assert len(results) > 0
+                # 验证结果
+                assert len(results) > 0
 
-                    # 应该包含 session_start
-                    assert results[0]["type"] == "session_start"
+                # 应该包含 session_start
+                assert results[0]["type"] == "session_start"
 
-                    # 应该包含 session_end
-                    assert results[-1]["type"] == "session_end"
+                # 应该包含 session_end
+                assert results[-1]["type"] == "session_end"
 
 
 @pytest.mark.asyncio
@@ -169,28 +167,27 @@ async def test_silence_detection_triggers_final_recognition():
     )
 
     # Mock 方法
-    with patch.object(service, '_init_whisper_model'):
-        with patch.object(service, '_init_vad'):
-            with patch.object(service, '_detect_speech') as mock_vad:
-                with patch.object(service, '_recognize_final', return_value=("完整句子", 0.95)):
+    with patch.object(service, '_init_whisper_model'), patch.object(service, '_init_vad'):
+        with patch.object(service, '_detect_speech') as mock_vad:
+            with patch.object(service, '_recognize_final', return_value=("完整句子", 0.95)):
 
-                    # 模拟语音 → 静音 → 静音 → 静音 的模式
-                    mock_vad.side_effect = [True, False, False, False]
+                # 模拟语音 → 静音 → 静音 → 静音 的模式
+                mock_vad.side_effect = [True, False, False, False]
 
-                    # 创建音频流
-                    async def audio_stream():
-                        for _ in range(4):
-                            yield generate_test_audio(0.3)
+                # 创建音频流
+                async def audio_stream():
+                    for _ in range(4):
+                        yield generate_test_audio(0.3)
 
-                    # 处理流
-                    results = []
-                    async for result in service.process_stream(audio_stream()):
-                        results.append(result)
+                # 处理流
+                results = []
+                async for result in service.process_stream(audio_stream()):
+                    results.append(result)
 
-                    # 验证包含 final_result
-                    final_results = [r for r in results if r["type"] == "final_result"]
-                    assert len(final_results) > 0
-                    assert final_results[0]["text"] == "完整句子"
+                # 验证包含 final_result
+                final_results = [r for r in results if r["type"] == "final_result"]
+                assert len(final_results) > 0
+                assert final_results[0]["text"] == "完整句子"
 
 
 @pytest.mark.asyncio
@@ -199,26 +196,25 @@ async def test_error_handling_in_stream():
     service = StreamingASRService(model_size="base")
 
     # Mock 初始化方法
-    with patch.object(service, '_init_whisper_model'):
-        with patch.object(service, '_init_vad'):
-            # Mock 识别方法抛出异常
-            with patch.object(service, '_recognize_partial', side_effect=Exception("测试异常")):
+    with patch.object(service, '_init_whisper_model'), patch.object(service, '_init_vad'):
+        # Mock 识别方法抛出异常
+        with patch.object(service, '_recognize_partial', side_effect=Exception("测试异常")):
 
-                # 创建音频流
-                async def audio_stream():
-                    for _ in range(2):
-                        yield generate_test_audio(3.5)  # 触发 partial recognition
+            # 创建音频流
+            async def audio_stream():
+                for _ in range(2):
+                    yield generate_test_audio(3.5)  # 触发 partial recognition
 
-                # 处理流
-                results = []
-                async for result in service.process_stream(audio_stream()):
-                    results.append(result)
+            # 处理流
+            results = []
+            async for result in service.process_stream(audio_stream()):
+                results.append(result)
 
-                # 应该包含 error 结果
-                error_results = [r for r in results if r["type"] == "error"]
-                # 注意: 由于 try-catch, 可能不会有 error 结果，服务会继续运行
-                # 但至少应该能完成处理
-                assert len(results) > 0
+            # 应该包含 error 结果
+            [r for r in results if r["type"] == "error"]
+            # 注意: 由于 try-catch, 可能不会有 error 结果，服务会继续运行
+            # 但至少应该能完成处理
+            assert len(results) > 0
 
 
 def test_chunk_size_calculation():

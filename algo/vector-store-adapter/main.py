@@ -14,6 +14,8 @@ Vector Store Adapter Service - 向量库适配服务（重构版）
 """
 
 import logging
+import typing
+from collections.abc import Generator
 from contextlib import asynccontextmanager
 
 from app.core.settings import settings
@@ -38,6 +40,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, make_asgi_app
+from starlette.responses import Response
 
 # 配置日志
 logging.basicConfig(
@@ -64,7 +67,7 @@ redis_client = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> Generator[None, None, None]:
     """应用生命周期管理"""
     global vector_store_manager, redis_client
 
@@ -76,7 +79,11 @@ async def lifespan(app: FastAPI):
             try:
                 import redis.asyncio as aioredis
 
-                redis_url = f"redis://:{settings.redis_password}@{settings.redis_host}:{settings.redis_port}/{settings.redis_db}" if settings.redis_password else f"redis://{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+                redis_url = (
+                    f"redis://:{settings.redis_password}@{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+                    if settings.redis_password
+                    else f"redis://{settings.redis_host}:{settings.redis_port}/{settings.redis_db}"
+                )
                 redis_client = await aioredis.from_url(
                     redis_url,
                     encoding="utf-8",
@@ -160,7 +167,7 @@ app.mount("/metrics", metrics_app)
 
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check() -> HealthResponse:
     """健康检查"""
     return HealthResponse(
         status="healthy",
@@ -170,14 +177,12 @@ async def health_check():
 
 
 @app.get("/ready", response_model=ReadyResponse)
-async def readiness_check():
+async def readiness_check() -> ReadyResponse:
     """就绪检查"""
     global vector_store_manager
 
     if not vector_store_manager:
-        return ReadyResponse(
-            ready=False, reason="VectorStoreManager not initialized"
-        )
+        return ReadyResponse(ready=False, reason="VectorStoreManager not initialized")
 
     checks = await vector_store_manager.health_check()
 
@@ -193,7 +198,7 @@ async def readiness_check():
 
 
 @app.post("/collections/{collection_name}/insert", response_model=InsertResponse)
-async def insert_vectors(collection_name: str, request: InsertVectorsRequest):
+async def insert_vectors(collection_name: str, request: InsertVectorsRequest) -> InsertResponse:
     """
     插入向量（单条或批量）
 
@@ -241,7 +246,7 @@ async def insert_vectors(collection_name: str, request: InsertVectorsRequest):
 
 
 @app.post("/collections/{collection_name}/search", response_model=SearchResponse)
-async def search_vectors(collection_name: str, request: SearchVectorsRequest):
+async def search_vectors(collection_name: str, request: SearchVectorsRequest) -> SearchResponse:
     """
     向量检索
 
@@ -295,7 +300,7 @@ async def search_vectors(collection_name: str, request: SearchVectorsRequest):
 )
 async def delete_by_document(
     collection_name: str, document_id: str, backend: str = "milvus"
-):
+) -> DeleteResponse:
     """
     删除文档的所有向量
 
@@ -340,10 +345,10 @@ async def delete_by_document(
         raise
 
 
-@app.get(
-    "/collections/{collection_name}/count", response_model=CollectionCountResponse
-)
-async def get_collection_count(collection_name: str, backend: str = "milvus"):
+@app.get("/collections/{collection_name}/count", response_model=CollectionCountResponse)
+async def get_collection_count(
+    collection_name: str, backend: str = "milvus"
+) -> CollectionCountResponse:
     """
     获取集合中的向量数量
 
@@ -375,19 +380,24 @@ async def get_collection_count(collection_name: str, backend: str = "milvus"):
 
 
 @app.get("/stats", response_model=StatsResponse)
-async def get_stats():
+async def get_stats() -> StatsResponse:
     """获取统计信息"""
     global vector_store_manager
 
     if not vector_store_manager:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
-    return await vector_store_manager.get_stats()
+    return StatsResponse(
+        status="success",
+        vector_store_manager=vector_store_manager.get_stats(),
+    )
 
 
 # 添加全局异常处理
 @app.middleware("http")
-async def error_handler(request: Request, call_next):
+async def error_handler(
+    request: Request, call_next: typing.Callable[[Request], typing.Awaitable[Response]]
+) -> JSONResponse:
     """全局错误处理中间件"""
     return await error_handler_middleware(request, call_next)
 

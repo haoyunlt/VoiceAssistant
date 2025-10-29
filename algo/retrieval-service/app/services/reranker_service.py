@@ -3,10 +3,8 @@
 支持多种重排序策略：Cross-Encoder, LLM, Cohere Rerank API
 """
 
-import asyncio
 import logging
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +23,8 @@ class RerankerService:
     def __init__(
         self,
         backend: str = "llm",
-        model_name: Optional[str] = None,
-        api_key: Optional[str] = None,
+        model_name: str | None = None,
+        api_key: str | None = None,
     ):
         """
         初始化重排序服务
@@ -112,9 +110,9 @@ class RerankerService:
     async def rerank(
         self,
         query: str,
-        documents: List[Dict],
-        top_k: Optional[int] = None,
-    ) -> List[Dict]:
+        documents: list[dict],
+        top_k: int | None = None,
+    ) -> list[dict]:
         """
         重排序文档
 
@@ -147,8 +145,8 @@ class RerankerService:
             return documents[:top_k] if top_k else documents
 
     async def _rerank_cross_encoder(
-        self, query: str, documents: List[Dict], top_k: Optional[int]
-    ) -> List[Dict]:
+        self, query: str, documents: list[dict], top_k: int | None
+    ) -> list[dict]:
         """使用 Cross-Encoder 重排序"""
         # 准备输入对
         pairs = [(query, doc.get("content", doc.get("text", ""))) for doc in documents]
@@ -158,7 +156,7 @@ class RerankerService:
 
         # 合并分数并排序
         reranked = []
-        for doc, score in zip(documents, scores):
+        for doc, score in zip(documents, scores, strict=False):
             doc_copy = doc.copy()
             doc_copy["rerank_score"] = float(score)
             reranked.append(doc_copy)
@@ -169,8 +167,8 @@ class RerankerService:
         return reranked[:top_k] if top_k else reranked
 
     async def _rerank_llm(
-        self, query: str, documents: List[Dict], top_k: Optional[int]
-    ) -> List[Dict]:
+        self, query: str, documents: list[dict], top_k: int | None
+    ) -> list[dict]:
         """使用 LLM 重排序"""
         # 构建 prompt
         docs_text = []
@@ -191,7 +189,6 @@ Example: 2,0,4,1,3
 Ranked indices:"""
 
         try:
-            import json
             import os
 
             import httpx
@@ -257,8 +254,8 @@ Ranked indices:"""
             return documents[:top_k] if top_k else documents
 
     async def _rerank_cohere(
-        self, query: str, documents: List[Dict], top_k: Optional[int]
-    ) -> List[Dict]:
+        self, query: str, documents: list[dict], top_k: int | None
+    ) -> list[dict]:
         """使用 Cohere Rerank API 重排序"""
         try:
             # 准备文档文本
@@ -286,8 +283,8 @@ Ranked indices:"""
             return documents[:top_k] if top_k else documents
 
     async def _rerank_simple(
-        self, query: str, documents: List[Dict], top_k: Optional[int]
-    ) -> List[Dict]:
+        self, query: str, documents: list[dict], top_k: int | None
+    ) -> list[dict]:
         """简单重排序（基于规则）"""
         # 基于简单规则：
         # 1. 关键词匹配
@@ -329,11 +326,11 @@ Ranked indices:"""
 
 
 # 全局重排序服务实例
-_reranker_service_instance: Optional[RerankerService] = None
+_reranker_service_instance: RerankerService | None = None
 
 
 async def get_reranker_service(
-    backend: str = "simple", model_name: Optional[str] = None, api_key: Optional[str] = None
+    backend: str = "simple", model_name: str | None = None, api_key: str | None = None
 ) -> RerankerService:
     """
     获取重排序服务单例

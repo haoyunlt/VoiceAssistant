@@ -7,7 +7,6 @@ import asyncio
 import io
 import logging
 import os
-from typing import Optional
 
 from minio import Minio
 from minio.error import S3Error
@@ -20,11 +19,11 @@ class MinioClient:
 
     def __init__(
         self,
-        endpoint: Optional[str] = None,
-        access_key: Optional[str] = None,
-        secret_key: Optional[str] = None,
-        secure: Optional[bool] = None,
-        bucket_name: Optional[str] = None
+        endpoint: str | None = None,
+        access_key: str | None = None,
+        secret_key: str | None = None,
+        secure: bool | None = None,
+        bucket_name: str | None = None
     ):
         """
         初始化 MinIO 客户端
@@ -72,7 +71,7 @@ class MinioClient:
             logger.error(f"Failed to initialize MinIO client: {e}")
             raise
 
-    async def download_file(self, object_name: str) -> Optional[bytes]:
+    async def download_file(self, object_name: str) -> bytes | None:
         """
         下载文件（异步）
 
@@ -215,7 +214,7 @@ class MinioClient:
         # MinIO Python SDK 不需要显式关闭
         logger.info("MinIO client closed")
 
-    async def get_file_info(self, object_name: str) -> Optional[dict]:
+    async def get_file_info(self, object_name: str) -> dict | None:
         """
         获取文件信息（异步）
 

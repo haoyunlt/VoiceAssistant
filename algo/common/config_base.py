@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -31,7 +30,7 @@ class ServiceConfigBase(BaseSettings):
     # ===== 可观测性配置 =====
     metrics_enabled: bool = Field(default=True, env="METRICS_ENABLED")
     tracing_enabled: bool = Field(default=False, env="TRACING_ENABLED")
-    tracing_endpoint: Optional[str] = Field(default=None, env="TRACING_ENDPOINT")
+    tracing_endpoint: str | None = Field(default=None, env="TRACING_ENDPOINT")
 
     # ===== Redis配置 (可选) =====
     redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
@@ -72,8 +71,8 @@ class LLMConfigMixin(BaseSettings):
     # LLM配置
     llm_provider: str = Field(default="openai", env="LLM_PROVIDER")
     llm_model: str = Field(default="gpt-4", env="LLM_MODEL")
-    llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
-    llm_api_base: Optional[str] = Field(default=None, env="LLM_API_BASE")
+    llm_api_key: str | None = Field(default=None, env="LLM_API_KEY")
+    llm_api_base: str | None = Field(default=None, env="LLM_API_BASE")
     llm_temperature: float = Field(default=0.7, env="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=2000, env="LLM_MAX_TOKENS")
     llm_timeout: int = Field(default=30, env="LLM_TIMEOUT")

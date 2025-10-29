@@ -4,11 +4,9 @@ Event Compensation Mechanism
 事件补偿机制 - 处理失败的事件发布
 """
 
-import asyncio
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -33,7 +31,7 @@ class EventCompensationService:
         self.compensation_lock_key = "knowledge:compensation_lock"
 
     async def record_failed_event(
-        self, event_type: str, payload: Dict, error: str, metadata: Optional[Dict] = None
+        self, event_type: str, payload: dict, error: str, metadata: dict | None = None
     ):
         """记录失败的事件"""
         failed_event = {
@@ -171,7 +169,7 @@ class EventCompensationService:
 
     async def get_failed_events(
         self, start: int = 0, end: int = 99
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取失败事件列表"""
         try:
             events_data = await self.redis.lrange(

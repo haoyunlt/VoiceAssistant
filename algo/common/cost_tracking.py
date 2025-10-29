@@ -1,7 +1,7 @@
 """
 请求级成本追踪
 
-实现 .cursorrules 中要求的"请求级 Token 计费"功能，支持：
+实现 "请求级 Token 计费"功能，支持：
 - Token使用追踪（prompt + completion + embedding）
 - 成本计算（基于模型定价）
 - 预算告警
@@ -12,7 +12,6 @@ import logging
 import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +47,8 @@ class CostContext:
     """
 
     request_id: str
-    tenant_id: Optional[str] = None
-    user_id: Optional[str] = None
+    tenant_id: str | None = None
+    user_id: str | None = None
 
     # Token使用统计
     prompt_tokens: int = 0
@@ -72,16 +71,14 @@ class CostContext:
     estimated_cost_usd: float = 0.0
 
     # 模型使用详情
-    models_used: Dict[str, int] = field(default_factory=dict)  # model_name -> call_count
+    models_used: dict[str, int] = field(default_factory=dict)  # model_name -> call_count
 
 
 # 使用 ContextVar 存储请求上下文
-_cost_context_var: ContextVar[Optional[CostContext]] = ContextVar(
-    "cost_context", default=None
-)
+_cost_context_var: ContextVar[CostContext | None] = ContextVar("cost_context", default=None)
 
 
-def get_cost_context() -> Optional[CostContext]:
+def get_cost_context() -> CostContext | None:
     """
     获取当前请求的成本上下文
 
@@ -91,7 +88,7 @@ def get_cost_context() -> Optional[CostContext]:
     return _cost_context_var.get()
 
 
-def set_cost_context(context: CostContext):
+def set_cost_context(context: CostContext) -> None:
     """
     设置成本上下文
 
@@ -101,7 +98,7 @@ def set_cost_context(context: CostContext):
     _cost_context_var.set(context)
 
 
-def clear_cost_context():
+def clear_cost_context() -> None:
     """清除成本上下文"""
     _cost_context_var.set(None)
 
@@ -111,7 +108,7 @@ def track_llm_usage(
     prompt_tokens: int,
     completion_tokens: int,
     latency_ms: float,
-):
+) -> None:
     """
     追踪 LLM 使用
 
@@ -129,7 +126,7 @@ def track_llm_usage(
     # 更新统计
     context.prompt_tokens += prompt_tokens
     context.completion_tokens += completion_tokens
-    context.total_tokens += (prompt_tokens + completion_tokens)
+    context.total_tokens += prompt_tokens + completion_tokens
     context.llm_calls += 1
     context.llm_latency_ms += latency_ms
 
@@ -156,8 +153,8 @@ def track_llm_usage(
 def track_embedding_usage(
     model: str,
     tokens: int,
-    latency_ms: float,
-):
+    latency_ms: float,  # noqa: ARG001 - reserved for future metrics
+) -> None:
     """
     追踪 Embedding 使用
 
@@ -184,13 +181,10 @@ def track_embedding_usage(
         cost = (tokens / 1000) * pricing["embedding"]
         context.estimated_cost_usd += cost
 
-        logger.debug(
-            f"Embedding usage tracked: model={model}, "
-            f"tokens={tokens}, cost=${cost:.6f}"
-        )
+        logger.debug(f"Embedding usage tracked: model={model}, tokens={tokens}, cost=${cost:.6f}")
 
 
-def track_retrieval_call(latency_ms: float):
+def track_retrieval_call(latency_ms: float) -> None:
     """
     追踪检索调用
 
@@ -205,7 +199,7 @@ def track_retrieval_call(latency_ms: float):
     context.retrieval_latency_ms += latency_ms
 
 
-def track_rerank_call():
+def track_rerank_call() -> None:
     """追踪重排序调用"""
     context = get_cost_context()
     if not context:
@@ -214,7 +208,7 @@ def track_rerank_call():
     context.rerank_calls += 1
 
 
-def get_cost_summary() -> Optional[Dict]:
+def get_cost_summary() -> dict | None:
     """
     获取成本摘要
 
@@ -261,7 +255,7 @@ def get_cost_summary() -> Optional[Dict]:
 
 
 # FastAPI 中间件
-async def cost_tracking_middleware(request, call_next):
+async def cost_tracking_middleware(request, call_next):  # type: ignore[no-untyped-def]
     """
     成本追踪中间件
 

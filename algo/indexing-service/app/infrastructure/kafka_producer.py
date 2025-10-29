@@ -2,7 +2,7 @@
 import json
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient, NewTopic
@@ -24,8 +24,8 @@ class KafkaProducer:
         self.bootstrap_servers = os.getenv(
             "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
         )
-        self.producer: Optional[Producer] = None
-        self.admin_client: Optional[AdminClient] = None
+        self.producer: Producer | None = None
+        self.admin_client: AdminClient | None = None
 
         # 主题配置
         self.topics = {
@@ -117,7 +117,7 @@ class KafkaProducer:
         self,
         document_id: str,
         tenant_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """
         发布文档索引完成事件
@@ -143,7 +143,7 @@ class KafkaProducer:
         document_id: str,
         tenant_id: str,
         error: str,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ):
         """
         发布文档索引失败事件
@@ -171,7 +171,7 @@ class KafkaProducer:
         document_id: str,
         tenant_id: str,
         chunk_count: int,
-        chunks_info: Optional[list] = None,
+        chunks_info: list | None = None,
     ):
         """
         发布分块创建事件
@@ -222,7 +222,7 @@ class KafkaProducer:
         await self._publish(self.topics["vectors_stored"], document_id, event)
         logger.info(f"Published vectors_stored event for {document_id}: {vector_count} vectors")
 
-    async def _publish(self, topic: str, key: str, value: Dict[str, Any]):
+    async def _publish(self, topic: str, key: str, value: dict[str, Any]):
         """
         发布消息到Kafka
 
@@ -286,7 +286,7 @@ class KafkaProducer:
 
 
 # 全局单例
-_kafka_producer: Optional[KafkaProducer] = None
+_kafka_producer: KafkaProducer | None = None
 
 
 async def get_kafka_producer() -> KafkaProducer:

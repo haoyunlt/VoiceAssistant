@@ -2,13 +2,13 @@
 BM25 search service using Elasticsearch
 """
 
+import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from elasticsearch import AsyncElasticsearch
 
 from app.core.config import settings
-import logging
 from app.models.retrieval import RetrievalDocument
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class BM25Service:
     """BM25 检索服务（Elasticsearch）"""
 
     def __init__(self):
-        self.client: Optional[AsyncElasticsearch] = None
+        self.client: AsyncElasticsearch | None = None
         self._connect()
 
     def _connect(self):
@@ -42,9 +42,9 @@ class BM25Service:
         self,
         query: str,
         top_k: int,
-        tenant_id: Optional[str] = None,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> list[RetrievalDocument]:
         """
         BM25 检索
 
@@ -96,8 +96,8 @@ class BM25Service:
             return []
 
     def _build_query(
-        self, query: str, tenant_id: Optional[str] = None, filters: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, query: str, tenant_id: str | None = None, filters: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """构建 Elasticsearch 查询"""
         # 基础 BM25 查询
         must_clauses = [{"match": {"content": {"query": query, "boost": 1.0}}}]

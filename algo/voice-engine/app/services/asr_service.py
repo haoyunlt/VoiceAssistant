@@ -3,17 +3,14 @@ ASR (Automatic Speech Recognition) service
 """
 
 import base64
-import io
+import logging
 import os
 import time
-from typing import Optional
 
 import httpx
-import torch
 from faster_whisper import WhisperModel
 
 from app.core.config import settings
-import logging
 from app.models.voice import ASRRequest, ASRResponse
 from app.services.vad_service import VADService
 
@@ -89,7 +86,7 @@ class ASRService:
         Returns:
             ASR 响应
         """
-        start_time = time.time()
+        time.time()
 
         # 获取音频数据
         if request.audio_base64:
@@ -112,7 +109,7 @@ class ASRService:
     async def recognize_from_bytes(
         self,
         audio_data: bytes,
-        language: Optional[str] = None,
+        language: str | None = None,
         enable_vad: bool = True,
         task: str = "transcribe",
     ) -> ASRResponse:
@@ -157,7 +154,7 @@ class ASRService:
         )
 
     async def _recognize_with_whisper(
-        self, audio_data: bytes, language: Optional[str], task: str
+        self, audio_data: bytes, language: str | None, task: str
     ) -> dict:
         """使用 Whisper 模型识别"""
         if not self.model:
@@ -177,11 +174,11 @@ class ASRService:
                     language=language,
                     task=task,
                     vad_filter=True,
-                    vad_parameters=dict(
-                        threshold=settings.VAD_THRESHOLD,
-                        min_speech_duration_ms=settings.VAD_MIN_SPEECH_DURATION_MS,
-                        min_silence_duration_ms=settings.VAD_MIN_SILENCE_DURATION_MS,
-                    ),
+                    vad_parameters={
+                        "threshold": settings.VAD_THRESHOLD,
+                        "min_speech_duration_ms": settings.VAD_MIN_SPEECH_DURATION_MS,
+                        "min_silence_duration_ms": settings.VAD_MIN_SILENCE_DURATION_MS,
+                    },
                 )
 
                 # 提取结果
@@ -211,7 +208,7 @@ class ASRService:
             logger.error(f"Whisper recognition failed: {e}", exc_info=True)
             raise
 
-    async def _recognize_with_azure(self, audio_data: bytes, language: Optional[str]) -> dict:
+    async def _recognize_with_azure(self, audio_data: bytes, language: str | None) -> dict:
         """使用 Azure Speech 识别"""
         if not self.azure_service:
             raise RuntimeError("Azure Speech Service not initialized")

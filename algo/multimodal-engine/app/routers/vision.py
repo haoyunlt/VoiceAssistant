@@ -2,9 +2,10 @@
 Vision understanding endpoints (using Vision LLMs)
 """
 
+import logging
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-import logging
 from app.models.multimodal import VisionRequest, VisionResponse
 from app.services.vision_service import VisionService
 

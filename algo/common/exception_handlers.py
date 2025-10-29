@@ -5,20 +5,13 @@
 """
 
 import logging
-from typing import Union
 
-from fastapi import FastAPI, Request, status
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi import FastAPI, Request, status  # type: ignore[import]
+from fastapi.exceptions import RequestValidationError  # type: ignore[import]
+from fastapi.responses import JSONResponse  # type: ignore[import]
+from starlette.exceptions import HTTPException as StarletteHTTPException  # type: ignore[import]
 
 from .exceptions import (
-    AuthenticationError,
-    AuthorizationError,
-    ResourceNotFoundError,
-    ServiceTimeoutError,
-    ServiceUnavailableError,
-    ValidationError,
     VoiceHelperError,
     get_http_status_code,
 )
@@ -26,7 +19,7 @@ from .exceptions import (
 logger = logging.getLogger(__name__)
 
 
-def register_exception_handlers(app: FastAPI):
+def register_exception_handlers(app: FastAPI) -> None:
     """
     注册全局异常处理器到 FastAPI 应用
 
@@ -35,7 +28,9 @@ def register_exception_handlers(app: FastAPI):
     """
 
     @app.exception_handler(VoiceHelperError)
-    async def voice_assistant_exception_handler(request: Request, exc: VoiceHelperError):
+    async def voice_assistant_exception_handler(
+        request: Request, exc: VoiceHelperError
+    ) -> JSONResponse:
         """处理自定义业务异常"""
         status_code = get_http_status_code(exc)
 
@@ -73,7 +68,9 @@ def register_exception_handlers(app: FastAPI):
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
         """处理请求验证错误（Pydantic）"""
         logger.warning(
             f"Validation error: {exc}",
@@ -94,7 +91,7 @@ def register_exception_handlers(app: FastAPI):
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         """处理 HTTP 异常"""
         logger.warning(
             f"HTTP exception: {exc.status_code} - {exc.detail}",
@@ -115,7 +112,7 @@ def register_exception_handlers(app: FastAPI):
         )
 
     @app.exception_handler(Exception)
-    async def generic_exception_handler(request: Request, exc: Exception):
+    async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """处理未捕获的异常"""
         logger.exception(
             f"Unhandled exception: {exc}",
@@ -153,7 +150,7 @@ def create_error_response(
     error_code: str,
     message: str,
     status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-    details: Union[dict, None] = None,
+    details: dict | None = None,
 ) -> JSONResponse:
     """
     创建标准错误响应
@@ -173,7 +170,7 @@ def create_error_response(
     }
 
     if details:
-        content["details"] = details
+        content["details"] = details  # type: ignore
 
     return JSONResponse(
         status_code=status_code,

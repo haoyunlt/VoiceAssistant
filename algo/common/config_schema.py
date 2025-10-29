@@ -8,8 +8,6 @@
 - 自定义验证器
 """
 
-import os
-from typing import List, Optional
 
 from pydantic import Field, HttpUrl, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -57,7 +55,7 @@ class ServiceConfig(BaseSettings):
     # === 认证配置 ===
     auth_enabled: bool = Field(default=False, description="是否启用认证")
     auth_fail_open: bool = Field(default=False, description="认证服务不可用时降级")
-    identity_service_url: Optional[HttpUrl] = Field(
+    identity_service_url: HttpUrl | None = Field(
         default=None, description="身份认证服务URL"
     )
 
@@ -123,7 +121,7 @@ class ServiceConfig(BaseSettings):
 
         return self
 
-    def get_cors_origins_list(self) -> List[str]:
+    def get_cors_origins_list(self) -> list[str]:
         """获取 CORS 源列表"""
         if not self.cors_origins:
             return []
@@ -157,7 +155,7 @@ class RedisConfig(BaseSettings):
 
     host: str = Field(default="localhost", description="Redis 主机")
     port: int = Field(default=6379, ge=1, le=65535, description="Redis 端口")
-    password: Optional[str] = Field(default=None, description="Redis 密码")
+    password: str | None = Field(default=None, description="Redis 密码")
     db: int = Field(default=0, ge=0, le=15, description="Redis 数据库编号")
     max_connections: int = Field(default=50, ge=1, le=1000, description="最大连接数")
     socket_timeout: float = Field(default=5.0, ge=0.1, description="Socket 超时")
@@ -201,8 +199,8 @@ class LLMConfig(BaseSettings):
 
     provider: str = Field(default="openai", description="LLM 提供商")
     model: str = Field(default="gpt-3.5-turbo", description="模型名称")
-    api_key: Optional[str] = Field(default=None, description="API Key")
-    api_base: Optional[HttpUrl] = Field(default=None, description="API Base URL")
+    api_key: str | None = Field(default=None, description="API Key")
+    api_base: HttpUrl | None = Field(default=None, description="API Base URL")
     max_tokens: int = Field(default=2048, ge=1, le=128000, description="最大 Token 数")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
     timeout: float = Field(default=60.0, ge=1.0, description="超时时间")

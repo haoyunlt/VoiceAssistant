@@ -4,8 +4,8 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable, Optional, Tuple, Type
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +14,8 @@ def async_retry(
     max_retries: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
-    on_retry: Optional[Callable] = None,
+    exceptions: tuple[type[Exception], ...] = (Exception,),
+    on_retry: Callable | None = None,
 ):
     """
     异步重试装饰器
@@ -74,7 +74,7 @@ def sync_retry(
     max_retries: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
 ):
     """
     同步重试装饰器
@@ -131,7 +131,7 @@ class RetryContext:
         self.last_exception = None
 
     async def execute(
-        self, func: Callable, *args, exceptions: Tuple[Type[Exception], ...] = (Exception,), **kwargs
+        self, func: Callable, *args, exceptions: tuple[type[Exception], ...] = (Exception,), **kwargs
     ):
         """执行带重试的函数"""
         current_delay = self.delay

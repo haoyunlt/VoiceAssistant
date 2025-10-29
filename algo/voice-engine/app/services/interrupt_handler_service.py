@@ -7,7 +7,6 @@ import asyncio
 import logging
 import time
 from enum import Enum
-from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +42,14 @@ class InterruptHandlerService:
         self.interrupt_duration = interrupt_duration
 
         # 会话管理
-        self.sessions: Dict[str, Dict] = {}
+        self.sessions: dict[str, dict] = {}
 
         logger.info(
             f"InterruptHandlerService initialized: "
             f"threshold={interrupt_threshold}, duration={interrupt_duration}s"
         )
 
-    def create_session(self, session_id: str) -> Dict:
+    def create_session(self, session_id: str) -> dict:
         """
         创建会话
 
@@ -76,7 +75,7 @@ class InterruptHandlerService:
 
         return session
 
-    def get_session(self, session_id: str) -> Optional[Dict]:
+    def get_session(self, session_id: str) -> dict | None:
         """获取会话"""
         return self.sessions.get(session_id)
 
@@ -265,7 +264,7 @@ class InterruptHandlerService:
 
         return True
 
-    def get_playback_state(self, session_id: str) -> Optional[PlaybackState]:
+    def get_playback_state(self, session_id: str) -> PlaybackState | None:
         """
         获取播放状态
 
@@ -281,7 +280,7 @@ class InterruptHandlerService:
 
         return session["playback_state"]
 
-    async def handle_interrupt(self, session_id: str) -> Dict:
+    async def handle_interrupt(self, session_id: str) -> dict:
         """
         处理打断事件
 
@@ -331,7 +330,7 @@ class InterruptHandlerService:
 
             logger.info(f"Session {session_id} cleaned up")
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """
         获取统计信息
 

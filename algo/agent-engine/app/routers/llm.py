@@ -4,13 +4,13 @@ LLM API - LLM 客户端 REST API
 提供多厂商 LLM 的 REST API 接口
 """
 
-from typing import List, Literal, Optional
+import logging
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-import logging
 from app.llm.base import Message
 from app.llm.multi_llm_adapter import get_multi_llm_adapter
 
@@ -21,10 +21,10 @@ router = APIRouter(prefix="/api/v1/llm", tags=["LLM"])
 class CompletionRequest(BaseModel):
     """LLM 完成请求"""
 
-    messages: List[Message] = Field(..., description="消息列表")
+    messages: list[Message] = Field(..., description="消息列表")
     temperature: float = Field(0.7, description="温度参数 (0-2)", ge=0, le=2)
     max_tokens: int = Field(2000, description="最大 token 数", ge=1, le=32000)
-    provider: Optional[Literal["openai", "claude", "ollama"]] = Field(
+    provider: Literal["openai", "claude", "ollama"] | None = Field(
         None, description="指定 LLM 提供商（可选）"
     )
     stream: bool = Field(False, description="是否流式响应")
@@ -73,7 +73,7 @@ async def complete(request: CompletionRequest):
                 try:
                     async for chunk in stream:
                         yield f"data: {chunk}\n\n"
-                    yield f"data: [DONE]\n\n"
+                    yield "data: [DONE]\n\n"
                 except Exception as e:
                     logger.error(f"Streaming error: {e}")
                     yield f"data: {{\"error\": \"{str(e)}\"}}\n\n"

@@ -1,9 +1,6 @@
 """智能分块服务"""
 import re
 from dataclasses import dataclass
-from typing import List
-
-from app.core.logging import logger
 
 
 @dataclass
@@ -30,7 +27,7 @@ class SmartChunkingService:
         text: str,
         max_chunk_size: int = None,
         min_chunk_size: int = None
-    ) -> List[Chunk]:
+    ) -> list[Chunk]:
         """语义分块（基于段落和句子）
 
         Args:
@@ -96,7 +93,7 @@ class SmartChunkingService:
 
         return chunks
 
-    def _split_by_paragraphs(self, text: str) -> List[str]:
+    def _split_by_paragraphs(self, text: str) -> list[str]:
         """按段落分割
 
         Args:
@@ -114,7 +111,7 @@ class SmartChunkingService:
         paragraph: str,
         max_chunk_size: int,
         min_chunk_size: int
-    ) -> List[Chunk]:
+    ) -> list[Chunk]:
         """分块长段落
 
         Args:
@@ -160,7 +157,7 @@ class SmartChunkingService:
 
         return chunks
 
-    def _split_by_sentences(self, text: str) -> List[str]:
+    def _split_by_sentences(self, text: str) -> list[str]:
         """按句子分割
 
         Args:
@@ -184,7 +181,7 @@ class SmartChunkingService:
         self,
         text: str,
         structure_markers: dict = None
-    ) -> List[Chunk]:
+    ) -> list[Chunk]:
         """结构化分块（基于标题、列表等）
 
         Args:
@@ -247,7 +244,7 @@ class SmartChunkingService:
         text: str,
         chunk_size: int = None,
         overlap_size: int = None
-    ) -> List[Chunk]:
+    ) -> list[Chunk]:
         """固定大小分块（带重叠）
 
         Args:
@@ -300,10 +297,10 @@ class SmartChunkingService:
 
     async def optimize_chunks(
         self,
-        chunks: List[Chunk],
+        chunks: list[Chunk],
         min_size: int = None,
         max_size: int = None
-    ) -> List[Chunk]:
+    ) -> list[Chunk]:
         """优化块（合并过小的块，分割过大的块）
 
         Args:

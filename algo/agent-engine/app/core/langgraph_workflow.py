@@ -5,7 +5,7 @@ LangGraph 状态机工作流
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, TypedDict
 
 from langgraph.graph import END, StateGraph
 
@@ -17,13 +17,13 @@ class AgentState(TypedDict):
 
     # 输入
     task: str  # 原始任务描述
-    context: Dict[str, Any]  # 上下文信息
-    available_tools: List[str]  # 可用工具列表
+    context: dict[str, Any]  # 上下文信息
+    available_tools: list[str]  # 可用工具列表
 
     # 中间状态
-    plan: List[Dict[str, Any]]  # 任务计划
+    plan: list[dict[str, Any]]  # 任务计划
     current_step: int  # 当前步骤
-    execution_results: List[Dict]  # 执行结果
+    execution_results: list[dict]  # 执行结果
 
     # 控制标志
     need_reflection: bool  # 是否需要反思
@@ -33,7 +33,7 @@ class AgentState(TypedDict):
 
     # 输出
     final_result: str  # 最终结果
-    error: Optional[str]  # 错误信息
+    error: str | None  # 错误信息
 
 
 class LangGraphWorkflow:
@@ -94,7 +94,7 @@ class LangGraphWorkflow:
 
         return workflow
 
-    async def _planning_node(self, state: AgentState) -> Dict:
+    async def _planning_node(self, state: AgentState) -> dict:
         """
         规划节点 - 任务分解
 
@@ -166,7 +166,7 @@ class LangGraphWorkflow:
                 "need_replan": False,
             }
 
-    async def _execution_node(self, state: AgentState) -> Dict:
+    async def _execution_node(self, state: AgentState) -> dict:
         """
         执行节点 - 执行当前步骤
 
@@ -227,7 +227,7 @@ class LangGraphWorkflow:
                 "need_replan": True,
             }
 
-    async def _reflection_node(self, state: AgentState) -> Dict:
+    async def _reflection_node(self, state: AgentState) -> dict:
         """
         反思节点 - 验证执行结果
 
@@ -270,7 +270,7 @@ class LangGraphWorkflow:
             logger.error(f"Reflection failed: {e}")
             return {"need_replan": False}
 
-    async def _synthesis_node(self, state: AgentState) -> Dict:
+    async def _synthesis_node(self, state: AgentState) -> dict:
         """
         综合节点 - 生成最终结果
 
@@ -357,10 +357,10 @@ class LangGraphWorkflow:
     async def run(
         self,
         task: str,
-        context: Optional[Dict[str, Any]] = None,
-        available_tools: Optional[List[str]] = None,
+        context: dict[str, Any] | None = None,
+        available_tools: list[str] | None = None,
         max_iterations: int = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         运行工作流
 
@@ -409,7 +409,7 @@ class LangGraphWorkflow:
                 "error": str(e),
             }
 
-    async def _execute_step(self, step: Dict[str, Any]) -> Any:
+    async def _execute_step(self, step: dict[str, Any]) -> Any:
         """
         执行单个步骤
 
@@ -430,7 +430,7 @@ class LangGraphWorkflow:
         result = await self.tools.execute_tool(tool_name, tool_input)
         return result
 
-    def _get_tools_description(self, tool_names: List[str]) -> str:
+    def _get_tools_description(self, tool_names: list[str]) -> str:
         """
         获取工具描述
 
@@ -451,7 +451,7 @@ class LangGraphWorkflow:
 
         return "\n".join(descriptions) if descriptions else "无可用工具"
 
-    def _parse_plan(self, response: str) -> List[Dict[str, Any]]:
+    def _parse_plan(self, response: str) -> list[dict[str, Any]]:
         """
         解析规划响应
 
@@ -484,7 +484,7 @@ class LangGraphWorkflow:
         logger.warning("Failed to parse plan, returning empty list")
         return []
 
-    def _parse_reflection(self, response: str) -> Dict[str, Any]:
+    def _parse_reflection(self, response: str) -> dict[str, Any]:
         """
         解析反思响应
 

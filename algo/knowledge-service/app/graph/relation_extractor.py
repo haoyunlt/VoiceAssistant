@@ -5,7 +5,7 @@ Relation Extractor - 关系提取器
 """
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 try:
     import spacy
@@ -41,8 +41,8 @@ class RelationExtractor:
                 self.nlp = None
 
     def extract_relations(
-        self, text: str, entities: Optional[List[Dict[str, Any]]] = None
-    ) -> List[Dict[str, Any]]:
+        self, text: str, entities: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
         """
         从文本提取关系
 
@@ -114,8 +114,8 @@ class RelationExtractor:
         return " ".join(t.text for t in subtree)
 
     def _fallback_extract(
-        self, text: str, entities: Optional[List[Dict[str, Any]]] = None
-    ) -> List[Dict[str, Any]]:
+        self, text: str, entities: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, Any]]:
         """
         后备提取方法（基于简单规则）
 
@@ -147,7 +147,7 @@ class RelationExtractor:
 
         return relations
 
-    def extract_triplets(self, text: str) -> List[Tuple[str, str, str]]:
+    def extract_triplets(self, text: str) -> list[tuple[str, str, str]]:
         """
         提取 (主语, 关系, 宾语) 三元组
 
@@ -167,8 +167,8 @@ class RelationExtractor:
         return triplets
 
     def filter_by_confidence(
-        self, relations: List[Dict[str, Any]], min_confidence: float = 0.5
-    ) -> List[Dict[str, Any]]:
+        self, relations: list[dict[str, Any]], min_confidence: float = 0.5
+    ) -> list[dict[str, Any]]:
         """
         按置信度过滤关系
 
@@ -186,7 +186,7 @@ class RelationExtractor:
 
 
 # 全局实例
-_relation_extractor: Optional[RelationExtractor] = None
+_relation_extractor: RelationExtractor | None = None
 
 
 def get_relation_extractor() -> RelationExtractor:

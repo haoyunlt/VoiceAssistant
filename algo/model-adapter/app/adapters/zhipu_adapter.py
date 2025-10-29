@@ -1,11 +1,12 @@
 """智谱AI模型适配器."""
 
 import logging
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 
-from ..core.base_adapter import AdapterResponse, AdapterStreamChunk, BaseAdapter
+from app.core.base_adapter import AdapterResponse, AdapterStreamChunk, BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,7 @@ class ZhipuAdapter(BaseAdapter):
     async def generate(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1000,
         top_p: float = 0.7,
@@ -103,7 +104,7 @@ class ZhipuAdapter(BaseAdapter):
     async def generate_stream(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs,
@@ -181,8 +182,8 @@ class ZhipuAdapter(BaseAdapter):
     async def generate_with_functions(
         self,
         model: str,
-        messages: List[Dict[str, str]],
-        tools: List[Dict[str, Any]],
+        messages: list[dict[str, str]],
+        tools: list[dict[str, Any]],
         **kwargs,
     ) -> AdapterResponse:
         """
@@ -250,9 +251,9 @@ class ZhipuAdapter(BaseAdapter):
     async def create_embedding(
         self,
         model: str,
-        input_text: str | List[str],
+        input_text: str | list[str],
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         创建文本嵌入.
 

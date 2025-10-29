@@ -5,7 +5,6 @@
 
 import logging
 import os
-from typing import Dict, List, Optional
 
 import httpx
 
@@ -17,9 +16,9 @@ class VectorStoreClient:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        collection_name: Optional[str] = None,
-        backend: Optional[str] = None,
+        base_url: str | None = None,
+        collection_name: str | None = None,
+        backend: str | None = None,
         timeout: float = 30.0,
     ):
         """
@@ -51,7 +50,7 @@ class VectorStoreClient:
             f"collection={self.collection_name}, backend={self.backend}"
         )
 
-    async def insert(self, data: Dict):
+    async def insert(self, data: dict):
         """
         插入单条数据
 
@@ -60,7 +59,7 @@ class VectorStoreClient:
         """
         await self.insert_batch([data])
 
-    async def insert_batch(self, data_list: List[Dict]):
+    async def insert_batch(self, data_list: list[dict]):
         """
         批量插入数据
 
@@ -92,11 +91,11 @@ class VectorStoreClient:
 
     async def search(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[str] = None,
-    ) -> List[Dict]:
+        tenant_id: str | None = None,
+        filters: str | None = None,
+    ) -> list[dict]:
         """
         向量检索
 

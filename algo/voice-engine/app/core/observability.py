@@ -4,8 +4,8 @@ Observability - Prometheus 指标和链路追踪
 
 import logging
 import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 from prometheus_client import Counter, Gauge, Histogram
 
@@ -246,7 +246,7 @@ def get_metrics_summary() -> dict:
 
     metrics = {}
 
-    for collector in REGISTRY._collector_to_names.keys():
+    for collector in REGISTRY._collector_to_names:
         try:
             for metric in collector.collect():
                 metrics[metric.name] = {

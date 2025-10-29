@@ -83,7 +83,7 @@ def setup_logging(
     logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 
     # 替换已存在的 logger
-    for logger_name in logging.root.manager.loggerDict.keys():
+    for logger_name in logging.root.manager.loggerDict:
         logging.getLogger(logger_name).handlers = []
         logging.getLogger(logger_name).propagate = True
 

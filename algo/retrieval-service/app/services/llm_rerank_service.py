@@ -2,9 +2,8 @@
 LLM-based Re-ranking Service
 """
 
-import asyncio
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,9 @@ class LLMRerankService:
     async def rerank(
         self,
         query: str,
-        chunks: List[Dict],
+        chunks: list[dict],
         top_k: int = 10
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """LLM重排序"""
         if not chunks:
             return []
@@ -30,7 +29,7 @@ class LLMRerankService:
         scores = await self._batch_score(query, chunks)
 
         # 2. 组合chunks和scores
-        scored_chunks = list(zip(chunks, scores))
+        scored_chunks = list(zip(chunks, scores, strict=False))
 
         # 3. 排序
         scored_chunks.sort(key=lambda x: x[1], reverse=True)
@@ -41,8 +40,8 @@ class LLMRerankService:
     async def _batch_score(
         self,
         query: str,
-        chunks: List[Dict]
-    ) -> List[float]:
+        chunks: list[dict]
+    ) -> list[float]:
         """批量评分"""
         scores = []
 
@@ -57,8 +56,8 @@ class LLMRerankService:
     async def _score_batch(
         self,
         query: str,
-        chunks: List[Dict]
-    ) -> List[float]:
+        chunks: list[dict]
+    ) -> list[float]:
         """对一批chunks评分"""
         # 构建提示
         chunks_text = "\n\n".join([
@@ -100,9 +99,9 @@ Return scores (one per line, just the number):"""
     async def rerank_with_explanation(
         self,
         query: str,
-        chunks: List[Dict],
+        chunks: list[dict],
         top_k: int = 5
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """带解释的重排序"""
         explanations = []
 
@@ -126,7 +125,7 @@ Return scores (one per line, just the number):"""
         self,
         query: str,
         content: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """解释相关性"""
         prompt = f"""Query: {query}
 

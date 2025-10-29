@@ -3,15 +3,14 @@ TTS (Text-to-Speech) service
 """
 
 import base64
-import hashlib
+import logging
 import os
 import time
-from typing import AsyncGenerator, List, Optional
+from collections.abc import AsyncGenerator
 
 import edge_tts
 
 from app.core.config import settings
-import logging
 from app.infrastructure.tts_cache import TTSRedisCache
 from app.models.voice import TTSRequest, TTSResponse
 
@@ -211,7 +210,7 @@ class TTSService:
             logger.error(f"Azure TTS synthesis failed: {e}", exc_info=True)
             raise
 
-    async def list_voices(self) -> List[dict]:
+    async def list_voices(self) -> list[dict]:
         """列出可用的音色"""
         if self.provider == "edge":
             # Edge TTS 支持的中文音色

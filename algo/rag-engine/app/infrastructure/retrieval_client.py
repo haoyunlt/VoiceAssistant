@@ -1,7 +1,7 @@
 """Retrieval Service客户端."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -44,10 +44,10 @@ class RetrievalClient:
         query: str,
         top_k: int = 10,
         mode: str = "hybrid",
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         rerank: bool = True,
-        filters: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         执行检索.
 
@@ -106,8 +106,8 @@ class RetrievalClient:
             raise RuntimeError(f"Failed to retrieve: {e}")
 
     async def multi_retrieve(
-        self, queries: List[str], top_k: int = 10, **kwargs
-    ) -> List[List[Dict[str, Any]]]:
+        self, queries: list[str], top_k: int = 10, **kwargs
+    ) -> list[list[dict[str, Any]]]:
         """
         批量检索.
 

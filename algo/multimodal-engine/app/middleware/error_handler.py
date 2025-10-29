@@ -4,7 +4,7 @@ Error handling middleware
 
 import logging
 import traceback
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response, status
 from fastapi.responses import JSONResponse

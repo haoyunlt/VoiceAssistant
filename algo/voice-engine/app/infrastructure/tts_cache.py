@@ -9,12 +9,11 @@ TTS Redis 缓存
 
 import base64
 import hashlib
+import logging
 import time
 from datetime import timedelta
-from typing import Optional
 
 import redis
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +76,7 @@ class TTSRedisCache:
         rate: str = "+0%",
         pitch: str = "+0Hz",
         format: str = "mp3",
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """
         获取缓存
 

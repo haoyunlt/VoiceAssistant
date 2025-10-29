@@ -4,12 +4,11 @@ Executor API - 执行器 API
 提供 Plan-Execute 执行器的 REST API 接口
 """
 
-from typing import Optional
+import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-import logging
 from app.executors.plan_execute_executor import (
     ExecutionTrace,
     get_plan_execute_executor,
@@ -23,7 +22,7 @@ class ExecuteTaskRequest(BaseModel):
     """执行任务请求"""
 
     task: str = Field(..., description="任务描述")
-    context: Optional[dict] = Field(None, description="上下文信息")
+    context: dict | None = Field(None, description="上下文信息")
 
 
 class ExecuteTaskResponse(BaseModel):
@@ -102,7 +101,7 @@ class PlanTaskRequest(BaseModel):
     """规划任务请求"""
 
     task: str = Field(..., description="任务描述")
-    context: Optional[dict] = Field(None, description="上下文信息")
+    context: dict | None = Field(None, description="上下文信息")
 
 
 @router.post("/plan", summary="生成任务执行计划（不执行）")

@@ -4,13 +4,13 @@
 提供工具列表、执行、注册等 API
 """
 
+import logging
 import time
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-import logging
 from app.tools.dynamic_registry import get_tool_registry
 
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ class ToolExecuteRequest(BaseModel):
     """工具执行请求"""
 
     tool_name: str = Field(..., description="工具名称")
-    parameters: Dict[str, Any] = Field(default_factory=dict, description="工具参数")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="工具参数")
 
 
 class ToolExecuteResponse(BaseModel):

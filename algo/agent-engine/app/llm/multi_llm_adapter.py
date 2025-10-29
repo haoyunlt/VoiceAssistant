@@ -10,10 +10,11 @@ Multi-LLM Adapter
 OpenAI -> Claude -> Ollama
 """
 
-import os
-from typing import Any, AsyncIterator, Dict, List, Literal, Optional
-
 import logging
+import os
+from collections.abc import AsyncIterator
+from typing import Any, Literal
+
 from app.llm.base import CompletionResponse, LLMClient, Message
 
 logger = logging.getLogger(__name__)
@@ -28,9 +29,9 @@ class MultiLLMAdapter:
         openai_model: str = "gpt-4-turbo-preview",
         claude_model: str = "claude-3-sonnet-20240229",
         ollama_model: str = "llama2",
-        openai_api_key: Optional[str] = None,
-        claude_api_key: Optional[str] = None,
-        ollama_base_url: Optional[str] = None,
+        openai_api_key: str | None = None,
+        claude_api_key: str | None = None,
+        ollama_base_url: str | None = None,
     ):
         """
         初始化多厂商 LLM 适配器
@@ -90,11 +91,11 @@ class MultiLLMAdapter:
 
     async def complete(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        provider_override: Optional[Literal["openai", "claude", "ollama"]] = None,
+        tools: list[dict[str, Any]] | None = None,
+        provider_override: Literal["openai", "claude", "ollama"] | None = None,
         **kwargs,
     ) -> tuple[CompletionResponse, str]:
         """
@@ -157,11 +158,11 @@ class MultiLLMAdapter:
 
     async def complete_stream(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        provider_override: Optional[Literal["openai", "claude", "ollama"]] = None,
+        tools: list[dict[str, Any]] | None = None,
+        provider_override: Literal["openai", "claude", "ollama"] | None = None,
         **kwargs,
     ) -> tuple[AsyncIterator[str], str]:
         """
@@ -217,7 +218,7 @@ class MultiLLMAdapter:
             f"All LLM providers failed for streaming. Last error: {last_error}"
         )
 
-    def _get_client(self, provider: str) -> Optional[LLMClient]:
+    def _get_client(self, provider: str) -> LLMClient | None:
         """
         获取指定提供商的客户端
 
@@ -236,7 +237,7 @@ class MultiLLMAdapter:
         else:
             return None
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """
         获取所有 LLM 提供商的状态
 
@@ -279,7 +280,7 @@ class MultiLLMAdapter:
 
 
 # 全局实例
-_multi_llm_adapter: Optional[MultiLLMAdapter] = None
+_multi_llm_adapter: MultiLLMAdapter | None = None
 
 
 def get_multi_llm_adapter() -> MultiLLMAdapter:

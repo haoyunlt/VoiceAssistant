@@ -1,6 +1,5 @@
 """检索服务客户端"""
 import logging
-from typing import List
 
 import httpx
 
@@ -18,11 +17,11 @@ class RetrievalClient:
 
     async def retrieve(
         self,
-        queries: List[str],
+        queries: list[str],
         knowledge_base_id: str,
         tenant_id: str,
         top_k: int = 10,
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """
         调用检索服务
 
@@ -80,8 +79,8 @@ class RetrievalClient:
             return []
 
     def _deduplicate_documents(
-        self, documents: List[RetrievedDocument]
-    ) -> List[RetrievedDocument]:
+        self, documents: list[RetrievedDocument]
+    ) -> list[RetrievedDocument]:
         """去重文档"""
         seen_ids = set()
         unique_docs = []

@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -41,7 +40,7 @@ class EntityDisambiguationService:
         )
 
     async def compute_similarity(
-        self, entity1: Dict, entity2: Dict
+        self, entity1: dict, entity2: dict
     ) -> float:
         """
         计算两个实体的相似度
@@ -169,7 +168,7 @@ class EntityDisambiguationService:
 
     async def find_similar_entities(
         self, entity_id: str, top_k: int = 10
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """
         查找相似实体
 
@@ -225,7 +224,7 @@ class EntityDisambiguationService:
 
     async def merge_entities(
         self, source_entity_id: str, target_entity_id: str
-    ) -> Dict:
+    ) -> dict:
         """
         合并两个实体
 
@@ -325,8 +324,8 @@ class EntityDisambiguationService:
             return {"success": False, "error": str(e)}
 
     async def auto_merge_duplicates(
-        self, entity_type: Optional[str] = None, dry_run: bool = True
-    ) -> Dict:
+        self, entity_type: str | None = None, dry_run: bool = True
+    ) -> dict:
         """
         自动合并重复实体
 
@@ -416,8 +415,8 @@ class EntityDisambiguationService:
             return {"success": False, "error": str(e)}
 
     async def disambiguate_entity(
-        self, entity_name: str, context: Optional[str] = None
-    ) -> List[Dict]:
+        self, entity_name: str, context: str | None = None
+    ) -> list[dict]:
         """
         实体消歧（根据上下文选择正确的实体）
 

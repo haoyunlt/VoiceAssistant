@@ -1,6 +1,5 @@
 """自定义错误类型和错误处理"""
 from enum import Enum
-from typing import Optional
 
 
 class ErrorType(Enum):
@@ -34,9 +33,9 @@ class IndexingError(Exception):
         message: str,
         error_type: ErrorType,
         retryable: bool = False,
-        tenant_id: Optional[str] = None,
-        document_id: Optional[str] = None,
-        details: Optional[dict] = None,
+        tenant_id: str | None = None,
+        document_id: str | None = None,
+        details: dict | None = None,
     ):
         super().__init__(message)
         self.message = message

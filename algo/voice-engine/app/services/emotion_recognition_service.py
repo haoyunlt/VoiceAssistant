@@ -6,7 +6,6 @@
 
 import logging
 import os
-from typing import Dict, List, Optional, Tuple
 
 import librosa
 import numpy as np
@@ -22,7 +21,7 @@ class EmotionRecognitionService:
 
     def __init__(
         self,
-        model_path: Optional[str] = None,
+        model_path: str | None = None,
         sample_rate: int = 16000,
         use_pretrained: bool = True,
     ):
@@ -44,7 +43,7 @@ class EmotionRecognitionService:
         else:
             logger.info("情感识别服务初始化（无模型加载）")
 
-    def _load_pretrained_model(self, model_path: Optional[str]):
+    def _load_pretrained_model(self, model_path: str | None):
         """加载预训练模型"""
         try:
             import joblib
@@ -143,8 +142,8 @@ class EmotionRecognitionService:
         return np.array(features)
 
     def recognize(
-        self, audio_data: bytes, sample_rate: Optional[int] = None
-    ) -> Dict:
+        self, audio_data: bytes, sample_rate: int | None = None
+    ) -> dict:
         """
         识别音频中的情感
 
@@ -216,7 +215,7 @@ class EmotionRecognitionService:
 
     def _rule_based_classification(
         self, features: np.ndarray
-    ) -> Tuple[str, float, Dict[str, float]]:
+    ) -> tuple[str, float, dict[str, float]]:
         """
         基于规则的简单情感分类（无需训练模型）
 
@@ -224,7 +223,7 @@ class EmotionRecognitionService:
         """
         # 提取关键特征（简化版）
         # 假设features的前80个是MFCC的mean和std
-        mfcc_mean = features[:40]
+        features[:40]
         mfcc_std = features[40:80]
 
         # 能量（最后两个特征）
@@ -273,7 +272,7 @@ class EmotionRecognitionService:
 
         return emotion, confidence, probs
 
-    def _analyze_features(self, features: np.ndarray) -> Dict:
+    def _analyze_features(self, features: np.ndarray) -> dict:
         """分析特征统计信息"""
         return {
             "feature_count": len(features),
@@ -283,7 +282,7 @@ class EmotionRecognitionService:
             "max": float(np.max(features)),
         }
 
-    def recognize_from_file(self, audio_path: str) -> Dict:
+    def recognize_from_file(self, audio_path: str) -> dict:
         """
         从文件识别情感
 
@@ -317,7 +316,7 @@ class EmotionRecognitionService:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        model_save_path: Optional[str] = None,
+        model_save_path: str | None = None,
     ):
         """
         训练情感识别模型
@@ -359,7 +358,7 @@ class EmotionRecognitionService:
 # 全局单例（线程安全版本）
 import threading
 
-_emotion_service: Optional[EmotionRecognitionService] = None
+_emotion_service: EmotionRecognitionService | None = None
 _emotion_service_lock = threading.Lock()
 
 

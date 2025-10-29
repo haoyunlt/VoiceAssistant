@@ -5,9 +5,9 @@ Cleanup Service for Knowledge Service
 """
 
 import asyncio
+import contextlib
 import logging
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +45,8 @@ class CleanupService:
         if self.cleanup_task and not self.cleanup_task.done():
             self.is_running = False
             self.cleanup_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.cleanup_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Cleanup task stopped")
 
     async def _cleanup_loop(self, interval_hours: int):
@@ -65,7 +63,7 @@ class CleanupService:
                 # 出错后等待1小时再重试
                 await asyncio.sleep(3600)
 
-    async def run_cleanup(self) -> Dict[str, int]:
+    async def run_cleanup(self) -> dict[str, int]:
         """运行一次完整的清理"""
         logger.info("Starting cleanup tasks...")
         start_time = datetime.utcnow()
@@ -263,7 +261,7 @@ class CleanupService:
             logger.error(f"Failed to cleanup old communities: {e}")
             return 0
 
-    async def _scan_keys(self, pattern: str, count: int = 100) -> List[str]:
+    async def _scan_keys(self, pattern: str, count: int = 100) -> list[str]:
         """扫描Redis键"""
         try:
             keys = []
@@ -284,7 +282,7 @@ class CleanupService:
             logger.error(f"Failed to scan keys: {e}")
             return []
 
-    async def cleanup_tenant_data(self, tenant_id: str) -> Dict[str, int]:
+    async def cleanup_tenant_data(self, tenant_id: str) -> dict[str, int]:
         """清理指定租户的所有数据"""
         logger.info(f"Cleaning up data for tenant: {tenant_id}")
 

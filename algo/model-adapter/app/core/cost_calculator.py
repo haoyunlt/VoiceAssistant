@@ -1,7 +1,6 @@
 """Token计数与成本计算器."""
 
 import logging
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ class TokenCounter:
     """Token计数器."""
 
     @staticmethod
-    def count_message_tokens(messages: List[Dict[str, str]], model: str = "gpt-3.5-turbo") -> int:
+    def count_message_tokens(messages: list[dict[str, str]], model: str = "gpt-3.5-turbo") -> int:
         """
         计算消息列表的token数.
 
@@ -108,7 +107,7 @@ class CostCalculator:
         model: str,
         input_tokens: int,
         output_tokens: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         计算成本.
 
@@ -145,9 +144,9 @@ class CostCalculator:
     @staticmethod
     def estimate_request_cost(
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         max_tokens: int = 1000,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         估算请求成本.
 
@@ -173,10 +172,10 @@ class CostCalculator:
 
     @staticmethod
     def compare_model_costs(
-        models: List[str],
+        models: list[str],
         input_tokens: int,
         output_tokens: int,
-    ) -> Dict[str, Dict[str, float]]:
+    ) -> dict[str, dict[str, float]]:
         """
         比较多个模型的成本.
 
@@ -199,10 +198,10 @@ class CostCalculator:
 
     @staticmethod
     def get_cheapest_model(
-        models: List[str],
+        models: list[str],
         input_tokens: int,
         output_tokens: int,
-    ) -> tuple[str, Dict[str, float]]:
+    ) -> tuple[str, dict[str, float]]:
         """
         获取成本最低的模型.
 
@@ -232,7 +231,7 @@ class CostCalculator:
         alternative_model: str,
         input_tokens: int,
         output_tokens: int,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         计算切换模型可节省的成本.
 
@@ -270,7 +269,7 @@ class UsageTracker:
 
     def __init__(self):
         """初始化追踪器."""
-        self.usage_history: List[Dict] = []
+        self.usage_history: list[dict] = []
         self.total_input_tokens = 0
         self.total_output_tokens = 0
         self.total_cost = 0.0
@@ -280,7 +279,7 @@ class UsageTracker:
         model: str,
         input_tokens: int,
         output_tokens: int,
-        timestamp: Optional[str] = None,
+        timestamp: str | None = None,
     ):
         """
         记录使用量.
@@ -311,7 +310,7 @@ class UsageTracker:
         self.total_output_tokens += output_tokens
         self.total_cost += cost["total_cost"]
 
-    def get_summary(self) -> Dict[str, any]:
+    def get_summary(self) -> dict[str, any]:
         """
         获取使用摘要.
 
@@ -330,7 +329,7 @@ class UsageTracker:
             ) if self.usage_history else 0,
         }
 
-    def get_cost_by_model(self) -> Dict[str, float]:
+    def get_cost_by_model(self) -> dict[str, float]:
         """
         按模型获取成本.
 

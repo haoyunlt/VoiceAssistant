@@ -1,9 +1,7 @@
 """配置管理."""
 
-import os
-from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 
@@ -11,7 +9,7 @@ class ProviderConfig(BaseModel):
     """提供商配置."""
 
     api_key: str
-    base_url: Optional[str] = None
+    base_url: str | None = None
     timeout: float = 60.0
     max_retries: int = 3
     enabled: bool = True
@@ -38,29 +36,29 @@ class Settings(BaseSettings):
     cors_allow_headers: list[str] = ["*"]
 
     # OpenAI配置
-    openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
-    openai_base_url: Optional[str] = Field(default=None, env="OPENAI_BASE_URL")
+    openai_api_key: str | None = Field(default=None, env="OPENAI_API_KEY")
+    openai_base_url: str | None = Field(default=None, env="OPENAI_BASE_URL")
     openai_timeout: float = Field(default=60.0, env="OPENAI_TIMEOUT")
     openai_enabled: bool = Field(default=True, env="OPENAI_ENABLED")
 
     # Claude配置
-    anthropic_api_key: Optional[str] = Field(default=None, env="ANTHROPIC_API_KEY")
+    anthropic_api_key: str | None = Field(default=None, env="ANTHROPIC_API_KEY")
     anthropic_timeout: float = Field(default=60.0, env="ANTHROPIC_TIMEOUT")
     anthropic_enabled: bool = Field(default=True, env="ANTHROPIC_ENABLED")
 
     # 智谱AI配置
-    zhipu_api_key: Optional[str] = Field(default=None, env="ZHIPU_API_KEY")
+    zhipu_api_key: str | None = Field(default=None, env="ZHIPU_API_KEY")
     zhipu_timeout: float = Field(default=60.0, env="ZHIPU_TIMEOUT")
     zhipu_enabled: bool = Field(default=True, env="ZHIPU_ENABLED")
 
     # 通义千问配置
-    dashscope_api_key: Optional[str] = Field(default=None, env="DASHSCOPE_API_KEY")
+    dashscope_api_key: str | None = Field(default=None, env="DASHSCOPE_API_KEY")
     dashscope_timeout: float = Field(default=60.0, env="DASHSCOPE_TIMEOUT")
     dashscope_enabled: bool = Field(default=True, env="DASHSCOPE_ENABLED")
 
     # 百度文心配置
-    baidu_api_key: Optional[str] = Field(default=None, env="BAIDU_API_KEY")
-    baidu_secret_key: Optional[str] = Field(default=None, env="BAIDU_SECRET_KEY")
+    baidu_api_key: str | None = Field(default=None, env="BAIDU_API_KEY")
+    baidu_secret_key: str | None = Field(default=None, env="BAIDU_SECRET_KEY")
     baidu_timeout: float = Field(default=60.0, env="BAIDU_TIMEOUT")
     baidu_enabled: bool = Field(default=True, env="BAIDU_ENABLED")
 
@@ -73,12 +71,12 @@ class Settings(BaseSettings):
     # 缓存配置
     cache_enabled: bool = Field(default=False, env="CACHE_ENABLED")
     cache_ttl: int = Field(default=3600, env="CACHE_TTL")
-    redis_url: Optional[str] = Field(default=None, env="REDIS_URL")
+    redis_url: str | None = Field(default=None, env="REDIS_URL")
 
     # 监控配置
     enable_metrics: bool = Field(default=True, env="ENABLE_METRICS")
     enable_tracing: bool = Field(default=False, env="ENABLE_TRACING")
-    otel_endpoint: Optional[str] = Field(default=None, env="OTEL_ENDPOINT")
+    otel_endpoint: str | None = Field(default=None, env="OTEL_ENDPOINT")
 
     # 日志配置
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
@@ -98,7 +96,7 @@ class Settings(BaseSettings):
         env_file_encoding = "utf-8"
         case_sensitive = False
 
-    def get_provider_config(self, provider: str) -> Optional[ProviderConfig]:
+    def get_provider_config(self, provider: str) -> ProviderConfig | None:
         """
         获取提供商配置.
 
@@ -108,7 +106,7 @@ class Settings(BaseSettings):
         Returns:
             提供商配置，如果未配置则返回None
         """
-        provider_configs: Dict[str, Optional[ProviderConfig]] = {
+        provider_configs: dict[str, ProviderConfig | None] = {
             "openai": (
                 ProviderConfig(
                     api_key=self.openai_api_key,

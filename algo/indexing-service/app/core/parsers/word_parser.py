@@ -2,11 +2,10 @@
 
 import io
 import logging
-from typing import Dict
 
 import docx
 
-from .base import BaseParser
+from app.core.parsers.base import BaseParser
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +47,7 @@ class WordParser(BaseParser):
 
         return "\n".join(rows)
 
-    def extract_metadata(self, file_data: bytes) -> Dict:
+    def extract_metadata(self, file_data: bytes) -> dict:
         """提取 Word 元数据"""
         try:
             doc = docx.Document(io.BytesIO(file_data))

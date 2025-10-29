@@ -1,7 +1,6 @@
 """请求缓存服务"""
 import hashlib
 import json
-from typing import Optional
 
 import redis
 
@@ -63,7 +62,7 @@ class RequestCacheService:
     async def get_cached_response(
         self,
         request: ChatRequest
-    ) -> Optional[ChatResponse]:
+    ) -> ChatResponse | None:
         """获取缓存的响应
 
         Args:
@@ -106,7 +105,7 @@ class RequestCacheService:
         self,
         request: ChatRequest,
         response: ChatResponse,
-        ttl: Optional[int] = None
+        ttl: int | None = None
     ):
         """设置缓存响应
 

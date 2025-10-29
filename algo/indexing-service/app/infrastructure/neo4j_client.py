@@ -4,7 +4,7 @@ Neo4j 图数据库客户端
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from neo4j import GraphDatabase
 from neo4j.exceptions import Neo4jError
@@ -50,7 +50,7 @@ class Neo4jClient:
 
     def create_entity(
         self,
-        entity: Dict[str, Any],
+        entity: dict[str, Any],
         document_id: str,
         tenant_id: str
     ) -> str:
@@ -91,7 +91,7 @@ class Neo4jClient:
 
     def create_relation(
         self,
-        relation: Dict[str, Any],
+        relation: dict[str, Any],
         document_id: str,
         tenant_id: str
     ) -> bool:
@@ -142,11 +142,11 @@ class Neo4jClient:
 
     def bulk_create_graph(
         self,
-        entities: List[Dict[str, Any]],
-        relations: List[Dict[str, Any]],
+        entities: list[dict[str, Any]],
+        relations: list[dict[str, Any]],
         document_id: str,
         tenant_id: str
-    ) -> Dict[str, int]:
+    ) -> dict[str, int]:
         """
         批量创建图谱
 
@@ -189,7 +189,7 @@ class Neo4jClient:
         self,
         text: str,
         tenant_id: str
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         查找实体
 
@@ -217,7 +217,7 @@ class Neo4jClient:
         entity_text: str,
         tenant_id: str,
         direction: str = "outgoing"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         查找实体的关系
 
@@ -280,7 +280,7 @@ class Neo4jClient:
         self,
         tenant_id: str,
         algorithm: str = "louvain"
-    ) -> Dict[str, List[str]]:
+    ) -> dict[str, list[str]]:
         """
         执行社区检测
 
@@ -324,7 +324,7 @@ class Neo4jClient:
             logger.error(f"Community detection failed: {e}")
             return {}
 
-    def get_graph_stats(self, tenant_id: str) -> Dict[str, Any]:
+    def get_graph_stats(self, tenant_id: str) -> dict[str, Any]:
         """
         获取图谱统计信息
 
@@ -354,7 +354,7 @@ class Neo4jClient:
                 }
             return {"entity_count": 0, "relation_count": 0, "entity_labels": []}
 
-    def execute_cypher(self, query: str, parameters: Dict[str, Any] = None) -> List[Dict]:
+    def execute_cypher(self, query: str, parameters: dict[str, Any] = None) -> list[dict]:
         """
         执行自定义 Cypher 查询
 

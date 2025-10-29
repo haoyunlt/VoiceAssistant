@@ -2,9 +2,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
-
-from app.core.config import settings
+from typing import Any
 
 # 添加common目录到Python路径
 common_path = Path(__file__).parent.parent.parent.parent / "common"
@@ -26,8 +24,8 @@ class VectorService:
     async def insert_vectors(
         self,
         document_id: str,
-        chunks: List[Dict[str, Any]],
-        embeddings: List[List[float]],
+        chunks: list[dict[str, Any]],
+        embeddings: list[list[float]],
     ) -> int:
         """
         插入向量到向量存储
@@ -43,7 +41,7 @@ class VectorService:
         try:
             # 准备数据
             data = []
-            for chunk, embedding in zip(chunks, embeddings):
+            for chunk, embedding in zip(chunks, embeddings, strict=False):
                 data.append({
                     "chunk_id": chunk["id"],
                     "document_id": document_id,
@@ -80,10 +78,10 @@ class VectorService:
 
     async def search_similar(
         self,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 10,
-        filters: Dict[str, Any] = None,
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] = None,
+    ) -> list[dict[str, Any]]:
         """
         相似度搜索
 

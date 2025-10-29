@@ -1,5 +1,4 @@
 """配置管理"""
-from typing import Dict, List
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -22,7 +21,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
 
     # CORS配置
-    CORS_ORIGINS: List[str] = Field(
+    CORS_ORIGINS: list[str] = Field(
         default=["*"],
         env="CORS_ORIGINS",
     )
@@ -67,7 +66,7 @@ class Settings(BaseSettings):
     )
 
     # 模型映射配置
-    MODEL_MAPPINGS: Dict[str, str] = Field(
+    MODEL_MAPPINGS: dict[str, str] = Field(
         default={
             "gpt-4": "openai/gpt-4",
             "gpt-3.5-turbo": "openai/gpt-3.5-turbo",

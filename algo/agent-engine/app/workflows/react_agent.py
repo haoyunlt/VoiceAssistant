@@ -5,14 +5,14 @@ ReAct Agent 工作流实现
 
 import logging
 import operator
-from typing import Annotated, Any, Dict, List, Optional, TypedDict
+from typing import Annotated, Any, TypedDict
 
-from app.memory.memory_manager import MemoryManager
-from app.tools.tool_registry import ToolRegistry
 from langchain.schema import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from langgraph.prebuilt import ToolExecutor, ToolInvocation
+
+from app.memory.memory_manager import MemoryManager
+from app.tools.tool_registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +20,12 @@ logger = logging.getLogger(__name__)
 # 定义 Agent 状态
 class AgentState(TypedDict):
     """Agent 状态"""
-    messages: Annotated[List[Any], operator.add]  # 消息历史
+    messages: Annotated[list[Any], operator.add]  # 消息历史
     iteration: int  # 当前迭代次数
     max_iterations: int  # 最大迭代次数
-    tools_called: List[str]  # 已调用的工具
-    final_answer: Optional[str]  # 最终答案
-    error: Optional[str]  # 错误信息
+    tools_called: list[str]  # 已调用的工具
+    final_answer: str | None  # 最终答案
+    error: str | None  # 错误信息
 
 
 class ReActAgent:
@@ -251,14 +251,14 @@ Think step by step and use tools when necessary.
 """
         return prompt
 
-    def _parse_plan(self, content: str) -> Dict[str, Any]:
+    def _parse_plan(self, content: str) -> dict[str, Any]:
         """解析计划"""
         # 简化版：提取 Action 和 Action Input
         plan = {}
 
         if "Action:" in content:
             lines = content.split("\n")
-            for i, line in enumerate(lines):
+            for _i, line in enumerate(lines):
                 if line.startswith("Action:"):
                     plan["action"] = line.replace("Action:", "").strip()
                 if line.startswith("Action Input:"):
@@ -266,7 +266,7 @@ Think step by step and use tools when necessary.
 
         return plan
 
-    def _parse_tool_calls(self, content: str) -> List[Dict[str, Any]]:
+    def _parse_tool_calls(self, content: str) -> list[dict[str, Any]]:
         """解析工具调用"""
         tool_calls = []
 
@@ -290,7 +290,7 @@ Think step by step and use tools when necessary.
 
         return tool_calls
 
-    def _extract_final_answer(self, content: str) -> Optional[str]:
+    def _extract_final_answer(self, content: str) -> str | None:
         """提取最终答案"""
         if "Final Answer:" in content:
             return content.split("Final Answer:")[1].strip()
@@ -299,9 +299,9 @@ Think step by step and use tools when necessary.
     def run(
         self,
         user_input: str,
-        conversation_id: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        conversation_id: str | None = None,
+        context: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """
         运行 Agent
 
@@ -368,8 +368,8 @@ Think step by step and use tools when necessary.
     def stream(
         self,
         user_input: str,
-        conversation_id: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None
+        conversation_id: str | None = None,
+        context: dict[str, Any] | None = None
     ):
         """
         流式运行 Agent

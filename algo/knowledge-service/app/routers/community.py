@@ -3,7 +3,7 @@
 """
 
 import logging
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -38,10 +38,10 @@ class DetectCommunitiesRequest(BaseModel):
         "leiden", description="算法类型"
     )
     max_iterations: int = Field(10, ge=1, le=100, description="最大迭代次数")
-    resolution: Optional[float] = Field(
+    resolution: float | None = Field(
         1.0, ge=0.1, le=5.0, description="分辨率参数（仅Leiden）"
     )
-    tolerance: Optional[float] = Field(
+    tolerance: float | None = Field(
         0.0001, description="收敛容差（仅Louvain）"
     )
 

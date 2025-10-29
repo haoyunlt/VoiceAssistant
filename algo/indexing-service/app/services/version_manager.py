@@ -10,8 +10,6 @@ import hashlib
 import json
 import logging
 import time
-from datetime import datetime
-from typing import Dict, List, Optional, Tuple
 
 from pydantic import BaseModel
 
@@ -28,16 +26,16 @@ class DocumentVersion(BaseModel):
     vector_count: int
     created_at: float
     updated_at: float
-    tenant_id: Optional[str] = None
-    user_id: Optional[str] = None
+    tenant_id: str | None = None
+    user_id: str | None = None
     status: str = "active"  # active, deleted, archived
 
 
 class VersionChange(BaseModel):
     """版本变更模型"""
     change_type: str  # "created", "updated", "deleted", "unchanged"
-    old_version: Optional[int] = None
-    new_version: Optional[int] = None
+    old_version: int | None = None
+    new_version: int | None = None
     content_changed: bool = False
     metadata_changed: bool = False
     needs_reindex: bool = False
@@ -72,7 +70,7 @@ class VersionManager:
         """
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
-    def calculate_metadata_hash(self, metadata: Dict) -> str:
+    def calculate_metadata_hash(self, metadata: dict) -> str:
         """
         计算元数据哈希
 
@@ -89,8 +87,8 @@ class VersionManager:
     async def get_current_version(
         self,
         document_id: str,
-        tenant_id: Optional[str] = None
-    ) -> Optional[DocumentVersion]:
+        tenant_id: str | None = None
+    ) -> DocumentVersion | None:
         """
         获取文档当前版本
 
@@ -125,8 +123,8 @@ class VersionManager:
         metadata_hash: str,
         chunk_count: int,
         vector_count: int,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None
+        tenant_id: str | None = None,
+        user_id: str | None = None
     ) -> DocumentVersion:
         """
         保存文档版本
@@ -205,7 +203,7 @@ class VersionManager:
         document_id: str,
         new_content_hash: str,
         new_metadata_hash: str,
-        tenant_id: Optional[str] = None
+        tenant_id: str | None = None
     ) -> VersionChange:
         """
         检测文档变更
@@ -260,7 +258,7 @@ class VersionManager:
     async def mark_deleted(
         self,
         document_id: str,
-        tenant_id: Optional[str] = None
+        tenant_id: str | None = None
     ) -> bool:
         """
         标记文档为已删除
@@ -304,9 +302,9 @@ class VersionManager:
     async def get_version_history(
         self,
         document_id: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         limit: int = 10
-    ) -> List[DocumentVersion]:
+    ) -> list[DocumentVersion]:
         """
         获取文档版本历史
 
@@ -340,7 +338,7 @@ class VersionManager:
     async def _save_to_history(
         self,
         version: DocumentVersion,
-        tenant_id: Optional[str] = None
+        tenant_id: str | None = None
     ):
         """保存版本到历史记录"""
         try:
@@ -358,19 +356,19 @@ class VersionManager:
         except Exception as e:
             logger.warning(f"Failed to save to history: {e}")
 
-    def _get_version_key(self, document_id: str, tenant_id: Optional[str] = None) -> str:
+    def _get_version_key(self, document_id: str, tenant_id: str | None = None) -> str:
         """生成版本键"""
         if tenant_id:
             return f"{self.version_key_prefix}{tenant_id}:{document_id}"
         return f"{self.version_key_prefix}{document_id}"
 
-    def _get_history_key(self, document_id: str, tenant_id: Optional[str] = None) -> str:
+    def _get_history_key(self, document_id: str, tenant_id: str | None = None) -> str:
         """生成历史记录键"""
         if tenant_id:
             return f"{self.history_key_prefix}{tenant_id}:{document_id}"
         return f"{self.history_key_prefix}{document_id}"
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取版本管理统计信息"""
         if not self.redis:
             return {

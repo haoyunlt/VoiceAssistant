@@ -2,8 +2,6 @@
 Configuration - 服务配置
 """
 
-import os
-from typing import List
 from pydantic_settings import BaseSettings
 
 
@@ -47,10 +45,10 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
 
     # CORS 配置
-    CORS_ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    CORS_ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8080"]
     CORS_ALLOW_CREDENTIALS: bool = True
-    CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-    CORS_ALLOW_HEADERS: List[str] = ["*"]
+    CORS_ALLOW_METHODS: list[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    CORS_ALLOW_HEADERS: list[str] = ["*"]
 
     # 限流配置
     RATE_LIMIT_ENABLED: bool = True

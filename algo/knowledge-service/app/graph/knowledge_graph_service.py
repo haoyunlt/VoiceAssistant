@@ -4,9 +4,9 @@ Knowledge Graph Service - 知识图谱服务
 整合实体提取、关系提取和 Neo4j 存储
 """
 
-from typing import Any, Dict, List, Optional
-
 import logging
+from typing import Any
+
 from app.graph.entity_extractor import get_entity_extractor
 from app.graph.neo4j_client import get_neo4j_client
 from app.graph.relation_extractor import get_relation_extractor
@@ -24,7 +24,7 @@ class KnowledgeGraphService:
         self.neo4j_client = get_neo4j_client()
         self.kafka_producer = kafka_producer  # Kafka生产者（可选）
 
-    async def extract_and_store(self, text: str, source: Optional[str] = None) -> Dict[str, Any]:
+    async def extract_and_store(self, text: str, source: str | None = None) -> dict[str, Any]:
         """
         从文本提取知识并存储到图谱
 
@@ -137,7 +137,7 @@ class KnowledgeGraphService:
                 "error": str(e),
             }
 
-    async def query_entity(self, entity_text: str) -> Optional[Dict[str, Any]]:
+    async def query_entity(self, entity_text: str) -> dict[str, Any] | None:
         """
         查询实体
 
@@ -181,7 +181,7 @@ class KnowledgeGraphService:
 
     async def query_path(
         self, start_entity: str, end_entity: str, max_depth: int = 3
-    ) -> List[List[Dict[str, Any]]]:
+    ) -> list[list[dict[str, Any]]]:
         """
         查询两个实体之间的路径
 
@@ -220,7 +220,7 @@ class KnowledgeGraphService:
 
     async def get_neighbors(
         self, entity_text: str, max_neighbors: int = 10
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         获取实体的邻居节点
 
@@ -259,7 +259,7 @@ class KnowledgeGraphService:
             logger.error(f"Get neighbors failed: {e}")
             return []
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """
         获取图谱统计信息
 
@@ -306,7 +306,7 @@ class KnowledgeGraphService:
                 "error": str(e),
             }
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         健康检查
 
@@ -329,7 +329,7 @@ class KnowledgeGraphService:
 
 
 # 全局实例
-_kg_service: Optional[KnowledgeGraphService] = None
+_kg_service: KnowledgeGraphService | None = None
 
 
 def get_kg_service(kafka_producer=None) -> KnowledgeGraphService:

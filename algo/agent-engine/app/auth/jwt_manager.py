@@ -4,10 +4,9 @@ JWT Manager for Python services
 
 import os
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
 
-import jwt
-from pydantic import BaseModel
+import jwt  # type: ignore[import]
+from pydantic import BaseModel  # type: ignore[import]
 
 
 class TokenClaims(BaseModel):
@@ -16,7 +15,7 @@ class TokenClaims(BaseModel):
     user_id: str
     username: str
     email: str
-    roles: List[str]
+    roles: list[str]
     exp: int
     iat: int
     iss: str = "voice-assistant"
@@ -39,7 +38,7 @@ class JWTManager:
         self.refresh_expiry = refresh_expiry
 
     def generate_access_token(
-        self, user_id: str, username: str, email: str, roles: List[str]
+        self, user_id: str, username: str, email: str, roles: list[str]
     ) -> str:
         """Generate an access token"""
         now = datetime.utcnow()
@@ -56,7 +55,8 @@ class JWTManager:
             "sub": user_id,
         }
 
-        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        token: str = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        return token
 
     def generate_refresh_token(self, user_id: str) -> str:
         """Generate a refresh token"""
@@ -70,45 +70,42 @@ class JWTManager:
             "iss": "voice-assistant",
         }
 
-        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        token: str = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        return token
 
-    def validate_token(self, token: str) -> Optional[TokenClaims]:
+    def validate_token(self, token: str) -> TokenClaims | None:
         """Validate a token and return claims"""
         try:
-            payload = jwt.decode(
-                token, self.secret_key, algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
             return TokenClaims(**payload)
-        except jwt.ExpiredSignatureError:
-            raise ValueError("Token expired")
-        except jwt.InvalidTokenError:
-            raise ValueError("Invalid token")
+        except jwt.ExpiredSignatureError as err:
+            raise ValueError("Token expired") from err
+        except jwt.InvalidTokenError as err:
+            raise ValueError("Invalid token") from err
 
     def refresh_access_token(
         self,
         refresh_token: str,
         username: str,
         email: str,
-        roles: List[str],
+        roles: list[str],
     ) -> str:
         """Refresh an access token using a refresh token"""
         try:
-            payload = jwt.decode(
-                refresh_token, self.secret_key, algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(refresh_token, self.secret_key, algorithms=[self.algorithm])
             user_id = payload.get("sub")
             if not user_id:
                 raise ValueError("Invalid refresh token")
 
             return self.generate_access_token(user_id, username, email, roles)
-        except jwt.ExpiredSignatureError:
-            raise ValueError("Refresh token expired")
-        except jwt.InvalidTokenError:
-            raise ValueError("Invalid refresh token")
+        except jwt.ExpiredSignatureError as err:
+            raise ValueError("Refresh token expired") from err
+        except jwt.InvalidTokenError as err:
+            raise ValueError("Invalid refresh token") from err
 
 
 # Global JWT manager instance
-_jwt_manager: Optional[JWTManager] = None
+_jwt_manager: JWTManager | None = None
 
 
 def get_jwt_manager() -> JWTManager:

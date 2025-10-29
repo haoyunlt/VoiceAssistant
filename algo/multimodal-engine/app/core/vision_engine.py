@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -64,9 +64,9 @@ class VisionEngine:
         self,
         image_data: bytes,
         prompt: str = "Describe this image in detail.",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         图像理解（使用视觉语言模型）。
 
@@ -107,9 +107,9 @@ class VisionEngine:
         self,
         image_data: bytes,
         detect_type: str = "objects",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         图像检测（对象、人脸、场景等）。
 
@@ -161,7 +161,7 @@ class VisionEngine:
 
     async def _understand_openai(
         self, image_data: bytes, prompt: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 OpenAI GPT-4 Vision 理解图像"""
         logger.debug("Using OpenAI GPT-4 Vision for image understanding")
 
@@ -245,7 +245,7 @@ class VisionEngine:
 
     async def _understand_azure(
         self, image_data: bytes, prompt: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 Azure Computer Vision（模拟实现）"""
         logger.debug("Using Azure Computer Vision for image understanding")
 
@@ -259,7 +259,7 @@ class VisionEngine:
 
     async def _understand_anthropic(
         self, image_data: bytes, prompt: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 Anthropic Claude Vision（模拟实现）"""
         logger.debug("Using Anthropic Claude Vision for image understanding")
 
@@ -271,7 +271,7 @@ class VisionEngine:
             "provider": "anthropic",
         }
 
-    def _extract_tags(self, description: str) -> List[str]:
+    def _extract_tags(self, description: str) -> list[str]:
         """从描述中提取标签（简单实现）"""
         # 这里可以使用 NLP 技术提取关键词
         # 简单实现：提取名词
@@ -285,7 +285,7 @@ class VisionEngine:
 
     def _parse_detections(
         self, description: str, detect_type: str
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """从描述中解析检测结果（简单实现）"""
         # 这里应该使用更复杂的 NLP 技术解析
         # 简单实现：返回模拟数据
@@ -301,7 +301,7 @@ class VisionEngine:
         else:
             return []
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return self.stats
 

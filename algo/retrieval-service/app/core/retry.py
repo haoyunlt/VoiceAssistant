@@ -3,8 +3,10 @@ Retry mechanism - 重试机制
 """
 
 import asyncio
+import builtins
 import logging
-from typing import Any, Callable, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +18,8 @@ async def retry_async(
     initial_delay: float = 1.0,
     backoff_factor: float = 2.0,
     max_delay: float = 30.0,
-    exceptions: tuple[Type[Exception], ...] = (Exception,),
-    on_retry: Optional[Callable] = None,
+    exceptions: tuple[type[Exception], ...] = (Exception,),
+    on_retry: Callable | None = None,
     **kwargs,
 ) -> Any:
     """
@@ -98,8 +100,8 @@ def with_timeout(timeout: float):
         async def wrapper(*args, **kwargs):
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout)
-            except asyncio.TimeoutError:
-                from .exceptions import TimeoutError
+            except builtins.TimeoutError:
+                from app.core.exceptions import TimeoutError
 
                 logger.error(f"Function {func.__name__} timed out after {timeout}s")
                 raise TimeoutError(

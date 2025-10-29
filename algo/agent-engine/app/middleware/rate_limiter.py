@@ -1,13 +1,14 @@
-"""
-限流中间件
-"""
+"""限流中间件。"""
 
-import time
-from typing import Callable, Optional
-from fastapi import Request, Response, status
-from fastapi.responses import JSONResponse
-from collections import defaultdict
 import asyncio
+import time
+from collections import defaultdict
+from collections.abc import Awaitable, Callable
+from functools import wraps
+from typing import Any
+
+from fastapi import Request, Response, status  # type: ignore[import]
+from fastapi.responses import JSONResponse  # type: ignore[import]
 
 
 class RateLimiter:
@@ -15,16 +16,13 @@ class RateLimiter:
     简单的内存限流器（生产环境应使用 Redis）
     """
 
-    def __init__(self):
-        self.requests = defaultdict(list)
+    def __init__(self) -> None:
+        self.requests: defaultdict[str, list[float]] = defaultdict(list)
         self.lock = asyncio.Lock()
 
     async def is_allowed(
-        self,
-        key: str,
-        max_requests: int = 100,
-        window_seconds: int = 60
-    ) -> tuple[bool, Optional[int]]:
+        self, key: str, max_requests: int = 100, window_seconds: int = 60
+    ) -> tuple[bool, int | None]:
         """
         检查是否允许请求
 
@@ -41,10 +39,7 @@ class RateLimiter:
             cutoff = now - window_seconds
 
             # 清理过期记录
-            self.requests[key] = [
-                req_time for req_time in self.requests[key]
-                if req_time > cutoff
-            ]
+            self.requests[key] = [req_time for req_time in self.requests[key] if req_time > cutoff]
 
             # 检查是否超限
             if len(self.requests[key]) >= max_requests:
@@ -70,11 +65,8 @@ class RateLimitMiddleware:
     """
 
     def __init__(
-        self,
-        max_requests: int = 100,
-        window_seconds: int = 60,
-        key_func: Optional[Callable] = None
-    ):
+        self, max_requests: int = 100, window_seconds: int = 60, key_func: Callable | None = None
+    ) -> None:
         """
         初始化限流中间件
 
@@ -95,14 +87,15 @@ class RateLimitMiddleware:
 
         # 获取真实 IP（考虑代理）
         forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            ip = forwarded.split(",")[0].strip()
-        else:
-            ip = request.client.host
+        ip = forwarded.split(",")[0].strip() if forwarded else request.client.host
 
         return f"ip:{ip}"
 
-    async def __call__(self, request: Request, call_next):
+    async def __call__(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         """处理请求"""
         # 跳过健康检查和指标接口
         if request.url.path in ["/health", "/ready", "/metrics"]:
@@ -113,9 +106,7 @@ class RateLimitMiddleware:
 
         # 检查限流
         allowed, retry_after = await rate_limiter.is_allowed(
-            key=key,
-            max_requests=self.max_requests,
-            window_seconds=self.window_seconds
+            key=key, max_requests=self.max_requests, window_seconds=self.window_seconds
         )
 
         if not allowed:
@@ -124,13 +115,13 @@ class RateLimitMiddleware:
                 content={
                     "error": "RateLimitExceeded",
                     "message": f"Rate limit exceeded. Max {self.max_requests} requests per {self.window_seconds}s.",
-                    "retry_after": retry_after
+                    "retry_after": retry_after,
                 },
                 headers={
                     "Retry-After": str(retry_after),
                     "X-RateLimit-Limit": str(self.max_requests),
-                    "X-RateLimit-Window": str(self.window_seconds)
-                }
+                    "X-RateLimit-Window": str(self.window_seconds),
+                },
             )
 
         # 处理请求
@@ -143,7 +134,10 @@ class RateLimitMiddleware:
         return response
 
 
-def rate_limit(max_requests: int = 100, window_seconds: int = 60):
+def rate_limit(
+    max_requests: int = 100,
+    window_seconds: int = 60,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
     """
     路由级别的限流装饰器
 
@@ -154,9 +148,15 @@ def rate_limit(max_requests: int = 100, window_seconds: int = 60):
     Returns:
         装饰器函数
     """
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        _ = (max_requests, window_seconds)  # 保留参数以便后续扩展
+
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # TODO: 实现路由级别的限流逻辑
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator

@@ -1,21 +1,20 @@
 """Agent执行服务"""
+
 import logging
 import time
 import uuid
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
-from app.core.config import settings
 from app.models.agent import (
     AgentResult,
     AgentStatus,
-    AgentStep,
     AgentTask,
-    StepType,
 )
 from app.services.llm_service import LLMService
-from app.services.tool_service import ToolService
 from app.services.task_manager import task_manager
+from app.services.tool_service import ToolService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 class AgentService:
     """Agent执行服务"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.llm_service = LLMService()
         self.tool_service = ToolService()
         # self.task_results: Dict[str, AgentResult] = {}  # 已迁移到Redis
@@ -41,7 +40,7 @@ class AgentService:
         """
         task_id = task.task_id or self.generate_task_id()
         start_time = time.time()
-        steps = []
+        steps: list[dict[str, Any]] = []
 
         try:
             logger.info(f"[{task_id}] Starting agent execution: {task.task}")
@@ -127,7 +126,7 @@ class AgentService:
                     # 4. Observation - 执行工具并观察结果
                     try:
                         tool_output = await self.tool_service.execute_tool(
-                            tool_name, tool_input
+                            str(tool_name), tool_input
                         )
 
                         logger.info(f"[{task_id}] Observation: {str(tool_output)[:200]}...")
@@ -142,14 +141,18 @@ class AgentService:
                         steps.append(observation_step)
 
                         # 将观察结果加入对话历史
-                        conversation_history.append({
-                            "role": "assistant",
-                            "content": thought_content,
-                        })
-                        conversation_history.append({
-                            "role": "user",
-                            "content": f"Observation: {tool_output}",
-                        })
+                        conversation_history.append(
+                            {
+                                "role": "assistant",
+                                "content": thought_content,
+                            }
+                        )
+                        conversation_history.append(
+                            {
+                                "role": "user",
+                                "content": f"Observation: {tool_output}",
+                            }
+                        )
 
                     except Exception as e:
                         error_msg = f"Tool execution failed: {str(e)}"
@@ -163,16 +166,20 @@ class AgentService:
                         }
                         steps.append(observation_step)
 
-                        conversation_history.append({
-                            "role": "user",
-                            "content": f"Error: {error_msg}",
-                        })
+                        conversation_history.append(
+                            {
+                                "role": "user",
+                                "content": f"Error: {error_msg}",
+                            }
+                        )
                 else:
                     # 没有明确的工具调用，继续下一轮思考
-                    conversation_history.append({
-                        "role": "assistant",
-                        "content": thought_content,
-                    })
+                    conversation_history.append(
+                        {
+                            "role": "assistant",
+                            "content": thought_content,
+                        }
+                    )
 
             # 达到最大迭代次数
             execution_time = time.time() - start_time
@@ -186,7 +193,7 @@ class AgentService:
                 completed_at=datetime.utcnow(),
             )
 
-                    await task_manager.save_task(result)
+            await task_manager.save_task(result)
             logger.warning(f"[{task_id}] Timeout after {task.max_iterations} iterations")
             return result
 
@@ -206,14 +213,14 @@ class AgentService:
                 completed_at=datetime.utcnow(),
             )
 
-                    await task_manager.save_task(result)
+            await task_manager.save_task(result)
             return result
 
-    async def execute_async(self, task: AgentTask):
+    async def execute_async(self, task: AgentTask) -> None:
         """异步执行任务（后台任务）"""
         await self.execute(task)
 
-    async def get_task_result(self, task_id: str) -> Optional[AgentResult]:
+    async def get_task_result(self, task_id: str) -> AgentResult | None:
         """获取任务结果"""
         return await task_manager.get_task(task_id)
 
@@ -246,9 +253,7 @@ Think step by step and explain your reasoning before taking actions.
         for tool_name in tool_names:
             tool_info = self.tool_service.get_tool_info(tool_name)
             if tool_info:
-                descriptions.append(
-                    f"- {tool_name}: {tool_info.get('description', '')}"
-                )
+                descriptions.append(f"- {tool_name}: {tool_info.get('description', '')}")
 
         return "\n".join(descriptions)
 
@@ -262,11 +267,11 @@ Think step by step and explain your reasoning before taking actions.
         lower_content = content.lower()
         if "final answer:" in lower_content:
             idx = lower_content.index("final answer:")
-            answer = content[idx + len("final answer:"):].strip()
+            answer = content[idx + len("final answer:") :].strip()
             return answer
         return content
 
-    def _parse_action(self, content: str) -> Optional[Dict[str, Any]]:
+    def _parse_action(self, content: str) -> dict[str, Any] | None:
         """
         解析工具调用
 
@@ -301,22 +306,10 @@ Think step by step and explain your reasoning before taking actions.
 
         return None
 
-    async def execute_stream(self, task: AgentTask):
-        """
-        流式执行Agent任务（ReAct模式）
-
-        使用 async generator 实时yield每个步骤，适合SSE或WebSocket传输
-
-        Yields:
-            Dict: 每个执行步骤的事件，包含：
-                - event_type: "start"|"thought"|"action"|"observation"|"answer"|"error"|"complete"
-                - step_number: 步骤编号
-                - content: 步骤内容
-                - metadata: 额外元数据
-        """
+    async def execute_stream(self, task: AgentTask) -> AsyncIterator[dict[str, Any]]:
         task_id = task.task_id or self.generate_task_id()
         start_time = time.time()
-        steps = []
+        steps: list[dict[str, Any]] = []
 
         try:
             logger.info(f"[{task_id}] Starting streaming agent execution: {task.task}")
@@ -447,7 +440,7 @@ Think step by step and explain your reasoning before taking actions.
                     # 4. Observation - 执行工具并观察结果
                     try:
                         tool_output = await self.tool_service.execute_tool(
-                            tool_name, tool_input
+                            str(tool_name), tool_input
                         )
 
                         logger.info(f"[{task_id}] Observation: {str(tool_output)[:200]}...")
@@ -471,14 +464,18 @@ Think step by step and explain your reasoning before taking actions.
                         }
 
                         # 将观察结果加入对话历史
-                        conversation_history.append({
-                            "role": "assistant",
-                            "content": thought_content,
-                        })
-                        conversation_history.append({
-                            "role": "user",
-                            "content": f"Observation: {tool_output}",
-                        })
+                        conversation_history.append(
+                            {
+                                "role": "assistant",
+                                "content": thought_content,
+                            }
+                        )
+                        conversation_history.append(
+                            {
+                                "role": "user",
+                                "content": f"Observation: {tool_output}",
+                            }
+                        )
 
                     except Exception as e:
                         error_msg = f"Tool execution failed: {str(e)}"
@@ -501,16 +498,20 @@ Think step by step and explain your reasoning before taking actions.
                             "timestamp": observation_step["timestamp"],
                         }
 
-                        conversation_history.append({
-                            "role": "user",
-                            "content": f"Error: {error_msg}",
-                        })
+                        conversation_history.append(
+                            {
+                                "role": "user",
+                                "content": f"Error: {error_msg}",
+                            }
+                        )
                 else:
                     # 没有明确的工具调用，继续下一轮思考
-                    conversation_history.append({
-                        "role": "assistant",
-                        "content": thought_content,
-                    })
+                    conversation_history.append(
+                        {
+                            "role": "assistant",
+                            "content": thought_content,
+                        }
+                    )
 
             # 达到最大迭代次数
             execution_time = time.time() - start_time

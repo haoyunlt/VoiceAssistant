@@ -3,13 +3,12 @@ Vision understanding service (using Vision LLMs)
 """
 
 import base64
+import logging
 import time
-from typing import Optional
 
 import httpx
 
 from app.core.config import settings
-import logging
 from app.models.multimodal import VisionRequest, VisionResponse
 
 logger = logging.getLogger(__name__)
@@ -56,8 +55,8 @@ class VisionService:
         self,
         image_data: bytes,
         prompt: str,
-        model: Optional[str] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        max_tokens: int | None = None,
     ) -> VisionResponse:
         """
         从图像字节理解
@@ -88,8 +87,8 @@ class VisionService:
         self,
         image_base64: str,
         prompt: str,
-        model: Optional[str] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        max_tokens: int | None = None,
         detail: str = "auto",
     ) -> VisionResponse:
         """使用 Vision LLM 理解图像"""

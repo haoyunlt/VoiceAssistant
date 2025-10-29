@@ -3,12 +3,8 @@ Streaming ASR Service
 WebSocket 流式语音识别服务
 """
 
-import asyncio
-import base64
-import json
 import logging
 from dataclasses import dataclass
-from typing import Dict, List
 
 import numpy as np
 
@@ -33,7 +29,7 @@ class StreamingASRService:
         self.sample_rate = 16000
         self.vad_threshold = 0.5
 
-    def detect_speech(self, audio_bytes: bytes) -> List[AudioSegment]:
+    def detect_speech(self, audio_bytes: bytes) -> list[AudioSegment]:
         """
         使用 VAD 检测语音段
 
@@ -73,7 +69,7 @@ class StreamingASRService:
             logger.error(f"VAD detection failed: {e}")
             return []
 
-    async def recognize_segment(self, segment: AudioSegment, language: str = "zh") -> Dict:
+    async def recognize_segment(self, segment: AudioSegment, language: str = "zh") -> dict:
         """
         识别单个语音段
 
@@ -118,7 +114,7 @@ class StreamingASRService:
                 "error": str(e)
             }
 
-    def merge_partial_results(self, results: List[Dict]) -> str:
+    def merge_partial_results(self, results: list[dict]) -> str:
         """
         合并部分识别结果
 

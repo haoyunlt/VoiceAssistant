@@ -3,9 +3,11 @@ Configuration management for Retrieval Service
 """
 
 from functools import lru_cache
-from typing import Optional
 
-from pydantic_settings import BaseSettings
+try:
+    from pydantic_settings import BaseSettings  # type: ignore
+except ImportError:
+    BaseSettings = dict
 
 
 class Settings(BaseSettings):
@@ -88,7 +90,7 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """获取配置单例"""
     return Settings()

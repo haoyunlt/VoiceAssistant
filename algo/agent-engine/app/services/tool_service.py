@@ -1,13 +1,12 @@
 """工具服务 - 增强版with真实检索集成"""
 import ast
 import asyncio
-import json
 import logging
 import operator
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 # 添加common目录到Python路径
 common_path = Path(__file__).parent.parent.parent.parent / "common"
@@ -23,7 +22,7 @@ class ToolService:
     """工具服务"""
 
     def __init__(self):
-        self.tools: Dict[str, Dict[str, Any]] = {}
+        self.tools: dict[str, dict[str, Any]] = {}
         self.retrieval_url = os.getenv("RETRIEVAL_SERVICE_URL", "http://retrieval-service:8012")
         self._register_builtin_tools()
 
@@ -64,7 +63,7 @@ class ToolService:
         name: str,
         description: str,
         function: callable,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         required_params: list,
         category: str = "general",
     ):
@@ -102,7 +101,7 @@ class ToolService:
             for tool in self.tools.values()
         ]
 
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
+    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
         """获取工具信息"""
         tool = self.tools.get(tool_name)
         if not tool:
@@ -119,7 +118,7 @@ class ToolService:
     async def execute_tool(
         self,
         tool_name: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
     ) -> Any:
         """执行工具"""
         tool = self.tools.get(tool_name)

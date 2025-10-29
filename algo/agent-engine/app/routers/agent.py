@@ -2,7 +2,7 @@
 import asyncio
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
@@ -24,21 +24,21 @@ langgraph_service = None
 class ExecuteAgentRequest(BaseModel):
     """Agent执行请求"""
     task: str = Field(..., description="任务描述")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="上下文信息")
-    tools: Optional[List[str]] = Field(default=None, description="可用工具列表")
-    max_iterations: Optional[int] = Field(default=10, description="最大迭代次数")
-    model: Optional[str] = Field(default=None, description="使用的模型")
+    context: dict[str, Any] | None = Field(default=None, description="上下文信息")
+    tools: list[str] | None = Field(default=None, description="可用工具列表")
+    max_iterations: int | None = Field(default=10, description="最大迭代次数")
+    model: str | None = Field(default=None, description="使用的模型")
 
 
 class ExecuteAgentResponse(BaseModel):
     """Agent执行响应"""
     task_id: str
     result: str
-    steps: List[Dict[str, Any]]
+    steps: list[dict[str, Any]]
     status: str
     iterations: int
     execution_time: float
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 @router.post("/execute", response_model=ExecuteAgentResponse)
@@ -146,7 +146,7 @@ async def get_task_result(task_id: str):
 async def list_tasks(
     limit: int = 100,
     offset: int = 0,
-    status: Optional[str] = None
+    status: str | None = None
 ):
     """
     列出任务（按创建时间倒序）
@@ -243,9 +243,9 @@ class LangGraphExecuteRequest(BaseModel):
     """LangGraph工作流执行请求"""
 
     task: str = Field(..., description="任务描述")
-    context: Optional[Dict[str, Any]] = Field(default=None, description="上下文信息")
-    tools: Optional[List[str]] = Field(default=None, description="可用工具列表")
-    max_iterations: Optional[int] = Field(default=10, description="最大迭代次数")
+    context: dict[str, Any] | None = Field(default=None, description="上下文信息")
+    tools: list[str] | None = Field(default=None, description="可用工具列表")
+    max_iterations: int | None = Field(default=10, description="最大迭代次数")
 
 
 class LangGraphExecuteResponse(BaseModel):
@@ -253,9 +253,9 @@ class LangGraphExecuteResponse(BaseModel):
 
     success: bool
     final_result: str
-    execution_results: List[Dict[str, Any]]
+    execution_results: list[dict[str, Any]]
     iterations: int
-    error: Optional[str]
+    error: str | None
 
 
 @router.post("/execute-stream")
@@ -338,7 +338,7 @@ async def execute_agent_stream(request: ExecuteAgentRequest):
                     "event_type": "error",
                     "error": str(e),
                 }
-                yield f"event: error\n"
+                yield "event: error\n"
                 yield f"data: {json.dumps(error_event, ensure_ascii=False)}\n\n"
 
         return StreamingResponse(

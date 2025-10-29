@@ -2,12 +2,10 @@
 记忆管理 API 路由
 """
 
-from typing import List, Optional
+import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +21,7 @@ class StoreMemoryRequest(BaseModel):
     memory_type: str = Field(
         default="conversation", description="记忆类型 (conversation/important/note)"
     )
-    importance: Optional[float] = Field(
+    importance: float | None = Field(
         None, description="重要性 (0.0-1.0)，如果为 None 则自动评估", ge=0.0, le=1.0
     )
 
@@ -33,7 +31,7 @@ class RecallMemoryRequest(BaseModel):
 
     user_id: str = Field(..., description="用户 ID")
     query: str = Field(..., description="查询内容", min_length=1)
-    conversation_id: Optional[str] = Field(None, description="对话 ID（用于短期记忆）")
+    conversation_id: str | None = Field(None, description="对话 ID（用于短期记忆）")
     top_k: int = Field(default=5, description="返回数量", ge=1, le=20)
     include_short_term: bool = Field(default=True, description="是否包含短期记忆")
     include_long_term: bool = Field(default=True, description="是否包含长期记忆")
@@ -46,7 +44,7 @@ class AddMemoryRequest(BaseModel):
     conversation_id: str = Field(..., description="对话 ID")
     content: str = Field(..., description="内容", min_length=1, max_length=2000)
     role: str = Field(default="user", description="角色 (user/assistant/system)")
-    metadata: Optional[dict] = Field(None, description="元数据")
+    metadata: dict | None = Field(None, description="元数据")
 
 
 # 响应模型
@@ -64,19 +62,19 @@ class MemoryItem(BaseModel):
     type: str = Field(..., description="记忆类型 (short_term/long_term)")
     content: str = Field(..., description="内容")
     score: float = Field(..., description="相关性得分")
-    memory_id: Optional[str] = Field(None, description="记忆 ID（长期记忆）")
-    importance: Optional[float] = Field(None, description="重要性（长期记忆）")
-    days_ago: Optional[float] = Field(None, description="天数（长期记忆）")
-    access_count: Optional[int] = Field(None, description="访问次数（长期记忆）")
-    role: Optional[str] = Field(None, description="角色（短期记忆）")
+    memory_id: str | None = Field(None, description="记忆 ID（长期记忆）")
+    importance: float | None = Field(None, description="重要性（长期记忆）")
+    days_ago: float | None = Field(None, description="天数（长期记忆）")
+    access_count: int | None = Field(None, description="访问次数（长期记忆）")
+    role: str | None = Field(None, description="角色（短期记忆）")
 
 
 class RecallMemoryResponse(BaseModel):
     """回忆记忆响应"""
 
-    short_term: List[MemoryItem] = Field(default=[], description="短期记忆")
-    long_term: List[MemoryItem] = Field(default=[], description="长期记忆")
-    combined: List[MemoryItem] = Field(default=[], description="融合后的记忆")
+    short_term: list[MemoryItem] = Field(default=[], description="短期记忆")
+    long_term: list[MemoryItem] = Field(default=[], description="长期记忆")
+    combined: list[MemoryItem] = Field(default=[], description="融合后的记忆")
     total_count: int = Field(..., description="总数量")
 
 
@@ -95,7 +93,7 @@ class MemoryListItem(BaseModel):
 class ListMemoriesResponse(BaseModel):
     """列表记忆响应"""
 
-    memories: List[MemoryListItem] = Field(..., description="记忆列表")
+    memories: list[MemoryListItem] = Field(..., description="记忆列表")
     total: int = Field(..., description="总数量")
     limit: int = Field(..., description="每页数量")
     offset: int = Field(..., description="偏移量")

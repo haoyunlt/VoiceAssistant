@@ -21,8 +21,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# 添加 common 模块到路径
-sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+# 添加common目录到Python路径
+
+_common_path = Path(__file__).parent.parent / "common"
+if str(_common_path) not in sys.path:
+    sys.path.insert(0, str(_common_path))
 
 # 导入统一基础设施模块
 from cors_config import get_cors_config
@@ -54,8 +57,17 @@ async def lifespan(app: FastAPI):
 
         # 初始化 RAG 服务
         from app.routers.rag import init_rag_service
+        from app.routers.ultimate_rag import init_ultimate_rag_service
 
         init_rag_service()
+
+        # 初始化 Ultimate RAG 服务 (v2.0)
+        try:
+            init_ultimate_rag_service()
+            logger.info("Ultimate RAG v2.0 initialized")
+        except Exception as e:
+            logger.warning(f"Ultimate RAG v2.0 initialization failed: {e}")
+            logger.info("Falling back to RAG v1.0")
 
         logger.info("RAG Engine started successfully")
 
@@ -96,8 +108,10 @@ register_exception_handlers(app)
 
 # 注册路由
 from app.routers import rag as rag_router
+from app.routers import ultimate_rag
 
 app.include_router(rag_router.router, prefix="/api/v1")
+app.include_router(ultimate_rag.router, prefix="/api")
 
 # Prometheus 指标
 metrics_app = make_asgi_app()

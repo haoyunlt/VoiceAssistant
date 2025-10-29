@@ -3,7 +3,6 @@ Tool Registry - 工具注册表
 """
 
 import logging
-from typing import Dict, List
 
 from app.core.tools.builtin_tools import *
 
@@ -39,7 +38,7 @@ class ToolRegistry:
         self.tools[tool.name] = tool
         logger.info(f"Tool registered: {tool.name}")
 
-    def list_tools(self) -> List[Dict]:
+    def list_tools(self) -> list[dict]:
         """列出所有工具"""
         return [
             {

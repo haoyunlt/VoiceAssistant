@@ -2,20 +2,21 @@
 Zhipu AI (GLM) Adapter
 """
 
-from typing import AsyncIterator, Dict, Any, Optional, List
-import httpx
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime
 
-from ...models.chat import ChatRequest, ChatResponse, Message, Choice, Usage
+import httpx
+
+from app.models.chat import ChatRequest, ChatResponse, Choice, Message, Usage
 
 logger = logging.getLogger(__name__)
 
 
 class ZhipuAdapter:
     """Zhipu AI (智谱AI) adapter for GLM series models"""
-    
+
     def __init__(self, api_key: str, base_url: str = "https://open.bigmodel.cn/api/paas/v4"):
         self.api_key = api_key
         self.base_url = base_url
@@ -29,7 +30,7 @@ class ZhipuAdapter:
             "chatglm_std",
             "chatglm_lite"
         ]
-        
+
     async def chat(
         self,
         request: ChatRequest,
@@ -48,36 +49,36 @@ class ZhipuAdapter:
                 "max_tokens": request.max_tokens or 2048,
                 "stream": False
             }
-            
+
             # Add optional parameters
             if request.top_p:
                 zhipu_request["top_p"] = request.top_p
-                
+
             # Send request
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             }
-            
+
             response = await self.client.post(
                 f"{self.base_url}/chat/completions",
                 json=zhipu_request,
                 headers=headers
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Convert to standard format
             return self._convert_response(result)
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"Zhipu API HTTP error: {e}")
             raise
         except Exception as e:
             logger.error(f"Zhipu chat completion failed: {e}")
             raise
-            
+
     async def chat_stream(
         self,
         request: ChatRequest,
@@ -96,16 +97,16 @@ class ZhipuAdapter:
                 "max_tokens": request.max_tokens or 2048,
                 "stream": True
             }
-            
+
             if request.top_p:
                 zhipu_request["top_p"] = request.top_p
-                
+
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream"
             }
-            
+
             async with self.client.stream(
                 "POST",
                 f"{self.base_url}/chat/completions",
@@ -113,14 +114,14 @@ class ZhipuAdapter:
                 headers=headers
             ) as response:
                 response.raise_for_status()
-                
+
                 async for line in response.aiter_lines():
                     if line.startswith("data: "):
                         data = line[6:]
-                        
+
                         if data == "[DONE]":
                             break
-                            
+
                         try:
                             chunk = json.loads(data)
                             content = self._extract_stream_content(chunk)
@@ -128,15 +129,15 @@ class ZhipuAdapter:
                                 yield content
                         except json.JSONDecodeError:
                             continue
-                            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"Zhipu streaming HTTP error: {e}")
             raise
         except Exception as e:
             logger.error(f"Zhipu streaming failed: {e}")
             raise
-            
-    def _convert_response(self, result: Dict) -> ChatResponse:
+
+    def _convert_response(self, result: dict) -> ChatResponse:
         """Convert Zhipu response to standard format"""
         choices = []
         for choice in result.get("choices", []):
@@ -149,14 +150,14 @@ class ZhipuAdapter:
                 ),
                 finish_reason=choice.get("finish_reason", "stop")
             ))
-            
+
         usage_data = result.get("usage", {})
         usage = Usage(
             prompt_tokens=usage_data.get("prompt_tokens", 0),
             completion_tokens=usage_data.get("completion_tokens", 0),
             total_tokens=usage_data.get("total_tokens", 0)
         )
-        
+
         return ChatResponse(
             id=result.get("id", ""),
             object="chat.completion",
@@ -165,8 +166,8 @@ class ZhipuAdapter:
             choices=choices,
             usage=usage
         )
-        
-    def _extract_stream_content(self, chunk: Dict) -> Optional[str]:
+
+    def _extract_stream_content(self, chunk: dict) -> str | None:
         """Extract content from stream chunk"""
         try:
             choices = chunk.get("choices", [])
@@ -176,11 +177,11 @@ class ZhipuAdapter:
         except Exception:
             pass
         return None
-        
+
     async def close(self):
         """Close HTTP client"""
         await self.client.aclose()
-        
-    def get_supported_models(self) -> List[str]:
+
+    def get_supported_models(self) -> list[str]:
         """Get list of supported models"""
         return self.supported_models

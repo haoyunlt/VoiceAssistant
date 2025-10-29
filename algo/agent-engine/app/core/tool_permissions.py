@@ -6,7 +6,6 @@
 import logging
 import time
 from enum import Enum
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +35,7 @@ class ToolPermissionManager:
         self.audit_enabled = audit_enabled
 
         # 工具权限映射
-        self.tool_permissions: Dict[str, ToolPermissionLevel] = {}
+        self.tool_permissions: dict[str, ToolPermissionLevel] = {}
 
         # 黑名单工具
         self.blacklisted_tools: set = set()
@@ -61,7 +60,7 @@ class ToolPermissionManager:
 
     def get_tool_permission(
         self, tool_name: str
-    ) -> Optional[ToolPermissionLevel]:
+    ) -> ToolPermissionLevel | None:
         """
         获取工具权限级别
 
@@ -139,11 +138,11 @@ class ToolPermissionManager:
     async def log_tool_usage(
         self,
         tool_name: str,
-        user_id: Optional[str],
+        user_id: str | None,
         task_id: str,
-        input_params: Dict,
-        result: Optional[Dict] = None,
-        error: Optional[str] = None,
+        input_params: dict,
+        result: dict | None = None,
+        error: str | None = None,
     ):
         """
         记录工具使用审计日志
@@ -194,7 +193,7 @@ class ToolPermissionManager:
 
     def get_tools_by_permission(
         self, permission_level: ToolPermissionLevel
-    ) -> List[str]:
+    ) -> list[str]:
         """
         获取指定权限级别的所有工具
 
@@ -210,7 +209,7 @@ class ToolPermissionManager:
             if level == permission_level
         ]
 
-    def get_permission_summary(self) -> Dict:
+    def get_permission_summary(self) -> dict:
         """
         获取权限摘要统计
 

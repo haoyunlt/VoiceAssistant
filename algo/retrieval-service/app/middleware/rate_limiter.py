@@ -4,7 +4,8 @@ Rate Limiting Middleware - 速率限制中间件
 
 import logging
 import time
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 import redis.asyncio as redis
 from fastapi import HTTPException, Request, Response, status
@@ -26,10 +27,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app: Any,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
         rate_limit: int = 100,  # 每个窗口的最大请求数
         window_size: int = 60,  # 窗口大小（秒）
-        whitelist_paths: Optional[set] = None,
+        whitelist_paths: set | None = None,
     ) -> None:
         super().__init__(app)
         self.redis_client = redis_client
@@ -130,10 +131,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     return False, 0, now + self.window_size
 
                 oldest = await self.redis_client.zrange(key, 0, 0, withscores=True)
-                if oldest:
-                    reset_time = oldest[0][1] + self.window_size
-                else:
-                    reset_time = now + self.window_size
+                reset_time = oldest[0][1] + self.window_size if oldest else now + self.window_size
 
                 return False, 0, reset_time
 

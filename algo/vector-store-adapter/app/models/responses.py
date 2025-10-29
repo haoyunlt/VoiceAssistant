@@ -1,6 +1,6 @@
 """响应模型"""
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -17,8 +17,8 @@ class ReadyResponse(BaseModel):
     """就绪检查响应"""
 
     ready: bool = Field(..., description="是否就绪")
-    checks: Optional[Dict[str, bool]] = Field(default=None, description="检查项")
-    reason: Optional[str] = Field(default=None, description="未就绪原因")
+    checks: dict[str, bool] | None = Field(default=None, description="检查项")
+    reason: str | None = Field(default=None, description="未就绪原因")
 
 
 class InsertResponse(BaseModel):
@@ -28,7 +28,7 @@ class InsertResponse(BaseModel):
     collection: str = Field(..., description="集合名称")
     backend: str = Field(..., description="后端类型")
     inserted: int = Field(..., description="插入数量")
-    result: Optional[Any] = Field(default=None, description="插入结果")
+    result: Any | None = Field(default=None, description="插入结果")
 
 
 class VectorSearchResult(BaseModel):
@@ -39,7 +39,7 @@ class VectorSearchResult(BaseModel):
     content: str = Field(..., description="内容")
     tenant_id: str = Field(..., description="租户ID")
     score: float = Field(..., description="得分")
-    distance: Optional[float] = Field(default=None, description="距离")
+    distance: float | None = Field(default=None, description="距离")
     backend: str = Field(..., description="后端类型")
 
 
@@ -49,7 +49,7 @@ class SearchResponse(BaseModel):
     status: str = Field(..., description="状态")
     collection: str = Field(..., description="集合名称")
     backend: str = Field(..., description="后端类型")
-    results: List[VectorSearchResult] = Field(..., description="搜索结果")
+    results: list[VectorSearchResult] = Field(..., description="搜索结果")
     count: int = Field(..., description="结果数量")
 
 
@@ -60,7 +60,7 @@ class DeleteResponse(BaseModel):
     collection: str = Field(..., description="集合名称")
     backend: str = Field(..., description="后端类型")
     document_id: str = Field(..., description="文档ID")
-    result: Optional[Any] = Field(default=None, description="删除结果")
+    result: Any | None = Field(default=None, description="删除结果")
 
 
 class CollectionCountResponse(BaseModel):
@@ -82,6 +82,6 @@ class BackendStats(BaseModel):
 class StatsResponse(BaseModel):
     """统计响应"""
 
-    backends: Dict[str, BackendStats] = Field(..., description="后端统计")
+    backends: dict[str, BackendStats] = Field(..., description="后端统计")
     default_backend: str = Field(..., description="默认后端")
 

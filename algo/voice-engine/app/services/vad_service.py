@@ -4,8 +4,8 @@ VAD (Voice Activity Detection) service
 
 import base64
 import io
+import logging
 import time
-from typing import Optional
 
 import httpx
 import numpy as np
@@ -13,7 +13,6 @@ import torch
 from pydub import AudioSegment
 
 from app.core.config import settings
-import logging
 from app.models.voice import VADRequest, VADResponse, VoiceSegment
 
 logger = logging.getLogger(__name__)
@@ -67,7 +66,7 @@ class VADService:
         return await self.detect_from_bytes(audio_data, request.threshold)
 
     async def detect_from_bytes(
-        self, audio_data: bytes, threshold: Optional[float] = None
+        self, audio_data: bytes, threshold: float | None = None
     ) -> VADResponse:
         """
         从音频字节检测

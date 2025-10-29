@@ -3,11 +3,9 @@ Input validation utilities
 """
 
 import logging
-from typing import Optional
 
 from fastapi import UploadFile
 
-from app.core.config import settings
 from app.core.exceptions import ResourceException, ValidationException
 
 logger = logging.getLogger(__name__)
@@ -133,7 +131,7 @@ async def validate_video_file(file: UploadFile) -> bytes:
     return content
 
 
-def validate_language(language: Optional[str]) -> str:
+def validate_language(language: str | None) -> str:
     """
     Validate language parameter
 

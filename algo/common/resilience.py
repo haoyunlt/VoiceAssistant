@@ -7,10 +7,10 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from enum import Enum
 from functools import wraps
-from typing import Callable, Optional, Type, Union, Tuple
-from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,8 @@ class CircuitBreakerStats:
     success_count: int = 0
     failure_count: int = 0
     consecutive_failures: int = 0
-    last_failure_time: Optional[float] = None
-    last_success_time: Optional[float] = None
+    last_failure_time: float | None = None
+    last_success_time: float | None = None
     state_changed_at: float = field(default_factory=time.time)
 
 
@@ -46,7 +46,7 @@ class CircuitBreaker:
         name: str,
         failure_threshold: int = 5,
         recovery_timeout: float = 60.0,
-        expected_exception: Union[Type[Exception], Tuple[Type[Exception], ...]] = Exception,
+        expected_exception: type[Exception] | tuple[type[Exception], ...] = Exception,
         half_open_max_calls: int = 1,
     ):
         """
@@ -247,8 +247,8 @@ def with_retry(
     max_attempts: int = 3,
     backoff_base: float = 2.0,
     backoff_max: float = 60.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
-    on_retry: Optional[Callable[[int, Exception], None]] = None,
+    exceptions: tuple[type[Exception], ...] = (Exception,),
+    on_retry: Callable[[int, Exception], None] | None = None,
 ):
     """
     重试装饰器
@@ -337,7 +337,7 @@ def with_retry(
     return decorator
 
 
-async def with_timeout(coro, timeout: float, timeout_exception: Optional[Type[Exception]] = None):
+async def with_timeout(coro, timeout: float, timeout_exception: type[Exception] | None = None):
     """
     为协程添加超时控制
 
@@ -354,7 +354,7 @@ async def with_timeout(coro, timeout: float, timeout_exception: Optional[Type[Ex
     """
     try:
         return await asyncio.wait_for(coro, timeout=timeout)
-    except asyncio.TimeoutError as e:
+    except TimeoutError as e:
         if timeout_exception:
             raise timeout_exception(f"Operation timed out after {timeout}s") from e
         raise

@@ -1,5 +1,4 @@
 """Embedding服务"""
-from typing import List, Optional
 
 import torch
 from sentence_transformers import SentenceTransformer
@@ -34,7 +33,7 @@ class EmbeddingService:
         # 文档指令前缀
         self.doc_instruction = ""
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """查询向量化
 
         Args:
@@ -61,10 +60,10 @@ class EmbeddingService:
 
     async def embed_documents(
         self,
-        texts: List[str],
+        texts: list[str],
         batch_size: int = 32,
         show_progress: bool = False
-    ) -> List[List[float]]:
+    ) -> list[list[float]]:
         """批量文档向量化
 
         Args:
@@ -100,7 +99,7 @@ class EmbeddingService:
         self,
         text: str,
         is_query: bool = False
-    ) -> List[float]:
+    ) -> list[float]:
         """单个文本向量化
 
         Args:
@@ -141,9 +140,9 @@ class EmbeddingService:
 
     async def compute_similarity(
         self,
-        query_embedding: List[float],
-        doc_embeddings: List[List[float]]
-    ) -> List[float]:
+        query_embedding: list[float],
+        doc_embeddings: list[list[float]]
+    ) -> list[float]:
         """计算相似度
 
         Args:

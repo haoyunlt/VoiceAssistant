@@ -5,7 +5,8 @@ Claude API 客户端实现
 """
 
 import os
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 try:
     from anthropic import AsyncAnthropic
@@ -15,6 +16,7 @@ except ImportError:
     AsyncAnthropic = None
 
 import logging
+
 from app.llm.base import CompletionResponse, LLMClient, Message
 
 logger = logging.getLogger(__name__)
@@ -26,8 +28,8 @@ class ClaudeClient(LLMClient):
     def __init__(
         self,
         model: str = "claude-3-sonnet-20240229",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs,
     ):
         """
@@ -65,8 +67,8 @@ class ClaudeClient(LLMClient):
         logger.info(f"Claude client initialized (model: {self.model})")
 
     def _convert_messages_to_claude_format(
-        self, messages: List[Message]
-    ) -> tuple[Optional[str], List[Dict[str, Any]]]:
+        self, messages: list[Message]
+    ) -> tuple[str | None, list[dict[str, Any]]]:
         """
         转换消息为 Claude 格式
 
@@ -98,10 +100,10 @@ class ClaudeClient(LLMClient):
 
     async def complete(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> CompletionResponse:
         """
@@ -189,10 +191,10 @@ class ClaudeClient(LLMClient):
 
     async def complete_stream(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> AsyncIterator[str]:
         """
@@ -245,8 +247,8 @@ class ClaudeClient(LLMClient):
             raise
 
     def _convert_tools_to_claude_format(
-        self, openai_tools: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, openai_tools: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         转换 OpenAI 工具格式到 Claude 格式
 
@@ -270,7 +272,7 @@ class ClaudeClient(LLMClient):
 
         return claude_tools
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 

@@ -4,7 +4,6 @@ VAD Engine - 语音活动检测引擎（Silero-VAD）
 
 import io
 import logging
-from typing import Dict, List
 
 import numpy as np
 
@@ -42,7 +41,7 @@ class VADEngine:
         self,
         audio_data: bytes,
         threshold: float = 0.5,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         检测语音活动
 
@@ -104,7 +103,7 @@ class VADEngine:
         self,
         audio: np.ndarray,
         threshold: float = 0.5,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """获取语音时间戳"""
         try:
             import torch
@@ -140,7 +139,7 @@ class VADEngine:
             logger.error(f"Failed to get speech timestamps: {e}")
             return []
 
-    def _merge_segments(self, segments: List[Dict], gap_threshold: float = 0.3) -> List[Dict]:
+    def _merge_segments(self, segments: list[dict], gap_threshold: float = 0.3) -> list[dict]:
         """合并连续的语音片段"""
         if not segments:
             return []
@@ -161,7 +160,7 @@ class VADEngine:
 
         return merged
 
-    def _mock_detect(self, audio_data: bytes) -> List[Dict]:
+    def _mock_detect(self, audio_data: bytes) -> list[dict]:
         """Mock 检测（用于测试）"""
         return [
             {

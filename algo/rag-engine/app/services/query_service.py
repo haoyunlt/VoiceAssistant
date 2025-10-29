@@ -1,6 +1,5 @@
 """查询理解服务"""
 import logging
-from typing import List
 
 import httpx
 
@@ -83,7 +82,7 @@ Alternative queries:"""
                 expanded_queries=[],
             )
 
-    async def extract_keywords(self, query: str) -> List[str]:
+    async def extract_keywords(self, query: str) -> list[str]:
         """
         提取关键词
 

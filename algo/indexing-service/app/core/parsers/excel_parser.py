@@ -2,11 +2,10 @@
 
 import io
 import logging
-from typing import Dict
 
 import openpyxl
 
-from .base import BaseParser
+from app.core.parsers.base import BaseParser
 
 logger = logging.getLogger(__name__)
 

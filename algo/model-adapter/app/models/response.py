@@ -1,7 +1,6 @@
 """响应模型"""
-from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Usage(BaseModel):
@@ -14,8 +13,8 @@ class Usage(BaseModel):
 class ChatChoice(BaseModel):
     """聊天选项"""
     index: int
-    message: Dict[str, str]
-    finish_reason: Optional[str] = None
+    message: dict[str, str]
+    finish_reason: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -23,7 +22,7 @@ class ChatResponse(BaseModel):
     id: str
     model: str
     provider: str
-    choices: List[ChatChoice]
+    choices: list[ChatChoice]
     usage: Usage
     created: int
 
@@ -32,7 +31,7 @@ class CompletionChoice(BaseModel):
     """补全选项"""
     index: int
     text: str
-    finish_reason: Optional[str] = None
+    finish_reason: str | None = None
 
 
 class CompletionResponse(BaseModel):
@@ -40,7 +39,7 @@ class CompletionResponse(BaseModel):
     id: str
     model: str
     provider: str
-    choices: List[CompletionChoice]
+    choices: list[CompletionChoice]
     usage: Usage
     created: int
 
@@ -48,7 +47,7 @@ class CompletionResponse(BaseModel):
 class EmbeddingData(BaseModel):
     """嵌入数据"""
     index: int
-    embedding: List[float]
+    embedding: list[float]
     object: str = "embedding"
 
 
@@ -56,5 +55,5 @@ class EmbeddingResponse(BaseModel):
     """向量化响应"""
     model: str
     provider: str
-    data: List[EmbeddingData]
+    data: list[EmbeddingData]
     usage: Usage

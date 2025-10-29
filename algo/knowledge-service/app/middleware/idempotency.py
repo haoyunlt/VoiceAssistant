@@ -6,7 +6,7 @@ Idempotency Middleware
 import hashlib
 import json
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class IdempotencyMiddleware(BaseHTTPMiddleware):
     """
     幂等性中间件
-    
+
     使用Redis存储请求结果，相同的幂等键返回缓存的响应
     """
 
@@ -30,7 +30,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     ):
         """
         初始化幂等性中间件
-        
+
         Args:
             app: FastAPI应用
             redis_client: Redis客户端
@@ -84,7 +84,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     async def _generate_idempotency_key(self, request: Request) -> str:
         """
         生成幂等键
-        
+
         基于请求路径、方法和body生成hash
         """
         try:
@@ -101,12 +101,12 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         try:
             cache_key = f"idempotency:{idempotency_key}"
             cached = await self.redis.get(cache_key)
-            
+
             if cached:
                 return json.loads(cached)
-            
+
             return None
-            
+
         except Exception as e:
             logger.error(f"Failed to get cached response: {e}")
             return None
@@ -118,7 +118,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
             body = b""
             async for chunk in response.body_iterator:
                 body += chunk
-            
+
             # 构造缓存数据
             cache_data = {
                 "body": body.decode("utf-8"),
@@ -126,19 +126,19 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
                 "headers": dict(response.headers),
                 "media_type": response.media_type,
             }
-            
+
             cache_key = f"idempotency:{idempotency_key}"
             await self.redis.setex(
                 cache_key,
                 self.ttl,
                 json.dumps(cache_data, ensure_ascii=False),
             )
-            
+
             logger.debug(f"Cached response for idempotency key: {idempotency_key}")
-            
+
             # 重建响应body
             response.body_iterator = self._create_body_iterator(body)
-            
+
         except Exception as e:
             logger.error(f"Failed to cache response: {e}")
 

@@ -1,11 +1,10 @@
 """文档处理路由"""
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from app.models.document import DocumentFormat, IndexingResult
 from app.services.document_service import DocumentService
 
 router = APIRouter()
@@ -20,7 +19,7 @@ class IndexDocumentRequest(BaseModel):
     document_id: str = Field(..., description="文档ID")
     tenant_id: str = Field(..., description="租户ID")
     knowledge_base_id: str = Field(..., description="知识库ID")
-    options: Dict[str, Any] = Field(default_factory=dict, description="索引选项")
+    options: dict[str, Any] = Field(default_factory=dict, description="索引选项")
 
 
 class IndexDocumentResponse(BaseModel):

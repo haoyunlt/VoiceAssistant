@@ -4,13 +4,13 @@ Agent Engine V2 - 使用依赖注入和策略模式
 
 import logging
 import time
-from typing import AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
 
 from app.core.config import AgentConfig
 from app.core.executor_strategy import ExecutorContext, ExecutorFactory
 from app.infrastructure.llm_client import LLMClient
-from app.infrastructure.memory_manager import MemoryManager
 from app.infrastructure.tool_registry import ToolRegistry
+from app.memory.unified_memory_manager import UnifiedMemoryManager
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,8 @@ class AgentEngineV2:
         config: AgentConfig,
         llm_client: LLMClient,
         tool_registry: ToolRegistry,
-        memory_manager: Optional[MemoryManager] = None,
-        executor_factory: Optional[ExecutorFactory] = None,
+        memory_manager: UnifiedMemoryManager | None = None,
+        executor_factory: ExecutorFactory | None = None,
     ):
         """
         初始化 Agent 引擎（依赖注入）
@@ -69,15 +69,15 @@ class AgentEngineV2:
 
         # 注册默认执行器
         factory.register(
-            "react", ReActExecutor(self.llm_client, self.tool_registry)
-        )
+            "react", ReActExecutor(self.llm_client, self.tool_registry)  # type: ignore
+        )  # type: ignore
         factory.register(
             "plan_execute",
-            PlanExecuteExecutor(self.llm_client, self.tool_registry),
-        )
+            PlanExecuteExecutor(self.llm_client, self.tool_registry),  # type: ignore
+        )  # type: ignore
 
         # 如果启用了 Reflexion，注册 Reflexion 执行器
-        if self.config.enable_reflexion and self.memory_manager:
+        if self.config.enable_reflexion and self.memory_manager:  # type: ignore
             from app.executors.reflexion_executor import ReflexionExecutor
 
             factory.register(
@@ -87,7 +87,7 @@ class AgentEngineV2:
                     self.tool_registry,
                     self.memory_manager,
                     max_iterations=self.config.max_iterations,
-                ),
+                ),  # type: ignore
             )
 
         return factory
@@ -95,12 +95,12 @@ class AgentEngineV2:
     async def execute(
         self,
         task: str,
-        mode: Optional[str] = None,
-        max_steps: Optional[int] = None,
-        tools: Optional[List[str]] = None,
-        conversation_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
-    ) -> Dict:
+        mode: str | None = None,
+        max_steps: int | None = None,
+        tools: list[str] | None = None,
+        conversation_id: str | None = None,
+        tenant_id: str | None = None,
+    ) -> dict:
         """
         执行 Agent 任务（非流式）
 
@@ -180,11 +180,11 @@ class AgentEngineV2:
     async def execute_stream(
         self,
         task: str,
-        mode: Optional[str] = None,
-        max_steps: Optional[int] = None,
-        tools: Optional[List[str]] = None,
-        conversation_id: Optional[str] = None,
-        tenant_id: Optional[str] = None,
+        mode: str | None = None,
+        max_steps: int | None = None,
+        tools: list[str] | None = None,
+        conversation_id: str | None = None,
+        tenant_id: str | None = None,
     ) -> AsyncIterator[str]:
         """
         执行 Agent 任务（流式）
@@ -277,7 +277,7 @@ class AgentEngineV2:
                 }
             )
 
-    def _filter_tools(self, tool_names: Optional[List[str]]) -> List[Dict]:
+    def _filter_tools(self, tool_names: list[str] | None) -> list[dict]:
         """过滤可用工具"""
         all_tools = self.tool_registry.list_tools()
 
@@ -291,7 +291,7 @@ class AgentEngineV2:
         return [t for t in all_tools if t["name"] in tool_names]
 
     def _update_stats(
-        self, result: Dict, execution_time: float, success: bool
+        self, result: dict, execution_time: float, success: bool
     ) -> None:
         """更新统计信息"""
         if success:
@@ -307,7 +307,7 @@ class AgentEngineV2:
                 self.stats["total_execution_time"] / self.stats["successful_tasks"]
             )
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取统计信息"""
         return {
             **self.stats,
@@ -328,6 +328,6 @@ class AgentEngineV2:
             ),
         }
 
-    def list_available_executors(self) -> List[str]:
+    def list_available_executors(self) -> list[str]:
         """列出可用的执行器"""
         return self.executor_context._factory.list_available()

@@ -1,8 +1,6 @@
-import io
 import logging
 import os
-import tempfile
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +32,9 @@ class VideoEngine:
         self,
         video_data: bytes,
         analysis_type: str = "summary",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         视频分析。
 
@@ -77,7 +75,7 @@ class VideoEngine:
             logger.error(f"Video analysis failed: {e}", exc_info=True)
             raise
 
-    async def _analyze_summary(self, video_data: bytes) -> Dict[str, Any]:
+    async def _analyze_summary(self, video_data: bytes) -> dict[str, Any]:
         """生成视频摘要"""
         logger.debug("Generating video summary")
 
@@ -97,7 +95,7 @@ class VideoEngine:
             "provider": self.provider,
         }
 
-    async def _extract_keyframes(self, video_data: bytes) -> Dict[str, Any]:
+    async def _extract_keyframes(self, video_data: bytes) -> dict[str, Any]:
         """提取关键帧"""
         logger.debug("Extracting video keyframes")
 
@@ -128,7 +126,7 @@ class VideoEngine:
             "provider": self.provider,
         }
 
-    async def _detect_objects(self, video_data: bytes) -> Dict[str, Any]:
+    async def _detect_objects(self, video_data: bytes) -> dict[str, Any]:
         """检测视频中的对象"""
         logger.debug("Detecting objects in video")
 
@@ -162,7 +160,7 @@ class VideoEngine:
             "provider": self.provider,
         }
 
-    async def _extract_speech(self, video_data: bytes) -> Dict[str, Any]:
+    async def _extract_speech(self, video_data: bytes) -> dict[str, Any]:
         """提取视频中的语音"""
         logger.debug("Extracting speech from video")
 
@@ -190,7 +188,7 @@ class VideoEngine:
             "provider": self.provider,
         }
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return self.stats
 

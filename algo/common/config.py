@@ -4,7 +4,6 @@
 """
 
 import os
-from typing import Optional
 
 try:
     from pydantic import BaseSettings, Field, validator
@@ -35,7 +34,7 @@ class ServiceConfig(BaseSettings):
     # 可观测性配置
     otel_enabled: bool = Field(default=True, description="是否启用 OpenTelemetry")
     otel_endpoint: str = Field(default="http://localhost:4317", description="OTEL Collector 端点")
-    otel_service_name: Optional[str] = Field(default=None, description="OTEL 服务名（默认使用 service_name）")
+    otel_service_name: str | None = Field(default=None, description="OTEL 服务名（默认使用 service_name）")
     metrics_enabled: bool = Field(default=True, description="是否启用指标")
     tracing_enabled: bool = Field(default=True, description="是否启用追踪")
 
@@ -118,8 +117,8 @@ class LLMConfig(BaseSettings):
 
     llm_provider: str = Field(default="openai", description="LLM 提供商")
     llm_model: str = Field(default="gpt-3.5-turbo", description="LLM 模型")
-    llm_api_key: Optional[str] = Field(default=None, description="LLM API 密钥")
-    llm_api_base: Optional[str] = Field(default=None, description="LLM API 基础 URL")
+    llm_api_key: str | None = Field(default=None, description="LLM API 密钥")
+    llm_api_base: str | None = Field(default=None, description="LLM API 基础 URL")
     llm_timeout: int = Field(default=60, ge=1, description="LLM 请求超时（秒）")
     llm_max_retries: int = Field(default=3, ge=0, description="LLM 最大重试次数")
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="LLM 温度")
@@ -176,7 +175,7 @@ class RedisConfig(BaseSettings):
 
     redis_host: str = Field(default="localhost", description="Redis 主机")
     redis_port: int = Field(default=6379, ge=1, le=65535, description="Redis 端口")
-    redis_password: Optional[str] = Field(default=None, description="Redis 密码")
+    redis_password: str | None = Field(default=None, description="Redis 密码")
     redis_db: int = Field(default=0, ge=0, le=15, description="Redis 数据库")
     redis_pool_size: int = Field(default=10, ge=1, description="连接池大小")
     redis_timeout: int = Field(default=5, ge=1, description="连接超时（秒）")
@@ -228,8 +227,8 @@ class ElasticsearchConfig(BaseSettings):
 
     elasticsearch_host: str = Field(default="localhost", description="ES 主机")
     elasticsearch_port: int = Field(default=9200, ge=1, le=65535, description="ES 端口")
-    elasticsearch_username: Optional[str] = Field(default=None, description="ES 用户名")
-    elasticsearch_password: Optional[str] = Field(default=None, description="ES 密码")
+    elasticsearch_username: str | None = Field(default=None, description="ES 用户名")
+    elasticsearch_password: str | None = Field(default=None, description="ES 密码")
     elasticsearch_timeout: int = Field(default=30, ge=1, description="ES 超时（秒）")
     elasticsearch_max_retries: int = Field(default=3, ge=0, description="ES 最大重试次数")
     elasticsearch_pool_size: int = Field(default=25, ge=1, description="连接池大小")
@@ -249,7 +248,7 @@ class ElasticsearchConfig(BaseSettings):
 
 # ==================== 工具函数 ====================
 
-def load_config(config_class: type, env_file: Optional[str] = None) -> BaseSettings:
+def load_config(config_class: type, env_file: str | None = None) -> BaseSettings:
     """
     加载配置
 

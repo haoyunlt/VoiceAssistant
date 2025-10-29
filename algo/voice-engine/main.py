@@ -22,8 +22,11 @@ from fastapi.staticfiles import StaticFiles
 from prometheus_client import make_asgi_app
 from starlette.middleware.base import BaseHTTPMiddleware
 
-# 添加 common 模块到路径
-sys.path.insert(0, str(Path(__file__).parent.parent / "common"))
+# 添加common目录到Python路径
+
+_common_path = Path(__file__).parent.parent / "common"
+if str(_common_path) not in sys.path:
+    sys.path.insert(0, str(_common_path))
 
 # 导入统一基础设施模块
 from cors_config import get_cors_config
@@ -161,12 +164,21 @@ if os.path.exists(static_dir):
     logger.info(f"Static files mounted: {static_dir}")
 
 # 注册路由
-from app.routers import diarization, emotion, full_duplex, voice_stream
+from app.routers import (
+    diarization,
+    emotion,
+    full_duplex,
+    streaming_asr,
+    voice_cloning,
+    voice_stream,
+)
 
 app.include_router(voice_stream.router)
 app.include_router(emotion.router)
 app.include_router(diarization.router)
 app.include_router(full_duplex.router)
+app.include_router(voice_cloning.router)  # P2级：语音克隆
+app.include_router(streaming_asr.router)  # P2级：流式ASR
 
 
 @app.get("/health")

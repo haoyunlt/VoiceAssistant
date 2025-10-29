@@ -7,7 +7,6 @@ BM25 全文检索服务
 import logging
 import os
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from elasticsearch import AsyncElasticsearch, ConnectionError, TransportError
 
@@ -73,7 +72,7 @@ class ElasticsearchService:
         self,
         tenant_id: str,
         kb_id: str,
-        settings: Dict = None
+        settings: dict = None
     ):
         """
         创建索引
@@ -164,7 +163,7 @@ class ElasticsearchService:
         document_id: str,
         content: str,
         title: str = "",
-        metadata: Dict = None
+        metadata: dict = None
     ):
         """
         索引文档
@@ -205,9 +204,9 @@ class ElasticsearchService:
         kb_id: str,
         query: str,
         top_k: int = 50,
-        filters: Dict = None,
+        filters: dict = None,
         min_score: float = None
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         BM25 搜索 - 带自动重试
 
@@ -323,7 +322,7 @@ class ElasticsearchService:
         self,
         tenant_id: str,
         kb_id: str,
-        documents: List[Dict]
+        documents: list[dict]
     ):
         """
         批量索引
@@ -405,7 +404,7 @@ class ElasticsearchService:
         self,
         tenant_id: str,
         kb_id: str
-    ) -> Dict:
+    ) -> dict:
         """获取索引统计信息"""
         index_name = self._get_index_name(tenant_id, kb_id)
 

@@ -3,9 +3,9 @@
 管理 Agent 可用的工具集合
 """
 
-import inspect
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class Tool:
         name: str,
         description: str,
         function: Callable,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         requires_auth: bool = False,
         timeout: int = 30
     ):
@@ -59,7 +59,7 @@ class Tool:
             logger.error(f"Tool {self.name} execution failed: {e}")
             raise
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "name": self.name,
@@ -75,7 +75,7 @@ class ToolRegistry:
 
     def __init__(self):
         """初始化工具注册表"""
-        self.tools: Dict[str, Tool] = {}
+        self.tools: dict[str, Tool] = {}
         self._register_default_tools()
         logger.info("Tool registry initialized")
 
@@ -155,7 +155,7 @@ class ToolRegistry:
         name: str,
         description: str,
         function: Callable,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         requires_auth: bool = False,
         timeout: int = 30
     ):
@@ -188,11 +188,11 @@ class ToolRegistry:
             del self.tools[name]
             logger.info(f"Unregistered tool: {name}")
 
-    def get_tool(self, name: str) -> Optional[Tool]:
+    def get_tool(self, name: str) -> Tool | None:
         """获取工具"""
         return self.tools.get(name)
 
-    def list_tools(self) -> List[str]:
+    def list_tools(self) -> list[str]:
         """列出所有工具名称"""
         return list(self.tools.keys())
 
@@ -211,7 +211,7 @@ class ToolRegistry:
 
         return "\n".join(descriptions)
 
-    def execute_tool(self, name: str, args: Dict[str, Any]) -> Any:
+    def execute_tool(self, name: str, args: dict[str, Any]) -> Any:
         """
         执行工具
 
@@ -232,7 +232,7 @@ class ToolRegistry:
         # 执行工具
         return tool.execute(**args)
 
-    def _validate_parameters(self, tool: Tool, args: Dict[str, Any]):
+    def _validate_parameters(self, tool: Tool, args: dict[str, Any]):
         """验证参数"""
         for param_name, param_def in tool.parameters.items():
             if param_def.get("required", False) and param_name not in args:
@@ -388,7 +388,7 @@ class ToolRegistry:
         from datetime import datetime
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    def to_openai_functions(self) -> List[Dict[str, Any]]:
+    def to_openai_functions(self) -> list[dict[str, Any]]:
         """
         转换为 OpenAI Function Calling 格式
 

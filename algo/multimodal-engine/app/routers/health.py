@@ -2,7 +2,7 @@
 Health check endpoints
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 
 from app.core.config import settings
 from app.services.health_check_service import HealthCheckService

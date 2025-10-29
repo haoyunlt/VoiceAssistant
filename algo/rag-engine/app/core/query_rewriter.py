@@ -1,7 +1,6 @@
 """查询改写器 - HyDE, Multi-Query扩展."""
 
 import logging
-from typing import List, Optional
 
 from openai import AsyncOpenAI
 
@@ -13,7 +12,7 @@ class QueryRewriter:
 
     def __init__(
         self,
-        llm_client: Optional[AsyncOpenAI] = None,
+        llm_client: AsyncOpenAI | None = None,
         model: str = "gpt-3.5-turbo",
     ):
         """
@@ -26,7 +25,7 @@ class QueryRewriter:
         self.llm_client = llm_client
         self.model = model
 
-    async def rewrite_multi_query(self, query: str, num_queries: int = 3) -> List[str]:
+    async def rewrite_multi_query(self, query: str, num_queries: int = 3) -> list[str]:
         """
         多查询扩展 - 生成多个相关查询.
 
@@ -118,7 +117,7 @@ Write a hypothetical answer (2-3 paragraphs):"""
         query: str,
         method: str = "multi",
         num_queries: int = 3,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         统一的查询改写接口.
 
@@ -141,7 +140,7 @@ Write a hypothetical answer (2-3 paragraphs):"""
             logger.warning(f"Unknown rewrite method: {method}, using original query")
             return [query]
 
-    async def decompose_query(self, query: str) -> List[str]:
+    async def decompose_query(self, query: str) -> list[str]:
         """
         查询分解 - 将复杂查询分解为多个子查询.
 

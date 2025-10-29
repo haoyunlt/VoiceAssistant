@@ -1,9 +1,8 @@
 """OpenAI适配器"""
-import json
 import logging
 import time
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -82,30 +81,29 @@ class OpenAIAdapter(BaseAdapter):
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[str]:
         """流式聊天接口"""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                async with client.stream(
-                    "POST",
-                    f"{self.api_base}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": request.model,
-                        "messages": [m.dict() for m in request.messages],
-                        "temperature": request.temperature,
-                        "max_tokens": request.max_tokens,
-                        "stream": True,
-                    },
-                ) as response:
-                    response.raise_for_status()
+            async with httpx.AsyncClient(timeout=self.timeout) as client, client.stream(
+                "POST",
+                f"{self.api_base}/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": request.model,
+                    "messages": [m.dict() for m in request.messages],
+                    "temperature": request.temperature,
+                    "max_tokens": request.max_tokens,
+                    "stream": True,
+                },
+            ) as response:
+                response.raise_for_status()
 
-                    async for line in response.aiter_lines():
-                        if line.startswith("data: "):
-                            data = line[6:]
-                            if data == "[DONE]":
-                                break
-                            yield f"data: {data}\n\n"
+                async for line in response.aiter_lines():
+                    if line.startswith("data: "):
+                        data = line[6:]
+                        if data == "[DONE]":
+                            break
+                        yield f"data: {data}\n\n"
 
         except Exception as e:
             logger.error(f"OpenAI stream error: {e}")

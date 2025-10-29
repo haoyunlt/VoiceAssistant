@@ -1,12 +1,12 @@
 """数据模型"""
 
-from .requests import (
+from app.models.requests import (
     DeleteByDocumentRequest,
     InsertVectorsRequest,
     SearchVectorsRequest,
     VectorData,
 )
-from .responses import (
+from app.models.responses import (
     CollectionCountResponse,
     DeleteResponse,
     HealthResponse,

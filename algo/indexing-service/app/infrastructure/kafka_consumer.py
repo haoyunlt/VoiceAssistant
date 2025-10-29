@@ -5,7 +5,7 @@ Kafka Consumer - 订阅文档事件
 import asyncio
 import json
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from confluent_kafka import Consumer, KafkaError, KafkaException
 
@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class DocumentEventConsumer:
     """文档事件消费者"""
 
-    def __init__(self, config: Optional[dict] = None):
+    def __init__(self, config: dict | None = None):
         """初始化消费者"""
         # 默认配置
         self.config = config or {

@@ -6,9 +6,7 @@ import pytest
 from app.api.dependencies import (
     get_agent_engine,
     get_memory_manager,
-    get_tool_registry,
 )
-from app.core.exceptions import ServiceNotInitializedException
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 

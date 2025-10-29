@@ -3,10 +3,9 @@ ASR (Automatic Speech Recognition) 引擎
 支持 Whisper 和实时流式识别
 """
 
-import io
 import logging
-import wave
-from typing import Any, Dict, Generator, Optional
+from collections.abc import Generator
+from typing import Any
 
 import numpy as np
 import torch
@@ -79,7 +78,7 @@ class ASREngine:
         audio_data: bytes,
         sample_rate: int = 16000,
         return_timestamps: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         转录音频（批处理模式）
 
@@ -124,7 +123,7 @@ class ASREngine:
         self,
         audio_stream: Generator[bytes, None, None],
         sample_rate: int = 16000
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[dict[str, Any], None, None]:
         """
         流式转录
 
@@ -182,7 +181,7 @@ class ASREngine:
         self,
         audio_array: np.ndarray,
         sample_rate: int
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用模型直接转录"""
         # 处理音频特征
         input_features = self.processor(

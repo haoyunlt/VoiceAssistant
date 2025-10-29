@@ -1,8 +1,9 @@
 """Agent流式执行服务"""
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, Optional
+from typing import Any
 
 from app.models.agent import AgentTask
 from app.services.llm_service import LLMService
@@ -25,9 +26,9 @@ class AgentStepResult:
     step_type: StepType
     content: str = ""
     is_partial: bool = False
-    tool_name: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    tool_name: str | None = None
+    parameters: dict[str, Any] | None = None
+    error: str | None = None
     iteration: int = 0
 
 
@@ -40,7 +41,7 @@ class AgentContext:
         self.steps = []
         self.final_answer = ""
 
-    def add_step(self, thought: str, action: Optional[Dict], observation: str):
+    def add_step(self, thought: str, action: dict | None, observation: str):
         """添加执行步骤"""
         self.steps.append({
             "thought": thought,
@@ -203,7 +204,7 @@ Thought: I now have the final answer
 Final Answer: [Your complete answer]
 """
 
-    def _parse_action(self, thought: str) -> Optional[Dict[str, Any]]:
+    def _parse_action(self, thought: str) -> dict[str, Any] | None:
         """解析Action"""
         # 简化的解析逻辑
         if "Final Answer:" in thought:
@@ -241,7 +242,7 @@ Final Answer: [Your complete answer]
     async def _execute_tool_with_retry(
         self,
         tool_name: str,
-        parameters: Dict[str, Any],
+        parameters: dict[str, Any],
         timeout: int = 30,
         max_retries: int = 3
     ) -> str:

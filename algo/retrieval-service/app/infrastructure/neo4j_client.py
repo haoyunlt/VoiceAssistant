@@ -3,7 +3,6 @@ Neo4j 异步客户端封装
 """
 
 import logging
-from typing import Any, Dict, List, Optional
 
 from neo4j import AsyncDriver, AsyncGraphDatabase
 
@@ -26,7 +25,7 @@ class Neo4jClient:
         self.user = user
         self.password = password
         self.database = database
-        self._driver: Optional[AsyncDriver] = None
+        self._driver: AsyncDriver | None = None
         self.max_connection_lifetime = max_connection_lifetime
         self.max_connection_pool_size = max_connection_pool_size
 
@@ -53,8 +52,8 @@ class Neo4jClient:
             logger.info("Neo4j connection closed")
 
     async def query(
-        self, cypher: str, parameters: Optional[Dict] = None, timeout: float = 30.0
-    ) -> List[Dict]:
+        self, cypher: str, parameters: dict | None = None, timeout: float = 30.0
+    ) -> list[dict]:
         """
         执行Cypher查询
 
@@ -85,7 +84,7 @@ class Neo4jClient:
         description: str,
         source_doc: str,
         chunk_id: str,
-        properties: Optional[Dict] = None,
+        properties: dict | None = None,
     ) -> str:
         """
         创建实体节点
@@ -172,7 +171,7 @@ class Neo4jClient:
         result = await self.query(cypher, params)
         return bool(result)
 
-    async def get_entity_by_name(self, name: str) -> Optional[Dict]:
+    async def get_entity_by_name(self, name: str) -> dict | None:
         """根据名称获取实体"""
         cypher = """
         MATCH (e:Entity {name: $name})
@@ -183,7 +182,7 @@ class Neo4jClient:
 
     async def get_related_entities(
         self, entity_name: str, depth: int = 2, limit: int = 50
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         获取相关实体（多跳关系）
 
@@ -216,10 +215,10 @@ class Neo4jClient:
 
     async def multi_hop_query(
         self,
-        entity_names: List[str],
+        entity_names: list[str],
         depth: int = 2,
         top_k: int = 20,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         多跳关系查询（用于检索）
 
@@ -271,7 +270,7 @@ class Neo4jClient:
             logger.error(f"Neo4j health check failed: {e}")
             return False
 
-    async def get_statistics(self) -> Dict[str, int]:
+    async def get_statistics(self) -> dict[str, int]:
         """获取图谱统计信息"""
         cypher = """
         MATCH (e:Entity)

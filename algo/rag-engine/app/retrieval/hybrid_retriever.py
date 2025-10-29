@@ -4,10 +4,10 @@ Hybrid Retriever - 混合检索器
 结合 BM25 和向量检索，使用 Reciprocal Rank Fusion (RRF) 融合结果
 """
 
-import os
-from typing import Any, Dict, List, Optional
-
 import logging
+import os
+from typing import Any
+
 from app.retrieval.bm25_retriever import get_bm25_retriever
 
 logger = logging.getLogger(__name__)
@@ -44,10 +44,10 @@ class HybridRetriever:
     def retrieve(
         self,
         query: str,
-        vector_results: List[Dict[str, Any]],
+        vector_results: list[dict[str, Any]],
         top_k: int = 10,
         fusion_method: str = "rrf",  # "rrf" or "weighted_sum"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         混合检索
 
@@ -88,9 +88,9 @@ class HybridRetriever:
 
     def _reciprocal_rank_fusion(
         self,
-        bm25_results: List[Dict[str, Any]],
-        vector_results: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        bm25_results: list[dict[str, Any]],
+        vector_results: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """
         Reciprocal Rank Fusion (RRF)
 
@@ -139,9 +139,9 @@ class HybridRetriever:
 
     def _weighted_sum_fusion(
         self,
-        bm25_results: List[Dict[str, Any]],
-        vector_results: List[Dict[str, Any]],
-    ) -> List[Dict[str, Any]]:
+        bm25_results: list[dict[str, Any]],
+        vector_results: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
         """
         加权求和融合
 
@@ -208,7 +208,7 @@ class HybridRetriever:
 
         return fused_results
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 
@@ -227,7 +227,7 @@ class HybridRetriever:
 
 
 # 全局实例
-_hybrid_retriever: Optional[HybridRetriever] = None
+_hybrid_retriever: HybridRetriever | None = None
 
 
 def get_hybrid_retriever() -> HybridRetriever:

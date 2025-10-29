@@ -1,6 +1,6 @@
 """Agent router for handling agent execution requests."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -24,10 +24,10 @@ class AgentResponse(BaseModel):
 @router.post("/execute", response_model=AgentResponse)
 async def execute_agent(request: AgentRequest) -> AgentResponse:
     """Execute an agent task.
-    
+
     Args:
         request: Agent execution request
-        
+
     Returns:
         Agent execution response
     """
@@ -43,10 +43,10 @@ async def execute_agent(request: AgentRequest) -> AgentResponse:
 @router.get("/status/{task_id}")
 async def get_agent_status(task_id: str):
     """Get agent task status.
-    
+
     Args:
         task_id: Task identifier
-        
+
     Returns:
         Task status
     """

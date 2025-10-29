@@ -4,7 +4,7 @@ Statistics tracking utilities
 
 import time
 from collections import deque
-from typing import Any, Dict
+from typing import Any
 
 
 class StatsTracker:
@@ -36,7 +36,7 @@ class StatsTracker:
         self.total_requests += 1
         self.failed_requests += 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get current statistics"""
         latencies = list(self._latencies)
 

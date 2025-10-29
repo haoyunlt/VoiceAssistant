@@ -1,6 +1,5 @@
 """文本块管理路由"""
 import logging
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
 

@@ -4,7 +4,7 @@ Image Understanding Service
 
 import io
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from PIL import Image
 
@@ -21,8 +21,8 @@ class ImageUnderstandingService:
     async def understand_image(
         self,
         image_data: bytes,
-        tasks: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        tasks: list[str] | None = None
+    ) -> dict[str, Any]:
         """全面理解图像"""
         if tasks is None:
             tasks = ["ocr", "caption", "objects"]
@@ -49,7 +49,7 @@ class ImageUnderstandingService:
         logger.info(f"Image understanding completed: {list(result.keys())}")
         return result
 
-    async def _extract_text(self, image: Image.Image) -> Dict[str, Any]:
+    async def _extract_text(self, image: Image.Image) -> dict[str, Any]:
         """OCR文本提取"""
         try:
             # 使用OCR服务
@@ -68,7 +68,7 @@ class ImageUnderstandingService:
             logger.error(f"OCR failed: {e}")
             return {"text": "", "error": str(e)}
 
-    async def _generate_caption(self, image: Image.Image) -> Dict[str, Any]:
+    async def _generate_caption(self, image: Image.Image) -> dict[str, Any]:
         """生成图像描述"""
         try:
             if self.vision_model:
@@ -84,7 +84,7 @@ class ImageUnderstandingService:
             logger.error(f"Caption generation failed: {e}")
             return {"caption": "", "error": str(e)}
 
-    async def _detect_objects(self, image: Image.Image) -> List[Dict]:
+    async def _detect_objects(self, image: Image.Image) -> list[dict]:
         """物体检测"""
         try:
             if self.vision_model:
@@ -97,7 +97,7 @@ class ImageUnderstandingService:
             logger.error(f"Object detection failed: {e}")
             return []
 
-    async def _classify_scene(self, image: Image.Image) -> Dict[str, Any]:
+    async def _classify_scene(self, image: Image.Image) -> dict[str, Any]:
         """场景分类"""
         try:
             if self.vision_model:

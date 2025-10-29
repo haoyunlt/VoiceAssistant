@@ -4,13 +4,12 @@ Voice Engine Core - 语音引擎核心
 
 import asyncio
 import logging
-from typing import AsyncIterator, Dict, List
+from collections.abc import AsyncIterator
 
 from app.core.asr_engine import ASREngine
 from app.core.circuit_breaker import CircuitBreaker
 from app.core.config import get_settings
 from app.core.observability import track_asr_metrics, track_tts_metrics, track_vad_metrics
-from app.core.retry import retry_with_backoff
 from app.core.tts_engine import TTSEngine
 from app.core.vad_engine import VADEngine
 
@@ -87,7 +86,7 @@ class VoiceEngine:
         audio_data: bytes,
         language: str = "zh",
         model: str = "base",
-    ) -> Dict:
+    ) -> dict:
         """
         语音识别（带超时、重试和熔断）
 
@@ -124,7 +123,7 @@ class VoiceEngine:
 
             return result
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"ASR timeout after {settings.ASR_TIMEOUT_SECONDS}s")
             raise Exception(f"ASR timeout after {settings.ASR_TIMEOUT_SECONDS}s")
         except Exception as e:
@@ -176,7 +175,7 @@ class VoiceEngine:
 
             self.stats["successful_tts"] += 1
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"TTS timeout after {settings.TTS_TIMEOUT_SECONDS}s")
             raise Exception(f"TTS timeout after {settings.TTS_TIMEOUT_SECONDS}s")
         except Exception as e:
@@ -188,7 +187,7 @@ class VoiceEngine:
         self,
         audio_data: bytes,
         threshold: float = 0.5,
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """
         语音活动检测（带超时和熔断）
 
@@ -222,18 +221,18 @@ class VoiceEngine:
 
             return segments
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"VAD timeout after {settings.VAD_TIMEOUT_SECONDS}s")
             raise Exception(f"VAD timeout after {settings.VAD_TIMEOUT_SECONDS}s")
         except Exception as e:
             logger.error(f"VAD failed: {e}", exc_info=True)
             raise
 
-    def list_available_voices(self) -> List[Dict]:
+    def list_available_voices(self) -> list[dict]:
         """列出可用语音"""
         return self.tts_engine.list_voices()
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取统计信息"""
         return {
             **self.stats,
@@ -333,7 +332,6 @@ class VoiceEngine:
         try:
             import io
 
-            import numpy as np
             from pydub import AudioSegment
             from pydub.effects import normalize as pydub_normalize
 

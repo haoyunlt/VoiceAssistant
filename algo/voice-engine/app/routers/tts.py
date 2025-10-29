@@ -2,13 +2,13 @@
 TTS (Text-to-Speech) endpoints
 """
 
-from typing import Literal, Optional
+import logging
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-import logging
 from app.models.voice import TTSRequest, TTSResponse
 from app.services.multi_vendor_adapter import get_multi_vendor_adapter
 from app.services.tts_service import TTSService
@@ -146,11 +146,11 @@ async def check_cache_health():
 class MultiVendorTTSRequest(BaseModel):
     """多厂商 TTS 请求"""
     text: str
-    voice: Optional[str] = None
+    voice: str | None = None
     rate: str = "0%"
     pitch: str = "0%"
     use_cache: bool = True
-    vendor_preference: Optional[Literal["azure", "edge"]] = None
+    vendor_preference: Literal["azure", "edge"] | None = None
 
 
 @router.post("/synthesize/multi-vendor", summary="多厂商 TTS 合成（自动降级）")

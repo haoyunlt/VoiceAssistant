@@ -9,15 +9,14 @@ import sys
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
 from app.core.config import settings
 from app.middleware.error_handler import error_handler_middleware
 from app.middleware.request_context import request_context_middleware
-from app.routers import health, ocr, vision, analysis
+from app.routers import analysis, health, ocr, vision
 from app.services.ocr_service import OCRService
 from app.services.vision_service import VisionService
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 # 配置日志
 logging.basicConfig(
@@ -39,51 +38,51 @@ vision_service: VisionService = None
 async def lifespan(app: FastAPI):
     """
     应用生命周期管理
-    
+
     启动时：
     - 初始化 OCR 服务
     - 初始化 Vision 服务
     - 预热模型
-    
+
     关闭时：
     - 清理资源
     """
     global ocr_service, vision_service
-    
+
     logger.info("=" * 60)
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info("=" * 60)
-    
+
     try:
         # 初始化 OCR 服务
         logger.info("Initializing OCR service...")
         ocr_service = OCRService()
         logger.info(f"✓ OCR service initialized (provider: {settings.OCR_PROVIDER})")
-        
+
         # 初始化 Vision 服务
         logger.info("Initializing Vision service...")
         vision_service = VisionService()
         logger.info(f"✓ Vision service initialized (provider: {settings.VISION_PROVIDER})")
-        
+
         # 设置路由中的服务实例
         health.set_services(ocr_service, vision_service)
         ocr.ocr_service = ocr_service
         vision.vision_service = vision_service
         analysis.ocr_service = ocr_service
         analysis.vision_service = vision_service
-        
+
         logger.info("=" * 60)
         logger.info("✓ All services initialized successfully")
         logger.info(f"✓ Server ready at http://{settings.HOST}:{settings.PORT}")
         logger.info("=" * 60)
-        
+
     except Exception as e:
         logger.error(f"✗ Failed to initialize services: {e}", exc_info=True)
         raise
-    
+
     # 服务运行中...
     yield
-    
+
     # 服务关闭
     logger.info("Shutting down services...")
     logger.info("✓ Services shutdown complete")
@@ -91,7 +90,7 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     """创建 FastAPI 应用实例"""
-    
+
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
@@ -101,7 +100,7 @@ def create_app() -> FastAPI:
         openapi_url="/openapi.json",
         lifespan=lifespan,
     )
-    
+
     # CORS 配置
     app.add_middleware(
         CORSMiddleware,
@@ -110,17 +109,17 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # 自定义中间件
     app.middleware("http")(request_context_middleware)
     app.middleware("http")(error_handler_middleware)
-    
+
     # 注册路由
     app.include_router(health.router)
     app.include_router(ocr.router)
     app.include_router(vision.router)
     app.include_router(analysis.router)
-    
+
     # 根路径
     @app.get("/")
     async def root():
@@ -131,14 +130,14 @@ def create_app() -> FastAPI:
             "docs": "/docs",
             "health": "/health",
         }
-    
+
     return app
 
 
 def main():
     """主函数"""
     app = create_app()
-    
+
     # 启动服务
     uvicorn.run(
         app,

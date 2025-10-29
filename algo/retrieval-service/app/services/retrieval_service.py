@@ -3,32 +3,32 @@ Main retrieval orchestration service
 """
 
 import asyncio
+import logging
 import time
-from typing import List
 
 from app.core.config import settings
-import logging
+from app.infrastructure.neo4j_client import Neo4jClient
 from app.models.retrieval import (
     BM25Request,
     BM25Response,
+    GraphRequest,
+    GraphResponse,
+    HybridGraphRequest,
+    HybridGraphResponse,
     HybridRequest,
     HybridResponse,
     RetrievalDocument,
     VectorRequest,
     VectorResponse,
-    GraphRequest,
-    GraphResponse,
-    HybridGraphRequest,
-    HybridGraphResponse,
 )
 from app.services.bm25_service import BM25Service
 from app.services.embedding_service import EmbeddingService
-from app.services.hybrid_service import HybridService
-from app.services.rerank_service import RerankService
-from app.services.vector_service import VectorService
 from app.services.graph_retrieval_service import GraphRetrievalService
 from app.services.hybrid_graph_service import HybridGraphService
-from app.infrastructure.neo4j_client import Neo4jClient
+from app.services.hybrid_service import HybridService
+from app.services.query.expansion_service import QueryExpansionService
+from app.services.rerank_service import RerankService
+from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +42,18 @@ class RetrievalService:
         self.hybrid_service = HybridService(rrf_k=settings.RRF_K)
         self.rerank_service = RerankService()
         self.embedding_service = EmbeddingService()
+
+        # 初始化Query Expansion Service (Task 1.1)
+        try:
+            self.query_expansion = QueryExpansionService(
+                methods=["synonym", "spelling"],
+                max_expansions=3,
+                synonym_dict_path="data/synonyms.json",
+            )
+            logger.info("Query expansion service initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize query expansion service: {e}")
+            self.query_expansion = None
 
         # 初始化Neo4j客户端和Graph检索服务
         self.neo4j_client = None
@@ -138,48 +150,99 @@ class RetrievalService:
         return BM25Response(documents=documents, query=request.query, latency_ms=latency_ms)
 
     async def hybrid_search(self, request: HybridRequest) -> HybridResponse:
-        """混合检索（向量 + BM25 + RRF融合 + 重排序）"""
+        """混合检索（向量 + BM25 + RRF融合 + 重排序 + 查询扩展）"""
         start_time = time.time()
 
-        # 如果没有提供向量，需要先获取向量
-        query_embedding = request.query_embedding
-        if not query_embedding:
-            # TODO: 调用 embedding 服务获取向量
-            logger.warning("No query embedding provided, skipping vector search")
-            vector_docs: List[RetrievalDocument] = []
-        else:
-            # 1. 并行执行向量检索和 BM25 检索
-            vector_task = self.vector_service.search(
-                query_embedding=query_embedding,
-                top_k=settings.VECTOR_TOP_K,
-                tenant_id=request.tenant_id,
-                filters=request.filters,
-            )
-            bm25_task = self.bm25_service.search(
-                query=request.query,
-                top_k=settings.BM25_TOP_K,
-                tenant_id=request.tenant_id,
-                filters=request.filters,
-            )
+        # 0. Query Expansion (Task 1.1) - 如果启用
+        queries_to_search = [request.query]
+        query_weights = [1.0]
+        expansion_info = {
+            "expanded": False,
+            "queries": None,
+            "latency_ms": None,
+        }
 
-            vector_docs, bm25_docs = await asyncio.gather(vector_task, bm25_task)
+        if request.enable_query_expansion and self.query_expansion:
+            try:
+                expanded = await self.query_expansion.expand(
+                    query=request.query,
+                    enable_llm=False,  # 默认不启用LLM（成本控制）
+                )
+                queries_to_search = expanded.expanded[: request.query_expansion_max]
+                query_weights = expanded.weights[: request.query_expansion_max]
+                expansion_info = {
+                    "expanded": True,
+                    "queries": queries_to_search,
+                    "latency_ms": expanded.latency_ms,
+                }
+                logger.info(
+                    f"Query expanded: {len(queries_to_search)} queries "
+                    f"in {expanded.latency_ms:.1f}ms"
+                )
+            except Exception as e:
+                logger.warning(f"Query expansion failed: {e}, using original query")
+                queries_to_search = [request.query]
+                query_weights = [1.0]
 
-        # 如果没有向量检索结果，仅执行 BM25
-        if not query_embedding:
-            bm25_docs = await self.bm25_service.search(
-                query=request.query,
-                top_k=settings.BM25_TOP_K,
-                tenant_id=request.tenant_id,
-                filters=request.filters,
-            )
-            vector_docs = []
+        # 1. 对每个扩展查询执行检索
+        all_vector_docs: list[RetrievalDocument] = []
+        all_bm25_docs: list[RetrievalDocument] = []
 
-        logger.info(f"Retrieved: vector={len(vector_docs)}, bm25={len(bm25_docs)}")
+        # 为每个查询生成embedding并检索
+        for query, weight in zip(queries_to_search, query_weights, strict=False):
+            # 获取query embedding
+            query_embedding = None
+            if not request.query_embedding:
+                try:
+                    query_embedding = await self.embedding_service.embed_query(query)
+                except Exception as e:
+                    logger.warning(f"Failed to generate embedding for query '{query}': {e}")
+            else:
+                query_embedding = request.query_embedding
 
-        # 2. RRF 融合
+            # 并行执行向量检索和BM25检索
+            if query_embedding:
+                vector_task = self.vector_service.search(
+                    query_embedding=query_embedding,
+                    top_k=settings.VECTOR_TOP_K,
+                    tenant_id=request.tenant_id,
+                    filters=request.filters,
+                )
+                bm25_task = self.bm25_service.search(
+                    query=query,
+                    top_k=settings.BM25_TOP_K,
+                    tenant_id=request.tenant_id,
+                    filters=request.filters,
+                )
+
+                vector_docs, bm25_docs = await asyncio.gather(vector_task, bm25_task)
+
+                # 根据权重调整分数
+                for doc in vector_docs:
+                    doc.score *= weight
+                for doc in bm25_docs:
+                    doc.score *= weight
+
+                all_vector_docs.extend(vector_docs)
+                all_bm25_docs.extend(bm25_docs)
+            else:
+                # 如果没有embedding，只执行BM25
+                bm25_docs = await self.bm25_service.search(
+                    query=query,
+                    top_k=settings.BM25_TOP_K,
+                    tenant_id=request.tenant_id,
+                    filters=request.filters,
+                )
+                for doc in bm25_docs:
+                    doc.score *= weight
+                all_bm25_docs.extend(bm25_docs)
+
+        logger.info(f"Retrieved: vector={len(all_vector_docs)}, bm25={len(all_bm25_docs)}")
+
+        # 2. RRF 融合（去重）
         top_k = request.top_k or settings.HYBRID_TOP_K
         fused_docs = await self.hybrid_service.fuse_results(
-            vector_docs=vector_docs, bm25_docs=bm25_docs, top_k=top_k
+            vector_docs=all_vector_docs, bm25_docs=all_bm25_docs, top_k=top_k
         )
 
         # 3. 重排序（可选）
@@ -198,10 +261,13 @@ class RetrievalService:
         return HybridResponse(
             documents=fused_docs,
             query=request.query,
-            vector_count=len(vector_docs),
-            bm25_count=len(bm25_docs),
+            vector_count=len(all_vector_docs),
+            bm25_count=len(all_bm25_docs),
             reranked=reranked,
             latency_ms=latency_ms,
+            query_expanded=expansion_info["expanded"],
+            expanded_queries=expansion_info["queries"],
+            expansion_latency_ms=expansion_info["latency_ms"],
         )
 
     async def graph_search(self, request: GraphRequest) -> GraphResponse:

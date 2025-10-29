@@ -2,13 +2,13 @@
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import asyncpg
 from pgvector.asyncpg import register_vector
 
 from app.core.base_backend import VectorStoreBackend
-from app.core.exceptions import InvalidVectorDimensionException, VectorStoreException
+from app.core.exceptions import VectorStoreException
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +19,9 @@ class PgVectorBackend(VectorStoreBackend):
     # 允许的表名字符（防止 SQL 注入）
     VALID_TABLE_NAME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$')
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         super().__init__(config)
-        self.pool: Optional[asyncpg.Pool] = None
+        self.pool: asyncpg.Pool | None = None
 
     @staticmethod
     def _validate_table_name(table_name: str) -> str:
@@ -80,7 +80,7 @@ class PgVectorBackend(VectorStoreBackend):
         """确保表存在"""
         # 验证表名（防止 SQL 注入）
         safe_table_name = self._validate_table_name(collection_name)
-        
+
         # 创建 pgvector 扩展
         await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
@@ -122,7 +122,7 @@ class PgVectorBackend(VectorStoreBackend):
     async def insert_vectors(
         self,
         collection_name: str,
-        data: List[Dict],
+        data: list[dict],
     ) -> Any:
         """插入向量"""
         if not data:
@@ -168,16 +168,16 @@ class PgVectorBackend(VectorStoreBackend):
     async def search_vectors(
         self,
         collection_name: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[str] = None,
-        search_params: Optional[Dict] = None,
-    ) -> List[Dict]:
+        tenant_id: str | None = None,
+        filters: str | None = None,
+        search_params: dict | None = None,
+    ) -> list[dict]:
         """向量检索"""
         # 验证表名
         safe_table_name = self._validate_table_name(collection_name)
-        
+
         async with self.pool.acquire() as conn:
             # 构建 WHERE 子句
             where_clauses = []
@@ -231,7 +231,7 @@ class PgVectorBackend(VectorStoreBackend):
         """删除文档的所有向量"""
         # 验证表名
         safe_table_name = self._validate_table_name(collection_name)
-        
+
         async with self.pool.acquire() as conn:
             result = await conn.execute(
                 f"DELETE FROM {safe_table_name} WHERE document_id = $1",
@@ -246,7 +246,7 @@ class PgVectorBackend(VectorStoreBackend):
         """获取集合中的向量数量"""
         # 验证表名
         safe_table_name = self._validate_table_name(collection_name)
-        
+
         try:
             async with self.pool.acquire() as conn:
                 count = await conn.fetchval(f"SELECT COUNT(*) FROM {safe_table_name}")
@@ -263,7 +263,7 @@ class PgVectorBackend(VectorStoreBackend):
         """创建集合"""
         # 验证表名
         safe_table_name = self._validate_table_name(collection_name)
-        
+
         async with self.pool.acquire() as conn:
             await self._ensure_table_exists(conn, safe_table_name, dimension)
 
@@ -271,7 +271,7 @@ class PgVectorBackend(VectorStoreBackend):
         """删除集合"""
         # 验证表名
         safe_table_name = self._validate_table_name(collection_name)
-        
+
         async with self.pool.acquire() as conn:
             await conn.execute(f"DROP TABLE IF EXISTS {safe_table_name} CASCADE")
             logger.info(f"Dropped table {safe_table_name}")

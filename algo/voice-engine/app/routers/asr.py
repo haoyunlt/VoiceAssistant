@@ -2,14 +2,24 @@
 ASR (Automatic Speech Recognition) endpoints
 """
 
+import builtins
+import contextlib
 import json
-from typing import AsyncIterator, Literal, Optional
+import logging
+from collections.abc import AsyncIterator
+from typing import Literal
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-import logging
 from app.models.voice import ASRRequest, ASRResponse, StreamASRRequest
 from app.services.asr_service import ASRService
 from app.services.multi_vendor_adapter import get_multi_vendor_adapter
@@ -195,13 +205,11 @@ async def websocket_asr_stream(websocket: WebSocket):
 
     except Exception as e:
         logger.error(f"Streaming ASR error: {e}", exc_info=True)
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({
                 "type": "error",
                 "error": str(e)
             })
-        except:
-            pass
 
     finally:
         try:
@@ -219,7 +227,7 @@ class MultiVendorASRRequest(BaseModel):
     audio_base64: str
     language: str = "zh"
     model_size: str = "base"
-    vendor_preference: Optional[Literal["azure", "faster-whisper"]] = None
+    vendor_preference: Literal["azure", "faster-whisper"] | None = None
 
 
 @router.post("/recognize/multi-vendor", summary="多厂商 ASR 识别（自动降级）")

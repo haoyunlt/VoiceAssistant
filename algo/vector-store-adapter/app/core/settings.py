@@ -1,6 +1,6 @@
 """配置管理 - 使用 Pydantic Settings"""
 
-from typing import Any, Dict
+from typing import Any
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     otel_endpoint: str = Field(default="http://localhost:4317", description="OTLP 端点")
     otel_service_name: str = Field(default="vector-store-adapter", description="服务名称")
 
-    def get_backend_config(self, backend: str) -> Dict[str, Any]:
+    def get_backend_config(self, backend: str) -> dict[str, Any]:
         """获取特定后端的配置"""
         if backend == "milvus":
             return {

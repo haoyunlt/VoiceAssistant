@@ -1,11 +1,12 @@
 """Claude (Anthropic)模型适配器."""
 
 import logging
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
-from anthropic import AsyncAnthropic, AnthropicError
+from anthropic import AnthropicError, AsyncAnthropic
 
-from ..core.base_adapter import BaseAdapter, AdapterResponse, AdapterStreamChunk
+from app.core.base_adapter import AdapterResponse, AdapterStreamChunk, BaseAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +27,12 @@ class ClaudeAdapter(BaseAdapter):
     async def generate(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1000,
         top_p: float = 1.0,
         top_k: int = -1,
-        stop_sequences: Optional[List[str]] = None,
+        stop_sequences: list[str] | None = None,
         **kwargs,
     ) -> AdapterResponse:
         """
@@ -104,7 +105,7 @@ class ClaudeAdapter(BaseAdapter):
     async def generate_stream(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs,
@@ -164,7 +165,7 @@ class ClaudeAdapter(BaseAdapter):
             logger.error(f"Claude streaming error: {e}")
             raise RuntimeError(f"Claude streaming error: {e}")
 
-    def _format_messages(self, messages: List[Dict[str, str]]) -> tuple[Optional[str], List[Dict[str, str]]]:
+    def _format_messages(self, messages: list[dict[str, str]]) -> tuple[str | None, list[dict[str, str]]]:
         """
         格式化消息为Claude格式.
 
@@ -201,7 +202,7 @@ class ClaudeAdapter(BaseAdapter):
     async def generate_with_vision(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
         temperature: float = 0.7,
         max_tokens: int = 1000,
         **kwargs,
@@ -262,8 +263,8 @@ class ClaudeAdapter(BaseAdapter):
             raise RuntimeError(f"Claude vision error: {e}")
 
     def _format_messages_with_images(
-        self, messages: List[Dict[str, Any]]
-    ) -> tuple[Optional[str], List[Dict[str, Any]]]:
+        self, messages: list[dict[str, Any]]
+    ) -> tuple[str | None, list[dict[str, Any]]]:
         """
         格式化包含图像的消息.
 

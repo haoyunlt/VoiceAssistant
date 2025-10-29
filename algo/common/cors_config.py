@@ -6,12 +6,11 @@
 
 import logging
 import os
-from typing import List
 
 logger = logging.getLogger(__name__)
 
 
-def get_cors_origins() -> List[str]:
+def get_cors_origins() -> list[str]:
     """
     从环境变量获取 CORS 白名单
 
@@ -47,16 +46,20 @@ def get_cors_origins() -> List[str]:
 
     elif env == "staging":
         # 测试环境需要明确配置
-        logger.warning("Staging environment detected but no CORS_ORIGINS configured. Returning empty list.")
+        logger.warning(
+            "Staging environment detected but no CORS_ORIGINS configured. Returning empty list."
+        )
         return []
 
     else:  # production
         # 生产环境必须明确配置，不提供默认值
-        logger.warning("Production environment detected but no CORS_ORIGINS configured. CORS will block all origins.")
+        logger.warning(
+            "Production environment detected but no CORS_ORIGINS configured. CORS will block all origins."
+        )
         return []
 
 
-def get_cors_methods() -> List[str]:
+def get_cors_methods() -> list[str]:
     """
     获取允许的 HTTP 方法
 
@@ -67,7 +70,7 @@ def get_cors_methods() -> List[str]:
     return [method.strip() for method in methods_str.split(",") if method.strip()]
 
 
-def get_cors_headers() -> List[str]:
+def get_cors_headers() -> list[str]:
     """
     获取允许的请求头
 
@@ -75,8 +78,7 @@ def get_cors_headers() -> List[str]:
         允许的请求头列表
     """
     headers_str = os.getenv(
-        "CORS_HEADERS",
-        "Authorization,Content-Type,X-Request-ID,X-Tenant-ID,X-User-ID"
+        "CORS_HEADERS", "Authorization,Content-Type,X-Request-ID,X-Tenant-ID,X-User-ID"
     )
     return [header.strip() for header in headers_str.split(",") if header.strip()]
 
@@ -108,19 +110,23 @@ def get_cors_config() -> dict:
     Returns:
         CORS 配置字典，可直接传递给 CORSMiddleware
     """
+    origins = get_cors_origins()
+    methods = get_cors_methods()
+    headers = get_cors_headers()
+
     config = {
-        "allow_origins": get_cors_origins(),
-        "allow_methods": get_cors_methods(),
-        "allow_headers": get_cors_headers(),
+        "allow_origins": origins,
+        "allow_methods": methods,
+        "allow_headers": headers,
         "allow_credentials": is_cors_credentials_allowed(),
         "max_age": get_cors_max_age(),
     }
 
     logger.info(
         f"CORS configuration: "
-        f"origins={len(config['allow_origins'])}, "
-        f"methods={len(config['allow_methods'])}, "
-        f"headers={len(config['allow_headers'])}, "
+        f"origins={len(origins)}, "
+        f"methods={len(methods)}, "
+        f"headers={len(headers)}, "
         f"credentials={config['allow_credentials']}"
     )
 

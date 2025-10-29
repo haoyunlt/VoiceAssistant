@@ -11,7 +11,7 @@ ReAct Executor - ReAct (Reasoning + Acting) 模式执行器
 import json
 import logging
 import re
-from typing import AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,9 @@ class ReActExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: List[Dict] = None,
-        memory: Dict = None,
-    ) -> Dict:
+        available_tools: list[dict] = None,
+        memory: dict = None,
+    ) -> dict:
         """
         执行任务（非流式）
 
@@ -112,8 +112,8 @@ class ReActExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: List[Dict] = None,
-        memory: Dict = None,
+        available_tools: list[dict] = None,
+        memory: dict = None,
     ) -> AsyncIterator[str]:
         """
         执行任务（流式）
@@ -183,7 +183,7 @@ class ReActExecutor:
                 break
 
     def _build_initial_prompt(
-        self, task: str, available_tools: List[Dict], memory: Dict
+        self, task: str, available_tools: list[dict], memory: dict
     ) -> str:
         """构建初始 Prompt"""
         # 工具描述
@@ -216,7 +216,7 @@ class ReActExecutor:
 
         return prompt
 
-    def _format_tools(self, tools: List[Dict]) -> str:
+    def _format_tools(self, tools: list[dict]) -> str:
         """格式化工具列表"""
         if not tools:
             return "（无可用工具）"
@@ -229,7 +229,7 @@ class ReActExecutor:
 
         return "\n".join(lines)
 
-    def _format_memory(self, memory: Dict) -> str:
+    def _format_memory(self, memory: dict) -> str:
         """格式化记忆"""
         if not memory or not memory.get("history"):
             return ""
@@ -272,7 +272,7 @@ class ReActExecutor:
         return thought, action, action_input, final_answer
 
     async def _execute_tool(
-        self, tool_name: str, tool_input: str, available_tools: List[Dict]
+        self, tool_name: str, tool_input: str, available_tools: list[dict]
     ) -> str:
         """执行工具调用"""
         try:

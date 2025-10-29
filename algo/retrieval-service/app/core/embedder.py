@@ -1,7 +1,6 @@
 """BGE-M3 Embedder - 向量化模块（与 Indexing Service 共享）"""
 
 import logging
-from typing import List
 
 from sentence_transformers import SentenceTransformer
 
@@ -32,7 +31,7 @@ class BGE_M3_Embedder:
 
         logger.info(f"Model loaded successfully. Dimension: {self.dimension}")
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """
         单个文本向量化
 
@@ -51,7 +50,7 @@ class BGE_M3_Embedder:
 
         return embedding.tolist()
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """
         查询向量化（添加查询特定的处理）
 

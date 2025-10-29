@@ -310,7 +310,7 @@ async def create_embeddings(
         )
 
 
-from typing import Any, Dict, List
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -318,8 +318,8 @@ from pydantic import BaseModel
 class ProtocolConvertRequest(BaseModel):
     """协议转换请求模型"""
     target_provider: str
-    messages: List[Dict[str, Any]]
-    parameters: Dict[str, Any] = {}
+    messages: list[dict[str, Any]]
+    parameters: dict[str, Any] = {}
 
 class CostCalculateRequest(BaseModel):
     """成本计算请求模型"""

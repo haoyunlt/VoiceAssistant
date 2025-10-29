@@ -2,7 +2,7 @@
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import redis.asyncio as redis
 
@@ -17,7 +17,7 @@ class RedisCache:
         host: str = "redis",
         port: int = 6379,
         db: int = 2,  # 使用 DB 2 用于检索缓存
-        password: Optional[str] = None,
+        password: str | None = None,
     ):
         """
         初始化 Redis 客户端
@@ -57,7 +57,7 @@ class RedisCache:
             logger.error(f"Failed to initialize Redis cache: {e}")
             raise
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """
         获取缓存
 

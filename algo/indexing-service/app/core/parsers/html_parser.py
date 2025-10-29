@@ -4,7 +4,7 @@ import logging
 
 from bs4 import BeautifulSoup
 
-from .base import BaseParser
+from app.core.parsers.base import BaseParser
 
 logger = logging.getLogger(__name__)
 

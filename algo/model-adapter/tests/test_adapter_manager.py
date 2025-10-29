@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from app.core.adapter_manager import AdapterManager
-from app.core.exceptions import ProviderNotAvailableError, ProviderNotFoundError
+from app.core.exceptions import ProviderNotFoundError
 from app.core.settings import Settings
 
 

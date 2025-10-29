@@ -1,15 +1,15 @@
 """
-Self-RAG: Self-Reflective Retrieval-Augmented Generation
+Self-RAG 核心模块
+
+包含检索质量评估、自适应检索策略、幻觉检测等功能。
 """
 
-from .adaptive_retriever import SelfRAGAgent, RetrievalDecision, RelevanceLevel
-from .critique import CritiqueGenerator, CritiqueScore
+from app.core.self_rag.adaptive_retriever import AdaptiveRetriever
+from app.core.self_rag.critique import RetrievalCritic
+from app.core.self_rag.hallucination_detector import HallucinationDetector
 
 __all__ = [
-    'SelfRAGAgent',
-    'RetrievalDecision',
-    'RelevanceLevel',
-    'CritiqueGenerator',
-    'CritiqueScore',
+    "RetrievalCritic",
+    "AdaptiveRetriever",
+    "HallucinationDetector",
 ]
-

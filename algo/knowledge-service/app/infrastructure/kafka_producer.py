@@ -7,9 +7,8 @@ Kafka Producer for Knowledge Service Events
 import asyncio
 import json
 import logging
-import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -22,16 +21,16 @@ _kafka_producer_lock = asyncio.Lock()
 class KafkaProducer:
     """Kafka事件生产者"""
 
-    def __init__(self, config: Optional[Dict] = None, compensation_service: Optional[Any] = None):
+    def __init__(self, config: dict | None = None, compensation_service: Any | None = None):
         """
         初始化Kafka生产者
-        
+
         Args:
             config: Kafka配置
             compensation_service: 事件补偿服务（可选）
         """
         from app.core.config import settings
-        
+
         self.config = config or {
             "bootstrap.servers": settings.KAFKA_BOOTSTRAP_SERVERS,
             "acks": settings.KAFKA_ACKS,
@@ -56,7 +55,7 @@ class KafkaProducer:
         self.compensation_service = compensation_service
         self.sent_count = 0
         self.failed_count = 0
-        
+
         logger.info(
             f"Kafka Producer initialized with servers: {self.config.get('bootstrap.servers')}"
         )
@@ -75,8 +74,8 @@ class KafkaProducer:
     async def publish_event(
         self,
         event_type: str,
-        payload: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
+        payload: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """发布通用事件"""
         event = {
@@ -105,7 +104,7 @@ class KafkaProducer:
             logger.info(f"Published event '{event_type}'")
         except Exception as e:
             logger.error(f"Failed to publish event to Kafka: {e}")
-            
+
             # 记录失败事件到补偿服务
             if self.compensation_service:
                 try:
@@ -117,11 +116,11 @@ class KafkaProducer:
                     )
                 except Exception as comp_error:
                     logger.error(f"Failed to record failed event: {comp_error}")
-            
+
             raise
 
     async def publish_entity_created(
-        self, entity_id: str, tenant_id: str, entity_data: Dict[str, Any]
+        self, entity_id: str, tenant_id: str, entity_data: dict[str, Any]
     ) -> None:
         """发布实体创建事件"""
         await self.publish_event(
@@ -136,7 +135,7 @@ class KafkaProducer:
         )
 
     async def publish_entity_updated(
-        self, entity_id: str, tenant_id: str, changes: Dict[str, Any]
+        self, entity_id: str, tenant_id: str, changes: dict[str, Any]
     ) -> None:
         """发布实体更新事件"""
         await self.publish_event(
@@ -176,7 +175,7 @@ class KafkaProducer:
         tenant_id: str,
         entity_count: int,
         relation_count: int,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """发布图谱构建完成事件"""
         await self.publish_event(
@@ -196,7 +195,7 @@ class KafkaProducer:
         tenant_id: str,
         community_count: int,
         algorithm: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
     ) -> None:
         """发布社区检测完成事件"""
         await self.publish_event(
@@ -219,7 +218,7 @@ class KafkaProducer:
             await asyncio.to_thread(self.producer.flush, 10)
             logger.info("Kafka Producer closed.")
 
-    def get_metrics(self) -> Dict[str, int]:
+    def get_metrics(self) -> dict[str, int]:
         """获取生产者指标"""
         return {
             "sent_count": self.sent_count,

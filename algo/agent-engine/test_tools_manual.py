@@ -30,7 +30,7 @@ async def test_all_tools():
     print("🧮 测试 1: 计算器工具")
     print("-" * 40)
     result = await registry.execute_tool("calculator", {"expression": "2 ** 10 + 5 * 3"})
-    print(f"表达式: 2 ** 10 + 5 * 3")
+    print("表达式: 2 ** 10 + 5 * 3")
     print(f"结果: {result}")
     print()
 
@@ -50,7 +50,7 @@ async def test_all_tools():
         print("⚠️  SERPAPI_KEY 未配置，将返回模拟结果")
 
     result = await registry.execute_tool("search", {"query": "Python编程", "num_results": 3})
-    print(f"搜索: Python编程")
+    print("搜索: Python编程")
     print(f"结果:\n{result[:500]}...")
     print()
 
@@ -63,7 +63,7 @@ async def test_all_tools():
         print("⚠️  OPENWEATHER_API_KEY 未配置，将返回模拟结果")
 
     result = await registry.execute_tool("weather", {"city": "北京"})
-    print(f"城市: 北京")
+    print("城市: 北京")
     print(f"结果:\n{result}")
     print()
 
@@ -76,7 +76,7 @@ async def test_all_tools():
     result = await registry.execute_tool(
         "knowledge_base", {"query": "测试查询", "knowledge_base_id": "default", "top_k": 3}
     )
-    print(f"查询: 测试查询")
+    print("查询: 测试查询")
     print(f"结果:\n{result[:500]}...")
     print()
 

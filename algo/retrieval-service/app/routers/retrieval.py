@@ -2,20 +2,21 @@
 Retrieval API endpoints
 """
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 
-import logging
 from app.models.retrieval import (
     BM25Request,
     BM25Response,
-    HybridRequest,
-    HybridResponse,
-    VectorRequest,
-    VectorResponse,
     GraphRequest,
     GraphResponse,
     HybridGraphRequest,
     HybridGraphResponse,
+    HybridRequest,
+    HybridResponse,
+    VectorRequest,
+    VectorResponse,
 )
 from app.services.retrieval_service import RetrievalService
 

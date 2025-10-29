@@ -5,7 +5,7 @@ Idempotency Middleware - 幂等性中间件
 import hashlib
 import json
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import redis.asyncio as redis
 from fastapi import Request, Response
@@ -27,9 +27,9 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        redis_client: Optional[redis.Redis] = None,
+        redis_client: redis.Redis | None = None,
         ttl: int = 86400,  # 24小时
-        whitelist_methods: Optional[set] = None,
+        whitelist_methods: set | None = None,
     ):
         super().__init__(app)
         self.redis_client = redis_client
@@ -108,7 +108,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         return f"idempotency:{signature}"
 
-    async def _get_cached_response(self, key: str) -> Optional[dict]:
+    async def _get_cached_response(self, key: str) -> dict | None:
         """获取缓存的响应"""
         try:
             cached = await self.redis_client.get(key)

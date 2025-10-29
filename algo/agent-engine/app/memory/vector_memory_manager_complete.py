@@ -7,8 +7,6 @@ import logging
 import os
 import time
 import uuid
-from datetime import datetime
-from typing import Dict, List, Optional
 
 import httpx
 import numpy as np
@@ -17,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 try:
     from pymilvus import DataType, MilvusClient
+
     MILVUS_AVAILABLE = True
 except ImportError:
     MILVUS_AVAILABLE = False
@@ -25,7 +24,10 @@ except ImportError:
 
 class Memory:
     """记忆对象"""
-    def __init__(self, id: str, conversation_id: str, content: str, timestamp: int, metadata: Dict = None):
+
+    def __init__(
+        self, id: str, conversation_id: str, content: str, timestamp: int, metadata: dict = None
+    ):
         self.id = id
         self.conversation_id = conversation_id
         self.content = content
@@ -37,28 +39,25 @@ class VectorMemoryManager:
     """基于向量的记忆管理"""
 
     def __init__(
-        self,
-        milvus_host: str = None,
-        milvus_port: str = None,
-        model_adapter_url: str = None
+        self, milvus_host: str = None, milvus_port: str = None, model_adapter_url: str = None
     ):
         self.milvus_host = milvus_host or os.getenv("MILVUS_HOST", "localhost")
         self.milvus_port = milvus_port or os.getenv("MILVUS_PORT", "19530")
-        self.model_adapter_url = model_adapter_url or os.getenv("MODEL_ADAPTER_URL", "http://model-adapter:8005")
+        self.model_adapter_url = model_adapter_url or os.getenv(
+            "MODEL_ADAPTER_URL", "http://model-adapter:8005"
+        )
 
         self.collection_name = "agent_memory"
         self.dim = 1536  # OpenAI embedding dimension
 
         if MILVUS_AVAILABLE:
-            self.client = MilvusClient(
-                uri=f"http://{self.milvus_host}:{self.milvus_port}"
-            )
+            self.client = MilvusClient(uri=f"http://{self.milvus_host}:{self.milvus_port}")
             self._init_collection()
         else:
             self.client = None
             logger.warning("Milvus client not initialized")
 
-    def _init_collection(self):
+    def _init_collection(self) -> None:
         """初始化 Milvus collection"""
         if not self.client:
             return
@@ -69,36 +68,15 @@ class VectorMemoryManager:
             return
 
         # 创建 collection
-        schema = MilvusClient.create_schema(
-            auto_id=False,
-            enable_dynamic_field=True
-        )
+        schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=True)
 
         schema.add_field(
-            field_name="memory_id",
-            datatype=DataType.VARCHAR,
-            max_length=64,
-            is_primary=True
+            field_name="memory_id", datatype=DataType.VARCHAR, max_length=64, is_primary=True
         )
-        schema.add_field(
-            field_name="conversation_id",
-            datatype=DataType.VARCHAR,
-            max_length=64
-        )
-        schema.add_field(
-            field_name="content",
-            datatype=DataType.VARCHAR,
-            max_length=2000
-        )
-        schema.add_field(
-            field_name="embedding",
-            datatype=DataType.FLOAT_VECTOR,
-            dim=self.dim
-        )
-        schema.add_field(
-            field_name="timestamp",
-            datatype=DataType.INT64
-        )
+        schema.add_field(field_name="conversation_id", datatype=DataType.VARCHAR, max_length=64)
+        schema.add_field(field_name="content", datatype=DataType.VARCHAR, max_length=2000)
+        schema.add_field(field_name="embedding", datatype=DataType.FLOAT_VECTOR, dim=self.dim)
+        schema.add_field(field_name="timestamp", datatype=DataType.INT64)
 
         # 创建索引参数
         index_params = self.client.prepare_index_params()
@@ -106,23 +84,18 @@ class VectorMemoryManager:
             field_name="embedding",
             index_type="IVF_FLAT",
             metric_type="IP",  # Inner Product (cosine similarity for normalized vectors)
-            params={"nlist": 1024}
+            params={"nlist": 1024},
         )
 
         # 创建 collection
         self.client.create_collection(
-            collection_name=self.collection_name,
-            schema=schema,
-            index_params=index_params
+            collection_name=self.collection_name, schema=schema, index_params=index_params
         )
 
         logger.info(f"Created collection: {self.collection_name}")
 
     async def store_memory(
-        self,
-        conversation_id: str,
-        content: str,
-        metadata: Dict = None
+        self, conversation_id: str, content: str, metadata: dict = None
     ) -> Memory:
         """
         存储记忆（向量化）
@@ -147,22 +120,21 @@ class VectorMemoryManager:
             embedding = await self._get_embedding(content)
 
             # 2. 插入 Milvus
-            data = [{
-                "memory_id": memory_id,
-                "conversation_id": conversation_id,
-                "content": content,
-                "embedding": embedding,
-                "timestamp": int(time.time())
-            }]
+            data = [
+                {
+                    "memory_id": memory_id,
+                    "conversation_id": conversation_id,
+                    "content": content,
+                    "embedding": embedding,
+                    "timestamp": int(time.time()),
+                }
+            ]
 
             # 添加元数据字段
             if metadata:
                 data[0].update(metadata)
 
-            self.client.insert(
-                collection_name=self.collection_name,
-                data=data
-            )
+            self.client.insert(collection_name=self.collection_name, data=data)
 
             logger.info(f"Stored memory: {memory_id}")
 
@@ -171,7 +143,7 @@ class VectorMemoryManager:
                 conversation_id=conversation_id,
                 content=content,
                 timestamp=int(time.time()),
-                metadata=metadata
+                metadata=metadata,
             )
 
         except Exception as e:
@@ -179,11 +151,8 @@ class VectorMemoryManager:
             return None
 
     async def search_memory(
-        self,
-        query: str,
-        conversation_id: Optional[str] = None,
-        top_k: int = 5
-    ) -> List[Memory]:
+        self, query: str, conversation_id: str | None = None, top_k: int = 5
+    ) -> list[Memory]:
         """
         向量检索相关记忆
 
@@ -214,20 +183,22 @@ class VectorMemoryManager:
                 data=[query_embedding],
                 limit=top_k,
                 filter=filter_expr,
-                output_fields=["memory_id", "conversation_id", "content", "timestamp"]
+                output_fields=["memory_id", "conversation_id", "content", "timestamp"],
             )
 
             # 4. 转换为 Memory 对象
             memories = []
             for hits in results:
                 for hit in hits:
-                    memories.append(Memory(
-                        id=hit.get("memory_id", ""),
-                        conversation_id=hit.get("conversation_id", ""),
-                        content=hit.get("content", ""),
-                        timestamp=hit.get("timestamp", 0),
-                        metadata={"score": hit.get("distance", 0.0)}
-                    ))
+                    memories.append(
+                        Memory(
+                            id=hit.get("memory_id", ""),
+                            conversation_id=hit.get("conversation_id", ""),
+                            content=hit.get("content", ""),
+                            timestamp=hit.get("timestamp", 0),
+                            metadata={"score": hit.get("distance", 0.0)},
+                        )
+                    )
 
             logger.info(f"Found {len(memories)} memories for query: {query}")
             return memories
@@ -237,10 +208,8 @@ class VectorMemoryManager:
             return []
 
     async def get_conversation_memories(
-        self,
-        conversation_id: str,
-        limit: int = 10
-    ) -> List[Memory]:
+        self, conversation_id: str, limit: int = 10
+    ) -> list[Memory]:
         """
         获取指定对话的所有记忆
 
@@ -260,17 +229,19 @@ class VectorMemoryManager:
                 collection_name=self.collection_name,
                 filter=f'conversation_id == "{conversation_id}"',
                 output_fields=["memory_id", "conversation_id", "content", "timestamp"],
-                limit=limit
+                limit=limit,
             )
 
             memories = []
             for item in results:
-                memories.append(Memory(
-                    id=item.get("memory_id", ""),
-                    conversation_id=item.get("conversation_id", ""),
-                    content=item.get("content", ""),
-                    timestamp=item.get("timestamp", 0)
-                ))
+                memories.append(
+                    Memory(
+                        id=item.get("memory_id", ""),
+                        conversation_id=item.get("conversation_id", ""),
+                        content=item.get("content", ""),
+                        timestamp=item.get("timestamp", 0),
+                    )
+                )
 
             # 按时间排序
             memories.sort(key=lambda m: m.timestamp)
@@ -289,13 +260,13 @@ class VectorMemoryManager:
         try:
             self.client.delete(
                 collection_name=self.collection_name,
-                filter=f'conversation_id == "{conversation_id}"'
+                filter=f'conversation_id == "{conversation_id}"',
             )
             logger.info(f"Deleted memories for conversation: {conversation_id}")
         except Exception as e:
             logger.error(f"Failed to delete memories: {e}")
 
-    async def _get_embedding(self, text: str) -> List[float]:
+    async def _get_embedding(self, text: str) -> list[float]:
         """
         获取文本向量
 
@@ -309,10 +280,7 @@ class VectorMemoryManager:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.model_adapter_url}/api/v1/embedding/create",
-                    json={
-                        "input": text,
-                        "model": "text-embedding-3-small"
-                    }
+                    json={"input": text, "model": "text-embedding-3-small"},
                 )
                 response.raise_for_status()
 
@@ -330,7 +298,7 @@ class VectorMemoryManager:
             # 返回零向量作为降级
             return [0.0] * self.dim
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """获取记忆统计信息"""
         if not self.client:
             return {"error": "Milvus not available"}
@@ -339,7 +307,7 @@ class VectorMemoryManager:
             stats = self.client.get_collection_stats(self.collection_name)
             return {
                 "total_memories": stats.get("row_count", 0),
-                "collection_name": self.collection_name
+                "collection_name": self.collection_name,
             }
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")

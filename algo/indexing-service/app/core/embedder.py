@@ -3,9 +3,7 @@ BGE-M3 Embedder - 向量化模块
 """
 
 import logging
-from typing import List
 
-import numpy as np
 from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
@@ -35,7 +33,7 @@ class BGE_M3_Embedder:
 
         logger.info(f"Model loaded successfully. Dimension: {self.dimension}")
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """
         单个文本向量化
 
@@ -54,7 +52,7 @@ class BGE_M3_Embedder:
 
         return embedding.tolist()
 
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """
         批量文本向量化
 
@@ -83,7 +81,7 @@ class BGE_M3_Embedder:
 
         return embeddings.tolist()
 
-    async def embed_query(self, query: str) -> List[float]:
+    async def embed_query(self, query: str) -> list[float]:
         """
         查询向量化（可以添加查询特定的处理）
 
@@ -117,7 +115,7 @@ class CachedEmbedder(BGE_M3_Embedder):
 
         logger.info(f"Cached embedder initialized with cache size: {cache_size}")
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """
         带缓存的单个文本向量化
         """

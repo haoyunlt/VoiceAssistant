@@ -4,7 +4,7 @@ Request ID Middleware - 为每个请求添加唯一ID用于追踪
 
 import logging
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

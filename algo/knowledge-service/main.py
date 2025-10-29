@@ -5,8 +5,9 @@ Knowledge Service - Main Application
 """
 
 import logging
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncGenerator, Dict
+from typing import Any
 
 from app.core.config import settings
 from app.core.logging_config import setup_logging
@@ -20,8 +21,6 @@ from fastapi.middleware.cors import CORSMiddleware
 setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 
 @asynccontextmanager
@@ -65,7 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             app.state.compensation_service = EventCompensationService(
                 redis_client=redis_client,
                 kafka_producer=None,  # 稍后设置
-                max_retries=3
+                max_retries=3,
             )
             logger.info("Event compensation service initialized")
 
@@ -77,7 +76,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Kafka producer initialized with compensation service")
 
         # 注入到知识图谱服务
-        kg_service = get_kg_service(kafka_producer=app.state.kafka_producer)
+        get_kg_service(kafka_producer=app.state.kafka_producer)
         logger.info("Knowledge graph service initialized with Kafka")
     except Exception as e:
         logger.warning(f"Failed to initialize Kafka producer: {e}")
@@ -88,9 +87,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         try:
             # 初始化清理服务
             from app.services.cleanup_service import CleanupService
+
             app.state.cleanup_service = CleanupService(
-                neo4j_client=neo4j_client,
-                redis_client=redis_client
+                neo4j_client=neo4j_client, redis_client=redis_client
             )
 
             # 启动定期清理任务
@@ -140,6 +139,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if hasattr(app.state, "kafka_producer") and app.state.kafka_producer:
         try:
             from app.infrastructure.kafka_producer import close_kafka_producer
+
             await close_kafka_producer()
         except Exception as e:
             logger.error(f"Failed to close Kafka producer: {e}")
@@ -175,16 +175,17 @@ app.add_middleware(
 # 注意：需要在启动后才能使用redis_client，所以在启动事件中添加
 
 # 注册路由
-from app.routers import admin, community, disambiguation
+from app.routers import admin, community, disambiguation, graphrag
 
 app.include_router(knowledge_graph.router)
 app.include_router(community.router)
 app.include_router(disambiguation.router)
 app.include_router(admin.router)
+app.include_router(graphrag.router)  # 新增GraphRAG路由
 
 
 @app.get("/")
-async def root() -> Dict[str, Any]:
+async def root() -> dict[str, Any]:
     """根路径"""
     return {
         "service": settings.APP_NAME,
@@ -194,7 +195,7 @@ async def root() -> Dict[str, Any]:
 
 
 @app.get("/health")
-async def health(request: Request) -> Dict[str, Any]:
+async def health(request: Request) -> dict[str, Any]:
     """
     健康检查
 
@@ -205,7 +206,7 @@ async def health(request: Request) -> Dict[str, Any]:
         "service": settings.APP_NAME,
         "version": settings.VERSION,
         "timestamp": __import__("datetime").datetime.utcnow().isoformat(),
-        "dependencies": {}
+        "dependencies": {},
     }
 
     # 检查Neo4j
@@ -216,10 +217,7 @@ async def health(request: Request) -> Dict[str, Any]:
         if not neo4j_health.get("healthy"):
             health_status["status"] = "degraded"
     except Exception as e:
-        health_status["dependencies"]["neo4j"] = {
-            "healthy": False,
-            "error": str(e)
-        }
+        health_status["dependencies"]["neo4j"] = {"healthy": False, "error": str(e)}
         health_status["status"] = "degraded"
 
     # 检查Redis（从lifespan中获取）
@@ -229,10 +227,7 @@ async def health(request: Request) -> Dict[str, Any]:
             await redis_client.ping()
             health_status["dependencies"]["redis"] = {"healthy": True}
         except Exception as e:
-            health_status["dependencies"]["redis"] = {
-                "healthy": False,
-                "error": str(e)
-            }
+            health_status["dependencies"]["redis"] = {"healthy": False, "error": str(e)}
             health_status["status"] = "degraded"
 
     # 检查Kafka
@@ -240,15 +235,9 @@ async def health(request: Request) -> Dict[str, Any]:
     if kafka_producer:
         try:
             metrics = kafka_producer.get_metrics()
-            health_status["dependencies"]["kafka"] = {
-                "healthy": True,
-                "metrics": metrics
-            }
+            health_status["dependencies"]["kafka"] = {"healthy": True, "metrics": metrics}
         except Exception as e:
-            health_status["dependencies"]["kafka"] = {
-                "healthy": False,
-                "error": str(e)
-            }
+            health_status["dependencies"]["kafka"] = {"healthy": False, "error": str(e)}
 
     return health_status
 

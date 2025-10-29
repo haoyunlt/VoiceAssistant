@@ -5,16 +5,18 @@ Nacos 配置中心客户端 - Python 服务通用版
 
 import logging
 import os
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
-import yaml
+import yaml  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
 
 class ConfigMode(str, Enum):
     """配置模式"""
+
     LOCAL = "local"
     NACOS = "nacos"
 
@@ -22,15 +24,15 @@ class ConfigMode(str, Enum):
 class NacosConfigManager:
     """Nacos 配置管理器"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.mode: ConfigMode = ConfigMode.LOCAL
-        self.config_data: Dict[str, Any] = {}
+        self.config_data: dict[str, Any] = {}
         self.nacos_client = None
-        self.nacos_config: Dict[str, Any] = {}
-        self.local_config_path: Optional[str] = None
+        self.nacos_config: dict[str, Any] = {}
+        self.local_config_path: str | None = None
         self.listeners: list[Callable] = []
 
-    def load_config(self, config_path: str, service_name: str) -> Dict[str, Any]:
+    def load_config(self, config_path: str, service_name: str) -> dict[str, Any]:
         """
         加载配置
 
@@ -50,12 +52,12 @@ class NacosConfigManager:
         else:
             return self._load_from_local(config_path)
 
-    def _load_from_local(self, config_path: str) -> Dict[str, Any]:
+    def _load_from_local(self, config_path: str) -> dict[str, Any]:
         """从本地文件加载配置"""
         self.local_config_path = config_path
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 self.config_data = yaml.safe_load(f) or {}
             logger.info(f"✅ Loaded config from local file: {config_path}")
             return self.config_data
@@ -63,44 +65,50 @@ class NacosConfigManager:
             logger.error(f"❌ Failed to load local config: {e}")
             raise
 
-    def _load_from_nacos(self, config_path: str, service_name: str) -> Dict[str, Any]:
+    def _load_from_nacos(self, config_path: str, service_name: str) -> dict[str, Any]:
         """从 Nacos 配置中心加载配置"""
         try:
-            import nacos
+            from nacos import NacosClient  # type: ignore[import]
         except ImportError:
             raise ImportError(
                 "nacos-sdk-python is required for Nacos mode. "
                 "Install it with: pip install nacos-sdk-python"
-            )
+            ) from None
 
         # 1. 从本地文件读取 Nacos 连接配置
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, encoding="utf-8") as f:
                 local_config = yaml.safe_load(f) or {}
-            self.nacos_config = local_config.get('nacos', {})
+            self.nacos_config = local_config.get("nacos", {})
         except Exception as e:
             logger.error(f"❌ Failed to read Nacos connection config: {e}")
             raise
 
         # 2. 环境变量覆盖
-        server_addr = os.getenv('NACOS_SERVER_ADDR', self.nacos_config.get('server_addr', 'localhost'))
-        server_port = int(os.getenv('NACOS_SERVER_PORT', self.nacos_config.get('server_port', 8848)))
-        namespace = os.getenv('NACOS_NAMESPACE', self.nacos_config.get('namespace', ''))
-        group = os.getenv('NACOS_GROUP', self.nacos_config.get('group', 'DEFAULT_GROUP'))
-        data_id = os.getenv('NACOS_DATA_ID', self.nacos_config.get('data_id', f'{service_name}.yaml'))
-        username = os.getenv('NACOS_USERNAME', self.nacos_config.get('username', ''))
-        password = os.getenv('NACOS_PASSWORD', self.nacos_config.get('password', ''))
+        server_addr = os.getenv(
+            "NACOS_SERVER_ADDR", self.nacos_config.get("server_addr", "localhost")
+        )
+        server_port = int(
+            os.getenv("NACOS_SERVER_PORT", self.nacos_config.get("server_port", 8848))
+        )
+        namespace = os.getenv("NACOS_NAMESPACE", self.nacos_config.get("namespace", ""))
+        group = os.getenv("NACOS_GROUP", self.nacos_config.get("group", "DEFAULT_GROUP"))
+        data_id = os.getenv(
+            "NACOS_DATA_ID", self.nacos_config.get("data_id", f"{service_name}.yaml")
+        )
+        username = os.getenv("NACOS_USERNAME", self.nacos_config.get("username", ""))
+        password = os.getenv("NACOS_PASSWORD", self.nacos_config.get("password", ""))
 
         # 3. 创建 Nacos 客户端
         server_addresses = f"{server_addr}:{server_port}"
 
         try:
-            self.nacos_client = nacos.NacosClient(
+            self.nacos_client = NacosClient(
                 server_addresses=server_addresses,
                 namespace=namespace,
                 username=username,
                 password=password,
-                log_level=logging.INFO
+                log_level=logging.INFO,
             )
         except Exception as e:
             logger.error(f"❌ Failed to create Nacos client: {e}")
@@ -108,6 +116,9 @@ class NacosConfigManager:
 
         # 4. 从 Nacos 获取配置
         try:
+            if not self.nacos_client:
+                raise RuntimeError("Nacos client not initialized")
+
             content = self.nacos_client.get_config(data_id, group)
             if not content:
                 raise ValueError(f"Config not found: {group}/{data_id}")
@@ -120,28 +131,30 @@ class NacosConfigManager:
 
         # 5. 监听配置变更
         try:
-            self.nacos_client.add_config_watcher(
-                data_id,
-                group,
-                self._on_config_change
-            )
-            logger.info(f"🔔 Watching config changes: {group}/{data_id}")
+            if self.nacos_client and hasattr(self.nacos_client, "add_config_watcher"):
+                self.nacos_client.add_config_watcher(data_id, group, self._on_config_change)
+                logger.info(f"🔔 Watching config changes: {group}/{data_id}")
+            else:
+                logger.warning(
+                    "⚠️  Nacos client does not support config watching (missing 'add_config_watcher')."
+                )
         except Exception as e:
             logger.warning(f"⚠️  Failed to watch config changes: {e}")
 
         return self.config_data
 
-    def _on_config_change(self, params: Dict[str, Any]):
+    def _on_config_change(self, params: dict[str, Any]) -> None:
         """配置变更回调"""
         try:
-            content = params.get('content', '')
-            group = params.get('group', '')
-            data_id = params.get('dataId', '')
+            content = params.get("content", "")
+            group = params.get("group", "")
+            data_id = params.get("dataId", "")
 
             logger.info(f"🔄 Config changed: {group}/{data_id}")
 
             # 重新加载配置
-            self.config_data = yaml.safe_load(content) or {}
+            new_config: dict[str, Any] = yaml.safe_load(content) or {}
+            self.config_data = new_config
             logger.info("✅ Config reloaded successfully")
 
             # 通知所有监听器
@@ -154,14 +167,14 @@ class NacosConfigManager:
         except Exception as e:
             logger.error(f"❌ Failed to handle config change: {e}")
 
-    def add_listener(self, listener: Callable[[Dict[str, Any]], None]):
+    def add_listener(self, listener: Callable[[dict[str, Any]], None]) -> None:
         """添加配置变更监听器"""
         self.listeners.append(listener)
 
     def get(self, key: str, default: Any = None) -> Any:
         """获取配置值（支持点号分隔的嵌套key）"""
-        keys = key.split('.')
-        value = self.config_data
+        keys = key.split(".")
+        value: Any = self.config_data
 
         for k in keys:
             if isinstance(value, dict):
@@ -173,7 +186,7 @@ class NacosConfigManager:
 
         return value
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_all(self) -> dict[str, Any]:
         """获取所有配置"""
         return self.config_data
 
@@ -181,7 +194,7 @@ class NacosConfigManager:
         """获取配置模式"""
         return self.mode
 
-    def close(self):
+    def close(self) -> None:
         """关闭配置管理器"""
         if self.nacos_client:
             try:
@@ -193,10 +206,10 @@ class NacosConfigManager:
 
 
 # 全局配置管理器实例
-_config_manager: Optional[NacosConfigManager] = None
+_config_manager: NacosConfigManager | None = None
 
 
-def init_config(config_path: str, service_name: str) -> Dict[str, Any]:
+def init_config(config_path: str, service_name: str) -> dict[str, Any]:
     """
     初始化配置管理器（全局单例）
 

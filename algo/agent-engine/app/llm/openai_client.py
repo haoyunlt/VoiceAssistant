@@ -5,7 +5,8 @@ OpenAI API 客户端实现
 """
 
 import os
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 try:
     from openai import AsyncOpenAI
@@ -15,6 +16,7 @@ except ImportError:
     AsyncOpenAI = None
 
 import logging
+
 from app.llm.base import CompletionResponse, LLMClient, Message
 
 logger = logging.getLogger(__name__)
@@ -26,9 +28,9 @@ class OpenAIClient(LLMClient):
     def __init__(
         self,
         model: str = "gpt-4-turbo-preview",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        organization: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        organization: str | None = None,
         **kwargs,
     ):
         """
@@ -71,10 +73,10 @@ class OpenAIClient(LLMClient):
 
     async def complete(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> CompletionResponse:
         """
@@ -157,10 +159,10 @@ class OpenAIClient(LLMClient):
 
     async def complete_stream(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> AsyncIterator[str]:
         """
@@ -212,7 +214,7 @@ class OpenAIClient(LLMClient):
             logger.error(f"OpenAI streaming completion failed: {e}", exc_info=True)
             raise
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 

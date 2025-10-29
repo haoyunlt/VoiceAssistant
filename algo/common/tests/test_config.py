@@ -2,16 +2,13 @@
 配置管理单元测试
 """
 
-import os
 
 import pytest
-
 from algo.common.config import (
     DatabaseConfig,
     LLMConfig,
     RedisConfig,
     ServiceConfig,
-    load_config,
     merge_configs,
 )
 
@@ -73,7 +70,7 @@ class TestServiceConfig:
 
     def test_otel_service_name_default(self):
         """测试 OTEL 服务名默认值"""
-        config = ServiceConfig(service_name="test-service")
+        ServiceConfig(service_name="test-service")
         # 在 Pydantic v1 中会自动设置
         # 在 Pydantic v2 中可能为 None，这取决于实现
 

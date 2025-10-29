@@ -1,18 +1,24 @@
-"""
-Authentication Middleware for FastAPI
-"""
+"""Authentication middleware and permission helpers."""
 
-from typing import List, Optional
+from collections.abc import Awaitable, Callable
+from typing import Any, cast
+
+from fastapi import HTTPException, Request, status  # type: ignore[import]
+from fastapi.security import (  # type: ignore[import]
+    HTTPAuthorizationCredentials,
+    HTTPBearer,
+)
 
 from app.auth.jwt_manager import get_jwt_manager
 from app.auth.rbac import Permission, get_rbac_manager
-from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+UserContext = dict[str, Any]
+
 
 security = HTTPBearer()
 
 
-async def verify_token(credentials: HTTPAuthorizationCredentials) -> dict:
+async def verify_token(credentials: HTTPAuthorizationCredentials) -> UserContext:
     """Verify JWT token"""
     if not credentials:
         raise HTTPException(
@@ -25,23 +31,29 @@ async def verify_token(credentials: HTTPAuthorizationCredentials) -> dict:
 
     try:
         claims = jwt_manager.validate_token(token)
+        if claims is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+            )
+
         return {
             "user_id": claims.user_id,
             "username": claims.username,
             "email": claims.email,
             "roles": claims.roles,
         }
-    except ValueError as e:
+    except ValueError as err:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e),
-        )
+            detail=str(err),
+        ) from err
 
 
-def require_permission(permission: Permission):
+def require_permission(permission: Permission) -> Callable[[Request], Awaitable[UserContext]]:
     """Decorator to require a specific permission"""
 
-    async def permission_checker(request: Request):
+    async def permission_checker(request: Request) -> UserContext:
         # Get user from request state
         user = getattr(request.state, "user", None)
         if not user:
@@ -59,15 +71,17 @@ def require_permission(permission: Permission):
                 detail=f"Insufficient permissions. Required: {permission.value}",
             )
 
-        return user
+        return cast(UserContext, user)
 
     return permission_checker
 
 
-def require_any_permission(permissions: List[Permission]):
+def require_any_permission(
+    permissions: list[Permission],
+) -> Callable[[Request], Awaitable[UserContext]]:
     """Decorator to require any of the specified permissions"""
 
-    async def permission_checker(request: Request):
+    async def permission_checker(request: Request) -> UserContext:
         user = getattr(request.state, "user", None)
         if not user:
             raise HTTPException(
@@ -88,15 +102,15 @@ def require_any_permission(permissions: List[Permission]):
                 detail=f"Insufficient permissions. Required any of: {[p.value for p in permissions]}",
             )
 
-        return user
+        return cast(UserContext, user)
 
     return permission_checker
 
 
-def require_role(role: str):
+def require_role(role: str) -> Callable[[Request], Awaitable[UserContext]]:
     """Decorator to require a specific role"""
 
-    async def role_checker(request: Request):
+    async def role_checker(request: Request) -> UserContext:
         user = getattr(request.state, "user", None)
         if not user:
             raise HTTPException(
@@ -112,7 +126,7 @@ def require_role(role: str):
                 detail=f"Insufficient role. Required: {role}",
             )
 
-        return user
+        return cast(UserContext, user)
 
     return role_checker
 
@@ -120,10 +134,15 @@ def require_role(role: str):
 class AuthMiddleware:
     """Authentication middleware"""
 
-    def __init__(self, app):
+    def __init__(self, app: Callable[..., Awaitable[Any]]) -> None:
         self.app = app
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: Callable[..., Awaitable[Any]],
+        send: Callable[..., Awaitable[Any]],
+    ) -> None:
         if scope["type"] == "http":
             request = Request(scope, receive)
 
@@ -135,13 +154,14 @@ class AuthMiddleware:
 
                 try:
                     claims = jwt_manager.validate_token(token)
-                    # Store user info in request state
-                    request.state.user = {
-                        "user_id": claims.user_id,
-                        "username": claims.username,
-                        "email": claims.email,
-                        "roles": claims.roles,
-                    }
+                    if claims is not None:
+                        # Store user info in request state
+                        request.state.user = {
+                            "user_id": claims.user_id,
+                            "username": claims.username,
+                            "email": claims.email,
+                            "roles": claims.roles,
+                        }
                 except ValueError:
                     pass  # Invalid token, continue without user
 

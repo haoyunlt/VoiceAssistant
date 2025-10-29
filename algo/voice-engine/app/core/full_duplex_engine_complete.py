@@ -5,9 +5,10 @@ Full Duplex Engine - 完整实现
 
 import asyncio
 import base64
+import builtins
+import contextlib
 import json
 import logging
-from typing import Optional
 
 from fastapi import WebSocket
 
@@ -242,19 +243,15 @@ class FullDuplexEngine:
         # 取消播放任务
         if self.playback_task and not self.playback_task.done():
             self.playback_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self.playback_task
-            except asyncio.CancelledError:
-                pass
 
         # 发送停止通知
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({
                 "type": "playback_stopped",
                 "reason": "interrupted_by_user"
             })
-        except:
-            pass
 
         logger.info("Playback stopped")
 
@@ -286,10 +283,8 @@ class FullDuplexEngine:
         # 等待任务完成
         for task in tasks:
             if task:
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await task
-                except asyncio.CancelledError:
-                    pass
 
         # 清空缓冲
         self.audio_buffer = bytearray()

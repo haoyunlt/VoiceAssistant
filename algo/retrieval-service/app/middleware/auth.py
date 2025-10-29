@@ -3,7 +3,7 @@ Authentication Middleware - API认证中间件
 """
 
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import HTTPException, Request, Response, status
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -23,8 +23,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app,
-        api_keys: Optional[set] = None,
-        whitelist_paths: Optional[set] = None,
+        api_keys: set | None = None,
+        whitelist_paths: set | None = None,
     ):
         super().__init__(app)
         self.api_keys = api_keys or set()

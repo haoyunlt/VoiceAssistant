@@ -3,8 +3,8 @@
 import logging
 from typing import Any
 
-from .exceptions import ProviderNotAvailableError, ProviderNotFoundError
-from .settings import Settings
+from app.core.exceptions import ProviderNotAvailableError, ProviderNotFoundError
+from app.core.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class AdapterManager:
         # OpenAI
         if self.settings.openai_api_key and self.settings.openai_enabled:
             try:
-                from ..adapters.openai_adapter import OpenAIAdapter
+                from app.adapters.openai_adapter import OpenAIAdapter
 
                 self._adapters["openai"] = OpenAIAdapter(
                     api_key=self.settings.openai_api_key,
@@ -47,7 +47,7 @@ class AdapterManager:
         # Claude
         if self.settings.anthropic_api_key and self.settings.anthropic_enabled:
             try:
-                from ..adapters.claude_adapter import ClaudeAdapter
+                from app.adapters.claude_adapter import ClaudeAdapter
 
                 self._adapters["claude"] = ClaudeAdapter(
                     api_key=self.settings.anthropic_api_key
@@ -59,7 +59,7 @@ class AdapterManager:
         # 智谱AI
         if self.settings.zhipu_api_key and self.settings.zhipu_enabled:
             try:
-                from ..services.providers.zhipu_adapter import ZhipuAdapter
+                from app.services.providers.zhipu_adapter import ZhipuAdapter
 
                 self._adapters["zhipu"] = ZhipuAdapter(
                     api_key=self.settings.zhipu_api_key
@@ -71,7 +71,7 @@ class AdapterManager:
         # 通义千问
         if self.settings.dashscope_api_key and self.settings.dashscope_enabled:
             try:
-                from ..services.providers.qwen_adapter import QwenAdapter
+                from app.services.providers.qwen_adapter import QwenAdapter
 
                 self._adapters["qwen"] = QwenAdapter(
                     api_key=self.settings.dashscope_api_key
@@ -87,7 +87,7 @@ class AdapterManager:
             and self.settings.baidu_enabled
         ):
             try:
-                from ..services.providers.baidu_adapter import BaiduAdapter
+                from app.services.providers.baidu_adapter import BaiduAdapter
 
                 self._adapters["baidu"] = BaiduAdapter(
                     api_key=self.settings.baidu_api_key,
@@ -180,7 +180,7 @@ class AdapterManager:
         """
         status = {}
 
-        for provider in self._adapters.keys():
+        for provider in self._adapters:
             try:
                 is_healthy = await self.check_provider_health(provider)
                 status[provider] = {

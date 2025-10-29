@@ -1,5 +1,4 @@
 """查询改写服务"""
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -27,7 +26,7 @@ class QueryRewriterService:
     async def rewrite_query(
         self,
         query: str,
-        context: Optional[List[str]] = None
+        context: list[str] | None = None
     ) -> RewrittenQuery:
         """改写查询
 
@@ -80,7 +79,7 @@ class QueryRewriterService:
     def _build_rewrite_prompt(
         self,
         query: str,
-        context: Optional[List[str]] = None
+        context: list[str] | None = None
     ) -> str:
         """构建改写提示词
 
@@ -97,7 +96,7 @@ class QueryRewriterService:
 """
 
         if context:
-            prompt += f"\n对话上下文:\n" + "\n".join(f"- {c}" for c in context[-3:])  # 只用最近3轮
+            prompt += "\n对话上下文:\n" + "\n".join(f"- {c}" for c in context[-3:])  # 只用最近3轮
 
         prompt += """
 
@@ -138,7 +137,7 @@ class QueryRewriterService:
     async def expand_with_synonyms(
         self,
         query: str
-    ) -> List[str]:
+    ) -> list[str]:
         """使用同义词扩展查询
 
         Args:
@@ -191,7 +190,7 @@ class QueryRewriterService:
     async def decompose_query(
         self,
         query: str
-    ) -> List[str]:
+    ) -> list[str]:
         """分解复杂查询为多个子查询
 
         Args:

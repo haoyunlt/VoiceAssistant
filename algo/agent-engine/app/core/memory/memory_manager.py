@@ -3,7 +3,6 @@ Memory Manager - 记忆管理器
 """
 
 import logging
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +20,11 @@ class MemoryManager:
         """初始化"""
         logger.info("Memory manager initialized")
 
-    async def get_memory(self, conversation_id: str) -> Dict:
+    async def get_memory(self, conversation_id: str) -> dict:
         """获取记忆"""
         return self.memory_store.get(conversation_id, {"history": [], "summary": ""})
 
-    async def add_to_memory(self, conversation_id: str, task: str, result: Dict):
+    async def add_to_memory(self, conversation_id: str, task: str, result: dict):
         """添加到记忆"""
         if conversation_id not in self.memory_store:
             self.memory_store[conversation_id] = {"history": [], "summary": ""}

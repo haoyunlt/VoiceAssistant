@@ -7,7 +7,6 @@ import hashlib
 import json
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +43,7 @@ class IncrementalIndexService:
         """
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    async def get_document_version(self, document_id: str) -> Optional[Dict]:
+    async def get_document_version(self, document_id: str) -> dict | None:
         """
         获取文档版本信息
 
@@ -71,8 +70,8 @@ class IncrementalIndexService:
         self,
         document_id: str,
         content_hash: str,
-        chunk_hashes: List[str],
-        metadata: Optional[Dict] = None,
+        chunk_hashes: list[str],
+        metadata: dict | None = None,
     ) -> bool:
         """
         保存文档版本信息
@@ -114,8 +113,8 @@ class IncrementalIndexService:
             return False
 
     async def detect_changes(
-        self, document_id: str, new_content: str, new_chunks: List[str]
-    ) -> Dict:
+        self, document_id: str, new_content: str, new_chunks: list[str]
+    ) -> dict:
         """
         检测文档变更
 
@@ -231,10 +230,10 @@ class IncrementalIndexService:
         self,
         document_id: str,
         new_content: str,
-        new_chunks: List[str],
+        new_chunks: list[str],
         vector_service,
-        metadata: Optional[Dict] = None,
-    ) -> Dict:
+        metadata: dict | None = None,
+    ) -> dict:
         """
         增量更新文档索引
 
@@ -368,8 +367,8 @@ class IncrementalIndexService:
             }
 
     async def bulk_check_changes(
-        self, documents: List[Dict[str, str]]
-    ) -> List[Dict]:
+        self, documents: list[dict[str, str]]
+    ) -> list[dict]:
         """
         批量检查文档变更
 
@@ -407,7 +406,7 @@ class IncrementalIndexService:
 
         return results
 
-    async def get_statistics(self) -> Dict:
+    async def get_statistics(self) -> dict:
         """
         获取增量索引统计信息
 

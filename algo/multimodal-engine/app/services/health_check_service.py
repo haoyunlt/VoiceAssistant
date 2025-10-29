@@ -7,10 +7,9 @@
 - 模型加载验证
 - 性能基准测试
 """
-import asyncio
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 import psutil
 from pydantic import BaseModel
@@ -23,7 +22,7 @@ class HealthStatus(BaseModel):
     healthy: bool
     component: str
     status: str
-    details: Dict[str, Any] = {}
+    details: dict[str, Any] = {}
     timestamp: float
 
 class HealthCheckService:
@@ -42,7 +41,7 @@ class HealthCheckService:
         vision_service=None,
         video_service=None,
         use_cache: bool = True
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         全面健康检查
 
@@ -102,7 +101,7 @@ class HealthCheckService:
 
         return response
 
-    async def _check_system(self) -> Dict[str, Any]:
+    async def _check_system(self) -> dict[str, Any]:
         """检查系统资源"""
         try:
             cpu_percent = psutil.cpu_percent(interval=0.1)
@@ -135,7 +134,7 @@ class HealthCheckService:
                 "error": str(e)
             }
 
-    async def _check_ocr(self, ocr_service) -> Dict[str, Any]:
+    async def _check_ocr(self, ocr_service) -> dict[str, Any]:
         """检查OCR服务"""
         try:
             start_time = time.time()
@@ -188,7 +187,7 @@ class HealthCheckService:
             img_bytes = img_byte_arr.getvalue()
 
             # 执行OCR（应该快速返回空结果或错误，不崩溃即可）
-            result = await ocr_service.recognize_from_bytes(
+            await ocr_service.recognize_from_bytes(
                 img_bytes,
                 confidence_threshold=0.5
             )
@@ -200,7 +199,7 @@ class HealthCheckService:
             logger.warning(f"OCR inference test failed: {e}")
             return False
 
-    async def _check_vision(self, vision_service) -> Dict[str, Any]:
+    async def _check_vision(self, vision_service) -> dict[str, Any]:
         """检查Vision服务"""
         try:
             # 检查Vision服务的API配置
@@ -224,7 +223,7 @@ class HealthCheckService:
                 "error": str(e)
             }
 
-    async def _check_video(self, video_service) -> Dict[str, Any]:
+    async def _check_video(self, video_service) -> dict[str, Any]:
         """检查Video服务"""
         try:
             # 检查视频处理能力
@@ -250,7 +249,7 @@ class HealthCheckService:
                 "error": str(e)
             }
 
-    async def _check_gpu(self) -> Dict[str, Any]:
+    async def _check_gpu(self) -> dict[str, Any]:
         """检查GPU可用性"""
         try:
             import torch
@@ -289,7 +288,7 @@ class HealthCheckService:
                 "error": str(e)
             }
 
-    async def _check_dependencies(self) -> Dict[str, Any]:
+    async def _check_dependencies(self) -> dict[str, Any]:
         """检查关键依赖"""
         dependencies = {}
 
@@ -320,7 +319,7 @@ class HealthCheckService:
             "packages": dependencies
         }
 
-    async def check_liveness(self) -> Dict[str, Any]:
+    async def check_liveness(self) -> dict[str, Any]:
         """存活检查（快速检查）"""
         return {
             "alive": True,
@@ -331,7 +330,7 @@ class HealthCheckService:
         self,
         ocr_service=None,
         vision_service=None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """就绪检查（检查是否可以接受请求）"""
         checks = {}
 
@@ -363,7 +362,7 @@ class HealthCheckService:
         self,
         ocr_service=None,
         vision_service=None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """性能基准测试"""
         results = {}
 
@@ -378,7 +377,7 @@ class HealthCheckService:
             "timestamp": time.time()
         }
 
-    async def _benchmark_ocr(self, ocr_service) -> Dict[str, Any]:
+    async def _benchmark_ocr(self, ocr_service) -> dict[str, Any]:
         """OCR性能基准"""
         try:
             import io
@@ -425,7 +424,7 @@ class HealthCheckService:
                 "error": str(e)
             }
 
-    async def _benchmark_vision(self, vision_service) -> Dict[str, Any]:
+    async def _benchmark_vision(self, vision_service) -> dict[str, Any]:
         """Vision性能基准（仅模拟，不实际调用API）"""
         return {
             "message": "Vision API benchmark requires real API call, skipped",

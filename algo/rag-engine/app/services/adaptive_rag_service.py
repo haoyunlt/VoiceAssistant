@@ -1,7 +1,7 @@
 """Adaptive RAG服务 - 根据查询类型自适应选择检索策略"""
 import logging
-from typing import Dict, Any, Optional, List
 from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class RetrievalStrategy(Enum):
 class AdaptiveRAGService:
     """
     Adaptive RAG服务
-    
+
     根据查询特征自动选择最佳检索和生成策略：
     1. 查询分析：判断查询类型和复杂度
     2. 策略选择：基于分析结果选择检索策略
@@ -44,7 +44,7 @@ class AdaptiveRAGService:
     ):
         """
         初始化Adaptive RAG服务
-        
+
         Args:
             llm_client: LLM客户端
             retrieval_client: 检索客户端
@@ -53,41 +53,41 @@ class AdaptiveRAGService:
         self.llm_client = llm_client
         self.retrieval_client = retrieval_client
         self.embedding_client = embedding_client
-        
+
         # 策略性能记录
-        self.strategy_performance: Dict[str, Dict] = {}
+        self.strategy_performance: dict[str, dict] = {}
 
     async def query(
         self,
         query: str,
         tenant_id: str,
-        knowledge_base_id: Optional[str] = None,
-        user_preferences: Optional[Dict] = None
-    ) -> Dict[str, Any]:
+        knowledge_base_id: str | None = None,
+        user_preferences: dict | None = None
+    ) -> dict[str, Any]:
         """
         自适应RAG查询
-        
+
         Args:
             query: 用户查询
             tenant_id: 租户ID
             knowledge_base_id: 知识库ID
             user_preferences: 用户偏好设置
-            
+
         Returns:
             查询结果
         """
         logger.info(f"Adaptive RAG query: {query}")
-        
+
         # 1. 分析查询
         query_analysis = await self._analyze_query(query)
-        
+
         logger.info(f"Query type: {query_analysis['type']}, complexity: {query_analysis['complexity']}")
-        
+
         # 2. 选择策略
         strategy = self._select_strategy(query_analysis, user_preferences)
-        
+
         logger.info(f"Selected strategy: {strategy}")
-        
+
         # 3. 执行检索和生成
         result = await self._execute_strategy(
             strategy=strategy,
@@ -96,10 +96,10 @@ class AdaptiveRAGService:
             tenant_id=tenant_id,
             knowledge_base_id=knowledge_base_id
         )
-        
+
         # 4. 记录性能
         self._record_performance(strategy, result)
-        
+
         return {
             "answer": result["answer"],
             "query_type": query_analysis["type"],
@@ -114,15 +114,15 @@ class AdaptiveRAGService:
             }
         }
 
-    async def _analyze_query(self, query: str) -> Dict[str, Any]:
+    async def _analyze_query(self, query: str) -> dict[str, Any]:
         """
         分析查询特征
-        
+
         Returns:
             查询分析结果
         """
         import json
-        
+
         prompt = f"""Analyze the following query and classify it.
 
 Query: {query}
@@ -138,13 +138,13 @@ Provide analysis in JSON format:
     "reasoning": "brief explanation"
 }}
 """
-        
+
         response = await self.llm_client.generate(
             prompt=prompt,
             temperature=0.3,
             max_tokens=300
         )
-        
+
         try:
             analysis = json.loads(response)
             return analysis
@@ -162,57 +162,57 @@ Provide analysis in JSON format:
 
     def _select_strategy(
         self,
-        query_analysis: Dict[str, Any],
-        user_preferences: Optional[Dict] = None
+        query_analysis: dict[str, Any],
+        user_preferences: dict | None = None
     ) -> RetrievalStrategy:
         """
         根据查询分析选择检索策略
-        
+
         Args:
             query_analysis: 查询分析结果
             user_preferences: 用户偏好
-            
+
         Returns:
             选择的检索策略
         """
         query_type = query_analysis.get("type", "simple_fact")
         complexity = query_analysis.get("complexity", 5)
         requires_multiple = query_analysis.get("requires_multiple_sources", False)
-        
+
         # 用户偏好
         prefer_accuracy = user_preferences and user_preferences.get("prefer_accuracy", False)
         prefer_speed = user_preferences and user_preferences.get("prefer_speed", False)
-        
+
         # 策略选择逻辑
         if prefer_speed and complexity <= 3:
             return RetrievalStrategy.DIRECT
-        
+
         if query_type == "multi_hop" or requires_multiple:
             return RetrievalStrategy.ITERATIVE
-        
+
         if query_type == "complex_reasoning" and complexity >= 7:
             return RetrievalStrategy.QUERY_DECOMPOSITION
-        
+
         if query_type == "comparison" or query_type == "aggregation":
             return RetrievalStrategy.HYBRID
-        
+
         if prefer_accuracy or complexity >= 6:
             return RetrievalStrategy.HYDE
-        
+
         return RetrievalStrategy.DIRECT
 
     async def _execute_strategy(
         self,
         strategy: RetrievalStrategy,
         query: str,
-        query_analysis: Dict[str, Any],
+        query_analysis: dict[str, Any],
         tenant_id: str,
-        knowledge_base_id: Optional[str]
-    ) -> Dict[str, Any]:
+        knowledge_base_id: str | None
+    ) -> dict[str, Any]:
         """执行选定的策略"""
         import time
         start_time = time.time()
-        
+
         if strategy == RetrievalStrategy.DIRECT:
             result = await self._direct_retrieval(query, tenant_id, knowledge_base_id)
         elif strategy == RetrievalStrategy.HYDE:
@@ -225,18 +225,18 @@ Provide analysis in JSON format:
             result = await self._hybrid_retrieval(query, tenant_id, knowledge_base_id)
         else:
             result = await self._direct_retrieval(query, tenant_id, knowledge_base_id)
-        
+
         execution_time = time.time() - start_time
         result["execution_time"] = execution_time
-        
+
         return result
 
     async def _direct_retrieval(
         self,
         query: str,
         tenant_id: str,
-        knowledge_base_id: Optional[str]
-    ) -> Dict[str, Any]:
+        knowledge_base_id: str | None
+    ) -> dict[str, Any]:
         """直接检索策略"""
         # 简单的向量检索
         documents = await self.retrieval_client.vector_search(
@@ -245,10 +245,10 @@ Provide analysis in JSON format:
             knowledge_base_id=knowledge_base_id,
             top_k=5
         )
-        
+
         # 生成答案
         answer = await self._generate_answer(query, documents)
-        
+
         return {
             "answer": answer,
             "documents": documents,
@@ -260,25 +260,25 @@ Provide analysis in JSON format:
         self,
         query: str,
         tenant_id: str,
-        knowledge_base_id: Optional[str]
-    ) -> Dict[str, Any]:
+        knowledge_base_id: str | None
+    ) -> dict[str, Any]:
         """HyDE检索策略"""
         # 生成假设文档
         hypothetical_doc = await self._generate_hypothetical_document(query)
-        
+
         # 使用假设文档的向量检索
         doc_embedding = await self.embedding_client.embed_text(hypothetical_doc)
-        
+
         documents = await self.retrieval_client.vector_search_by_embedding(
             embedding=doc_embedding,
             tenant_id=tenant_id,
             knowledge_base_id=knowledge_base_id,
             top_k=5
         )
-        
+
         # 生成答案
         answer = await self._generate_answer(query, documents)
-        
+
         return {
             "answer": answer,
             "documents": documents,
@@ -290,14 +290,14 @@ Provide analysis in JSON format:
     async def _decomposition_retrieval(
         self,
         query: str,
-        query_analysis: Dict[str, Any],
+        query_analysis: dict[str, Any],
         tenant_id: str,
-        knowledge_base_id: Optional[str]
-    ) -> Dict[str, Any]:
+        knowledge_base_id: str | None
+    ) -> dict[str, Any]:
         """查询分解策略"""
         # 分解查询为子查询
         sub_queries = await self._decompose_query(query, query_analysis)
-        
+
         # 对每个子查询检索
         all_documents = []
         for sub_query in sub_queries:
@@ -308,13 +308,13 @@ Provide analysis in JSON format:
                 top_k=3
             )
             all_documents.extend(docs)
-        
+
         # 去重
         unique_docs = self._deduplicate_documents(all_documents)
-        
+
         # 生成综合答案
         answer = await self._generate_answer(query, unique_docs)
-        
+
         return {
             "answer": answer,
             "documents": unique_docs,
@@ -327,13 +327,13 @@ Provide analysis in JSON format:
         self,
         query: str,
         tenant_id: str,
-        knowledge_base_id: Optional[str],
+        knowledge_base_id: str | None,
         max_iterations: int = 3
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """迭代检索策略"""
         all_documents = []
         current_query = query
-        
+
         for i in range(max_iterations):
             # 检索
             docs = await self.retrieval_client.vector_search(
@@ -342,26 +342,26 @@ Provide analysis in JSON format:
                 knowledge_base_id=knowledge_base_id,
                 top_k=5
             )
-            
+
             all_documents.extend(docs)
-            
+
             # 判断是否需要继续
             if i < max_iterations - 1:
                 need_more, next_query = await self._check_need_more_retrieval(
                     query, docs
                 )
-                
+
                 if not need_more:
                     break
-                
+
                 current_query = next_query
-        
+
         # 去重
         unique_docs = self._deduplicate_documents(all_documents)
-        
+
         # 生成答案
         answer = await self._generate_answer(query, unique_docs)
-        
+
         return {
             "answer": answer,
             "documents": unique_docs,
@@ -373,8 +373,8 @@ Provide analysis in JSON format:
         self,
         query: str,
         tenant_id: str,
-        knowledge_base_id: Optional[str]
-    ) -> Dict[str, Any]:
+        knowledge_base_id: str | None
+    ) -> dict[str, Any]:
         """混合检索策略"""
         # 向量检索 + BM25检索
         documents = await self.retrieval_client.hybrid_search(
@@ -383,13 +383,13 @@ Provide analysis in JSON format:
             knowledge_base_id=knowledge_base_id,
             top_k=10
         )
-        
+
         # 重排序
         reranked_docs = await self._rerank_documents(query, documents)
-        
+
         # 生成答案
         answer = await self._generate_answer(query, reranked_docs[:5])
-        
+
         return {
             "answer": answer,
             "documents": reranked_docs[:5],
@@ -404,23 +404,23 @@ Provide analysis in JSON format:
 Question: {query}
 
 Detailed Answer:"""
-        
+
         response = await self.llm_client.generate(
             prompt=prompt,
             temperature=0.7,
             max_tokens=400
         )
-        
+
         return response.strip()
 
     async def _decompose_query(
         self,
         query: str,
-        query_analysis: Dict[str, Any]
-    ) -> List[str]:
+        query_analysis: dict[str, Any]
+    ) -> list[str]:
         """分解查询为子查询"""
         import json
-        
+
         prompt = f"""Decompose the following complex query into simpler sub-queries.
 
 Query: {query}
@@ -429,13 +429,13 @@ Key Concepts: {', '.join(query_analysis.get('key_concepts', []))}
 Provide 2-4 sub-queries in JSON format:
 ["sub-query 1", "sub-query 2", ...]
 """
-        
+
         response = await self.llm_client.generate(
             prompt=prompt,
             temperature=0.5,
             max_tokens=200
         )
-        
+
         try:
             sub_queries = json.loads(response)
             return sub_queries
@@ -445,16 +445,16 @@ Provide 2-4 sub-queries in JSON format:
     async def _check_need_more_retrieval(
         self,
         query: str,
-        documents: List[Dict]
+        documents: list[dict]
     ) -> tuple[bool, str]:
         """检查是否需要更多检索"""
         import json
-        
+
         docs_summary = "\n".join([
             f"- {doc.get('content', '')[:100]}"
             for doc in documents[:3]
         ])
-        
+
         prompt = f"""Based on the query and retrieved documents, determine if more information is needed.
 
 Query: {query}
@@ -468,13 +468,13 @@ Respond in JSON:
     "next_query": "reformulated query if need_more is true"
 }}
 """
-        
+
         response = await self.llm_client.generate(
             prompt=prompt,
             temperature=0.3,
             max_tokens=150
         )
-        
+
         try:
             result = json.loads(response)
             return result.get("need_more", False), result.get("next_query", query)
@@ -484,17 +484,17 @@ Respond in JSON:
     async def _generate_answer(
         self,
         query: str,
-        documents: List[Dict]
+        documents: list[dict]
     ) -> str:
         """基于文档生成答案"""
         if not documents:
             return "抱歉，没有找到相关信息。"
-        
+
         context = "\n\n".join([
             f"[文档{i+1}]: {doc.get('content', '')}"
             for i, doc in enumerate(documents[:5])
         ])
-        
+
         prompt = f"""Based on the following documents, answer the query.
 
 Query: {query}
@@ -503,83 +503,83 @@ Documents:
 {context}
 
 Answer:"""
-        
+
         answer = await self.llm_client.generate(
             prompt=prompt,
             temperature=0.7,
             max_tokens=500
         )
-        
+
         return answer.strip()
 
     async def _rerank_documents(
         self,
         query: str,
-        documents: List[Dict]
-    ) -> List[Dict]:
+        documents: list[dict]
+    ) -> list[dict]:
         """重排序文档"""
         # 简化实现：使用LLM评分
         scored_docs = []
-        
+
         for doc in documents:
             score = await self._score_document(query, doc)
             scored_docs.append({
                 **doc,
                 "rerank_score": score
             })
-        
+
         # 按分数排序
         scored_docs.sort(key=lambda x: x.get("rerank_score", 0), reverse=True)
-        
+
         return scored_docs
 
-    async def _score_document(self, query: str, document: Dict) -> float:
+    async def _score_document(self, query: str, document: dict) -> float:
         """为文档评分"""
         # 简化实现：基于相似度
         return document.get("score", 0.5)
 
-    def _deduplicate_documents(self, documents: List[Dict]) -> List[Dict]:
+    def _deduplicate_documents(self, documents: list[dict]) -> list[dict]:
         """去重文档"""
         seen_ids = set()
         unique_docs = []
-        
+
         for doc in documents:
             doc_id = doc.get("id", doc.get("chunk_id", ""))
             if doc_id and doc_id not in seen_ids:
                 seen_ids.add(doc_id)
                 unique_docs.append(doc)
-        
+
         return unique_docs
 
-    def _estimate_confidence(self, documents: List[Dict]) -> float:
+    def _estimate_confidence(self, documents: list[dict]) -> float:
         """估算答案置信度"""
         if not documents:
             return 0.0
-        
+
         # 基于文档分数估算
         avg_score = sum(doc.get("score", 0) for doc in documents) / len(documents)
         return min(avg_score, 1.0)
 
-    def _record_performance(self, strategy: RetrievalStrategy, result: Dict):
+    def _record_performance(self, strategy: RetrievalStrategy, result: dict):
         """记录策略性能"""
         strategy_name = strategy.value
-        
+
         if strategy_name not in self.strategy_performance:
             self.strategy_performance[strategy_name] = {
                 "count": 0,
                 "total_time": 0,
                 "total_confidence": 0
             }
-        
+
         stats = self.strategy_performance[strategy_name]
         stats["count"] += 1
         stats["total_time"] += result.get("execution_time", 0)
         stats["total_confidence"] += result.get("confidence", 0)
 
-    def get_strategy_stats(self) -> Dict[str, Dict]:
+    def get_strategy_stats(self) -> dict[str, dict]:
         """获取策略统计信息"""
         stats = {}
-        
+
         for strategy_name, data in self.strategy_performance.items():
             if data["count"] > 0:
                 stats[strategy_name] = {
@@ -587,5 +587,5 @@ Answer:"""
                     "avg_time": data["total_time"] / data["count"],
                     "avg_confidence": data["total_confidence"] / data["count"]
                 }
-        
+
         return stats

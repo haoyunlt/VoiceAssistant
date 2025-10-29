@@ -5,10 +5,15 @@
 
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from langchain.schema import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain.schema import (  # type: ignore[import]
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+)
+from redis import Redis  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
@@ -18,11 +23,11 @@ class MemoryManager:
 
     def __init__(
         self,
-        redis_client=None,
+        redis_client: Redis | None = None,
         max_short_term_messages: int = 20,
         short_term_ttl: int = 3600,  # 1 hour
-        long_term_ttl: int = 86400 * 7  # 7 days
-    ):
+        long_term_ttl: int = 86400 * 7,  # 7 days
+    ) -> None:
         """
         初始化记忆管理器
 
@@ -38,17 +43,17 @@ class MemoryManager:
         self.long_term_ttl = long_term_ttl
 
         # 内存存储（如果没有 Redis）
-        self.memory_store: Dict[str, List[BaseMessage]] = {}
-        self.metadata_store: Dict[str, Dict[str, Any]] = {}
+        self.memory_store: dict[str, list[BaseMessage]] = {}  # type: ignore
+        self.metadata_store: dict[str, dict[str, Any]] = {}
 
         logger.info("Memory manager initialized")
 
     def save_memory(
         self,
         conversation_id: str,
-        messages: List[BaseMessage],
-        metadata: Optional[Dict[str, Any]] = None
-    ):
+        messages: list[BaseMessage],
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         """
         保存记忆
 
@@ -58,7 +63,7 @@ class MemoryManager:
             metadata: 元数据
         """
         # 截断消息（只保留最近的 N 条）
-        truncated_messages = messages[-self.max_short_term_messages:]
+        truncated_messages = messages[-self.max_short_term_messages :]
 
         if self.redis_client:
             # 存储到 Redis
@@ -68,34 +73,27 @@ class MemoryManager:
             serialized = self._serialize_messages(truncated_messages)
 
             # 保存
-            self.redis_client.setex(
-                key,
-                self.short_term_ttl,
-                json.dumps(serialized)
-            )
+            self.redis_client.setex(key, self.short_term_ttl, json.dumps(serialized))
 
             # 保存元数据
             if metadata:
                 meta_key = f"memory:metadata:{conversation_id}"
-                self.redis_client.setex(
-                    meta_key,
-                    self.short_term_ttl,
-                    json.dumps(metadata)
-                )
+                self.redis_client.setex(meta_key, self.short_term_ttl, json.dumps(metadata))
 
-            logger.debug(f"Saved memory to Redis: {conversation_id}, {len(truncated_messages)} messages")
+            logger.debug(
+                f"Saved memory to Redis: {conversation_id}, {len(truncated_messages)} messages"
+            )
         else:
             # 存储到内存
             self.memory_store[conversation_id] = truncated_messages
             if metadata:
                 self.metadata_store[conversation_id] = metadata
 
-            logger.debug(f"Saved memory to local store: {conversation_id}, {len(truncated_messages)} messages")
+            logger.debug(
+                f"Saved memory to local store: {conversation_id}, {len(truncated_messages)} messages"
+            )
 
-    def load_memory(
-        self,
-        conversation_id: str
-    ) -> Optional[List[BaseMessage]]:
+    def load_memory(self, conversation_id: str) -> list[BaseMessage]:
         """
         加载记忆
 
@@ -103,7 +101,7 @@ class MemoryManager:
             conversation_id: 对话 ID
 
         Returns:
-            消息列表，不存在返回 None
+            消息列表，不存在返回空列表
         """
         if self.redis_client:
             # 从 Redis 加载
@@ -113,18 +111,23 @@ class MemoryManager:
             if data:
                 serialized = json.loads(data)
                 messages = self._deserialize_messages(serialized)
-                logger.debug(f"Loaded memory from Redis: {conversation_id}, {len(messages)} messages")
+                logger.debug(
+                    f"Loaded memory from Redis: {conversation_id}, {len(messages)} messages"
+                )
                 return messages
 
-            return None
+            return []
         else:
             # 从内存加载
-            messages = self.memory_store.get(conversation_id)
-            if messages:
-                logger.debug(f"Loaded memory from local store: {conversation_id}, {len(messages)} messages")
-            return messages
+            messages_or_none = self.memory_store.get(conversation_id)
+            if messages_or_none:
+                logger.debug(
+                    f"Loaded memory from local store: {conversation_id}, {len(messages_or_none)} messages"
+                )
+                return messages_or_none
+            return []
 
-    def delete_memory(self, conversation_id: str):
+    def delete_memory(self, conversation_id: str) -> None:
         """
         删除记忆
 
@@ -147,11 +150,7 @@ class MemoryManager:
 
             logger.info(f"Deleted memory from local store: {conversation_id}")
 
-    def summarize_conversation(
-        self,
-        messages: List[BaseMessage],
-        llm=None
-    ) -> str:
+    def summarize_conversation(self, messages: list[BaseMessage], llm: Any | None = None) -> str:  # type: ignore
         """
         总结对话
 
@@ -167,10 +166,9 @@ class MemoryManager:
             return f"Conversation with {len(messages)} messages"
 
         # 构造摘要提示
-        conversation_text = "\n".join([
-            f"{msg.__class__.__name__}: {msg.content}"
-            for msg in messages
-        ])
+        conversation_text = "\n".join(
+            [f"{msg.__class__.__name__}: {msg.content}" for msg in messages]
+        )
 
         prompt = f"""Please summarize the following conversation:
 
@@ -180,14 +178,14 @@ Summary:"""
 
         # 调用 LLM 生成摘要
         response = llm.invoke(prompt)
-        return response.content
+        return response.content  # type: ignore
 
     def get_relevant_memory(
         self,
         conversation_id: str,
         query: str,
-        top_k: int = 5
-    ) -> List[BaseMessage]:
+        top_k: int = 5,  # noqa: ARG002 - reserved for vector search
+    ) -> list[BaseMessage]:  # type: ignore
         """
         获取相关记忆
 
@@ -199,8 +197,11 @@ Summary:"""
         Returns:
             相关消息列表
         """
+        # 记录查询以便未来扩展
+        _ = query
+
         # 加载所有记忆
-        all_messages = self.load_memory(conversation_id)
+        all_messages = self.load_memory(conversation_id)  # type: ignore
 
         if not all_messages:
             return []
@@ -209,18 +210,20 @@ Summary:"""
         # TODO: 实现基于向量相似度的检索
         return all_messages[-top_k:]
 
-    def _serialize_messages(self, messages: List[BaseMessage]) -> List[Dict[str, Any]]:
+    def _serialize_messages(self, messages: list[BaseMessage]) -> list[dict[str, Any]]:
         """序列化消息"""
         serialized = []
         for msg in messages:
-            serialized.append({
-                "type": msg.__class__.__name__,
-                "content": msg.content,
-                "additional_kwargs": getattr(msg, "additional_kwargs", {})
-            })
+            serialized.append(
+                {
+                    "type": msg.__class__.__name__,
+                    "content": msg.content,
+                    "additional_kwargs": getattr(msg, "additional_kwargs", {}),
+                }
+            )
         return serialized
 
-    def _deserialize_messages(self, serialized: List[Dict[str, Any]]) -> List[BaseMessage]:
+    def _deserialize_messages(self, serialized: list[dict[str, Any]]) -> list[BaseMessage]:
         """反序列化消息"""
         messages = []
         for item in serialized:
@@ -243,9 +246,7 @@ class LongTermMemory:
     """长期记忆（基于向量数据库）"""
 
     def __init__(
-        self,
-        vector_store_client=None,
-        collection_name: str = "agent_memory"
+        self, vector_store_client: Any | None = None, collection_name: str = "agent_memory"
     ):
         """
         初始化长期记忆
@@ -262,10 +263,10 @@ class LongTermMemory:
     def save_important_message(
         self,
         conversation_id: str,
-        message: str,
-        embedding: List[float],
-        metadata: Dict[str, Any]
-    ):
+        message: str,  # noqa: ARG002 - reserved for vector storage
+        embedding: list[float],  # noqa: ARG002 - reserved for vector storage
+        metadata: dict[str, Any] | None = None,  # noqa: ARG002 - reserved for vector storage
+    ) -> None:
         """
         保存重要消息到长期记忆
 
@@ -279,15 +280,15 @@ class LongTermMemory:
             logger.warning("Vector store not configured, cannot save to long-term memory")
             return
 
-        # TODO: 实现向量存储
+        # TODO: Implement the actual vector storage logic here
         logger.info(f"Saving message to long-term memory: {conversation_id}")
 
     def retrieve_relevant_memories(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 5,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        filters: dict[str, Any] | None = None,  # noqa: ARG002 - reserved for vector search
+    ) -> list[dict[str, Any]]:
         """
         检索相关记忆
 
@@ -299,6 +300,8 @@ class LongTermMemory:
         Returns:
             相关记忆列表
         """
+        _ = (query_embedding, filters)
+
         if not self.vector_store:
             logger.warning("Vector store not configured, cannot retrieve from long-term memory")
             return []

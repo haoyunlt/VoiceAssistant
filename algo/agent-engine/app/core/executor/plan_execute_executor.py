@@ -9,7 +9,7 @@ Plan-Execute Executor - 计划-执行模式
 
 import json
 import logging
-from typing import AsyncIterator, Dict, List
+from collections.abc import AsyncIterator
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,9 @@ class PlanExecuteExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: List[Dict] = None,
-        memory: Dict = None,
-    ) -> Dict:
+        available_tools: list[dict] = None,
+        memory: dict = None,
+    ) -> dict:
         """执行任务（非流式）"""
         # 1. 制定计划
         plan = await self._make_plan(task, available_tools)
@@ -59,8 +59,8 @@ class PlanExecuteExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: List[Dict] = None,
-        memory: Dict = None,
+        available_tools: list[dict] = None,
+        memory: dict = None,
     ) -> AsyncIterator[str]:
         """执行任务（流式）"""
         # 发送计划
@@ -79,7 +79,7 @@ class PlanExecuteExecutor:
         final_answer = await self._summarize_results(task, [])
         yield json.dumps({"type": "final", "content": final_answer})
 
-    async def _make_plan(self, task: str, tools: List[Dict]) -> List[str]:
+    async def _make_plan(self, task: str, tools: list[dict]) -> list[str]:
         """制定计划"""
         prompt = f"""任务: {task}
 
@@ -91,12 +91,12 @@ class PlanExecuteExecutor:
         steps = [s.strip() for s in response.strip().split('\n') if s.strip()]
         return steps
 
-    async def _execute_step(self, step: str, tools: List[Dict]) -> str:
+    async def _execute_step(self, step: str, tools: list[dict]) -> str:
         """执行单个步骤"""
         # 简化实现：直接返回步骤描述
         # TODO: 实际应该解析步骤，调用工具
         return f"执行: {step}"
 
-    async def _summarize_results(self, task: str, results: List[Dict]) -> str:
+    async def _summarize_results(self, task: str, results: list[dict]) -> str:
         """汇总结果"""
         return f"任务'{task}'已完成"

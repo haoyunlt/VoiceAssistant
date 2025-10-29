@@ -3,20 +3,19 @@
 """
 
 import asyncio
-import time
-from typing import Dict, List
 import logging
+import time
 
+from app.core.config import settings
 from app.models.retrieval import (
-    RetrievalDocument,
     HybridGraphRequest,
     HybridGraphResponse,
+    RetrievalDocument,
 )
-from app.services.vector_service import VectorService
 from app.services.bm25_service import BM25Service
 from app.services.graph_retrieval_service import GraphRetrievalService
 from app.services.rerank_service import RerankService
-from app.core.config import settings
+from app.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 
@@ -160,12 +159,12 @@ class HybridGraphService:
 
     async def _vector_retrieve(
         self,
-        query_embedding: List[float],
+        query_embedding: list[float],
         query: str,
         top_k: int,
         tenant_id: str = None,
-        filters: Dict = None,
-    ) -> List[RetrievalDocument]:
+        filters: dict = None,
+    ) -> list[RetrievalDocument]:
         """向量检索"""
         if not query_embedding:
             # 如果没有提供向量，可以在这里调用embedding服务生成
@@ -185,8 +184,8 @@ class HybridGraphService:
         query: str,
         top_k: int,
         tenant_id: str = None,
-        filters: Dict = None,
-    ) -> List[RetrievalDocument]:
+        filters: dict = None,
+    ) -> list[RetrievalDocument]:
         """BM25检索"""
         return await self.bm25_service.search(
             query=query, top_k=top_k, tenant_id=tenant_id, filters=filters
@@ -194,7 +193,7 @@ class HybridGraphService:
 
     async def _graph_retrieve(
         self, query: str, top_k: int, depth: int, tenant_id: str = None
-    ) -> List[RetrievalDocument]:
+    ) -> list[RetrievalDocument]:
         """图谱检索"""
         return await self.graph_service.search(
             query=query, top_k=top_k, depth=depth, tenant_id=tenant_id
@@ -202,10 +201,10 @@ class HybridGraphService:
 
     def _rrf_fusion(
         self,
-        retrieval_results: Dict[str, List[RetrievalDocument]],
-        weights: Dict[str, float],
+        retrieval_results: dict[str, list[RetrievalDocument]],
+        weights: dict[str, float],
         k: int = 60,
-    ) -> List[RetrievalDocument]:
+    ) -> list[RetrievalDocument]:
         """
         RRF融合算法（Reciprocal Rank Fusion）
 
@@ -220,7 +219,7 @@ class HybridGraphService:
         Returns:
             融合后的结果列表
         """
-        doc_scores: Dict[str, Dict] = {}
+        doc_scores: dict[str, dict] = {}
 
         for source, results in retrieval_results.items():
             weight = weights.get(source, 1.0)

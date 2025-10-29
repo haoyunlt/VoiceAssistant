@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import List, Optional
 
 from app.infrastructure.neo4j_client import Neo4jClient
 from app.models.retrieval import RetrievalDocument
@@ -22,8 +21,8 @@ class GraphRetrievalService:
         query: str,
         top_k: int = 20,
         depth: int = 2,
-        tenant_id: Optional[str] = None,
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None = None,
+    ) -> list[RetrievalDocument]:
         """
         图谱检索
 
@@ -76,10 +75,10 @@ class GraphRetrievalService:
             }
 
             # 实体列表
-            entities = r["entity_path"] if isinstance(r["entity_path"], list) else []
+            r["entity_path"] if isinstance(r["entity_path"], list) else []
 
             # 关系列表
-            relations = r.get("relations", [])
+            r.get("relations", [])
 
             retrieval_results.append(
                 RetrievalDocument(
@@ -95,7 +94,7 @@ class GraphRetrievalService:
         logger.info(f"Graph检索返回 {len(retrieval_results)} 条结果")
         return retrieval_results
 
-    async def _extract_entities_from_query(self, query: str) -> List[str]:
+    async def _extract_entities_from_query(self, query: str) -> list[str]:
         """
         从查询中提取实体（简化实现）
 

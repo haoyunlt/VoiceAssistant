@@ -1,18 +1,12 @@
 """适配器服务 - 统一调度各个模型提供商"""
 import logging
-import time
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
-from app.core.config import settings
 from app.models.request import ChatRequest, CompletionRequest, EmbeddingRequest
 from app.models.response import (
-    ChatChoice,
     ChatResponse,
-    CompletionChoice,
     CompletionResponse,
-    EmbeddingData,
     EmbeddingResponse,
-    Usage,
 )
 from app.services.providers.anthropic_adapter import AnthropicAdapter
 from app.services.providers.baidu_adapter import BaiduAdapter

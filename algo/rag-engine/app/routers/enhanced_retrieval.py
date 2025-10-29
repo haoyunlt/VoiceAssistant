@@ -4,14 +4,13 @@ Enhanced Retrieval API - 增强检索 API
 提供 Re-ranking 和 Hybrid Search 功能
 """
 
-from typing import List, Literal, Optional
+import logging
+from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-import logging
 from app.reranking.reranker import get_reranker
-from app.retrieval.bm25_retriever import get_bm25_retriever
 from app.retrieval.hybrid_retriever import get_hybrid_retriever
 
 logger = logging.getLogger(__name__)
@@ -20,15 +19,15 @@ router = APIRouter(prefix="/api/v1/retrieval", tags=["Enhanced Retrieval"])
 
 class Document(BaseModel):
     """文档模型"""
-    id: Optional[str] = None
+    id: str | None = None
     text: str
-    score: Optional[float] = None
+    score: float | None = None
 
 
 class ReRankRequest(BaseModel):
     """Re-ranking 请求"""
     query: str = Field(..., description="查询文本")
-    documents: List[Document] = Field(..., description="待重排序的文档列表")
+    documents: list[Document] = Field(..., description="待重排序的文档列表")
     top_k: int = Field(10, description="返回的 top-k 结果", ge=1, le=100)
     use_fusion: bool = Field(False, description="是否使用分数融合")
 
@@ -36,7 +35,7 @@ class ReRankRequest(BaseModel):
 class HybridSearchRequest(BaseModel):
     """混合检索请求"""
     query: str = Field(..., description="查询文本")
-    vector_results: List[Document] = Field(..., description="向量检索结果")
+    vector_results: list[Document] = Field(..., description="向量检索结果")
     top_k: int = Field(10, description="返回的 top-k 结果", ge=1, le=100)
     fusion_method: Literal["rrf", "weighted_sum"] = Field(
         "rrf", description="融合方法"

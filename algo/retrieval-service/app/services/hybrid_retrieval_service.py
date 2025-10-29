@@ -7,7 +7,6 @@ import asyncio
 import logging
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ class RetrievalResult:
     content: str
     score: float
     source: str  # vector, bm25, graph
-    metadata: Dict
+    metadata: dict
 
 
 class HybridRetrievalService:
@@ -62,13 +61,13 @@ class HybridRetrievalService:
         self,
         query: str,
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[Dict] = None,
-        weights: Optional[Dict[str, float]] = None,
+        tenant_id: str | None = None,
+        filters: dict | None = None,
+        weights: dict[str, float] | None = None,
         enable_vector: bool = True,
         enable_bm25: bool = True,
         enable_graph: bool = True,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """
         混合检索（三路并行）
 
@@ -126,7 +125,7 @@ class HybridRetrievalService:
 
         # 收集各路结果
         all_results = {}
-        for i, (source, results) in enumerate(zip(task_sources, results_list)):
+        for _i, (source, results) in enumerate(zip(task_sources, results_list, strict=False)):
             if isinstance(results, Exception):
                 logger.error(f"{source} retrieval failed: {results}")
                 all_results[source] = []
@@ -150,8 +149,8 @@ class HybridRetrievalService:
         return fused_results
 
     async def _retrieve_vector(
-        self, query: str, top_k: int, tenant_id: Optional[str], filters: Optional[Dict]
-    ) -> List[Dict]:
+        self, query: str, top_k: int, tenant_id: str | None, filters: dict | None
+    ) -> list[dict]:
         """向量检索"""
         try:
             results = await self.vector_retriever.retrieve(
@@ -166,8 +165,8 @@ class HybridRetrievalService:
             return []
 
     async def _retrieve_bm25(
-        self, query: str, top_k: int, tenant_id: Optional[str], filters: Optional[Dict]
-    ) -> List[Dict]:
+        self, query: str, top_k: int, tenant_id: str | None, filters: dict | None
+    ) -> list[dict]:
         """BM25 检索"""
         try:
             results = await self.bm25_retriever.retrieve(
@@ -182,8 +181,8 @@ class HybridRetrievalService:
             return []
 
     async def _retrieve_graph(
-        self, query: str, top_k: int, tenant_id: Optional[str], filters: Optional[Dict]
-    ) -> List[Dict]:
+        self, query: str, top_k: int, tenant_id: str | None, filters: dict | None
+    ) -> list[dict]:
         """图谱检索"""
         try:
             results = await self.graph_retriever.retrieve(
@@ -199,10 +198,10 @@ class HybridRetrievalService:
 
     def _fuse_results(
         self,
-        all_results: Dict[str, List[Dict]],
-        weights: Dict[str, float],
+        all_results: dict[str, list[dict]],
+        weights: dict[str, float],
         top_k: int,
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """
         融合多路检索结果
 
@@ -221,7 +220,7 @@ class HybridRetrievalService:
             logger.warning(f"Unknown fusion method: {self.fusion_method}, using RRF")
             return self._fuse_rrf(all_results, top_k)
 
-    def _fuse_rrf(self, all_results: Dict[str, List[Dict]], top_k: int, k: int = 60) -> List[RetrievalResult]:
+    def _fuse_rrf(self, all_results: dict[str, list[dict]], top_k: int, k: int = 60) -> list[RetrievalResult]:
         """
         RRF (Reciprocal Rank Fusion) 融合
 
@@ -237,7 +236,7 @@ class HybridRetrievalService:
         rrf_scores = {}
         doc_data = {}  # 保存文档数据
 
-        for source, results in all_results.items():
+        for _source, results in all_results.items():
             for rank, result in enumerate(results, start=1):
                 doc_id = result.get("document_id") or result.get("chunk_id")
                 if not doc_id:
@@ -272,8 +271,8 @@ class HybridRetrievalService:
         return fused_results
 
     def _fuse_weighted(
-        self, all_results: Dict[str, List[Dict]], weights: Dict[str, float], top_k: int
-    ) -> List[RetrievalResult]:
+        self, all_results: dict[str, list[dict]], weights: dict[str, float], top_k: int
+    ) -> list[RetrievalResult]:
         """
         加权融合
 
@@ -319,7 +318,7 @@ class HybridRetrievalService:
 
         return fused_results
 
-    def _fuse_max(self, all_results: Dict[str, List[Dict]], top_k: int) -> List[RetrievalResult]:
+    def _fuse_max(self, all_results: dict[str, list[dict]], top_k: int) -> list[RetrievalResult]:
         """
         最大分数融合
 
@@ -329,7 +328,7 @@ class HybridRetrievalService:
         max_scores = {}
         doc_data = {}
 
-        for source, results in all_results.items():
+        for _source, results in all_results.items():
             for result in results:
                 doc_id = result.get("document_id") or result.get("chunk_id")
                 if not doc_id:
@@ -360,7 +359,7 @@ class HybridRetrievalService:
 
         return fused_results
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取统计信息"""
         stats = {
             "fusion_method": self.fusion_method,

@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -45,7 +44,7 @@ class FindSimilarRequest(BaseModel):
     """查找相似实体请求"""
 
     entity_id: str = Field(..., description="实体ID")
-    top_k: Optional[int] = Field(10, ge=1, le=100, description="返回前K个相似实体")
+    top_k: int | None = Field(10, ge=1, le=100, description="返回前K个相似实体")
 
 
 class MergeEntitiesRequest(BaseModel):
@@ -58,15 +57,15 @@ class MergeEntitiesRequest(BaseModel):
 class AutoMergeRequest(BaseModel):
     """自动合并请求"""
 
-    entity_type: Optional[str] = Field(None, description="实体类型过滤")
-    dry_run: Optional[bool] = Field(True, description="是否仅模拟（不实际合并）")
+    entity_type: str | None = Field(None, description="实体类型过滤")
+    dry_run: bool | None = Field(True, description="是否仅模拟（不实际合并）")
 
 
 class DisambiguateRequest(BaseModel):
     """实体消歧请求"""
 
     entity_name: str = Field(..., description="实体名称")
-    context: Optional[str] = Field(None, description="上下文信息")
+    context: str | None = Field(None, description="上下文信息")
 
 
 @router.post("/find-similar")

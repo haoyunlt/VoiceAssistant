@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -30,8 +29,8 @@ class DiarizationResponse(BaseModel):
     speakers: list[str]
     total_speakers: int
     duration: float
-    mock: Optional[bool] = None
-    error: Optional[str] = None
+    mock: bool | None = None
+    error: str | None = None
 
 
 class SpeakerStatistics(BaseModel):
@@ -46,8 +45,8 @@ class SpeakerStatistics(BaseModel):
 async def analyze_speakers(
     audio: UploadFile = File(..., description="音频文件（WAV/MP3）"),
     sample_rate: int = Form(16000, description="采样率"),
-    min_speakers: Optional[int] = Form(None, description="最小说话人数"),
-    max_speakers: Optional[int] = Form(None, description="最大说话人数"),
+    min_speakers: int | None = Form(None, description="最小说话人数"),
+    max_speakers: int | None = Form(None, description="最大说话人数"),
 ):
     """
     执行说话人分离分析

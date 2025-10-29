@@ -3,11 +3,10 @@ Reflexion Executor
 支持自我反思和改进的执行器
 """
 
-import asyncio
 import json
 import logging
-from typing import List, Dict, Optional
 from datetime import datetime
+
 import httpx
 
 from app.models.agent_models import AgentResult, Evaluation, Reflection
@@ -35,7 +34,7 @@ class ReflexionExecutor:
     async def execute(
         self,
         task: str,
-        context: Dict = None,
+        context: dict = None,
         max_trials: int = None
     ) -> AgentResult:
         """
@@ -131,8 +130,8 @@ class ReflexionExecutor:
     async def _attempt_task(
         self,
         task: str,
-        history: List[Dict],
-        context: Dict = None
+        history: list[dict],
+        context: dict = None
     ) -> str:
         """
         尝试执行任务
@@ -193,7 +192,7 @@ class ReflexionExecutor:
         self,
         task: str,
         result: str,
-        context: Dict = None
+        context: dict = None
     ) -> Evaluation:
         """
         评估结果质量
@@ -280,7 +279,7 @@ class ReflexionExecutor:
         task: str,
         result: str,
         evaluation: Evaluation,
-        context: Dict = None
+        context: dict = None
     ) -> Reflection:
         """
         生成反思

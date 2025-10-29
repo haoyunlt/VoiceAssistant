@@ -10,7 +10,6 @@ Retrieval Service - 检索服务
 - Redis 语义缓存
 """
 
-import logging
 import os
 import time
 from contextlib import asynccontextmanager
@@ -21,8 +20,6 @@ from app.core.config import settings
 # 导入中间件
 from app.middleware import (
     AuthMiddleware,
-    IdempotencyMiddleware,
-    RateLimitMiddleware,
     RequestIDMiddleware,
 )
 
@@ -74,6 +71,7 @@ async def lifespan(app: FastAPI):  # type: ignore
 
         # 清理资源
         from app.routers.retrieval import retrieval_service
+
         await retrieval_service.shutdown()
 
         logger.info("Retrieval Service shut down complete")
@@ -91,10 +89,14 @@ app = FastAPI(
 app.add_middleware(RequestIDMiddleware)
 
 # CORS 中间件 - 使用环境变量配置
-allowed_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
+allowed_origins = (
+    os.getenv("CORS_ORIGINS", "").split(",")
+    if os.getenv("CORS_ORIGINS")
+    else [
+        "http://localhost:3000",
+        "http://localhost:8000",
+    ]
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -120,9 +122,10 @@ metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 # 注册路由
-from app.routers import retrieval
+from app.routers import query_enhancement, retrieval
 
 app.include_router(retrieval.router)
+app.include_router(query_enhancement.router)  # P2级：查询增强功能
 
 
 # 请求日志和指标中间件
@@ -211,9 +214,13 @@ async def readiness_check() -> dict:
 
     checks = {
         "service": retrieval_service is not None,
-        "vector_service": retrieval_service.vector_service is not None if retrieval_service else False,
+        "vector_service": retrieval_service.vector_service is not None
+        if retrieval_service
+        else False,
         "neo4j": retrieval_service.neo4j_client is not None if retrieval_service else False,
-        "graph_enabled": retrieval_service.graph_service is not None if retrieval_service else False,
+        "graph_enabled": retrieval_service.graph_service is not None
+        if retrieval_service
+        else False,
     }
 
     all_ready = all(checks.values())
@@ -233,17 +240,11 @@ async def get_neo4j_stats() -> dict:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     if not retrieval_service.neo4j_client:
-        return {
-            "graph_enabled": False,
-            "message": "Graph retrieval is not enabled"
-        }
+        return {"graph_enabled": False, "message": "Graph retrieval is not enabled"}
 
     try:
         stats = await retrieval_service.neo4j_client.get_statistics()
-        return {
-            "graph_enabled": True,
-            "neo4j": stats
-        }
+        return {"graph_enabled": True, "neo4j": stats}
     except Exception as e:
         logger.error(f"Error getting stats: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

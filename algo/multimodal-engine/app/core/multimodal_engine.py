@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 from app.core.exceptions import OCRException, VideoException, VisionException
 from app.core.ocr_engine import OCREngine
@@ -46,9 +46,9 @@ class MultimodalEngine:
         self,
         image_data: bytes,
         language: str = "auto",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         OCR 文字识别。
 
@@ -105,9 +105,9 @@ class MultimodalEngine:
         self,
         image_data: bytes,
         prompt: str = "Describe this image in detail.",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         图像理解（使用视觉语言模型）。
 
@@ -164,9 +164,9 @@ class MultimodalEngine:
         self,
         image_data: bytes,
         detect_type: str = "objects",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         图像检测（对象、人脸、场景等）。
 
@@ -222,9 +222,9 @@ class MultimodalEngine:
         self,
         video_data: bytes,
         analysis_type: str = "summary",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         视频分析。
 
@@ -276,7 +276,7 @@ class MultimodalEngine:
                 details={"error_type": type(e).__name__}
             )
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return {
             "overall": self.stats_tracker.get_stats(),

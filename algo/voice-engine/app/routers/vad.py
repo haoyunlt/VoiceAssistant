@@ -2,9 +2,10 @@
 VAD (Voice Activity Detection) endpoints
 """
 
+import logging
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-import logging
 from app.models.voice import VADRequest, VADResponse
 from app.services.vad_service import VADService
 

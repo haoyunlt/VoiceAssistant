@@ -8,14 +8,13 @@
 - 重要性评分
 """
 
-import time
+import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 import numpy as np
-import logging
 from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, connections, utility
 
 logger = logging.getLogger(__name__)
@@ -59,18 +58,16 @@ class VectorMemoryManager:
             f"decay_half_life={time_decay_half_life_days} days"
         )
 
-    def _connect_milvus(self):
+    def _connect_milvus(self) -> None:
         """连接 Milvus"""
         try:
-            connections.connect(
-                alias="default", host=self.milvus_host, port=self.milvus_port
-            )
+            connections.connect(alias="default", host=self.milvus_host, port=self.milvus_port)
             logger.info(f"Connected to Milvus: {self.milvus_host}:{self.milvus_port}")
         except Exception as e:
             logger.error(f"Failed to connect to Milvus: {e}", exc_info=True)
             raise
 
-    def _init_collection(self):
+    def _init_collection(self) -> None:
         """初始化 Milvus Collection"""
         try:
             # 检查 Collection 是否存在
@@ -88,27 +85,17 @@ class VectorMemoryManager:
                     max_length=64,
                     is_primary=True,
                 ),
-                FieldSchema(
-                    name="user_id", dtype=DataType.VARCHAR, max_length=64
-                ),
-                FieldSchema(
-                    name="content", dtype=DataType.VARCHAR, max_length=2048
-                ),
-                FieldSchema(
-                    name="memory_type", dtype=DataType.VARCHAR, max_length=32
-                ),
-                FieldSchema(
-                    name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1536
-                ),
+                FieldSchema(name="user_id", dtype=DataType.VARCHAR, max_length=64),
+                FieldSchema(name="content", dtype=DataType.VARCHAR, max_length=2048),
+                FieldSchema(name="memory_type", dtype=DataType.VARCHAR, max_length=32),
+                FieldSchema(name="embedding", dtype=DataType.FLOAT_VECTOR, dim=1536),
                 FieldSchema(name="created_at", dtype=DataType.INT64),
                 FieldSchema(name="importance", dtype=DataType.FLOAT),
                 FieldSchema(name="access_count", dtype=DataType.INT32),
                 FieldSchema(name="last_accessed", dtype=DataType.INT64),
             ]
 
-            schema = CollectionSchema(
-                fields=fields, description="Agent Long-term Memory"
-            )
+            schema = CollectionSchema(fields=fields, description="Agent Long-term Memory")
             self.collection = Collection(name=self.collection_name, schema=schema)
 
             # 创建索引
@@ -117,9 +104,7 @@ class VectorMemoryManager:
                 "index_type": "IVF_FLAT",
                 "params": {"nlist": 1024},
             }
-            self.collection.create_index(
-                field_name="embedding", index_params=index_params
-            )
+            self.collection.create_index(field_name="embedding", index_params=index_params)
             self.collection.load()
 
             logger.info(f"Created and indexed collection: {self.collection_name}")
@@ -133,7 +118,7 @@ class VectorMemoryManager:
         user_id: str,
         content: str,
         memory_type: str = "conversation",
-        importance: Optional[float] = None,
+        importance: float | None = None,
         auto_evaluate_importance: bool = True,
     ) -> str:
         """
@@ -199,7 +184,7 @@ class VectorMemoryManager:
         query: str,
         top_k: int = 5,
         time_decay_enabled: bool = True,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         检索相关记忆（带 Ebbinghaus 遗忘曲线衰减）
 
@@ -304,8 +289,7 @@ class VectorMemoryManager:
                     logger.warning(f"Failed to update access count: {e}")
 
             logger.info(
-                f"Retrieved {len(top_memories)} memories for user {user_id}, "
-                f"query: {query[:50]}..."
+                f"Retrieved {len(top_memories)} memories for user {user_id}, query: {query[:50]}..."
             )
 
             return top_memories
@@ -384,7 +368,7 @@ class VectorMemoryManager:
 
     async def list_user_memories(
         self, user_id: str, limit: int = 20, offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         列出用户的所有记忆
 
@@ -424,8 +408,7 @@ class VectorMemoryManager:
                         "importance": entity.get("importance"),
                         "created_at": entity.get("created_at"),
                         "access_count": entity.get("access_count"),
-                        "days_ago": (current_time - entity.get("created_at", current_time))
-                        / 86400,
+                        "days_ago": (current_time - entity.get("created_at", current_time)) / 86400,
                     }
                 )
 
@@ -437,7 +420,7 @@ class VectorMemoryManager:
             logger.error(f"Failed to list memories: {e}", exc_info=True)
             return []
 
-    async def _get_embedding(self, text: str) -> List[float]:
+    async def _get_embedding(self, text: str) -> list[float]:
         """
         调用 Model Adapter 获取 embedding
 
@@ -468,9 +451,7 @@ class VectorMemoryManager:
             logger.error(f"Failed to get embedding: {e}", exc_info=True)
             raise
 
-    async def _evaluate_importance(
-        self, content: str, context: Optional[Dict] = None
-    ) -> float:
+    async def _evaluate_importance(self, content: str, context: dict | None = None) -> float:
         """
         评估记忆重要性
 
@@ -532,7 +513,7 @@ class VectorMemoryManager:
 
         return score
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         获取统计信息
 
@@ -554,7 +535,7 @@ class VectorMemoryManager:
 
     async def merge_similar_memories(
         self, user_id: str, similarity_threshold: float = 0.95, dry_run: bool = False
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         合并相似的记忆
 
@@ -583,7 +564,7 @@ class VectorMemoryManager:
 
                 similar_group = [mem1]
 
-                for j, mem2 in enumerate(all_memories[i + 1 :], start=i + 1):
+                for _j, mem2 in enumerate(all_memories[i + 1 :], start=i + 1):
                     if mem2.get("merged"):
                         continue
 
@@ -651,9 +632,7 @@ class VectorMemoryManager:
             # 查询符合条件的记忆
             expr = f'user_id == "{user_id}" and created_at < {cutoff_timestamp} and importance < {importance_threshold}'
 
-            results = self.collection.query(
-                expr=expr, output_fields=["memory_id"], limit=10000
-            )
+            results = self.collection.query(expr=expr, output_fields=["memory_id"], limit=10000)
 
             deleted_count = 0
             for entity in results:
@@ -673,8 +652,8 @@ class VectorMemoryManager:
             return 0
 
     async def summarize_memories(
-        self, user_id: str, start_date: Optional[int] = None, end_date: Optional[int] = None
-    ) -> Dict[str, Any]:
+        self, user_id: str, start_date: int | None = None, end_date: int | None = None
+    ) -> dict[str, Any]:
         """
         总结用户的记忆
 
@@ -773,9 +752,7 @@ class VectorMemoryManager:
                 "error": str(e),
             }
 
-    async def get_memory_timeline(
-        self, user_id: str, limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    async def get_memory_timeline(self, user_id: str, limit: int = 50) -> list[dict[str, Any]]:
         """
         获取用户的记忆时间线（按时间倒序）
 
@@ -802,9 +779,7 @@ class VectorMemoryManager:
             )
 
             # 按创建时间排序（倒序）
-            memories = sorted(
-                results, key=lambda x: x.get("created_at", 0), reverse=True
-            )
+            memories = sorted(results, key=lambda x: x.get("created_at", 0), reverse=True)
 
             timeline = []
             for entity in memories:

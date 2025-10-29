@@ -1,6 +1,5 @@
 """上下文组装服务"""
 import logging
-from typing import List
 
 from app.models.rag import RetrievedDocument
 
@@ -11,7 +10,7 @@ class ContextService:
     """上下文组装服务"""
 
     async def build_context(
-        self, documents: List[RetrievedDocument], max_length: int = 4000
+        self, documents: list[RetrievedDocument], max_length: int = 4000
     ) -> str:
         """
         组装上下文

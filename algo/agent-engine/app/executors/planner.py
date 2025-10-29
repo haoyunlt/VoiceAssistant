@@ -5,10 +5,12 @@ Planner - 任务规划器
 """
 
 import json
-from typing import List, Optional
-
 import logging
+from typing import Any
+
 from pydantic import BaseModel, Field
+
+from app.infrastructure.llm_client import LLMClient
 
 logger = logging.getLogger(__name__)
 
@@ -18,23 +20,23 @@ class Step(BaseModel):
 
     step_id: int = Field(..., description="步骤 ID")
     description: str = Field(..., description="步骤描述")
-    tool: Optional[str] = Field(None, description="使用的工具名称")
-    tool_args: dict = Field(default_factory=dict, description="工具参数")
-    depends_on: List[int] = Field(default_factory=list, description="依赖的步骤 ID")
+    tool: str | None = Field(None, description="使用的工具名称")
+    tool_args: dict[str, Any] = Field(default_factory=dict, description="工具参数")
+    depends_on: list[int] = Field(default_factory=list, description="依赖的步骤 ID")
 
 
 class Plan(BaseModel):
     """任务执行计划"""
 
     task: str = Field(..., description="原始任务描述")
-    steps: List[Step] = Field(..., description="执行步骤列表")
+    steps: list[Step] = Field(..., description="执行步骤列表")
     reasoning: str = Field("", description="规划推理过程")
 
 
 class Planner:
     """任务规划器"""
 
-    def __init__(self, llm_client=None):
+    def __init__(self, llm_client: LLMClient | None = None) -> None:
         """
         初始化规划器
 
@@ -47,8 +49,8 @@ class Planner:
     async def create_plan(
         self,
         task: str,
-        available_tools: List[dict],
-        context: Optional[dict] = None,
+        available_tools: list[dict[str, Any]],
+        context: dict | None = None,
     ) -> Plan:
         """
         创建任务执行计划
@@ -94,7 +96,7 @@ class Planner:
             )
 
     def _build_planning_prompt(
-        self, task: str, available_tools: List[dict], context: Optional[dict]
+        self, task: str, available_tools: list[dict[str, Any]], context: dict[str, Any] | None = None
     ) -> str:
         """
         构建规划提示词
@@ -116,7 +118,9 @@ class Planner:
 
         context_str = ""
         if context:
-            context_str = f"\n\n**上下文信息**:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+            context_str = (
+                f"\n\n**上下文信息**:\n{json.dumps(context, ensure_ascii=False, indent=2)}"
+            )
 
         prompt = f"""你是一个任务规划助手。请将下面的任务分解为多个可执行的步骤。
 
@@ -154,7 +158,7 @@ class Planner:
 """
         return prompt
 
-    async def _call_llm(self, prompt: str) -> str:
+    async def _call_llm(self, prompt: str) -> str:  # type: ignore
         """
         调用 LLM API
 
@@ -192,7 +196,7 @@ class Planner:
 """
         return mock_response
 
-    def _parse_llm_response(self, response: str, task: str) -> Plan:
+    def _parse_llm_response(self, response: str, task: str) -> Plan:  # type: ignore
         """
         解析 LLM 响应
 
@@ -248,7 +252,7 @@ class Planner:
                 reasoning="解析失败，使用降级计划",
             )
 
-    def _heuristic_plan(self, task: str, available_tools: List[dict]) -> Plan:
+    def _heuristic_plan(self, task: str, available_tools: list[dict[str, Any]]) -> Plan:  # type: ignore
         """
         启发式规划（不使用 LLM）
 
@@ -259,7 +263,7 @@ class Planner:
         Returns:
             Plan 对象
         """
-        steps = []
+        steps: list[Step] = []
 
         # 启发式规则 1: 如果任务包含搜索相关词汇，添加搜索步骤
         search_keywords = ["搜索", "查找", "search", "find", "最新", "新闻"]
@@ -350,17 +354,15 @@ class Planner:
             )
         )
 
-        return Plan(
-            task=task, steps=steps, reasoning="基于启发式规则生成的计划"
-        )
+        return Plan(task=task, steps=steps, reasoning="基于启发式规则生成的计划")
 
     async def replan(
         self,
         original_plan: Plan,
         failed_step: Step,
         error_message: str,
-        execution_results: dict,
-    ) -> Plan:
+        execution_results: dict[str, Any],
+    ) -> Plan:  # type: ignore
         """
         重新规划（当某个步骤失败时）
 
@@ -373,17 +375,11 @@ class Planner:
         Returns:
             新的 Plan 对象
         """
-        logger.warning(
-            f"Replanning due to step {failed_step.step_id} failure: {error_message}"
-        )
+        logger.warning(f"Replanning due to step {failed_step.step_id} failure: {error_message}")
 
         try:
             # 移除失败步骤及其后续步骤
-            new_steps = [
-                step
-                for step in original_plan.steps
-                if step.step_id < failed_step.step_id
-            ]
+            new_steps = [step for step in original_plan.steps if step.step_id < failed_step.step_id]
 
             # 添加一个恢复步骤（尝试使用不同工具或参数）
             recovery_step = Step(

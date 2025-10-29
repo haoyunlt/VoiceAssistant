@@ -8,7 +8,6 @@ import asyncio
 import logging
 import time
 from enum import Enum
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +142,7 @@ class FullDuplexHandler:
         vad_service,
         asr_service,
         tts_service,
-        interrupt_handler: Optional[InterruptHandler] = None,
+        interrupt_handler: InterruptHandler | None = None,
     ):
         """
         初始化全双工处理器

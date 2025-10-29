@@ -2,7 +2,7 @@
 Custom exceptions for Multimodal Engine
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class MultimodalEngineException(Exception):
@@ -12,14 +12,14 @@ class MultimodalEngineException(Exception):
         self,
         message: str,
         error_code: str = "INTERNAL_ERROR",
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         self.message = message
         self.error_code = error_code
         self.details = details or {}
         super().__init__(self.message)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert exception to dictionary"""
         return {
             "error": {
@@ -33,35 +33,35 @@ class MultimodalEngineException(Exception):
 class OCRException(MultimodalEngineException):
     """OCR related exceptions"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, error_code="OCR_ERROR", details=details)
 
 
 class VisionException(MultimodalEngineException):
     """Vision related exceptions"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, error_code="VISION_ERROR", details=details)
 
 
 class VideoException(MultimodalEngineException):
     """Video analysis related exceptions"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, error_code="VIDEO_ERROR", details=details)
 
 
 class ValidationException(MultimodalEngineException):
     """Input validation exceptions"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, error_code="VALIDATION_ERROR", details=details)
 
 
 class ResourceException(MultimodalEngineException):
     """Resource related exceptions (file size, format, etc.)"""
 
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
         super().__init__(message, error_code="RESOURCE_ERROR", details=details)
 
 
@@ -72,7 +72,7 @@ class ExternalServiceException(MultimodalEngineException):
         self,
         message: str,
         service: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         details = details or {}
         details["service"] = service
@@ -84,5 +84,5 @@ class ExternalServiceException(MultimodalEngineException):
 class RateLimitException(MultimodalEngineException):
     """Rate limit exceeded"""
 
-    def __init__(self, message: str = "Rate limit exceeded", details: Optional[Dict[str, Any]] = None):
+    def __init__(self, message: str = "Rate limit exceeded", details: dict[str, Any] | None = None):
         super().__init__(message, error_code="RATE_LIMIT_EXCEEDED", details=details)

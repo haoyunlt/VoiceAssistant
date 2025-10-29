@@ -13,7 +13,6 @@ Document Processor - 文档处理协调器
 import asyncio
 import logging
 import time
-from typing import Dict, List
 
 from app.core.chunker import DocumentChunker
 from app.core.embedder import BGE_M3_Embedder
@@ -65,7 +64,7 @@ class DocumentProcessor:
             # 不阻塞主流程，继续运行
 
     async def process_document(self, document_id: str, tenant_id: str = None,
-                              user_id: str = None, file_path: str = None) -> Dict:
+                              user_id: str = None, file_path: str = None) -> dict:
         """处理文档（完整流程）"""
         start_time = time.time()
 
@@ -196,7 +195,7 @@ class DocumentProcessor:
 
         return text
 
-    async def _chunk_document(self, text: str, document_id: str) -> List[Dict]:
+    async def _chunk_document(self, text: str, document_id: str) -> list[dict]:
         """分块文档"""
         logger.info(f"Chunking document: {document_id}")
 
@@ -206,7 +205,7 @@ class DocumentProcessor:
 
         return chunks
 
-    async def _vectorize_chunks(self, chunks: List[Dict]) -> List[List[float]]:
+    async def _vectorize_chunks(self, chunks: list[dict]) -> list[list[float]]:
         """向量化分块"""
         logger.info(f"Vectorizing {len(chunks)} chunks")
 
@@ -220,7 +219,7 @@ class DocumentProcessor:
 
         return embeddings
 
-    async def _store_vectors(self, chunks: List[Dict], embeddings: List[List[float]],
+    async def _store_vectors(self, chunks: list[dict], embeddings: list[list[float]],
                            document_id: str, tenant_id: str = None) -> str:
         """存储向量到 Milvus
 
@@ -233,7 +232,7 @@ class DocumentProcessor:
         data = []
         collection_name = f"documents_{tenant_id or 'default'}"
 
-        for chunk, embedding in zip(chunks, embeddings):
+        for chunk, embedding in zip(chunks, embeddings, strict=False):
             data.append({
                 "chunk_id": chunk["id"],
                 "document_id": document_id,
@@ -271,7 +270,7 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error building graph: {e}", exc_info=True)
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取统计信息"""
         return {
             **self.stats,
@@ -316,7 +315,7 @@ class ProcessingResult:
         self.duration = duration
         self.error = error
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         """转换为字典"""
         result = {
             "document_id": self.document_id,

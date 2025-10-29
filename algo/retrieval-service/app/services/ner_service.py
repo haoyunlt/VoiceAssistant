@@ -5,7 +5,6 @@ NER (Named Entity Recognition) 服务
 
 import logging
 from enum import Enum
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class Entity:
         self.end = end
         self.score = score
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict:
         return {
             "text": self.text,
             "label": self.label,
@@ -122,13 +121,12 @@ class NERService:
 
     async def _init_jieba(self):
         """初始化 Jieba（后备方案）"""
-        import jieba
         import jieba.posseg as pseg
 
         self.model = pseg
         logger.info("Jieba NER initialized (fallback)")
 
-    async def extract_entities(self, text: str, filter_labels: Optional[List[str]] = None) -> List[Entity]:
+    async def extract_entities(self, text: str, filter_labels: list[str] | None = None) -> list[Entity]:
         """
         从文本中提取实体
 
@@ -157,7 +155,7 @@ class NERService:
             logger.error(f"Entity extraction failed: {e}", exc_info=True)
             return []
 
-    async def _extract_with_spacy(self, text: str, filter_labels: Optional[List[str]]) -> List[Entity]:
+    async def _extract_with_spacy(self, text: str, filter_labels: list[str] | None) -> list[Entity]:
         """使用 SpaCy 提取实体"""
         doc = self.model(text)
 
@@ -177,7 +175,7 @@ class NERService:
 
         return entities
 
-    async def _extract_with_hanlp(self, text: str, filter_labels: Optional[List[str]]) -> List[Entity]:
+    async def _extract_with_hanlp(self, text: str, filter_labels: list[str] | None) -> list[Entity]:
         """使用 HanLP 提取实体"""
         result = self.model(text, tasks='ner')
 
@@ -202,7 +200,7 @@ class NERService:
 
         return entities
 
-    async def _extract_with_llm(self, text: str, filter_labels: Optional[List[str]]) -> List[Entity]:
+    async def _extract_with_llm(self, text: str, filter_labels: list[str] | None) -> list[Entity]:
         """使用 LLM 提取实体"""
         # TODO: 实现 LLM API 调用
         # 可以使用 OpenAI Function Calling 或 prompt engineering
@@ -211,7 +209,7 @@ class NERService:
         logger.warning("LLM-based NER not fully implemented yet")
         return []
 
-    async def _extract_with_jieba(self, text: str, filter_labels: Optional[List[str]]) -> List[Entity]:
+    async def _extract_with_jieba(self, text: str, filter_labels: list[str] | None) -> list[Entity]:
         """使用 Jieba 提取实体（简化方案）"""
         import jieba.posseg as pseg
 
@@ -219,7 +217,6 @@ class NERService:
         words = pseg.cut(text)
 
         # 名词性词性标记
-        noun_pos = {'n', 'nr', 'ns', 'nt', 'nz', 'ng'}  # 名词、人名、地名、机构名等
 
         entities = []
         start_pos = 0
@@ -252,7 +249,7 @@ class NERService:
 
         return entities
 
-    async def extract_entity_names(self, text: str, min_length: int = 2) -> List[str]:
+    async def extract_entity_names(self, text: str, min_length: int = 2) -> list[str]:
         """
         提取实体名称列表（简化接口）
 
@@ -266,14 +263,14 @@ class NERService:
         entities = await self.extract_entities(text)
 
         # 去重并过滤短实体
-        entity_names = list(set([
+        entity_names = list({
             ent.text for ent in entities
             if len(ent.text) >= min_length
-        ]))
+        })
 
         return entity_names
 
-    def get_supported_labels(self) -> List[str]:
+    def get_supported_labels(self) -> list[str]:
         """获取支持的实体类型"""
         if self.backend == NERBackend.SPACY:
             if self.language == "zh":
@@ -289,7 +286,7 @@ class NERService:
 
 
 # 全局 NER 服务实例
-_ner_service_instance: Optional[NERService] = None
+_ner_service_instance: NERService | None = None
 
 
 async def get_ner_service(backend: str = "jieba", language: str = "zh") -> NERService:

@@ -3,7 +3,7 @@ Agent执行器策略模式
 """
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
 
 
 class ExecutorStrategy(ABC):
@@ -14,9 +14,9 @@ class ExecutorStrategy(ABC):
         self,
         task: str,
         max_steps: int,
-        available_tools: List[Dict],
-        memory: Optional[Dict] = None,
-    ) -> Dict:
+        available_tools: list[dict],
+        memory: dict | None = None,
+    ) -> dict:
         """
         执行任务（非流式）
 
@@ -36,8 +36,8 @@ class ExecutorStrategy(ABC):
         self,
         task: str,
         max_steps: int,
-        available_tools: List[Dict],
-        memory: Optional[Dict] = None,
+        available_tools: list[dict],
+        memory: dict | None = None,
     ) -> AsyncIterator[str]:
         """
         执行任务（流式）
@@ -62,18 +62,18 @@ class ExecutorStrategy(ABC):
 class ExecutorFactory:
     """执行器工厂"""
 
-    def __init__(self):
-        self._executors: Dict[str, ExecutorStrategy] = {}
+    def __init__(self) -> None:
+        self._executors: dict[str, ExecutorStrategy] = {}
 
     def register(self, name: str, executor: ExecutorStrategy) -> None:
         """注册执行器"""
         self._executors[name] = executor
 
-    def get(self, name: str) -> Optional[ExecutorStrategy]:
+    def get(self, name: str) -> ExecutorStrategy | None:
         """获取执行器"""
         return self._executors.get(name)
 
-    def list_available(self) -> List[str]:
+    def list_available(self) -> list[str]:
         """列出可用的执行器"""
         return list(self._executors.keys())
 
@@ -87,7 +87,7 @@ class ExecutorContext:
 
     def __init__(self, factory: ExecutorFactory):
         self._factory = factory
-        self._current_strategy: Optional[ExecutorStrategy] = None
+        self._current_strategy: ExecutorStrategy | None = None
 
     def set_strategy(self, strategy_name: str) -> None:
         """设置当前策略"""
@@ -100,9 +100,9 @@ class ExecutorContext:
         self,
         task: str,
         max_steps: int,
-        available_tools: List[Dict],
-        memory: Optional[Dict] = None,
-    ) -> Dict:
+        available_tools: list[dict],
+        memory: dict | None = None,
+    ) -> dict:
         """执行任务"""
         if self._current_strategy is None:
             raise RuntimeError("No strategy set")
@@ -115,14 +115,14 @@ class ExecutorContext:
         self,
         task: str,
         max_steps: int,
-        available_tools: List[Dict],
-        memory: Optional[Dict] = None,
+        available_tools: list[dict],
+        memory: dict | None = None,
     ) -> AsyncIterator[str]:
         """执行任务（流式）"""
         if self._current_strategy is None:
             raise RuntimeError("No strategy set")
 
-        async for chunk in self._current_strategy.execute_stream(
+        async for chunk in self._current_strategy.execute_stream(  # type: ignore
             task, max_steps, available_tools, memory
         ):
             yield chunk

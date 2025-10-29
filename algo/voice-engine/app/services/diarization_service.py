@@ -4,10 +4,10 @@
 使用Pyannote-audio进行说话人分离，识别音频中的不同说话人
 """
 
+import contextlib
 import logging
 import os
 import tempfile
-from typing import Dict, List, Optional
 
 import numpy as np
 
@@ -19,7 +19,7 @@ class DiarizationService:
 
     def __init__(
         self,
-        use_auth_token: Optional[str] = None,
+        use_auth_token: str | None = None,
         device: str = "cpu",
     ):
         """
@@ -73,9 +73,9 @@ class DiarizationService:
         self,
         audio_data: bytes,
         sample_rate: int = 16000,
-        min_speakers: Optional[int] = None,
-        max_speakers: Optional[int] = None,
-    ) -> Dict:
+        min_speakers: int | None = None,
+        max_speakers: int | None = None,
+    ) -> dict:
         """
         执行说话人分离
 
@@ -125,10 +125,8 @@ class DiarizationService:
                 speakers.add(speaker)
 
             # 清理临时文件
-            try:
+            with contextlib.suppress(Exception):
                 os.unlink(temp_path)
-            except Exception:
-                pass
 
             # 计算音频时长
             duration = max([seg["end"] for seg in segments]) if segments else 0.0
@@ -138,7 +136,7 @@ class DiarizationService:
 
             result = {
                 "segments": segments,
-                "speakers": sorted(list(speakers)),
+                "speakers": sorted(speakers),
                 "total_speakers": len(speakers),
                 "duration": duration,
             }
@@ -173,7 +171,7 @@ class DiarizationService:
             wav_file.setframerate(sample_rate)
             wav_file.writeframes(audio_array.tobytes())
 
-    def _mock_diarization(self, audio_data: bytes, sample_rate: int) -> Dict:
+    def _mock_diarization(self, audio_data: bytes, sample_rate: int) -> dict:
         """
         模拟说话人分离（当Pyannote不可用时）
 
@@ -210,7 +208,7 @@ class DiarizationService:
                 "speaker": speaker,
             })
 
-        speakers = list(set([seg["speaker"] for seg in segments]))
+        speakers = list({seg["speaker"] for seg in segments})
 
         return {
             "segments": segments,
@@ -220,7 +218,7 @@ class DiarizationService:
             "mock": True,
         }
 
-    def diarize_from_file(self, audio_path: str) -> Dict:
+    def diarize_from_file(self, audio_path: str) -> dict:
         """
         从文件执行说话人分离
 
@@ -252,7 +250,7 @@ class DiarizationService:
                 "error": str(e),
             }
 
-    def get_speaker_timeline(self, diarization_result: Dict) -> Dict[str, List[tuple]]:
+    def get_speaker_timeline(self, diarization_result: dict) -> dict[str, list[tuple]]:
         """
         获取每个说话人的时间线
 
@@ -272,7 +270,7 @@ class DiarizationService:
 
         return timeline
 
-    def calculate_speaking_time(self, diarization_result: Dict) -> Dict[str, float]:
+    def calculate_speaking_time(self, diarization_result: dict) -> dict[str, float]:
         """
         计算每个说话人的发言时长
 
@@ -294,7 +292,7 @@ class DiarizationService:
 
         return speaking_time
 
-    def get_speaker_statistics(self, diarization_result: Dict) -> Dict:
+    def get_speaker_statistics(self, diarization_result: dict) -> dict:
         """
         获取说话人统计信息
 
@@ -329,7 +327,7 @@ class DiarizationService:
 
 
 # 全局单例
-_diarization_service: Optional[DiarizationService] = None
+_diarization_service: DiarizationService | None = None
 
 
 def get_diarization_service() -> DiarizationService:

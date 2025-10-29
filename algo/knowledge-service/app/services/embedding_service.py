@@ -11,7 +11,6 @@ import asyncio
 import logging
 import os
 import time
-from typing import Dict, List, Optional, Union
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -44,11 +43,11 @@ class EmbeddingService:
         self.batch_size = batch_size
 
         # 延迟加载模型
-        self.model: Optional[SentenceTransformer] = None
+        self.model: SentenceTransformer | None = None
         self._model_loaded = False
 
         # 缓存
-        self.cache: Dict[str, np.ndarray] = {}
+        self.cache: dict[str, np.ndarray] = {}
         self.cache_hits = 0
         self.cache_misses = 0
 
@@ -81,10 +80,10 @@ class EmbeddingService:
 
     async def encode(
         self,
-        texts: Union[str, List[str]],
+        texts: str | list[str],
         normalize: bool = True,
         show_progress: bool = False
-    ) -> Union[np.ndarray, List[np.ndarray]]:
+    ) -> np.ndarray | list[np.ndarray]:
         """
         文本向量化
 
@@ -144,7 +143,7 @@ class EmbeddingService:
                     )
 
                     # 更新缓存
-                    for text, embedding in zip(uncached_texts, new_embeddings):
+                    for text, embedding in zip(uncached_texts, new_embeddings, strict=False):
                         cache_key = self._get_cache_key(text)
                         self.cache[cache_key] = embedding
 
@@ -198,9 +197,7 @@ class EmbeddingService:
             emb1, emb2 = embeddings[0], embeddings[1]
 
             # 计算相似度
-            if similarity_metric == "cosine":
-                similarity = float(np.dot(emb1, emb2))
-            elif similarity_metric == "dot":
+            if similarity_metric == "cosine" or similarity_metric == "dot":
                 similarity = float(np.dot(emb1, emb2))
             elif similarity_metric == "euclidean":
                 distance = np.linalg.norm(emb1 - emb2)
@@ -217,9 +214,9 @@ class EmbeddingService:
     async def compute_similarities(
         self,
         query_text: str,
-        corpus_texts: List[str],
-        top_k: Optional[int] = None
-    ) -> List[tuple]:
+        corpus_texts: list[str],
+        top_k: int | None = None
+    ) -> list[tuple]:
         """
         计算查询文本与语料库的相似度
 
@@ -260,9 +257,9 @@ class EmbeddingService:
 
     async def batch_encode(
         self,
-        text_batches: List[List[str]],
+        text_batches: list[list[str]],
         normalize: bool = True
-    ) -> List[List[np.ndarray]]:
+    ) -> list[list[np.ndarray]]:
         """
         批量编码（适用于大规模文本）
 
@@ -294,7 +291,7 @@ class EmbeddingService:
         self.cache_misses = 0
         logger.info("Embedding cache cleared")
 
-    def get_cache_stats(self) -> Dict:
+    def get_cache_stats(self) -> dict:
         """获取缓存统计信息"""
         total = self.cache_hits + self.cache_misses
         hit_rate = self.cache_hits / total if total > 0 else 0
@@ -313,7 +310,7 @@ class EmbeddingService:
             return self.model.get_sentence_embedding_dimension()
         return 0
 
-    async def health_check(self) -> Dict:
+    async def health_check(self) -> dict:
         """健康检查"""
         try:
             if not self._model_loaded:
@@ -322,7 +319,7 @@ class EmbeddingService:
             # 测试编码
             test_text = "测试文本"
             start_time = time.time()
-            embedding = await self.encode(test_text)
+            await self.encode(test_text)
             elapsed = time.time() - start_time
 
             return {
@@ -344,7 +341,7 @@ class EmbeddingService:
 
 
 # 全局单例
-_embedding_service_instance: Optional[EmbeddingService] = None
+_embedding_service_instance: EmbeddingService | None = None
 
 
 async def get_embedding_service(

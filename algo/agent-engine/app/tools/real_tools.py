@@ -9,13 +9,13 @@
 """
 
 import ast
+import logging
 import operator as op
 import os
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class SearchTool:
     """网络搜索工具 (基于 SerpAPI)"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         初始化搜索工具
 
@@ -101,7 +101,7 @@ class SearchTool:
 
 注意: 这是模拟结果，请配置 SERPAPI_KEY 以获得真实搜索结果。"""
 
-    def get_definition(self) -> Dict[str, Any]:
+    def get_definition(self) -> dict[str, Any]:
         """获取工具定义（OpenAI Function Calling 格式）"""
         return {
             "name": "search",
@@ -127,7 +127,7 @@ class SearchTool:
 class KnowledgeBaseTool:
     """知识库查询工具"""
 
-    def __init__(self, rag_service_url: Optional[str] = None):
+    def __init__(self, rag_service_url: str | None = None):
         """
         初始化知识库工具
 
@@ -209,7 +209,7 @@ class KnowledgeBaseTool:
 
 注意: RAG 服务未连接，显示模拟结果。请确保 RAG Engine 正在运行。"""
 
-    def get_definition(self) -> Dict[str, Any]:
+    def get_definition(self) -> dict[str, Any]:
         """获取工具定义"""
         return {
             "name": "knowledge_base",
@@ -240,7 +240,7 @@ class KnowledgeBaseTool:
 class WeatherTool:
     """天气查询工具"""
 
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str | None = None):
         """
         初始化天气工具
 
@@ -319,7 +319,7 @@ class WeatherTool:
 
 注意: 这是模拟结果，请配置 OPENWEATHER_API_KEY 以获得真实天气数据。"""
 
-    def get_definition(self) -> Dict[str, Any]:
+    def get_definition(self) -> dict[str, Any]:
         """获取工具定义"""
         return {
             "name": "weather",
@@ -418,7 +418,7 @@ class CalculatorTool:
         else:
             raise ValueError(f"不支持的表达式类型: {type(node).__name__}")
 
-    def get_definition(self) -> Dict[str, Any]:
+    def get_definition(self) -> dict[str, Any]:
         """获取工具定义"""
         return {
             "name": "calculator",
@@ -460,7 +460,7 @@ class CurrentTimeTool:
             logger.error(f"Time tool error: {e}", exc_info=True)
             return f"获取时间失败: {str(e)}"
 
-    def get_definition(self) -> Dict[str, Any]:
+    def get_definition(self) -> dict[str, Any]:
         """获取工具定义"""
         return {
             "name": "current_time",

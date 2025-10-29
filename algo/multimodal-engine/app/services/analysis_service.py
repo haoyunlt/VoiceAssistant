@@ -4,13 +4,12 @@ Image analysis service (综合分析)
 
 import base64
 import io
+import logging
 import time
-from typing import List
 
 import httpx
 from PIL import Image
 
-import logging
 from app.models.multimodal import ImageAnalysisRequest, ImageAnalysisResponse
 from app.services.ocr_service import OCRService
 from app.services.vision_service import VisionService
@@ -54,7 +53,7 @@ class AnalysisService:
     async def analyze_from_bytes(
         self,
         image_data: bytes,
-        tasks: List[str],
+        tasks: list[str],
     ) -> ImageAnalysisResponse:
         """
         从图像字节分析
@@ -126,7 +125,7 @@ class AnalysisService:
             logger.error(f"Failed to get image description: {e}")
             return None
 
-    async def _detect_objects(self, image_data: bytes) -> List[dict]:
+    async def _detect_objects(self, image_data: bytes) -> list[dict]:
         """检测物体"""
         try:
             result = await self.vision_service.understand_from_bytes(
@@ -154,7 +153,7 @@ class AnalysisService:
             logger.error(f"Failed to recognize scene: {e}")
             return None
 
-    def _extract_colors(self, image_data: bytes) -> List[str]:
+    def _extract_colors(self, image_data: bytes) -> list[str]:
         """提取主要颜色"""
         try:
             image = Image.open(io.BytesIO(image_data))
@@ -177,7 +176,7 @@ class AnalysisService:
 
             # 转换为十六进制颜色
             hex_colors = []
-            for count, color in colors[:5]:  # 取前 5 种颜色
+            for _count, color in colors[:5]:  # 取前 5 种颜色
                 if isinstance(color, tuple) and len(color) == 3:
                     hex_color = "#{:02x}{:02x}{:02x}".format(*color)
                     hex_colors.append(hex_color)

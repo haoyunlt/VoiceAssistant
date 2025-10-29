@@ -1,7 +1,7 @@
 """上下文构建器 - Token截断, Prompt模板."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import tiktoken
 
@@ -54,9 +54,9 @@ class ContextBuilder:
 
     def truncate_chunks(
         self,
-        chunks: List[Dict[str, Any]],
-        max_tokens: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        chunks: list[dict[str, Any]],
+        max_tokens: int | None = None,
+    ) -> list[dict[str, Any]]:
         """
         截断分块列表以适应token限制.
 
@@ -128,9 +128,9 @@ class ContextBuilder:
 
     def build_context(
         self,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
         include_metadata: bool = True,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
     ) -> str:
         """
         构建上下文字符串.
@@ -167,7 +167,7 @@ class ContextBuilder:
         context = self.chunk_delimiter.join(context_parts)
         return context
 
-    def _format_metadata(self, metadata: Dict[str, Any]) -> str:
+    def _format_metadata(self, metadata: dict[str, Any]) -> str:
         """
         格式化元数据为可读字符串.
 
@@ -196,9 +196,9 @@ class ContextBuilder:
         self,
         query: str,
         context: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
         include_instructions: bool = True,
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """
         构建完整的Prompt消息列表.
 
@@ -244,7 +244,7 @@ Question: {query}"""
         self,
         query: str,
         context: str,
-        system_prompt: Optional[str] = None,
+        system_prompt: str | None = None,
     ) -> int:
         """
         估算完整prompt的token数.

@@ -2,20 +2,21 @@
 Qwen (通义千问) Adapter
 """
 
-from typing import AsyncIterator, Dict, Any, Optional, List
-import httpx
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime
 
-from ...models.chat import ChatRequest, ChatResponse, Message, Choice, Usage
+import httpx
+
+from app.models.chat import ChatRequest, ChatResponse, Choice, Message, Usage
 
 logger = logging.getLogger(__name__)
 
 
 class QwenAdapter:
     """Qwen (通义千问) adapter"""
-    
+
     def __init__(self, api_key: str, base_url: str = "https://dashscope.aliyuncs.com/api/v1"):
         self.api_key = api_key
         self.base_url = base_url
@@ -28,7 +29,7 @@ class QwenAdapter:
             "qwen-vl-plus",
             "qwen-vl-max"
         ]
-        
+
     async def chat(
         self,
         request: ChatRequest,
@@ -50,35 +51,35 @@ class QwenAdapter:
                     "max_tokens": request.max_tokens or 2048,
                 }
             }
-            
+
             if request.top_p:
                 qwen_request["parameters"]["top_p"] = request.top_p
-                
+
             # Send request
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json"
             }
-            
+
             response = await self.client.post(
                 f"{self.base_url}/services/aigc/text-generation/generation",
                 json=qwen_request,
                 headers=headers
             )
-            
+
             response.raise_for_status()
             result = response.json()
-            
+
             # Convert to standard format
             return self._convert_response(result, request.model)
-            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"Qwen API HTTP error: {e}")
             raise
         except Exception as e:
             logger.error(f"Qwen chat completion failed: {e}")
             raise
-            
+
     async def chat_stream(
         self,
         request: ChatRequest,
@@ -101,17 +102,17 @@ class QwenAdapter:
                     "incremental_output": True
                 }
             }
-            
+
             if request.top_p:
                 qwen_request["parameters"]["top_p"] = request.top_p
-                
+
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
                 "X-DashScope-SSE": "enable"
             }
-            
+
             async with self.client.stream(
                 "POST",
                 f"{self.base_url}/services/aigc/text-generation/generation",
@@ -119,14 +120,14 @@ class QwenAdapter:
                 headers=headers
             ) as response:
                 response.raise_for_status()
-                
+
                 async for line in response.aiter_lines():
                     if line.startswith("data:"):
                         data = line[5:].strip()
-                        
+
                         if not data or data == "[DONE]":
                             continue
-                            
+
                         try:
                             chunk = json.loads(data)
                             content = self._extract_stream_content(chunk)
@@ -134,19 +135,19 @@ class QwenAdapter:
                                 yield content
                         except json.JSONDecodeError:
                             continue
-                            
+
         except httpx.HTTPStatusError as e:
             logger.error(f"Qwen streaming HTTP error: {e}")
             raise
         except Exception as e:
             logger.error(f"Qwen streaming failed: {e}")
             raise
-            
-    def _convert_response(self, result: Dict, model: str) -> ChatResponse:
+
+    def _convert_response(self, result: dict, model: str) -> ChatResponse:
         """Convert Qwen response to standard format"""
         output = result.get("output", {})
         text = output.get("text", "")
-        
+
         choices = [Choice(
             index=0,
             message=Message(
@@ -155,14 +156,14 @@ class QwenAdapter:
             ),
             finish_reason=output.get("finish_reason", "stop")
         )]
-        
+
         usage_data = result.get("usage", {})
         usage = Usage(
             prompt_tokens=usage_data.get("input_tokens", 0),
             completion_tokens=usage_data.get("output_tokens", 0),
             total_tokens=usage_data.get("total_tokens", 0)
         )
-        
+
         return ChatResponse(
             id=result.get("request_id", ""),
             object="chat.completion",
@@ -171,8 +172,8 @@ class QwenAdapter:
             choices=choices,
             usage=usage
         )
-        
-    def _extract_stream_content(self, chunk: Dict) -> Optional[str]:
+
+    def _extract_stream_content(self, chunk: dict) -> str | None:
         """Extract content from stream chunk"""
         try:
             output = chunk.get("output", {})
@@ -180,11 +181,11 @@ class QwenAdapter:
         except Exception:
             pass
         return None
-        
+
     async def close(self):
         """Close HTTP client"""
         await self.client.aclose()
-        
-    def get_supported_models(self) -> List[str]:
+
+    def get_supported_models(self) -> list[str]:
         """Get list of supported models"""
         return self.supported_models

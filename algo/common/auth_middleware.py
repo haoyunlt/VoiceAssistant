@@ -10,7 +10,7 @@
 
 import logging
 import os
-from typing import Callable, List, Optional, Set
+from collections.abc import Callable
 
 import httpx
 from fastapi import Request, status
@@ -33,7 +33,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         self,
         app,
         identity_service_url: str,
-        excluded_paths: Optional[Set[str]] = None,
+        excluded_paths: set[str] | None = None,
         require_auth: bool = True,
         timeout: float = 2.0,
     ):
@@ -160,12 +160,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return True
 
         # 检查路径前缀
-        if any(path.startswith(prefix) for prefix in ["/static/", "/docs", "/redoc"]):
-            return True
+        return bool(any(path.startswith(prefix) for prefix in ["/static/", "/docs", "/redoc"]))
 
-        return False
-
-    def _extract_token(self, request: Request) -> Optional[str]:
+    def _extract_token(self, request: Request) -> str | None:
         """
         从请求中提取 Token
 
@@ -191,7 +188,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         return None
 
-    async def _verify_token(self, token: str) -> Optional[dict]:
+    async def _verify_token(self, token: str) -> dict | None:
         """
         验证 Token
 
@@ -301,7 +298,7 @@ def get_current_user(request: Request) -> dict:
     }
 
 
-def get_current_tenant_id(request: Request) -> Optional[str]:
+def get_current_tenant_id(request: Request) -> str | None:
     """
     获取当前租户ID
 
@@ -315,7 +312,6 @@ def get_current_tenant_id(request: Request) -> Optional[str]:
 
 
 # 依赖注入（FastAPI Depends）
-from fastapi import Depends
 
 
 def require_auth(request: Request) -> dict:
@@ -330,7 +326,7 @@ def require_auth(request: Request) -> dict:
     return get_current_user(request)
 
 
-def optional_auth(request: Request) -> Optional[dict]:
+def optional_auth(request: Request) -> dict | None:
     """
     FastAPI 依赖：可选认证
 

@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -41,13 +40,13 @@ class DetectChangesRequest(BaseModel):
 
     document_id: str = Field(..., description="文档ID")
     content: str = Field(..., description="文档内容")
-    chunks: List[str] = Field(..., description="分块列表")
+    chunks: list[str] = Field(..., description="分块列表")
 
 
 class BulkCheckRequest(BaseModel):
     """批量检查请求"""
 
-    documents: List[dict] = Field(
+    documents: list[dict] = Field(
         ..., description="文档列表，每个文档包含 {id, content}"
     )
 
@@ -57,8 +56,8 @@ class IncrementalUpdateRequest(BaseModel):
 
     document_id: str = Field(..., description="文档ID")
     content: str = Field(..., description="文档内容")
-    chunks: List[str] = Field(..., description="分块列表")
-    metadata: Optional[dict] = Field(None, description="元数据")
+    chunks: list[str] = Field(..., description="分块列表")
+    metadata: dict | None = Field(None, description="元数据")
 
 
 @router.post("/detect-changes")

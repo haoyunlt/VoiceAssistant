@@ -5,29 +5,24 @@
 import logging
 from datetime import datetime
 
+from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+
 from app.core.exceptions import (
     AgentEngineException,
     AuthenticationError,
     AuthorizationError,
-    ConfigurationError,
     LLMError,
     LLMTimeoutError,
-    MemoryError,
     RateLimitExceededError,
     ResourceNotFoundError,
     ServiceNotInitializedException,
-    TaskExecutionError,
-    ToolExecutionError,
     ToolNotFoundError,
-    ToolRegistrationError,
 )
 from app.core.exceptions import (
     ValidationError as CustomValidationError,
 )
-from fastapi import Request, status
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -116,10 +111,9 @@ async def validation_error_handler(
         error_code=exc.error_code,
         message=exc.message,
         status_code=status.HTTP_400_BAD_REQUEST,
-        detail=f"Field: {exc.field}" if exc.field else None,
+        detail=f"Field: {exc.field}" if exc.field else "",
         request_id=request.headers.get("X-Request-ID")
     )
-
 
 async def pydantic_validation_error_handler(
     request: Request,
@@ -259,7 +253,7 @@ async def llm_timeout_handler(
         error_code=exc.error_code,
         message="LLM request timeout",
         status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-        detail=f"Provider: {exc.provider}" if exc.provider else None,
+        detail=f"Provider: {exc.provider}" if exc.provider else "",
         request_id=request.headers.get("X-Request-ID")
     )
 

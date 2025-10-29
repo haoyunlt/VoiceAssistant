@@ -1,8 +1,5 @@
 """对象存储服务（MinIO）"""
 import logging
-from typing import Any
-
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

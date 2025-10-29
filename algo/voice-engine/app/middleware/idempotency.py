@@ -2,9 +2,8 @@
 幂等性中间件 - 防止重复请求
 """
 
-import hashlib
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

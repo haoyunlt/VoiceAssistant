@@ -2,10 +2,8 @@
 Hybrid search service (Vector + BM25 + RRF)
 """
 
-from typing import Dict, List
-
-from app.core.config import settings
 import logging
+
 from app.models.retrieval import RetrievalDocument
 
 logger = logging.getLogger(__name__)
@@ -23,10 +21,10 @@ class HybridService:
 
     async def fuse_results(
         self,
-        vector_docs: List[RetrievalDocument],
-        bm25_docs: List[RetrievalDocument],
+        vector_docs: list[RetrievalDocument],
+        bm25_docs: list[RetrievalDocument],
         top_k: int,
-    ) -> List[RetrievalDocument]:
+    ) -> list[RetrievalDocument]:
         """
         使用 RRF (Reciprocal Rank Fusion) 融合向量和 BM25 检索结果
 
@@ -43,8 +41,8 @@ class HybridService:
         logger.info(f"Fusing results: vector={len(vector_docs)}, bm25={len(bm25_docs)}")
 
         # 计算 RRF 分数
-        rrf_scores: Dict[str, float] = {}
-        doc_map: Dict[str, RetrievalDocument] = {}
+        rrf_scores: dict[str, float] = {}
+        doc_map: dict[str, RetrievalDocument] = {}
 
         # 向量检索结果
         for rank, doc in enumerate(vector_docs, start=1):

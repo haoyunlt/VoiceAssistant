@@ -6,7 +6,6 @@
 
 import hashlib
 import logging
-from typing import Dict, List
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
@@ -37,7 +36,7 @@ class DocumentChunker:
 
         logger.info(f"Document chunker initialized: chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
 
-    async def chunk(self, text: str, document_id: str) -> List[Dict]:
+    async def chunk(self, text: str, document_id: str) -> list[dict]:
         """
         分块文档
 
@@ -129,7 +128,7 @@ class AdaptiveChunker(DocumentChunker):
             },
         }
 
-    async def chunk(self, text: str, document_id: str, doc_type: str = "general") -> List[Dict]:
+    async def chunk(self, text: str, document_id: str, doc_type: str = "general") -> list[dict]:
         """
         自适应分块
 

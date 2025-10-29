@@ -7,7 +7,6 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class Agent:
     """Agent 定义"""
     name: str
     role: AgentRole
-    capabilities: List[str]
+    capabilities: list[str]
     llm_model: str = "gpt-4-turbo-preview"
     temperature: float = 0.7
     max_tokens: int = 2000
@@ -40,7 +39,7 @@ class AgentMessage:
     to_agent: str
     content: str
     message_type: str  # "request", "response", "broadcast"
-    metadata: Dict = None
+    metadata: dict = None
 
 
 class MultiAgentCoordinator:
@@ -51,9 +50,9 @@ class MultiAgentCoordinator:
 
     def __init__(self, llm_client_url: str = "http://model-adapter:8005"):
         self.llm_client_url = llm_client_url
-        self.agents: Dict[str, Agent] = {}
+        self.agents: dict[str, Agent] = {}
         self.message_queue: asyncio.Queue = asyncio.Queue()
-        self.agent_states: Dict[str, str] = {}  # agent_name -> state
+        self.agent_states: dict[str, str] = {}  # agent_name -> state
 
     def register_agent(self, agent: Agent):
         """
@@ -69,8 +68,8 @@ class MultiAgentCoordinator:
     async def execute_collaborative_task(
         self,
         task: str,
-        required_roles: List[AgentRole] = None
-    ) -> Dict:
+        required_roles: list[AgentRole] = None
+    ) -> dict:
         """
         协作执行任务
 
@@ -100,7 +99,7 @@ class MultiAgentCoordinator:
         logger.info("Collaborative task completed")
         return final_result
 
-    async def _decompose_task(self, task: str) -> List[Dict]:
+    async def _decompose_task(self, task: str) -> list[dict]:
         """
         任务分解
         使用 Planner Agent 分解任务
@@ -189,9 +188,9 @@ class MultiAgentCoordinator:
 
     async def _assign_tasks(
         self,
-        subtasks: List[Dict],
-        required_roles: List[AgentRole] = None
-    ) -> List[Tuple[Agent, Dict]]:
+        subtasks: list[dict],
+        required_roles: list[AgentRole] = None
+    ) -> list[tuple[Agent, dict]]:
         """
         分配任务给 Agent
 
@@ -225,8 +224,8 @@ class MultiAgentCoordinator:
 
     async def _execute_assignments(
         self,
-        assignments: List[Tuple[Agent, Dict]]
-    ) -> List[Dict]:
+        assignments: list[tuple[Agent, dict]]
+    ) -> list[dict]:
         """
         执行分配的任务
 
@@ -284,7 +283,7 @@ class MultiAgentCoordinator:
 
         return results
 
-    async def _execute_subtask(self, agent: Agent, subtask: Dict) -> Dict:
+    async def _execute_subtask(self, agent: Agent, subtask: dict) -> dict:
         """
         执行单个子任务
 
@@ -354,7 +353,7 @@ class MultiAgentCoordinator:
         finally:
             self.agent_states[agent.name] = "idle"
 
-    async def _merge_results(self, original_task: str, results: List[Dict]) -> Dict:
+    async def _merge_results(self, original_task: str, results: list[dict]) -> dict:
         """
         合并所有 Agent 的结果
 
@@ -414,14 +413,14 @@ class MultiAgentCoordinator:
             "success": all(r.get("success") for r in results)
         }
 
-    def _find_agent_by_role(self, role: AgentRole) -> Optional[Agent]:
+    def _find_agent_by_role(self, role: AgentRole) -> Agent | None:
         """查找指定角色的 Agent"""
         for agent in self.agents.values():
             if agent.role == role:
                 return agent
         return None
 
-    def get_agent_status(self) -> Dict:
+    def get_agent_status(self) -> dict:
         """获取所有 Agent 的状态"""
         return {
             "agents": [

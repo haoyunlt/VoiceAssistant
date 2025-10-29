@@ -2,9 +2,9 @@
 Multi-Agent Collaboration Framework
 """
 
-from .coordinator import MultiAgentCoordinator, Agent, AgentRole, Message
-from .communication import MessageBus, MessageRouter
-from .conflict_resolver import ConflictResolver
+from app.core.multi_agent.communication import MessageBus, MessageRouter
+from app.core.multi_agent.conflict_resolver import ConflictResolver
+from app.core.multi_agent.coordinator import Agent, AgentRole, Message, MultiAgentCoordinator
 
 __all__ = [
     'MultiAgentCoordinator',

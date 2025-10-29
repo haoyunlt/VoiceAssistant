@@ -4,11 +4,10 @@
 支持动态注册、注销和执行工具
 """
 
-from typing import Any, Dict, List, Optional
-
 import logging
+from typing import Any
+
 from app.tools.real_tools import (
-    ALL_TOOLS,
     CalculatorTool,
     CurrentTimeTool,
     KnowledgeBaseTool,
@@ -24,7 +23,7 @@ class DynamicToolRegistry:
 
     def __init__(self):
         """初始化工具注册表"""
-        self.tools: Dict[str, Any] = {}
+        self.tools: dict[str, Any] = {}
         self._init_builtin_tools()
 
         logger.info(
@@ -81,7 +80,7 @@ class DynamicToolRegistry:
             logger.warning(f"Tool '{tool_name}' not found, cannot unregister")
 
     async def execute_tool(
-        self, tool_name: str, parameters: Dict[str, Any]
+        self, tool_name: str, parameters: dict[str, Any]
     ) -> str:
         """
         执行工具
@@ -115,7 +114,7 @@ class DynamicToolRegistry:
             logger.error(f"Tool '{tool_name}' execution failed: {e}", exc_info=True)
             return f"工具执行失败: {str(e)}"
 
-    def list_tools(self) -> List[Dict[str, Any]]:
+    def list_tools(self) -> list[dict[str, Any]]:
         """
         列出所有工具
 
@@ -124,7 +123,7 @@ class DynamicToolRegistry:
         """
         return [tool["definition"] for tool in self.tools.values()]
 
-    def get_tool_definitions_for_llm(self) -> List[Dict[str, Any]]:
+    def get_tool_definitions_for_llm(self) -> list[dict[str, Any]]:
         """
         获取 OpenAI Function Calling 格式的工具定义
 
@@ -147,7 +146,7 @@ class DynamicToolRegistry:
             for tool in self.tools.values()
         ]
 
-    def get_tool_names(self) -> List[str]:
+    def get_tool_names(self) -> list[str]:
         """
         获取所有工具名称
 
@@ -156,7 +155,7 @@ class DynamicToolRegistry:
         """
         return list(self.tools.keys())
 
-    def get_tool_info(self, tool_name: str) -> Optional[Dict[str, Any]]:
+    def get_tool_info(self, tool_name: str) -> dict[str, Any] | None:
         """
         获取工具信息
 
@@ -209,7 +208,7 @@ class DynamicToolRegistry:
 
 
 # 全局工具注册表实例（单例）
-_tool_registry_instance: Optional[DynamicToolRegistry] = None
+_tool_registry_instance: DynamicToolRegistry | None = None
 
 
 def get_tool_registry() -> DynamicToolRegistry:

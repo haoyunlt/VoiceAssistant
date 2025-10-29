@@ -8,7 +8,6 @@
 """
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
 
 from app.services.version_manager import VersionChange, VersionManager
 
@@ -48,11 +47,11 @@ class IncrementalIndexer:
         self,
         document_id: str,
         content: str,
-        metadata: Dict,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        metadata: dict,
+        tenant_id: str | None = None,
+        user_id: str | None = None,
         force_reindex: bool = False
-    ) -> Dict:
+    ) -> dict:
         """
         带版本检查的文档处理
 
@@ -161,12 +160,12 @@ class IncrementalIndexer:
         self,
         document_id: str,
         content: str,
-        metadata: Dict,
+        metadata: dict,
         content_hash: str,
         metadata_hash: str,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None
-    ) -> Dict:
+        tenant_id: str | None = None,
+        user_id: str | None = None
+    ) -> dict:
         """
         完全重新索引
 
@@ -222,11 +221,11 @@ class IncrementalIndexer:
     async def _update_metadata_only(
         self,
         document_id: str,
-        metadata: Dict,
+        metadata: dict,
         metadata_hash: str,
         content_hash: str,
-        tenant_id: Optional[str] = None
-    ) -> Dict:
+        tenant_id: str | None = None
+    ) -> dict:
         """
         只更新元数据（内容未变化）
 
@@ -238,13 +237,19 @@ class IncrementalIndexer:
         logger.info(f"Updating metadata only for document {document_id}")
 
         try:
-            # TODO: 实际实现中应该更新向量存储和图谱中的元数据
-            # await self.vector_store.update_metadata(document_id, metadata)
-            # await self.neo4j_client.update_document_metadata(document_id, metadata)
-
             # 获取当前版本信息
             current_version = await self.version_manager.get_current_version(
                 document_id, tenant_id
+            )
+
+            # 注意：向量存储和图谱通常不支持单独更新元数据
+            # 当前策略：仅更新版本管理中的元数据哈希
+            # 实际元数据存储在向量和图谱节点属性中，需要完全重索引才能更新
+            # 这是一个权衡：元数据变更通常不影响检索，可延迟到内容更新时统一处理
+
+            logger.info(
+                f"Metadata change detected for {document_id}, "
+                "version tracking updated (note: vector/graph metadata unchanged)"
             )
 
             # 保存新版本（内容哈希不变，只有元数据哈希变化）
@@ -261,7 +266,8 @@ class IncrementalIndexer:
                 "status": "updated",
                 "document_id": document_id,
                 "version": new_version.version,
-                "operation": "metadata_only"
+                "operation": "metadata_only",
+                "note": "metadata hash tracked; actual storage unchanged until content reindex"
             }
 
         except Exception as e:
@@ -271,7 +277,7 @@ class IncrementalIndexer:
     async def _delete_old_data(
         self,
         document_id: str,
-        tenant_id: Optional[str] = None
+        tenant_id: str | None = None
     ):
         """
         删除旧的索引数据
@@ -279,27 +285,69 @@ class IncrementalIndexer:
         包括：
         - 向量数据
         - 图谱数据
-        - BM25索引
+        - BM25索引（如有）
         """
         logger.info(f"Deleting old data for document {document_id}")
 
+        errors = []
+
+        # 1. 删除向量数据（通过统一客户端）
         try:
-            # TODO: 实现实际的删除逻辑
-            # await self.vector_store.delete_by_document(document_id)
-            # await self.neo4j_client.delete_document_nodes(document_id)
-            # await self.bm25_index.delete_document(document_id)
+            from pathlib import Path
+            import sys
 
-            logger.info(f"Old data deleted for document {document_id}")
+            # 添加 common 路径
+            common_path = Path(__file__).parent.parent.parent.parent / "common"
+            if str(common_path) not in sys.path:
+                sys.path.insert(0, str(common_path))
 
+            from vector_store_client import VectorStoreClient
+
+            vector_client = VectorStoreClient()
+            await vector_client.delete_by_document(document_id)
+            logger.info(f"Deleted vectors for document {document_id}")
         except Exception as e:
-            logger.warning(f"Failed to delete old data for {document_id}: {e}")
-            # 不抛出异常，继续流程
+            errors.append(f"vector deletion: {e}")
+            logger.warning(f"Failed to delete vectors for {document_id}: {e}")
+
+        # 2. 删除图谱节点
+        try:
+            from app.infrastructure.neo4j_client import Neo4jClient
+            import os
+
+            neo4j_client = Neo4jClient(
+                uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+                user=os.getenv("NEO4J_USER", "neo4j"),
+                password=os.getenv("NEO4J_PASSWORD", "voiceassistant"),
+            )
+
+            # 同步方法，使用线程池
+            import asyncio
+            loop = asyncio.get_running_loop()
+            deleted_count = await loop.run_in_executor(
+                None,
+                neo4j_client.delete_document_nodes,
+                document_id
+            )
+
+            neo4j_client.close()
+            logger.info(f"Deleted {deleted_count} graph nodes for document {document_id}")
+        except Exception as e:
+            errors.append(f"graph deletion: {e}")
+            logger.warning(f"Failed to delete graph nodes for {document_id}: {e}")
+
+        if errors:
+            logger.warning(
+                f"Partial deletion for {document_id}, errors: {'; '.join(errors)}"
+            )
+        else:
+            logger.info(f"Old data deleted for document {document_id}")
 
     async def batch_check_updates(
         self,
-        documents: List[Tuple[str, str, Dict]],  # [(doc_id, content, metadata), ...]
-        tenant_id: Optional[str] = None
-    ) -> Dict:
+        documents: list[tuple[str, str, dict]],  # [(doc_id, content, metadata), ...]
+        tenant_id: str | None = None
+    ) -> dict:
         """
         批量检查文档更新
 
@@ -356,8 +404,8 @@ class IncrementalIndexer:
     async def delete_document(
         self,
         document_id: str,
-        tenant_id: Optional[str] = None
-    ) -> Dict:
+        tenant_id: str | None = None
+    ) -> dict:
         """
         删除文档
 
@@ -395,7 +443,7 @@ class IncrementalIndexer:
                 "document_id": document_id
             }
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """获取统计信息"""
         return {
             **self.stats,

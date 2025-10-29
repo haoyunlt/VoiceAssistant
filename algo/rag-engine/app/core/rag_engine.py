@@ -6,8 +6,8 @@ import json
 import logging
 import sys
 import time
+from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import AsyncIterator, Dict, List, Optional
 
 from app.core.context_builder import ContextBuilder
 from app.core.prompt_generator import PromptGenerator
@@ -80,7 +80,7 @@ class RAGEngine:
         top_k: int = 5,
         temperature: float = 0.7,
         include_sources: bool = True,
-    ) -> Dict:
+    ) -> dict:
         """
         生成答案（非流式）
 
@@ -126,10 +126,7 @@ class RAGEngine:
             )
 
             # 6. 后处理：提取引用来源
-            if include_sources:
-                sources = self._extract_sources(retrieved_docs)
-            else:
-                sources = []
+            sources = self._extract_sources(retrieved_docs) if include_sources else []
 
             # 更新统计
             generation_time = time.time() - start_time
@@ -250,17 +247,81 @@ class RAGEngine:
         # 获取对话历史（如果有）
         conversation_history = []
         if conversation_id:
-            # TODO: 从 Conversation Service 获取历史
-            pass
+            try:
+                conversation_history = await self._fetch_conversation_history(
+                    conversation_id, max_messages=5
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to fetch conversation history for {conversation_id}: {e}"
+                )
+                conversation_history = []
 
         # 执行查询改写
         rewritten = await self.query_rewriter.rewrite(query, conversation_history)
 
         return rewritten
 
+    async def _fetch_conversation_history(
+        self, conversation_id: str, max_messages: int = 5
+    ) -> list[dict]:
+        """
+        从 Conversation Service 获取对话历史
+
+        Args:
+            conversation_id: 对话 ID
+            max_messages: 最大消息数
+
+        Returns:
+            消息列表 [{"role": "user"|"assistant", "content": "..."}]
+        """
+        try:
+            import httpx
+            import os
+
+            # 获取 Conversation Service 地址
+            conv_service_url = os.getenv(
+                "CONVERSATION_SERVICE_URL",
+                "http://conversation-service:8002"
+            )
+
+            # 调用 API 获取消息
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(
+                    f"{conv_service_url}/api/v1/conversations/{conversation_id}/messages",
+                    params={
+                        "limit": max_messages,
+                        "order": "desc"  # 最近的消息
+                    }
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                messages = data.get("messages", [])
+
+                # 转换为标准格式
+                history = []
+                for msg in reversed(messages):  # 反转为时间正序
+                    history.append({
+                        "role": msg.get("role", "user"),
+                        "content": msg.get("content", "")
+                    })
+
+                logger.info(
+                    f"Fetched {len(history)} messages from conversation {conversation_id}"
+                )
+                return history
+
+        except httpx.HTTPError as e:
+            logger.error(f"HTTP error fetching conversation history: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to fetch conversation history: {e}", exc_info=True)
+            raise
+
     async def _retrieve_documents(
         self, query: str, tenant_id: str, top_k: int, mode: str
-    ) -> List[Dict]:
+    ) -> list[dict]:
         """检索相关文档"""
         # 根据模式选择检索策略
         retrieval_mode = self._get_retrieval_mode(mode)
@@ -285,7 +346,7 @@ class RAGEngine:
         }
         return mapping.get(rag_mode, "vector")
 
-    async def _build_context(self, documents: List[Dict], query: str) -> str:
+    async def _build_context(self, documents: list[dict], query: str) -> str:
         """构建上下文"""
         context = await self.context_builder.build(documents, query)
         return context
@@ -299,7 +360,7 @@ class RAGEngine:
         )
         return prompt
 
-    def _extract_sources(self, documents: List[Dict]) -> List[Dict]:
+    def _extract_sources(self, documents: list[dict]) -> list[dict]:
         """提取引用来源"""
         sources = []
         for doc in documents:
@@ -311,7 +372,7 @@ class RAGEngine:
             })
         return sources
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取统计信息"""
         return {
             **self.stats,

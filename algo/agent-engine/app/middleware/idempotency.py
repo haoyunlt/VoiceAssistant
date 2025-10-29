@@ -1,16 +1,15 @@
-"""
-幂等性中间件
-"""
+"""幂等性中间件实现。"""
 
 import asyncio
 import hashlib
 import json
 import time
-from collections import defaultdict
-from typing import Optional
+from collections.abc import Awaitable, Callable
+from functools import wraps
+from typing import Any
 
-from fastapi import Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import Request, Response  # type: ignore[import]
+from fastapi.responses import JSONResponse  # type: ignore[import]
 
 
 class IdempotencyStore:
@@ -18,18 +17,18 @@ class IdempotencyStore:
     幂等性存储（内存实现，生产环境应使用 Redis）
     """
 
-    def __init__(self, ttl_seconds: int = 300):
+    def __init__(self, ttl_seconds: int = 300) -> None:
         """
         初始化幂等性存储
 
         Args:
             ttl_seconds: 幂等键 TTL（秒）
         """
-        self.store = {}
+        self.store: dict[str, dict[str, Any]] = {}
         self.ttl_seconds = ttl_seconds
         self.lock = asyncio.Lock()
 
-    async def get(self, key: str) -> Optional[dict]:
+    async def get(self, key: str) -> dict[str, Any] | None:
         """获取幂等性响应"""
         async with self.lock:
             data = self.store.get(key)
@@ -42,20 +41,18 @@ class IdempotencyStore:
                     del self.store[key]
             return None
 
-    async def set(self, key: str, response: dict):
+    async def set(self, key: str, response: dict[str, Any]) -> None:
         """保存幂等性响应"""
         async with self.lock:
-            self.store[key] = {
-                "response": response,
-                "timestamp": time.time()
-            }
+            self.store[key] = {"response": response, "timestamp": time.time()}
 
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """清理过期数据"""
         async with self.lock:
             now = time.time()
             expired_keys = [
-                key for key, data in self.store.items()
+                key
+                for key, data in self.store.items()
                 if now - data["timestamp"] >= self.ttl_seconds
             ]
             for key in expired_keys:
@@ -73,7 +70,7 @@ class IdempotencyMiddleware:
     基于幂等键（Idempotency-Key）防止重复请求
     """
 
-    def __init__(self, ttl_seconds: int = 300):
+    def __init__(self, ttl_seconds: int = 300) -> None:
         """
         初始化幂等性中间件
 
@@ -90,10 +87,7 @@ class IdempotencyMiddleware:
 
         # 跳过特定路径
         skip_paths = ["/health", "/ready", "/metrics"]
-        if request.url.path in skip_paths:
-            return False
-
-        return True
+        return request.url.path not in skip_paths
 
     def _generate_key(self, request: Request, idempotency_key: str) -> str:
         """
@@ -110,16 +104,15 @@ class IdempotencyMiddleware:
         tenant_id = request.headers.get("X-Tenant-ID", "default")
         user_id = request.headers.get("X-User-ID", "anonymous")
 
-        key_parts = [
-            tenant_id,
-            user_id,
-            request.url.path,
-            idempotency_key
-        ]
+        key_parts = [tenant_id, user_id, request.url.path, idempotency_key]
 
         return hashlib.sha256(":".join(key_parts).encode()).hexdigest()
 
-    async def __call__(self, request: Request, call_next):
+    async def __call__(
+        self,
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
         """处理请求"""
         # 检查是否需要幂等性检查
         if not self._should_check_idempotency(request):
@@ -141,10 +134,7 @@ class IdempotencyMiddleware:
             return JSONResponse(
                 status_code=cached_response["status_code"],
                 content=cached_response["content"],
-                headers={
-                    **cached_response.get("headers", {}),
-                    "X-Idempotency-Replay": "true"
-                }
+                headers={**cached_response.get("headers", {}), "X-Idempotency-Replay": "true"},
             )
 
         # 处理请求
@@ -161,7 +151,7 @@ class IdempotencyMiddleware:
             cached_data = {
                 "status_code": response.status_code,
                 "content": json.loads(response_body) if response_body else {},
-                "headers": dict(response.headers)
+                "headers": dict(response.headers),
             }
             await idempotency_store.set(full_key, cached_data)
 
@@ -170,13 +160,15 @@ class IdempotencyMiddleware:
                 content=response_body,
                 status_code=response.status_code,
                 headers=dict(response.headers),
-                media_type=response.media_type
+                media_type=response.media_type,
             )
 
         return response
 
 
-def idempotent(ttl_seconds: int = 300):
+def idempotent(
+    ttl_seconds: int = 300,
+) -> Callable[[Callable[..., Awaitable[Any]]], Callable[..., Awaitable[Any]]]:
     """
     路由级别的幂等性装饰器
 
@@ -186,9 +178,15 @@ def idempotent(ttl_seconds: int = 300):
     Returns:
         装饰器函数
     """
-    def decorator(func):
-        async def wrapper(*args, **kwargs):
+
+    def decorator(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+        _ = ttl_seconds  # 保留参数以便后续扩展
+
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
             # TODO: 实现路由级别的幂等性逻辑
             return await func(*args, **kwargs)
+
         return wrapper
+
     return decorator

@@ -1,9 +1,8 @@
 """Anthropic (Claude)适配器"""
-import json
 import logging
 import time
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 

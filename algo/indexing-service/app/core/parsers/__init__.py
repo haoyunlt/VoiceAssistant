@@ -15,14 +15,14 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from .base import BaseParser
-from .excel_parser import ExcelParser
-from .html_parser import HTMLParser
-from .markdown_parser import MarkdownParser
-from .pdf_parser import PDFParser
-from .ppt_parser import PowerPointParser
-from .text_parser import TextParser
-from .word_parser import WordParser
+from app.core.parsers.base import BaseParser
+from app.core.parsers.excel_parser import ExcelParser
+from app.core.parsers.html_parser import HTMLParser
+from app.core.parsers.markdown_parser import MarkdownParser
+from app.core.parsers.pdf_parser import PDFParser
+from app.core.parsers.ppt_parser import PowerPointParser
+from app.core.parsers.text_parser import TextParser
+from app.core.parsers.word_parser import WordParser
 
 logger = logging.getLogger(__name__)
 

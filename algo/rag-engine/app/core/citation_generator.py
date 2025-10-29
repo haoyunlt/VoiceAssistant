@@ -2,7 +2,7 @@
 
 import logging
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ class CitationGenerator:
         """
         self.citation_format = citation_format
 
-    def extract_citations(self, answer: str) -> List[int]:
+    def extract_citations(self, answer: str) -> list[int]:
         """
         从答案中提取引用标记.
 
@@ -37,10 +37,10 @@ class CitationGenerator:
 
     def generate_citations(
         self,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
         answer: str,
         include_all: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         生成引用列表.
 
@@ -56,10 +56,7 @@ class CitationGenerator:
             - metadata: 元数据
             - url: 下载链接 (如果有)
         """
-        if include_all:
-            cited_indices = list(range(len(chunks)))
-        else:
-            cited_indices = self.extract_citations(answer)
+        cited_indices = list(range(len(chunks))) if include_all else self.extract_citations(answer)
 
         citations = []
 
@@ -86,7 +83,7 @@ class CitationGenerator:
 
     def format_citations(
         self,
-        citations: List[Dict[str, Any]],
+        citations: list[dict[str, Any]],
         format_type: str = "markdown",
     ) -> str:
         """
@@ -109,7 +106,7 @@ class CitationGenerator:
         else:
             return self._format_plain(citations)
 
-    def _format_markdown(self, citations: List[Dict[str, Any]]) -> str:
+    def _format_markdown(self, citations: list[dict[str, Any]]) -> str:
         """Markdown格式."""
         lines = ["## Sources\n"]
 
@@ -130,7 +127,7 @@ class CitationGenerator:
 
         return "\n".join(lines)
 
-    def _format_html(self, citations: List[Dict[str, Any]]) -> str:
+    def _format_html(self, citations: list[dict[str, Any]]) -> str:
         """HTML格式."""
         lines = ["<div class='citations'>", "<h3>Sources</h3>", "<ol>"]
 
@@ -153,7 +150,7 @@ class CitationGenerator:
         lines.extend(["</ol>", "</div>"])
         return "\n".join(lines)
 
-    def _format_plain(self, citations: List[Dict[str, Any]]) -> str:
+    def _format_plain(self, citations: list[dict[str, Any]]) -> str:
         """纯文本格式."""
         lines = ["Sources:"]
 
@@ -174,7 +171,7 @@ class CitationGenerator:
     def add_inline_citations(
         self,
         answer: str,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
     ) -> str:
         """
         在答案中添加内联引用.
@@ -196,7 +193,7 @@ class CitationGenerator:
         result = []
         chunk_idx = 0
 
-        for i, part in enumerate(sentences):
+        for _i, part in enumerate(sentences):
             result.append(part)
 
             # 如果是句子结束标记，添加引用
@@ -211,10 +208,10 @@ class CitationGenerator:
     def generate_response_with_citations(
         self,
         answer: str,
-        chunks: List[Dict[str, Any]],
+        chunks: list[dict[str, Any]],
         include_inline: bool = False,
         citation_format: str = "markdown",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         生成带引用的完整响应.
 

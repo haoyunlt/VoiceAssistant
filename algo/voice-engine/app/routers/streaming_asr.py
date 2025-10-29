@@ -4,6 +4,8 @@ Streaming ASR WebSocket Router
 """
 
 import base64
+import builtins
+import contextlib
 import json
 import logging
 
@@ -174,19 +176,15 @@ async def recognize_stream(websocket: WebSocket):
 
     except Exception as e:
         logger.error(f"Streaming ASR error: {e}", exc_info=True)
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.send_json({
                 "type": "error",
                 "message": f"服务器错误: {str(e)}"
             })
-        except:
-            pass
 
     finally:
-        try:
+        with contextlib.suppress(builtins.BaseException):
             await websocket.close()
-        except:
-            pass
         logger.info("WebSocket streaming ASR session closed")
 
 

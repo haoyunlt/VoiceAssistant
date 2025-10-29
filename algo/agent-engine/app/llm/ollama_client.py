@@ -5,11 +5,13 @@ Ollama 本地 LLM 客户端实现
 """
 
 import json
+import logging
 import os
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
-import logging
+
 from app.llm.base import CompletionResponse, LLMClient, Message
 
 logger = logging.getLogger(__name__)
@@ -21,8 +23,8 @@ class OllamaClient(LLMClient):
     def __init__(
         self,
         model: str = "llama2",
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs,
     ):
         """
@@ -46,10 +48,10 @@ class OllamaClient(LLMClient):
 
     async def complete(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> CompletionResponse:
         """
@@ -112,10 +114,10 @@ class OllamaClient(LLMClient):
 
     async def complete_stream(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> AsyncIterator[str]:
         """
@@ -170,7 +172,7 @@ class OllamaClient(LLMClient):
             logger.error(f"Ollama streaming completion failed: {e}", exc_info=True)
             raise
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 

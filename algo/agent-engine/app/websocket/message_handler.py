@@ -4,12 +4,10 @@ Message Handler - WebSocket 消息处理器
 处理不同类型的 WebSocket 消息
 """
 
-import asyncio
-import json
-import time
-from typing import Any, Dict, Optional
-
 import logging
+import time
+from typing import Any
+
 from app.llm.multi_llm_adapter import get_multi_llm_adapter
 from app.tools.dynamic_registry import get_tool_registry
 from app.websocket.connection_manager import get_connection_manager
@@ -27,7 +25,7 @@ class MessageHandler:
         self.tool_registry = get_tool_registry()
 
     async def handle_message(
-        self, connection_id: str, message: Dict[str, Any]
+        self, connection_id: str, message: dict[str, Any]
     ) -> None:
         """
         处理收到的消息
@@ -65,7 +63,7 @@ class MessageHandler:
             logger.error(f"Error handling message: {e}", exc_info=True)
             await self._send_error(connection_id, str(e))
 
-    async def _handle_ping(self, connection_id: str, message: Dict) -> None:
+    async def _handle_ping(self, connection_id: str, message: dict) -> None:
         """
         处理 ping 消息
 
@@ -81,7 +79,7 @@ class MessageHandler:
             },
         )
 
-    async def _handle_agent_query(self, connection_id: str, message: Dict) -> None:
+    async def _handle_agent_query(self, connection_id: str, message: dict) -> None:
         """
         处理 Agent 查询（非流式）
 
@@ -125,7 +123,7 @@ class MessageHandler:
             await self._send_error(connection_id, f"Query failed: {str(e)}")
 
     async def _handle_streaming_query(
-        self, connection_id: str, message: Dict
+        self, connection_id: str, message: dict
     ) -> None:
         """
         处理流式查询
@@ -179,7 +177,7 @@ class MessageHandler:
             logger.error(f"Streaming query failed: {e}")
             await self._send_error(connection_id, f"Streaming failed: {str(e)}")
 
-    async def _handle_tool_call(self, connection_id: str, message: Dict) -> None:
+    async def _handle_tool_call(self, connection_id: str, message: dict) -> None:
         """
         处理工具调用
 
@@ -221,7 +219,7 @@ class MessageHandler:
             logger.error(f"Tool call failed: {e}")
             await self._send_error(connection_id, f"Tool call failed: {str(e)}")
 
-    async def _handle_cancel(self, connection_id: str, message: Dict) -> None:
+    async def _handle_cancel(self, connection_id: str, message: dict) -> None:
         """
         处理取消请求
 
@@ -257,7 +255,7 @@ class MessageHandler:
 
 
 # 全局消息处理器实例
-_message_handler: Optional[MessageHandler] = None
+_message_handler: MessageHandler | None = None
 
 
 def get_message_handler() -> MessageHandler:

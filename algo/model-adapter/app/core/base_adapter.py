@@ -1,8 +1,9 @@
 """模型适配器基类."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any
 
 
 @dataclass
@@ -11,11 +12,11 @@ class AdapterResponse:
 
     provider: str  # 提供商
     model: str  # 模型名称
-    content: Optional[str] = None  # 生成的内容
-    finish_reason: Optional[str] = None  # 完成原因
-    usage: Dict[str, int] = field(default_factory=dict)  # Token使用情况
-    function_call: Optional[Dict[str, Any]] = None  # 函数调用 (如果有)
-    metadata: Dict[str, Any] = field(default_factory=dict)  # 元数据
+    content: str | None = None  # 生成的内容
+    finish_reason: str | None = None  # 完成原因
+    usage: dict[str, int] = field(default_factory=dict)  # Token使用情况
+    function_call: dict[str, Any] | None = None  # 函数调用 (如果有)
+    metadata: dict[str, Any] = field(default_factory=dict)  # 元数据
 
 
 @dataclass
@@ -25,8 +26,8 @@ class AdapterStreamChunk:
     provider: str
     model: str
     content: str
-    finish_reason: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    finish_reason: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseAdapter(ABC):
@@ -45,7 +46,7 @@ class BaseAdapter(ABC):
     async def generate(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         **kwargs,
     ) -> AdapterResponse:
         """
@@ -65,7 +66,7 @@ class BaseAdapter(ABC):
     async def generate_stream(
         self,
         model: str,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         **kwargs,
     ) -> AsyncIterator[AdapterStreamChunk]:
         """

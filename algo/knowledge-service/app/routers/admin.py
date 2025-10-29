@@ -5,7 +5,6 @@ Admin API for Knowledge Service
 """
 
 import logging
-from typing import Dict, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -20,7 +19,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 class CleanupResponse(BaseModel):
     """清理响应"""
     success: bool
-    results: Dict[str, int]
+    results: dict[str, int]
     message: str
 
 
@@ -33,7 +32,7 @@ class CompensationResponse(BaseModel):
 class FailedEventsResponse(BaseModel):
     """失败事件列表响应"""
     count: int
-    events: List[Dict]
+    events: list[dict]
 
 
 # 依赖注入（需要在main.py中实现）

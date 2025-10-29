@@ -2,9 +2,10 @@
 Image analysis endpoints (综合分析)
 """
 
+import logging
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-import logging
 from app.models.multimodal import ImageAnalysisRequest, ImageAnalysisResponse
 from app.services.analysis_service import AnalysisService
 
@@ -27,7 +28,7 @@ async def analyze_image(request: ImageAnalysisRequest):
     try:
         logger.info(f"Image analysis request: tasks={request.tasks}")
         response = await analysis_service.analyze(request)
-        logger.info(f"Image analysis completed")
+        logger.info("Image analysis completed")
         return response
     except Exception as e:
         logger.error(f"Image analysis failed: {e}", exc_info=True)
@@ -58,7 +59,7 @@ async def analyze_upload(
             tasks=task_list,
         )
 
-        logger.info(f"Image analysis completed")
+        logger.info("Image analysis completed")
         return response
 
     except Exception as e:

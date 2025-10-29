@@ -10,7 +10,6 @@
 import logging
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +18,7 @@ class SecretsBackend(ABC):
     """密钥后端抽象基类"""
 
     @abstractmethod
-    def get_secret(self, key: str) -> Optional[str]:
+    def get_secret(self, key: str) -> str | None:
         """获取密钥"""
         pass
 
@@ -49,7 +48,7 @@ class VaultBackend(SecretsBackend):
     def __init__(
         self,
         vault_addr: str,
-        vault_token: Optional[str] = None,
+        vault_token: str | None = None,
         mount_point: str = "secret",
         path_prefix: str = "voiceassistant",
     ):
@@ -84,7 +83,7 @@ class VaultBackend(SecretsBackend):
             logger.error(f"Failed to initialize Vault: {e}")
             raise
 
-    def get_secret(self, key: str) -> Optional[str]:
+    def get_secret(self, key: str) -> str | None:
         """从 Vault 获取密钥"""
         try:
             secret_path = f"{self.path_prefix}/{key}"
@@ -180,7 +179,7 @@ class AWSSecretsBackend(SecretsBackend):
             logger.error(f"Failed to initialize AWS Secrets Manager: {e}")
             raise
 
-    def get_secret(self, key: str) -> Optional[str]:
+    def get_secret(self, key: str) -> str | None:
         """从 AWS Secrets Manager 获取密钥"""
         try:
             secret_name = f"{self.prefix}{key}"
@@ -261,7 +260,7 @@ class EnvBackend(SecretsBackend):
         self.prefix = prefix
         logger.info("Environment variables backend initialized")
 
-    def get_secret(self, key: str) -> Optional[str]:
+    def get_secret(self, key: str) -> str | None:
         """从环境变量获取密钥"""
         env_key = f"{self.prefix}{key.upper()}"
         value = os.getenv(env_key)
@@ -310,7 +309,7 @@ class SecretsManager:
 
     def __init__(
         self,
-        backend: Optional[SecretsBackend] = None,
+        backend: SecretsBackend | None = None,
         fallback_to_env: bool = True,
     ):
         """
@@ -356,7 +355,7 @@ class SecretsManager:
         logger.info("Using environment variables as secrets backend")
         return EnvBackend()
 
-    def get_secret(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get_secret(self, key: str, default: str | None = None) -> str | None:
         """
         获取密钥（支持多后端级联）
 
@@ -396,7 +395,7 @@ class SecretsManager:
         """列出所有密钥"""
         return self.backend.list_secrets()
 
-    def get_dict(self, keys: list) -> Dict[str, Optional[str]]:
+    def get_dict(self, keys: list) -> dict[str, str | None]:
         """
         批量获取密钥
 
@@ -410,7 +409,7 @@ class SecretsManager:
 
 
 # 全局单例
-_secrets_manager: Optional[SecretsManager] = None
+_secrets_manager: SecretsManager | None = None
 
 
 def get_secrets_manager() -> SecretsManager:
@@ -429,7 +428,7 @@ def get_secrets_manager() -> SecretsManager:
 
 
 # 便捷函数
-def get_secret(key: str, default: Optional[str] = None) -> Optional[str]:
+def get_secret(key: str, default: str | None = None) -> str | None:
     """
     便捷函数：获取密钥
 

@@ -1,7 +1,7 @@
 """向量存储管理器 - 管理多个后端"""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.backends.milvus_backend import MilvusBackend
 from app.backends.pgvector_backend import PgVectorBackend
@@ -17,7 +17,7 @@ class VectorStoreManager:
 
     def __init__(self):
         """初始化管理器"""
-        self.backends: Dict[str, VectorStoreBackend] = {}
+        self.backends: dict[str, VectorStoreBackend] = {}
         self.default_backend = settings.default_backend
 
     async def initialize(self):
@@ -59,7 +59,7 @@ class VectorStoreManager:
 
         self.backends.clear()
 
-    async def health_check(self) -> Dict[str, bool]:
+    async def health_check(self) -> dict[str, bool]:
         """健康检查所有后端"""
         checks = {}
 
@@ -86,7 +86,7 @@ class VectorStoreManager:
         self,
         collection_name: str,
         backend: str,
-        data: List[Dict],
+        data: list[dict],
     ) -> Any:
         """
         插入向量
@@ -106,12 +106,12 @@ class VectorStoreManager:
         self,
         collection_name: str,
         backend: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[str] = None,
-        search_params: Optional[Dict] = None,
-    ) -> List[Dict]:
+        tenant_id: str | None = None,
+        filters: str | None = None,
+        search_params: dict | None = None,
+    ) -> list[dict]:
         """
         向量检索
 
@@ -209,7 +209,7 @@ class VectorStoreManager:
         backend_instance = self._get_backend(backend)
         return await backend_instance.drop_collection(collection_name)
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         stats = {
             "backends": {},

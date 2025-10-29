@@ -3,13 +3,12 @@ Reranking service (Cross-Encoder or LLM)
 """
 
 import asyncio
-from typing import List, Optional
+import logging
 
 import httpx
 from sentence_transformers import CrossEncoder
 
 from app.core.config import settings
-import logging
 from app.models.retrieval import RetrievalDocument
 
 logger = logging.getLogger(__name__)
@@ -20,7 +19,7 @@ class RerankService:
 
     def __init__(self):
         self.model_type = settings.RERANK_MODEL
-        self.cross_encoder: Optional[CrossEncoder] = None
+        self.cross_encoder: CrossEncoder | None = None
 
         if self.model_type == "cross-encoder":
             self._load_cross_encoder()
@@ -34,8 +33,8 @@ class RerankService:
             logger.error(f"Failed to load Cross-Encoder model: {e}")
 
     async def rerank(
-        self, query: str, documents: List[RetrievalDocument], top_k: int
-    ) -> List[RetrievalDocument]:
+        self, query: str, documents: list[RetrievalDocument], top_k: int
+    ) -> list[RetrievalDocument]:
         """
         重排序文档
 
@@ -59,8 +58,8 @@ class RerankService:
             return documents[:top_k]
 
     async def _rerank_with_cross_encoder(
-        self, query: str, documents: List[RetrievalDocument], top_k: int
-    ) -> List[RetrievalDocument]:
+        self, query: str, documents: list[RetrievalDocument], top_k: int
+    ) -> list[RetrievalDocument]:
         """使用 Cross-Encoder 重排序"""
         if not self.cross_encoder:
             logger.warning("Cross-Encoder not loaded, returning original order")
@@ -75,7 +74,7 @@ class RerankService:
             scores = await loop.run_in_executor(None, self.cross_encoder.predict, pairs)
 
             # 更新文档分数并排序
-            for doc, score in zip(documents, scores):
+            for doc, score in zip(documents, scores, strict=False):
                 doc.score = float(score)
 
             reranked_docs = sorted(documents, key=lambda x: x.score, reverse=True)[:top_k]
@@ -88,8 +87,8 @@ class RerankService:
             return documents[:top_k]
 
     async def _rerank_with_llm(
-        self, query: str, documents: List[RetrievalDocument], top_k: int
-    ) -> List[RetrievalDocument]:
+        self, query: str, documents: list[RetrievalDocument], top_k: int
+    ) -> list[RetrievalDocument]:
         """使用 LLM 重排序"""
         try:
             # 构建重排序提示
@@ -119,7 +118,7 @@ class RerankService:
             logger.error(f"LLM reranking failed: {e}", exc_info=True)
             return documents[:top_k]
 
-    def _build_rerank_prompt(self, query: str, documents: List[RetrievalDocument]) -> str:
+    def _build_rerank_prompt(self, query: str, documents: list[RetrievalDocument]) -> str:
         """构建重排序提示"""
         docs_text = "\n\n".join(
             [f"[{i}] {doc.content[:200]}..." for i, doc in enumerate(documents)]
@@ -138,8 +137,8 @@ Ranking (indices only, e.g., "2,0,1,3"):"""
         return prompt
 
     def _parse_llm_rerank_response(
-        self, llm_response: dict, documents: List[RetrievalDocument]
-    ) -> List[RetrievalDocument]:
+        self, llm_response: dict, documents: list[RetrievalDocument]
+    ) -> list[RetrievalDocument]:
         """解析 LLM 重排序响应"""
         try:
             # 提取排序结果

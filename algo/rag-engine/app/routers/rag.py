@@ -9,9 +9,9 @@ from fastapi.responses import StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
-from ..core.config import get_config
-from ..infrastructure.retrieval_client import RetrievalClient
-from ..services.rag_service import RAGService
+from app.core.config import get_config
+from app.infrastructure.retrieval_client import RetrievalClient
+from app.services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 

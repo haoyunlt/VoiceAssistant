@@ -3,7 +3,6 @@ Configuration management for Voice Engine
 """
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
@@ -123,7 +122,7 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """获取配置单例"""
     return Settings()

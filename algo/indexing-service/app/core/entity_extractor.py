@@ -5,11 +5,11 @@
 
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 # NLP 库
 import spacy
-from transformers import AutoModelForTokenClassification, AutoTokenizer, pipeline
+from transformers import pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ class EntityExtractor:
                 subprocess.run(["python", "-m", "spacy", "download", model_name])
                 self.nlp = spacy.load(model_name)
 
-    def extract_entities(self, text: str) -> List[Dict[str, Any]]:
+    def extract_entities(self, text: str) -> list[dict[str, Any]]:
         """
         从文本中提取实体
 
@@ -67,7 +67,7 @@ class EntityExtractor:
         else:
             return self._extract_with_spacy(text)
 
-    def _extract_with_spacy(self, text: str) -> List[Dict[str, Any]]:
+    def _extract_with_spacy(self, text: str) -> list[dict[str, Any]]:
         """使用 spaCy 提取实体"""
         doc = self.nlp(text)
 
@@ -84,7 +84,7 @@ class EntityExtractor:
         logger.debug(f"Extracted {len(entities)} entities using spaCy")
         return entities
 
-    def _extract_with_transformer(self, text: str) -> List[Dict[str, Any]]:
+    def _extract_with_transformer(self, text: str) -> list[dict[str, Any]]:
         """使用 Transformer 提取实体"""
         results = self.ner_pipeline(text)
 
@@ -105,7 +105,7 @@ class EntityExtractor:
         self,
         text: str,
         context_window: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         提取实体并包含上下文
 
@@ -170,8 +170,8 @@ class RelationExtractor:
     def extract_relations(
         self,
         text: str,
-        entities: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        entities: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         从文本和实体中提取关系
 
@@ -190,8 +190,8 @@ class RelationExtractor:
     def _extract_with_rules(
         self,
         text: str,
-        entities: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        entities: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """基于规则的关系抽取"""
         relations = []
 
@@ -227,8 +227,8 @@ class RelationExtractor:
     def _extract_with_llm(
         self,
         text: str,
-        entities: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        entities: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """使用 LLM 的关系抽取"""
         # TODO: 实现 LLM 关系抽取
         # 这里需要调用 LLM API
@@ -238,8 +238,8 @@ class RelationExtractor:
     def _in_same_sentence(
         self,
         text: str,
-        entity1: Dict[str, Any],
-        entity2: Dict[str, Any]
+        entity1: dict[str, Any],
+        entity2: dict[str, Any]
     ) -> bool:
         """检查两个实体是否在同一句子中"""
         # 简化版：检查是否在 100 个字符内
@@ -260,7 +260,7 @@ class GraphBuilder:
         text: str,
         document_id: str,
         tenant_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         从文本构建知识图谱
 
@@ -302,8 +302,8 @@ class GraphBuilder:
 
     def _deduplicate_entities(
         self,
-        entities: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        entities: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """去除重复实体"""
         seen = set()
         unique_entities = []
@@ -318,9 +318,9 @@ class GraphBuilder:
 
     def _filter_relations(
         self,
-        relations: List[Dict[str, Any]],
+        relations: list[dict[str, Any]],
         min_confidence: float = 0.5
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """过滤低置信度关系"""
         return [
             r for r in relations
@@ -329,8 +329,8 @@ class GraphBuilder:
 
     def _count_entity_types(
         self,
-        entities: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
+        entities: list[dict[str, Any]]
+    ) -> dict[str, int]:
         """统计实体类型"""
         counts = {}
         for entity in entities:
@@ -340,8 +340,8 @@ class GraphBuilder:
 
     def _count_relation_types(
         self,
-        relations: List[Dict[str, Any]]
-    ) -> Dict[str, int]:
+        relations: list[dict[str, Any]]
+    ) -> dict[str, int]:
         """统计关系类型"""
         counts = {}
         for relation in relations:
@@ -351,10 +351,10 @@ class GraphBuilder:
 
 
 def community_detection(
-    entities: List[Dict[str, Any]],
-    relations: List[Dict[str, Any]],
+    entities: list[dict[str, Any]],
+    relations: list[dict[str, Any]],
     algorithm: str = "louvain"
-) -> Dict[str, List[str]]:
+) -> dict[str, list[str]]:
     """
     社区检测
 

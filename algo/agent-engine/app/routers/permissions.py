@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -45,7 +44,7 @@ class CheckPermissionRequest(BaseModel):
     """检查权限请求"""
 
     tool_name: str = Field(..., description="工具名称")
-    max_permission: Optional[ToolPermissionLevel] = Field(
+    max_permission: ToolPermissionLevel | None = Field(
         ToolPermissionLevel.HIGH_RISK, description="允许的最大权限级别"
     )
 

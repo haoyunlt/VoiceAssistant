@@ -3,7 +3,6 @@ RBAC (Role-Based Access Control) for Python services
 """
 
 from enum import Enum
-from typing import Dict, List, Set
 
 
 class Role(str, Enum):
@@ -48,11 +47,11 @@ class Permission(str, Enum):
 class RBACManager:
     """RBAC manager"""
 
-    def __init__(self):
-        self.role_permissions: Dict[Role, Set[Permission]] = {}
+    def __init__(self) -> None:
+        self.role_permissions: dict[Role, set[Permission]] = {}
         self._initialize_default_roles()
 
-    def _initialize_default_roles(self):
+    def _initialize_default_roles(self) -> None:
         """Initialize default role permissions"""
         # Admin - Full access
         self.role_permissions[Role.ADMIN] = {
@@ -107,21 +106,21 @@ class RBACManager:
         return permission in self.role_permissions.get(role, set())
 
     def has_any_permission(
-        self, role: Role, permissions: List[Permission]
+        self, role: Role, permissions: list[Permission]
     ) -> bool:
         """Check if a role has any of the specified permissions"""
         role_perms = self.role_permissions.get(role, set())
         return any(perm in role_perms for perm in permissions)
 
     def has_all_permissions(
-        self, role: Role, permissions: List[Permission]
+        self, role: Role, permissions: list[Permission]
     ) -> bool:
         """Check if a role has all of the specified permissions"""
         role_perms = self.role_permissions.get(role, set())
         return all(perm in role_perms for perm in permissions)
 
     def check_user_permission(
-        self, roles: List[str], permission: Permission
+        self, roles: list[str], permission: Permission
     ) -> bool:
         """Check if a user (with multiple roles) has a permission"""
         for role_str in roles:
@@ -134,40 +133,37 @@ class RBACManager:
         return False
 
     def check_user_permissions(
-        self, roles: List[str], permissions: List[Permission]
+        self, roles: list[str], permissions: list[Permission]
     ) -> bool:
         """Check if a user has all specified permissions"""
-        for permission in permissions:
-            if not self.check_user_permission(roles, permission):
-                return False
-        return True
+        return all(self.check_user_permission(roles, permission) for permission in permissions)
 
-    def add_permission_to_role(self, role: Role, permission: Permission):
+    def add_permission_to_role(self, role: Role, permission: Permission) -> None:
         """Add a permission to a role"""
         if role not in self.role_permissions:
             self.role_permissions[role] = set()
         self.role_permissions[role].add(permission)
 
-    def remove_permission_from_role(self, role: Role, permission: Permission):
+    def remove_permission_from_role(self, role: Role, permission: Permission) -> None:
         """Remove a permission from a role"""
         if role in self.role_permissions:
             self.role_permissions[role].discard(permission)
 
-    def get_role_permissions(self, role: Role) -> List[Permission]:
+    def get_role_permissions(self, role: Role) -> list[Permission]:
         """Get all permissions for a role"""
         return list(self.role_permissions.get(role, set()))
 
-    def validate_role(self, role: str) -> bool:
+    def validate_role(self, role: str) -> Role | None:
         """Validate if a role is valid"""
         try:
             Role(role)
-            return True
+            return Role(role)
         except ValueError:
-            return False
+            return None
 
 
 # Global RBAC manager instance
-_rbac_manager: RBACManager = None
+_rbac_manager: RBACManager | None = None
 
 
 def get_rbac_manager() -> RBACManager:

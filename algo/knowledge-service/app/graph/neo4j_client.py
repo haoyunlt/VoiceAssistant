@@ -4,8 +4,7 @@ Neo4j Client - Neo4j 图数据库客户端
 提供 Neo4j 连接和基础图操作
 """
 
-import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     from neo4j import AsyncGraphDatabase
@@ -71,8 +70,8 @@ class Neo4jClient:
             await self.driver.close()
 
     async def execute_query(
-        self, query: str, parameters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """
         执行 Cypher 查询
 
@@ -99,14 +98,14 @@ class Neo4jClient:
 
     # 别名方法，保持向后兼容
     async def query(
-        self, query: str, parameters: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, parameters: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """执行 Cypher 查询（别名方法）"""
         return await self.execute_query(query, parameters)
 
     async def create_node(
-        self, label: str, properties: Dict[str, Any]
-    ) -> Optional[str]:
+        self, label: str, properties: dict[str, Any]
+    ) -> str | None:
         """
         创建节点
 
@@ -137,7 +136,7 @@ class Neo4jClient:
         from_id: str,
         to_id: str,
         rel_type: str,
-        properties: Optional[Dict[str, Any]] = None,
+        properties: dict[str, Any] | None = None,
     ) -> bool:
         """
         创建关系
@@ -169,8 +168,8 @@ class Neo4jClient:
             return False
 
     async def find_nodes(
-        self, label: str, properties: Optional[Dict[str, Any]] = None, limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        self, label: str, properties: dict[str, Any] | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
         """
         查找节点
 
@@ -184,7 +183,7 @@ class Neo4jClient:
         """
         where_clause = ""
         if properties:
-            conditions = [f"n.{key} = ${key}" for key in properties.keys()]
+            conditions = [f"n.{key} = ${key}" for key in properties]
             where_clause = "WHERE " + " AND ".join(conditions)
 
         query = f"""
@@ -205,8 +204,8 @@ class Neo4jClient:
             return []
 
     async def find_relationships(
-        self, from_id: str, rel_type: Optional[str] = None, limit: int = 100
-    ) -> List[Dict[str, Any]]:
+        self, from_id: str, rel_type: str | None = None, limit: int = 100
+    ) -> list[dict[str, Any]]:
         """
         查找关系
 
@@ -247,7 +246,7 @@ class Neo4jClient:
             logger.error(f"Failed to find relationships: {e}")
             return []
 
-    async def health_check(self) -> Dict[str, Any]:
+    async def health_check(self) -> dict[str, Any]:
         """
         健康检查
 
@@ -288,7 +287,7 @@ class Neo4jClient:
 
 
 # 全局实例
-_neo4j_client: Optional[Neo4jClient] = None
+_neo4j_client: Neo4jClient | None = None
 
 
 def get_neo4j_client() -> Neo4jClient:
@@ -302,7 +301,7 @@ def get_neo4j_client() -> Neo4jClient:
 
     if _neo4j_client is None:
         from app.core.config import settings
-        
+
         _neo4j_client = Neo4jClient(
             uri=settings.NEO4J_URI,
             user=settings.NEO4J_USER,

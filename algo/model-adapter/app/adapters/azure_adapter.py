@@ -1,8 +1,9 @@
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any
 
 import httpx
+
 from app.adapters.base_adapter import BaseAdapter
 
 logger = logging.getLogger(__name__)
@@ -32,12 +33,12 @@ class AzureAdapter(BaseAdapter):
     async def chat_completion(
         self,
         model: str,
-        messages: list[Dict[str, str]],
+        messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         调用 Azure OpenAI Chat Completion API。
         """
@@ -110,9 +111,9 @@ class AzureAdapter(BaseAdapter):
         self,
         model: str,
         input: str | list[str],
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         调用 Azure OpenAI Embeddings API。
         """

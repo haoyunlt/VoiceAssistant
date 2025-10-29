@@ -5,8 +5,9 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from app.core.asr_engine import ASREngine, VoiceActivityDetection
 from app.core.tts_engine import StreamingTTSSession, TTSEngine
@@ -57,9 +58,9 @@ class FullDuplexEngine:
         self.tts_session = StreamingTTSSession(tts_engine)
 
         # 回调函数
-        self.on_user_speech: Optional[Callable] = None
-        self.on_assistant_response: Optional[Callable] = None
-        self.on_state_change: Optional[Callable] = None
+        self.on_user_speech: Callable | None = None
+        self.on_assistant_response: Callable | None = None
+        self.on_state_change: Callable | None = None
 
         # 音频缓冲区
         self.audio_buffer = []
@@ -89,7 +90,7 @@ class FullDuplexEngine:
         self,
         audio_chunk: bytes,
         sample_rate: int = 16000
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         处理音频块（实时输入）
 
@@ -315,7 +316,7 @@ class ConversationMetrics:
         """记录打断"""
         self.total_interruptions += 1
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return {
             "total_turns": self.total_turns,

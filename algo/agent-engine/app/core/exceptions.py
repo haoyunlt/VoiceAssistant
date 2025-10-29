@@ -17,8 +17,7 @@ class ServiceNotInitializedException(AgentEngineException):
 
     def __init__(self, service_name: str = "Agent Engine"):
         super().__init__(
-            message=f"{service_name} not initialized",
-            error_code="SERVICE_NOT_INITIALIZED"
+            message=f"{service_name} not initialized", error_code="SERVICE_NOT_INITIALIZED"
         )
 
 
@@ -43,10 +42,7 @@ class ToolNotFoundError(AgentEngineException):
 
     def __init__(self, tool_name: str):
         self.tool_name = tool_name
-        super().__init__(
-            message=f"Tool '{tool_name}' not found",
-            error_code="TOOL_NOT_FOUND"
-        )
+        super().__init__(message=f"Tool '{tool_name}' not found", error_code="TOOL_NOT_FOUND")
 
 
 class ToolExecutionError(AgentEngineException):
@@ -56,7 +52,7 @@ class ToolExecutionError(AgentEngineException):
         self.tool_name = tool_name
         super().__init__(
             message=f"Tool '{tool_name}' execution failed: {message}",
-            error_code="TOOL_EXECUTION_ERROR"
+            error_code="TOOL_EXECUTION_ERROR",
         )
 
 
@@ -80,10 +76,7 @@ class LLMTimeoutError(LLMError):
     """LLM 超时错误"""
 
     def __init__(self, provider: str = None):
-        super().__init__(
-            message="LLM request timeout",
-            provider=provider
-        )
+        super().__init__(message="LLM request timeout", provider=provider)
         self.error_code = "LLM_TIMEOUT"
 
 
@@ -133,8 +126,7 @@ class ResourceNotFoundError(AgentEngineException):
         self.resource_type = resource_type
         self.resource_id = resource_id
         super().__init__(
-            message=f"{resource_type} '{resource_id}' not found",
-            error_code="RESOURCE_NOT_FOUND"
+            message=f"{resource_type} '{resource_id}' not found", error_code="RESOURCE_NOT_FOUND"
         )
 
 
@@ -146,5 +138,5 @@ class MaxRetriesExceededError(AgentEngineException):
         self.max_retries = max_retries
         super().__init__(
             message=f"Max retries ({max_retries}) exceeded for operation: {operation}",
-            error_code="MAX_RETRIES_EXCEEDED"
+            error_code="MAX_RETRIES_EXCEEDED",
         )

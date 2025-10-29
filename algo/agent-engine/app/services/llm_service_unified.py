@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 # 添加common目录到Python路径
 common_path = Path(__file__).parent.parent.parent.parent / "common"
@@ -34,11 +34,11 @@ class LLMService:
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
-        model: Optional[str] = None,
+        messages: list[dict[str, str]],
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        max_tokens: int | None = None,
+    ) -> dict[str, Any]:
         """
         调用LLM Chat接口
 
@@ -69,9 +69,9 @@ class LLMService:
     async def generate(
         self,
         prompt: str,
-        model: Optional[str] = None,
+        model: str | None = None,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
     ) -> str:
         """
         简单生成接口

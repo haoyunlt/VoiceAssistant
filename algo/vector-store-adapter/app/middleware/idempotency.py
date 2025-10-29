@@ -3,7 +3,7 @@
 import hashlib
 import json
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -54,7 +54,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if cached_response:
             trace_id = getattr(request.state, "trace_id", "unknown")
             logger.info(
-                f"Idempotent request detected, returning cached response",
+                "Idempotent request detected, returning cached response",
                 extra={
                     "trace_id": trace_id,
                     "idempotency_key": idempotency_key,
@@ -87,7 +87,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
 
         return f"auto:{key_hash}"
 
-    async def _get_cached_response(self, idempotency_key: str) -> Optional[dict]:
+    async def _get_cached_response(self, idempotency_key: str) -> dict | None:
         """获取缓存的响应"""
         key = f"idempotency:{idempotency_key}"
 

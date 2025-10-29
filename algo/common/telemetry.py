@@ -6,14 +6,13 @@ OpenTelemetry 分布式追踪集成
 
 import logging
 import os
-from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
-from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
+from opentelemetry.sdk.resources import SERVICE_NAME, SERVICE_VERSION, Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
@@ -29,7 +28,7 @@ class TracingConfig:
         service_name: str,
         service_version: str = "1.0.0",
         environment: str = "development",
-        otlp_endpoint: Optional[str] = None,
+        otlp_endpoint: str | None = None,
         sampling_rate: float = 1.0,
         enabled: bool = True,
         console_export: bool = False,
@@ -61,7 +60,7 @@ class TracingConfig:
         )
 
 
-def init_tracing(config: TracingConfig) -> Optional[trace.Tracer]:
+def init_tracing(config: TracingConfig) -> trace.Tracer | None:
     """
     初始化 OpenTelemetry 追踪
 
@@ -213,7 +212,7 @@ def record_exception(exc: Exception):
 
 
 # 装饰器：为函数添加追踪
-def traced(span_name: Optional[str] = None):
+def traced(span_name: str | None = None):
     """
     装饰器：为函数添加追踪
 

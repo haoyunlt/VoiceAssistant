@@ -4,9 +4,7 @@ BM25 Retriever - BM25 检索器
 基于 BM25 算法的关键词检索
 """
 
-import math
-from collections import Counter
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     from rank_bm25 import BM25Okapi
@@ -54,7 +52,7 @@ class BM25Retriever:
 
         logger.info("BM25 retriever initialized")
 
-    def index_documents(self, documents: List[Dict[str, Any]]):
+    def index_documents(self, documents: list[dict[str, Any]]):
         """
         索引文档
 
@@ -87,7 +85,7 @@ class BM25Retriever:
 
     def retrieve(
         self, query: str, top_k: int = 10, min_score: float = 0.0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         检索相关文档
 
@@ -128,7 +126,7 @@ class BM25Retriever:
             logger.error(f"BM25 retrieval failed: {e}", exc_info=True)
             return []
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """
         分词
 
@@ -159,7 +157,7 @@ class BM25Retriever:
 
         return chinese_tokens
 
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 
@@ -185,7 +183,7 @@ class BM25Retriever:
 
 
 # 全局实例
-_bm25_retriever: Optional[BM25Retriever] = None
+_bm25_retriever: BM25Retriever | None = None
 
 
 def get_bm25_retriever() -> BM25Retriever:

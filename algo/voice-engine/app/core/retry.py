@@ -5,7 +5,7 @@
 import asyncio
 import logging
 import random
-from typing import Callable, Optional, Type
+from collections.abc import Callable
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,6 @@
 """错误处理中间件 - 统一异常处理"""
 
 import logging
-from typing import Union
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse

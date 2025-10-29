@@ -2,7 +2,6 @@
 RAG Engine 配置管理
 """
 
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
@@ -21,8 +20,8 @@ class RAGConfig(BaseSettings):
     # LLM配置
     llm_provider: str = Field(default="openai", env="LLM_PROVIDER")
     llm_model: str = Field(default="gpt-3.5-turbo", env="LLM_MODEL")
-    llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
-    llm_api_base: Optional[str] = Field(
+    llm_api_key: str | None = Field(default=None, env="LLM_API_KEY")
+    llm_api_base: str | None = Field(
         default="http://model-adapter:8005/api/v1",
         env="LLM_API_BASE"
     )
@@ -76,7 +75,7 @@ class RAGConfig(BaseSettings):
 
 
 # 全局配置实例
-_config: Optional[RAGConfig] = None
+_config: RAGConfig | None = None
 
 
 def get_config() -> RAGConfig:

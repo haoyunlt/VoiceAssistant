@@ -2,7 +2,7 @@
 
 import logging
 
-from .base import BaseParser
+from app.core.parsers.base import BaseParser
 
 logger = logging.getLogger(__name__)
 

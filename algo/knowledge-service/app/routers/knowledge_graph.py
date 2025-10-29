@@ -2,12 +2,11 @@
 Knowledge Graph Router - 知识图谱 API 路由
 """
 
-from typing import Optional
+import logging
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-import logging
 from app.graph.knowledge_graph_service import get_kg_service
 
 logger = logging.getLogger(__name__)
@@ -18,7 +17,7 @@ class ExtractRequest(BaseModel):
     """提取请求"""
 
     text: str = Field(..., description="输入文本", min_length=1)
-    source: Optional[str] = Field(None, description="数据来源")
+    source: str | None = Field(None, description="数据来源")
 
 
 class QueryEntityRequest(BaseModel):

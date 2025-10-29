@@ -3,7 +3,8 @@
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -46,14 +47,14 @@ class ExecuteTaskResponse(BaseModel):
 
     task: str = Field(..., description="任务描述")
     mode: str = Field(..., description="执行模式")
-    result: Optional[str] = Field(None, description="执行结果")
-    final_answer: Optional[str] = Field(None, description="最终答案")
+    result: str | None = Field(None, description="执行结果")
+    final_answer: str | None = Field(None, description="最终答案")
     step_count: int = Field(default=0, description="执行步骤数")
     tool_call_count: int = Field(default=0, description="工具调用次数")
     execution_time: float = Field(..., description="执行时间（秒）")
-    conversation_id: Optional[str] = Field(None, description="会话 ID")
-    steps: Optional[List[Dict[str, Any]]] = Field(None, description="执行步骤详情")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="元数据")
+    conversation_id: str | None = Field(None, description="会话 ID")
+    steps: list[dict[str, Any]] | None = Field(None, description="执行步骤详情")
+    metadata: dict[str, Any] | None = Field(None, description="元数据")
 
 
 class ToolDefinition(BaseModel):
@@ -61,14 +62,14 @@ class ToolDefinition(BaseModel):
 
     name: str
     description: str
-    parameters: Dict[str, Any]
-    category: Optional[str] = None
+    parameters: dict[str, Any]
+    category: str | None = None
 
 
 class ListToolsResponse(BaseModel):
     """工具列表响应"""
 
-    tools: List[ToolDefinition]
+    tools: list[ToolDefinition]
     count: int
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
@@ -126,6 +127,6 @@ class ErrorResponse(BaseModel):
 
     error: str = Field(..., description="错误类型")
     message: str = Field(..., description="错误信息")
-    detail: Optional[str] = Field(None, description="详细信息")
+    detail: str | None = Field(None, description="详细信息")
     timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
-    request_id: Optional[str] = Field(None, description="请求 ID")
+    request_id: str | None = Field(None, description="请求 ID")

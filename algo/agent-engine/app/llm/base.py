@@ -5,7 +5,8 @@ LLM Base - LLM 客户端基类
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -15,9 +16,9 @@ class Message(BaseModel):
 
     role: str = Field(..., description="角色: system/user/assistant/tool")
     content: str = Field(..., description="消息内容")
-    name: Optional[str] = Field(None, description="消息发送者名称")
-    tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="工具调用")
-    tool_call_id: Optional[str] = Field(None, description="工具调用 ID")
+    name: str | None = Field(None, description="消息发送者名称")
+    tool_calls: list[dict[str, Any]] | None = Field(None, description="工具调用")
+    tool_call_id: str | None = Field(None, description="工具调用 ID")
 
 
 class CompletionResponse(BaseModel):
@@ -26,8 +27,8 @@ class CompletionResponse(BaseModel):
     content: str = Field(..., description="生成的内容")
     model: str = Field(..., description="使用的模型")
     finish_reason: str = Field("stop", description="结束原因")
-    usage: Optional[Dict[str, int]] = Field(None, description="Token 使用情况")
-    tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="工具调用")
+    usage: dict[str, int] | None = Field(None, description="Token 使用情况")
+    tool_calls: list[dict[str, Any]] | None = Field(None, description="工具调用")
 
 
 class LLMClient(ABC):
@@ -36,8 +37,8 @@ class LLMClient(ABC):
     def __init__(
         self,
         model: str,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
         **kwargs,
     ):
         """
@@ -57,10 +58,10 @@ class LLMClient(ABC):
     @abstractmethod
     async def complete(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> CompletionResponse:
         """
@@ -81,10 +82,10 @@ class LLMClient(ABC):
     @abstractmethod
     async def complete_stream(
         self,
-        messages: List[Message],
+        messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: Optional[List[Dict[str, Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
         **kwargs,
     ) -> AsyncIterator[str]:
         """
@@ -103,7 +104,7 @@ class LLMClient(ABC):
         pass
 
     @abstractmethod
-    def health_check(self) -> Dict[str, Any]:
+    def health_check(self) -> dict[str, Any]:
         """
         健康检查
 
@@ -112,7 +113,7 @@ class LLMClient(ABC):
         """
         pass
 
-    def format_messages(self, messages: List[Message]) -> List[Dict[str, Any]]:
+    def format_messages(self, messages: list[Message]) -> list[dict[str, Any]]:
         """
         格式化消息为厂商特定格式
 

@@ -3,7 +3,7 @@ LangGraph 工作流服务
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.core.langgraph_workflow import LangGraphWorkflow
 
@@ -37,10 +37,10 @@ class LangGraphService:
     async def execute_task(
         self,
         task: str,
-        context: Optional[Dict[str, Any]] = None,
-        tools: Optional[List[str]] = None,
-        max_iterations: Optional[int] = None,
-    ) -> Dict[str, Any]:
+        context: dict[str, Any] | None = None,
+        tools: list[str] | None = None,
+        max_iterations: int | None = None,
+    ) -> dict[str, Any]:
         """
         执行任务
 

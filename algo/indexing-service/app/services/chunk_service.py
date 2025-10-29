@@ -2,9 +2,7 @@
 import logging
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
-
-from app.core.config import settings
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +11,7 @@ class ChunkService:
     """文本分块服务"""
 
     def __init__(self):
-        self.chunks_store: Dict[str, List[Dict[str, Any]]] = {}  # document_id -> chunks
+        self.chunks_store: dict[str, list[dict[str, Any]]] = {}  # document_id -> chunks
 
     async def create_chunks(
         self,
@@ -21,7 +19,7 @@ class ChunkService:
         content: str,
         chunk_size: int = 512,
         overlap: int = 50,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         将文本分块
 
@@ -77,12 +75,12 @@ class ChunkService:
         document_id: str,
         offset: int = 0,
         limit: int = 20,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """获取文档的所有块"""
         chunks = self.chunks_store.get(document_id, [])
         return chunks[offset : offset + limit]
 
-    async def get_chunk_by_id(self, chunk_id: str) -> Dict[str, Any]:
+    async def get_chunk_by_id(self, chunk_id: str) -> dict[str, Any]:
         """获取单个块"""
         for chunks in self.chunks_store.values():
             for chunk in chunks:
@@ -96,7 +94,7 @@ class ChunkService:
             del self.chunks_store[document_id]
             logger.info(f"Deleted chunks for document: {document_id}")
 
-    async def reindex_document(self, document_id: str) -> Dict[str, Any]:
+    async def reindex_document(self, document_id: str) -> dict[str, Any]:
         """重新索引文档的块"""
         chunks = self.chunks_store.get(document_id, [])
         return {"chunks_count": len(chunks)}

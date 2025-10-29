@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ class AdapterRegistry:
     """
 
     def __init__(self):
-        self.adapters: Dict[str, Any] = {}
+        self.adapters: dict[str, Any] = {}
         self.stats = {
             "total_requests": 0,
             "successful_requests": 0,
@@ -49,7 +49,7 @@ class AdapterRegistry:
         """列出所有已注册的适配器"""
         return list(self.adapters.keys())
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取所有适配器的统计信息"""
         adapter_stats = {}
         for provider, adapter in self.adapters.items():

@@ -1,0 +1,162 @@
+[
+  {
+    "id": "calc_001",
+    "category": "simple_calculation",
+    "task": "计算 (25 * 4 + 10) / 2 的结果",
+    "expected_answer": "60",
+    "expected_tools": ["calculator"],
+    "max_steps": 3
+  },
+  {
+    "id": "calc_002",
+    "category": "simple_calculation",
+    "task": "计算 123 + 456 - 78 的结果",
+    "expected_answer": "501",
+    "expected_tools": ["calculator"],
+    "max_steps": 3
+  },
+  {
+    "id": "calc_003",
+    "category": "simple_calculation",
+    "task": "计算 15的平方根",
+    "expected_answer": "3.872...(约3.87)",
+    "expected_tools": ["calculator"],
+    "max_steps": 3
+  },
+  {
+    "id": "calc_004",
+    "category": "simple_calculation",
+    "task": "计算 2的10次方",
+    "expected_answer": "1024",
+    "expected_tools": ["calculator"],
+    "max_steps": 3
+  },
+  {
+    "id": "calc_005",
+    "category": "simple_calculation",
+    "task": "一个矩形长10米，宽5米，计算面积",
+    "expected_answer": "50平方米",
+    "expected_tools": ["calculator"],
+    "max_steps": 3
+  },
+  {
+    "id": "kb_001",
+    "category": "knowledge_retrieval",
+    "task": "VoiceHelper平台的主要功能是什么？",
+    "expected_answer": "AI客服与语音助手平台",
+    "expected_tools": ["knowledge_base"],
+    "max_steps": 5
+  },
+  {
+    "id": "kb_002",
+    "category": "knowledge_retrieval",
+    "task": "Agent Engine支持哪些执行模式？",
+    "expected_answer": "ReAct, Plan-Execute, Reflexion",
+    "expected_tools": ["knowledge_base"],
+    "max_steps": 5
+  },
+  {
+    "id": "kb_003",
+    "category": "knowledge_retrieval",
+    "task": "什么是LangGraph？",
+    "expected_answer": "状态机工作流引擎",
+    "expected_tools": ["knowledge_base"],
+    "max_steps": 5
+  },
+  {
+    "id": "kb_004",
+    "category": "knowledge_retrieval",
+    "task": "Self-RAG的主要特点是什么？",
+    "expected_answer": "检索质量评估和自适应检索策略",
+    "expected_tools": ["knowledge_base"],
+    "max_steps": 5
+  },
+  {
+    "id": "kb_005",
+    "category": "knowledge_retrieval",
+    "task": "Multi-Agent协作有哪些模式？",
+    "expected_answer": "辩论、投票、层级协作",
+    "expected_tools": ["knowledge_base"],
+    "max_steps": 5
+  },
+  {
+    "id": "reason_001",
+    "category": "multi_step_reasoning",
+    "task": "小明有10个苹果，给了小红3个，然后又买了5个，现在有多少个？",
+    "expected_answer": "12个",
+    "expected_tools": ["calculator"],
+    "max_steps": 8
+  },
+  {
+    "id": "reason_002",
+    "category": "multi_step_reasoning",
+    "task": "如果一辆车每小时行驶60公里，行驶了2.5小时，行驶了多少公里？",
+    "expected_answer": "150公里",
+    "expected_tools": ["calculator"],
+    "max_steps": 8
+  },
+  {
+    "id": "reason_003",
+    "category": "multi_step_reasoning",
+    "task": "一个班级有40个学生，其中60%是女生，女生有多少人？",
+    "expected_answer": "24人",
+    "expected_tools": ["calculator"],
+    "max_steps": 8
+  },
+  {
+    "id": "reason_004",
+    "category": "multi_step_reasoning",
+    "task": "一本书有200页，小华每天看25页，需要多少天看完？",
+    "expected_answer": "8天",
+    "expected_tools": ["calculator"],
+    "max_steps": 8
+  },
+  {
+    "id": "reason_005",
+    "category": "multi_step_reasoning",
+    "task": "一个商品原价100元，打8折后是多少钱？",
+    "expected_answer": "80元",
+    "expected_tools": ["calculator"],
+    "max_steps": 8
+  },
+  {
+    "id": "tool_comp_001",
+    "category": "tool_composition",
+    "task": "搜索Python编程的最新教程，并总结主要内容",
+    "expected_answer": "Python教程总结",
+    "expected_tools": ["web_search", "text_summarize"],
+    "max_steps": 10
+  },
+  {
+    "id": "tool_comp_002",
+    "category": "tool_composition",
+    "task": "查询今天的天气，并根据天气情况推荐穿衣建议",
+    "expected_answer": "天气情况及穿衣建议",
+    "expected_tools": ["weather_query", "recommendation"],
+    "max_steps": 10
+  },
+  {
+    "id": "tool_comp_003",
+    "category": "tool_composition",
+    "task": "搜索最新的AI新闻，提取关键信息并保存到知识库",
+    "expected_answer": "AI新闻已保存",
+    "expected_tools": ["web_search", "text_extractor", "knowledge_base"],
+    "max_steps": 12
+  },
+  {
+    "id": "tool_comp_004",
+    "category": "tool_composition",
+    "task": "计算公司本月的收入（从数据库查询），并生成图表",
+    "expected_answer": "收入统计图表",
+    "expected_tools": ["database_query", "calculator", "chart_generator"],
+    "max_steps": 12
+  },
+  {
+    "id": "tool_comp_005",
+    "category": "tool_composition",
+    "task": "翻译一段英文文本，然后用中文总结要点",
+    "expected_answer": "翻译及总结",
+    "expected_tools": ["translator", "text_summarize"],
+    "max_steps": 10
+  }
+]

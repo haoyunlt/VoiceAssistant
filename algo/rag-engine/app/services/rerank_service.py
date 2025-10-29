@@ -1,5 +1,4 @@
 """重排序服务"""
-from typing import List
 
 from pydantic import BaseModel
 from sentence_transformers import CrossEncoder
@@ -35,9 +34,9 @@ class RerankService:
     async def rerank(
         self,
         query: str,
-        documents: List[RetrievedDocument],
+        documents: list[RetrievedDocument],
         top_k: int = 10
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """使用Cross-Encoder重排序
 
         Args:
@@ -63,7 +62,7 @@ class RerankService:
             scores = self.cross_encoder.predict(pairs)
 
             # 3. 更新分数
-            for doc, score in zip(documents, scores):
+            for doc, score in zip(documents, scores, strict=False):
                 doc.rerank_score = float(score)
 
             # 4. 按分数排序
@@ -81,10 +80,10 @@ class RerankService:
     async def rerank_with_llm(
         self,
         query: str,
-        documents: List[RetrievedDocument],
+        documents: list[RetrievedDocument],
         llm_client,
         top_k: int = 10
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """使用LLM重排序（更准确但更慢）
 
         Args:
@@ -148,12 +147,12 @@ Ranking (comma-separated numbers):"""
     async def hybrid_rerank(
         self,
         query: str,
-        documents: List[RetrievedDocument],
+        documents: list[RetrievedDocument],
         llm_client=None,
         top_k: int = 10,
         cross_encoder_weight: float = 0.7,
         llm_weight: float = 0.3
-    ) -> List[RetrievedDocument]:
+    ) -> list[RetrievedDocument]:
         """混合重排序（Cross-Encoder + LLM）
 
         Args:

@@ -69,7 +69,7 @@ ERROR_COUNTER = Counter(
     ["error_type", "tenant_id"],
 )
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 
 @asynccontextmanager
@@ -165,11 +165,11 @@ app.include_router(incremental.router)
 # 健康检查
 # ========================================
 
-from typing import Any, Dict
+from typing import Any
 
 
 @app.get("/health")
-async def health_check() -> Dict[str, str]:
+async def health_check() -> dict[str, str]:
     """健康检查"""
     return {
         "status": "healthy",
@@ -179,7 +179,7 @@ async def health_check() -> Dict[str, str]:
 
 
 @app.get("/readiness")
-async def readiness_check(request: Request) -> Dict[str, Any]:
+async def readiness_check(request: Request) -> dict[str, Any]:
     """就绪检查（包含依赖项检测）"""
     kafka_consumer = getattr(request.app.state, "kafka_consumer", None)
     document_processor = getattr(request.app.state, "document_processor", None)
@@ -242,7 +242,7 @@ async def readiness_check(request: Request) -> Dict[str, Any]:
 
 
 @app.get("/")
-async def root() -> Dict[str, str]:
+async def root() -> dict[str, str]:
     """根路径"""
     return {
         "service": "indexing-service",
@@ -252,7 +252,7 @@ async def root() -> Dict[str, str]:
 
 
 @app.get("/stats")
-async def get_stats(request: Request) -> Dict[str, Any]:
+async def get_stats(request: Request) -> dict[str, Any]:
     """获取统计信息"""
     document_processor = getattr(request.app.state, "document_processor", None)
 
@@ -263,7 +263,7 @@ async def get_stats(request: Request) -> Dict[str, Any]:
 
 
 @app.post("/trigger")
-async def trigger_processing(document_id: str, request: Request) -> Dict[str, str]:
+async def trigger_processing(document_id: str, request: Request) -> dict[str, str]:
     """手动触发文档处理（用于测试）"""
     document_processor = getattr(request.app.state, "document_processor", None)
 

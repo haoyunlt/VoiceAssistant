@@ -2,7 +2,7 @@
 Unit Tests for Kafka Producer
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from app.infrastructure.kafka_producer import KafkaProducer

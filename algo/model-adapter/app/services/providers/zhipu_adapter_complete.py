@@ -4,7 +4,7 @@
 
 import logging
 import os
-from typing import AsyncIterator, List
+from collections.abc import AsyncIterator
 
 import zhipuai
 from zhipuai import ZhipuAI

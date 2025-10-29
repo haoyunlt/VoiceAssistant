@@ -1,6 +1,6 @@
 """基础适配器抽象类"""
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.models.request import ChatRequest, CompletionRequest, EmbeddingRequest
 from app.models.response import ChatResponse, CompletionResponse, EmbeddingResponse

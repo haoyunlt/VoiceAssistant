@@ -5,7 +5,7 @@ Connection Pool for Vector Databases
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class ConnectionPool:
 
             # 检查连接是否有效
             if await self._is_connection_valid(conn):
-                logger.debug(f"Reusing connection from pool")
+                logger.debug("Reusing connection from pool")
                 return conn
             else:
                 logger.warning("Connection invalid, creating new one")
@@ -110,7 +110,7 @@ class ConnectionPool:
             except asyncio.QueueEmpty:
                 break
 
-        logger.info(f"Connection pool closed")
+        logger.info("Connection pool closed")
 
     async def _create_connection(self) -> Any:
         """创建新连接"""

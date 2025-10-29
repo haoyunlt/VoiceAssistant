@@ -1,421 +1,385 @@
 """
-Self-RAG Adaptive Retriever
-Decides when and how to retrieve external knowledge
+自适应检索策略模块
+
+根据查询特征和上下文,动态选择最优的检索策略。
 """
 
-from typing import List, Dict, Any, Tuple, Optional
-from enum import Enum
 import logging
-import json
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
-class RetrievalDecision(Enum):
-    """Retrieval decision types"""
-    RETRIEVE = "retrieve"
-    NO_RETRIEVE = "no_retrieve"
-    ITERATIVE = "iterative"
+class RetrievalStrategy(Enum):
+    """检索策略"""
+
+    DENSE = "dense"  # 密集向量检索（语义相似度）
+    SPARSE = "sparse"  # 稀疏检索（关键词匹配，BM25）
+    HYBRID = "hybrid"  # 混合检索（dense + sparse）
+    CACHE = "cache"  # 缓存命中
+    SKIP = "skip"  # 跳过检索（常识问题）
 
 
-class RelevanceLevel(Enum):
-    """Relevance levels for retrieved content"""
-    HIGHLY_RELEVANT = "highly_relevant"
-    RELEVANT = "relevant"
-    PARTIALLY_RELEVANT = "partially_relevant"
-    IRRELEVANT = "irrelevant"
+class QueryComplexity(Enum):
+    """查询复杂度"""
+
+    SIMPLE = "simple"  # 简单查询（事实性、单一概念）
+    MODERATE = "moderate"  # 中等查询（需要理解和推理）
+    COMPLEX = "complex"  # 复杂查询（多步推理、综合信息）
 
 
-class SelfRAGAgent:
-    """Self-RAG Agent with adaptive retrieval"""
-    
+@dataclass
+class RetrievalConfig:
+    """检索配置"""
+
+    strategy: RetrievalStrategy
+    top_k: int
+    rerank: bool
+    reasoning: str
+
+
+class AdaptiveRetriever:
+    """
+    自适应检索器
+
+    根据查询特征动态选择检索策略和参数。
+
+    用法:
+        retriever = AdaptiveRetriever(knowledge_base, cache)
+
+        # 自适应检索
+        results = await retriever.retrieve(
+            query="What is machine learning?",
+            context={"conversation_history": [...]}
+        )
+    """
+
     def __init__(
         self,
-        llm_client,
-        retrieval_client,
-        threshold_confidence: float = 0.8,
-        max_iterations: int = 3
+        knowledge_base: Any,  # 知识库客户端
+        cache: Any | None = None,  # 缓存客户端（Redis）
+        llm_client: Any | None = None,  # 用于分析查询复杂度
+        enable_cache: bool = True,
+        cache_ttl: int = 3600,  # 1 hour
     ):
+        """
+        初始化自适应检索器
+
+        Args:
+            knowledge_base: 知识库客户端
+            cache: 缓存客户端
+            llm_client: LLM 客户端（用于高级分析）
+            enable_cache: 是否启用缓存
+            cache_ttl: 缓存 TTL（秒）
+        """
+        self.knowledge_base = knowledge_base
+        self.cache = cache
         self.llm_client = llm_client
-        self.retrieval_client = retrieval_client
-        self.threshold_confidence = threshold_confidence
-        self.max_iterations = max_iterations
+        self.enable_cache = enable_cache
+        self.cache_ttl = cache_ttl
+
+        # 统计信息
         self.stats = {
             "total_queries": 0,
-            "retrieval_used": 0,
-            "avg_confidence": 0.0,
-            "avg_chunks_used": 0.0
+            "cache_hits": 0,
+            "cache_misses": 0,
+            "strategy_usage": {
+                "dense": 0,
+                "sparse": 0,
+                "hybrid": 0,
+                "cache": 0,
+                "skip": 0,
+            },
         }
-        
-    async def decide_retrieval(self, query: str) -> RetrievalDecision:
-        """Decide whether retrieval is needed"""
-        try:
-            prompt = f"""Analyze if external knowledge retrieval is needed for this query:
 
-Query: {query}
+        logger.info(
+            f"AdaptiveRetriever initialized (cache_enabled={enable_cache}, "
+            f"cache_ttl={cache_ttl}s)"
+        )
 
-Consider:
-1. Is this factual knowledge that requires recent/specific information?
-2. Is this common knowledge you already have?
-3. Does this require multiple information sources?
+    async def retrieve(
+        self, query: str, context: dict | None = None
+    ) -> dict[str, Any]:
+        """
+        自适应检索
 
-Return ONLY one of: RETRIEVE, NO_RETRIEVE, or ITERATIVE
+        Args:
+            query: 查询文本
+            context: 上下文信息（对话历史、用户偏好等）
 
-Decision:"""
-            
-            response = await self.llm_client.chat([
-                {"role": "system", "content": "You are a retrieval decision assistant."},
-                {"role": "user", "content": prompt}
-            ])
-            
-            decision_text = response.get("content", "RETRIEVE").strip().upper()
-            
-            # Map to enum
-            for decision in RetrievalDecision:
-                if decision.name in decision_text:
-                    logger.info(f"Retrieval decision for query: {decision.value}")
-                    return decision
-                    
-            # Default to retrieve if uncertain
-            return RetrievalDecision.RETRIEVE
-            
-        except Exception as e:
-            logger.error(f"Retrieval decision failed: {e}")
-            return RetrievalDecision.RETRIEVE
-            
-    async def assess_relevance(
-        self,
-        query: str,
-        chunks: List[Dict]
-    ) -> List[Tuple[Dict, RelevanceLevel]]:
-        """Assess relevance of retrieved chunks"""
-        assessed = []
-        
-        try:
-            # Batch assessment for efficiency
-            for chunk in chunks:
-                prompt = f"""Rate the relevance of this content to the query:
-
-Query: {query}
-
-Retrieved Content: {chunk.get('content', '')[:500]}
-
-Rate as: HIGHLY_RELEVANT, RELEVANT, PARTIALLY_RELEVANT, or IRRELEVANT
-
-Rating:"""
-                
-                response = await self.llm_client.chat([
-                    {"role": "user", "content": prompt}
-                ])
-                
-                level_text = response.get("content", "RELEVANT").strip().upper()
-                
-                # Map to enum
-                level = RelevanceLevel.RELEVANT  # default
-                for rel_level in RelevanceLevel:
-                    if rel_level.name in level_text:
-                        level = rel_level
-                        break
-                        
-                assessed.append((chunk, level))
-                
-            logger.info(f"Assessed {len(assessed)} chunks for relevance")
-            return assessed
-            
-        except Exception as e:
-            logger.error(f"Relevance assessment failed: {e}")
-            # Return all as relevant by default
-            return [(chunk, RelevanceLevel.RELEVANT) for chunk in chunks]
-            
-    async def generate_with_critique(
-        self,
-        query: str,
-        chunks: List[Dict]
-    ) -> Dict[str, Any]:
-        """Generate answer and self-critique"""
-        try:
-            # 1. Generate initial answer
-            context = "\n\n".join([
-                f"[{i+1}] {c.get('content', '')}" 
-                for i, c in enumerate(chunks[:5])
-            ])
-            
-            answer_prompt = f"""Based on the context below, answer the query.
-
-Context:
-{context}
-
-Query: {query}
-
-Answer:"""
-            
-            answer_response = await self.llm_client.chat([
-                {"role": "system", "content": "Answer based on provided context."},
-                {"role": "user", "content": answer_prompt}
-            ])
-            
-            answer = answer_response.get("content", "")
-            
-            # 2. Self-critique
-            critique_prompt = f"""Critique this answer:
-
-Query: {query}
-Answer: {answer}
-Context: {context[:1000]}
-
-Rate the answer on:
-1. Factual accuracy (0-1)
-2. Relevance to query (0-1)
-3. Use of context (0-1)
-4. Completeness (0-1)
-
-Return JSON:
-{{
-  "scores": {{
-    "accuracy": 0.9,
-    "relevance": 0.85,
-    "context_use": 0.8,
-    "completeness": 0.9
-  }},
-  "overall_score": 0.86,
-  "issues": ["issue1", "issue2"],
-  "suggestions": ["suggestion1"]
-}}"""
-            
-            critique_response = await self.llm_client.chat([
-                {"role": "user", "content": critique_prompt}
-            ])
-            
-            # Parse critique
-            critique_text = critique_response.get("content", "{}")
-            try:
-                critique = json.loads(critique_text)
-            except:
-                critique = {"overall_score": 0.7}
-                
-            score = critique.get("overall_score", 0.7)
-            
-            # 3. Refine if score is low
-            iterations = 1
-            if score < self.threshold_confidence:
-                answer = await self._refine_answer(
-                    query, chunks, answer, critique
-                )
-                iterations = 2
-                score = min(score + 0.15, 1.0)  # Assume improvement
-                
-            return {
-                "answer": answer,
-                "confidence": score,
-                "critique": critique,
-                "iterations": iterations
-            }
-            
-        except Exception as e:
-            logger.error(f"Generation with critique failed: {e}")
-            return {
-                "answer": "Failed to generate answer",
-                "confidence": 0.0,
-                "error": str(e)
-            }
-            
-    async def _refine_answer(
-        self,
-        query: str,
-        chunks: List[Dict],
-        initial_answer: str,
-        critique: Dict
-    ) -> str:
-        """Refine answer based on critique"""
-        try:
-            issues = critique.get("issues", [])
-            suggestions = critique.get("suggestions", [])
-            
-            context = "\n\n".join([c.get("content", "") for c in chunks[:5]])
-            
-            refine_prompt = f"""Improve this answer based on the critique:
-
-Query: {query}
-Initial Answer: {initial_answer}
-
-Issues Found: {issues}
-Suggestions: {suggestions}
-
-Context:
-{context}
-
-Provide an improved answer that addresses the issues:"""
-            
-            response = await self.llm_client.chat([
-                {"role": "system", "content": "You are refining an answer."},
-                {"role": "user", "content": refine_prompt}
-            ])
-            
-            return response.get("content", initial_answer)
-            
-        except Exception as e:
-            logger.error(f"Answer refinement failed: {e}")
-            return initial_answer
-            
-    async def _refine_query(self, query: str, critique: str) -> str:
-        """Refine query based on critique"""
-        try:
-            prompt = f"""The previous query didn't get good results. Refine it:
-
-Original Query: {query}
-Issues: {critique}
-
-Provide a refined query that would retrieve better information:"""
-            
-            response = await self.llm_client.chat([
-                {"role": "user", "content": prompt}
-            ])
-            
-            refined = response.get("content", query).strip()
-            logger.info(f"Refined query: {query} -> {refined}")
-            return refined
-            
-        except Exception as e:
-            logger.error(f"Query refinement failed: {e}")
-            return query
-            
-    async def execute_self_rag(
-        self,
-        query: str,
-        top_k: int = 10
-    ) -> Dict[str, Any]:
-        """Execute complete Self-RAG pipeline"""
+        Returns:
+            检索结果字典，包含:
+            - documents: 检索到的文档列表
+            - strategy: 使用的策略
+            - config: 检索配置
+            - from_cache: 是否来自缓存
+        """
         self.stats["total_queries"] += 1
-        
+
+        # 1. 检查缓存
+        if self.enable_cache and self.cache:
+            cached_result = await self._check_cache(query)
+            if cached_result:
+                self.stats["cache_hits"] += 1
+                self.stats["strategy_usage"]["cache"] += 1
+                logger.info(f"Cache hit for query: {query[:50]}...")
+                return {
+                    "documents": cached_result,
+                    "strategy": RetrievalStrategy.CACHE.value,
+                    "config": RetrievalConfig(
+                        strategy=RetrievalStrategy.CACHE,
+                        top_k=len(cached_result),
+                        rerank=False,
+                        reasoning="Retrieved from cache",
+                    ),
+                    "from_cache": True,
+                }
+            else:
+                self.stats["cache_misses"] += 1
+
+        # 2. 决策：是否需要检索
+        if self._is_common_knowledge(query):
+            logger.info(f"Common knowledge query, skip retrieval: {query[:50]}...")
+            self.stats["strategy_usage"]["skip"] += 1
+            return {
+                "documents": [],
+                "strategy": RetrievalStrategy.SKIP.value,
+                "config": RetrievalConfig(
+                    strategy=RetrievalStrategy.SKIP,
+                    top_k=0,
+                    rerank=False,
+                    reasoning="Common knowledge, no retrieval needed",
+                ),
+                "from_cache": False,
+            }
+
+        # 3. 分析查询复杂度
+        complexity = self._analyze_query_complexity(query, context)
+
+        # 4. 选择检索策略和参数
+        config = self._select_strategy(query, complexity, context)
+
+        # 5. 执行检索
+        documents = await self._execute_retrieval(query, config)
+
+        # 6. 缓存结果
+        if self.enable_cache and self.cache and documents:
+            await self._cache_result(query, documents)
+
+        # 7. 更新统计
+        self.stats["strategy_usage"][config.strategy.value] += 1
+
+        logger.info(
+            f"Retrieved {len(documents)} docs using {config.strategy.value} strategy"
+        )
+
+        return {
+            "documents": documents,
+            "strategy": config.strategy.value,
+            "config": config,
+            "from_cache": False,
+        }
+
+    def _analyze_query_complexity(
+        self, query: str, context: dict | None
+    ) -> QueryComplexity:
+        """
+        分析查询复杂度
+
+        启发式规则:
+        - 简单: 单个名词、事实性问题（What is X?, When did X happen?）
+        - 中等: 需要理解和简单推理（How does X work?, Why X?）
+        - 复杂: 多步推理、比较、综合（Compare X and Y, Explain the relationship...）
+        """
+        query_lower = query.lower()
+        word_count = len(query.split())
+
+        # 简单查询特征
+        simple_patterns = ["what is", "who is", "when did", "where is", "define"]
+        if any(pattern in query_lower for pattern in simple_patterns) and word_count <= 10:
+            return QueryComplexity.SIMPLE
+
+        # 复杂查询特征
+        complex_patterns = [
+            "compare",
+            "contrast",
+            "relationship",
+            "analyze",
+            "explain why",
+            "how and why",
+        ]
+        if any(pattern in query_lower for pattern in complex_patterns) or word_count > 20:
+            return QueryComplexity.COMPLEX
+
+        # 默认中等复杂度
+        return QueryComplexity.MODERATE
+
+    def _select_strategy(
+        self, query: str, complexity: QueryComplexity, context: dict | None
+    ) -> RetrievalConfig:
+        """
+        选择检索策略和参数
+
+        决策规则:
+        - 简单查询: dense 向量检索, top_k=5, 不重排
+        - 中等查询: hybrid 检索, top_k=10, 重排
+        - 复杂查询: hybrid 检索, top_k=15, 重排
+        """
+        if complexity == QueryComplexity.SIMPLE:
+            return RetrievalConfig(
+                strategy=RetrievalStrategy.DENSE,
+                top_k=5,
+                rerank=False,
+                reasoning="Simple query, use dense vector retrieval",
+            )
+        elif complexity == QueryComplexity.MODERATE:
+            return RetrievalConfig(
+                strategy=RetrievalStrategy.HYBRID,
+                top_k=10,
+                rerank=True,
+                reasoning="Moderate query, use hybrid retrieval with reranking",
+            )
+        else:  # COMPLEX
+            return RetrievalConfig(
+                strategy=RetrievalStrategy.HYBRID,
+                top_k=15,
+                rerank=True,
+                reasoning="Complex query, use hybrid retrieval with more candidates",
+            )
+
+    async def _execute_retrieval(
+        self, query: str, config: RetrievalConfig
+    ) -> list[str]:
+        """执行检索"""
         try:
-            # 1. Decide if retrieval is needed
-            decision = await self.decide_retrieval(query)
-            
-            if decision == RetrievalDecision.NO_RETRIEVE:
-                # Direct generation without retrieval
-                response = await self.llm_client.chat([
-                    {"role": "user", "content": query}
-                ])
-                
-                return {
-                    "answer": response.get("content", ""),
-                    "used_retrieval": False,
-                    "confidence": 1.0,
-                    "decision": decision.value
-                }
-                
-            # 2. Execute retrieval
-            self.stats["retrieval_used"] += 1
-            chunks = await self.retrieval_client.retrieve(query, top_k=top_k)
-            
-            if not chunks:
-                logger.warning("No chunks retrieved")
-                response = await self.llm_client.chat([
-                    {"role": "user", "content": query}
-                ])
-                return {
-                    "answer": response.get("content", ""),
-                    "used_retrieval": True,
-                    "retrieval_effective": False,
-                    "confidence": 0.5
-                }
-                
-            # 3. Assess relevance
-            assessed_chunks = await self.assess_relevance(query, chunks)
-            
-            # 4. Filter relevant content
-            relevant_chunks = [
-                chunk for chunk, level in assessed_chunks
-                if level in [RelevanceLevel.HIGHLY_RELEVANT, RelevanceLevel.RELEVANT]
-            ]
-            
-            if not relevant_chunks:
-                logger.warning("No relevant chunks found")
-                response = await self.llm_client.chat([
-                    {"role": "user", "content": query}
-                ])
-                return {
-                    "answer": response.get("content", ""),
-                    "used_retrieval": True,
-                    "retrieval_effective": False,
-                    "confidence": 0.5,
-                    "chunks_retrieved": len(chunks),
-                    "chunks_relevant": 0
-                }
-                
-            # 5. Generate with critique
-            result = await self.generate_with_critique(query, relevant_chunks)
-            
-            # 6. Iterative retrieval if needed and confidence is low
-            if decision == RetrievalDecision.ITERATIVE and result["confidence"] < 0.8:
-                for iteration in range(self.max_iterations - 1):
-                    logger.info(f"Self-RAG iteration {iteration + 2}")
-                    
-                    # Refine query based on critique
-                    refined_query = await self._refine_query(
-                        query, 
-                        str(result.get("critique", ""))
-                    )
-                    
-                    # Retrieve again
-                    new_chunks = await self.retrieval_client.retrieve(
-                        refined_query, 
-                        top_k=top_k
-                    )
-                    
-                    if new_chunks:
-                        # Assess and generate again
-                        assessed_new = await self.assess_relevance(refined_query, new_chunks)
-                        relevant_new = [
-                            chunk for chunk, level in assessed_new
-                            if level in [RelevanceLevel.HIGHLY_RELEVANT, RelevanceLevel.RELEVANT]
-                        ]
-                        
-                        if relevant_new:
-                            result = await self.generate_with_critique(
-                                refined_query, 
-                                relevant_new
-                            )
-                            result["iterations"] = iteration + 2
-                            
-                            if result["confidence"] >= 0.8:
-                                break
-                                
-            # Update stats
-            self.stats["avg_confidence"] = (
-                (self.stats["avg_confidence"] * (self.stats["total_queries"] - 1) + 
-                 result["confidence"]) / self.stats["total_queries"]
-            )
-            self.stats["avg_chunks_used"] = (
-                (self.stats["avg_chunks_used"] * (self.stats["retrieval_used"] - 1) + 
-                 len(relevant_chunks)) / self.stats["retrieval_used"]
-            )
-            
-            return {
-                **result,
-                "used_retrieval": True,
-                "retrieval_effective": True,
-                "chunks_retrieved": len(chunks),
-                "chunks_relevant": len(relevant_chunks),
-                "decision": decision.value
-            }
-            
+            if config.strategy == RetrievalStrategy.DENSE:
+                # 密集向量检索
+                results = await self.knowledge_base.search(
+                    query=query, top_k=config.top_k, method="dense"
+                )
+            elif config.strategy == RetrievalStrategy.SPARSE:
+                # 稀疏检索（BM25）
+                results = await self.knowledge_base.search(
+                    query=query, top_k=config.top_k, method="sparse"
+                )
+            elif config.strategy == RetrievalStrategy.HYBRID:
+                # 混合检索
+                dense_results = await self.knowledge_base.search(
+                    query=query, top_k=config.top_k, method="dense"
+                )
+                sparse_results = await self.knowledge_base.search(
+                    query=query, top_k=config.top_k, method="sparse"
+                )
+                # 合并结果（简单去重）
+                results = self._merge_results(dense_results, sparse_results, config.top_k)
+            else:
+                results = []
+
+            # 重排（如果需要）
+            if config.rerank and results:
+                results = await self._rerank(query, results)
+
+            return results
+
         except Exception as e:
-            logger.error(f"Self-RAG execution failed: {e}")
-            return {
-                "answer": "Self-RAG execution failed",
-                "error": str(e),
-                "used_retrieval": False,
-                "confidence": 0.0
-            }
-            
-    def get_statistics(self) -> Dict[str, Any]:
-        """Get Self-RAG statistics"""
+            logger.error(f"Error in retrieval execution: {e}")
+            return []
+
+    def _merge_results(
+        self, dense_results: list[str], sparse_results: list[str], top_k: int
+    ) -> list[str]:
+        """合并 dense 和 sparse 检索结果"""
+        # 简单策略: 交替取结果
+        merged = []
+        max_len = max(len(dense_results), len(sparse_results))
+
+        for i in range(max_len):
+            if i < len(dense_results) and dense_results[i] not in merged:
+                merged.append(dense_results[i])
+            if i < len(sparse_results) and sparse_results[i] not in merged:
+                merged.append(sparse_results[i])
+            if len(merged) >= top_k:
+                break
+
+        return merged[:top_k]
+
+    async def _rerank(self, query: str, documents: list[str]) -> list[str]:
+        """重排序检索结果"""
+        # 简单实现: 按文档与查询的相似度重排
+        # 实际项目中可以使用专门的 reranker 模型
+        scored_docs = []
+
+        for doc in documents:
+            score = self._compute_relevance_score(query, doc)
+            scored_docs.append((score, doc))
+
+        # 按分数降序排序
+        scored_docs.sort(key=lambda x: x[0], reverse=True)
+
+        return [doc for _, doc in scored_docs]
+
+    def _compute_relevance_score(self, query: str, document: str) -> float:
+        """计算相关性分数（简化版）"""
+        query_terms = set(query.lower().split())
+        doc_terms = set(document.lower().split())
+
+        # Jaccard 相似度
+        intersection = query_terms & doc_terms
+        union = query_terms | doc_terms
+
+        if not union:
+            return 0.0
+
+        return len(intersection) / len(union)
+
+    def _is_common_knowledge(self, query: str) -> bool:
+        """判断是否为常识问题（不需要检索）"""
+        # 简单启发式规则
+        common_patterns = [
+            "what is 1+1",
+            "what is 2+2",
+            "what day is today",
+            "what time is it",
+        ]
+
+        query_lower = query.lower()
+        return any(pattern in query_lower for pattern in common_patterns)
+
+    async def _check_cache(self, query: str) -> list[str] | None:
+        """检查缓存"""
+        if not self.cache:
+            return None
+
+        try:
+            cache_key = f"retrieval:{hash(query)}"
+            cached = await self.cache.get(cache_key)
+            return cached if cached else None
+        except Exception as e:
+            logger.error(f"Error checking cache: {e}")
+            return None
+
+    async def _cache_result(self, query: str, documents: list[str]):
+        """缓存检索结果"""
+        if not self.cache:
+            return
+
+        try:
+            cache_key = f"retrieval:{hash(query)}"
+            await self.cache.set(cache_key, documents, ex=self.cache_ttl)
+        except Exception as e:
+            logger.error(f"Error caching result: {e}")
+
+    def get_stats(self) -> dict:
+        """获取统计信息"""
+        cache_hit_rate = (
+            self.stats["cache_hits"] / self.stats["total_queries"]
+            if self.stats["total_queries"] > 0
+            else 0.0
+        )
+
         return {
             **self.stats,
-            "retrieval_rate": (
-                self.stats["retrieval_used"] / self.stats["total_queries"]
-                if self.stats["total_queries"] > 0 else 0
-            )
+            "cache_hit_rate": cache_hit_rate,
         }
-

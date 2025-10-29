@@ -7,12 +7,16 @@ Plan-Execute Executor
 import asyncio
 import json
 import logging
+from collections.abc import Generator
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any
 
 import httpx
+
 from app.models.agent_models import AgentResult, Plan, Step, StepResult
 from app.services.tool_service import ToolService
+
+logger = logging.getLogger(__name__)
 
 try:
     from opentelemetry import trace
@@ -22,22 +26,21 @@ except ImportError:
     OTEL_AVAILABLE = False
     logger.warning("OpenTelemetry not available, tracing disabled")
 
-logger = logging.getLogger(__name__)
-
 # 初始化 tracer
 if OTEL_AVAILABLE:
     tracer = trace.get_tracer(__name__)
 else:
     # 创建一个空的 tracer stub
+    class NoOpSpan:
+        def set_attribute(self, *args: Any, **kwargs: Any) -> None: pass
+        def set_status(self, *args: Any, **kwargs: Any) -> None: pass
+        def record_exception(self, *args: Any, **kwargs: Any) -> None: pass
+
     class NoOpTracer:
-        def start_as_current_span(self, name, **kwargs):
+        def start_as_current_span(self, name: str, **kwargs: Any) -> Any:
             from contextlib import contextmanager
             @contextmanager
-            def noop():
-                class NoOpSpan:
-                    def set_attribute(self, *args, **kwargs): pass
-                    def set_status(self, *args, **kwargs): pass
-                    def record_exception(self, *args, **kwargs): pass
+            def noop() -> Generator[NoOpSpan, Any, Any]:
                 yield NoOpSpan()
             return noop()
     tracer = NoOpTracer()
@@ -58,7 +61,7 @@ class PlanExecuteExecutor:
         self.max_steps = 10
         self.timeout = 300  # 5分钟
 
-    async def execute(self, task: str, context: Dict = None) -> AgentResult:
+    async def execute(self, task: str, context: dict = None) -> AgentResult:
         """
         执行计划-执行流程 - 增强版（带追踪和超时控制）
 
@@ -91,7 +94,7 @@ class PlanExecuteExecutor:
                         timeout=self.timeout
                     )
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 duration = (datetime.utcnow() - start_time).total_seconds()
                 if OTEL_AVAILABLE:
                     span.set_status(Status(StatusCode.ERROR, "Execution timeout"))
@@ -126,9 +129,9 @@ class PlanExecuteExecutor:
     async def _execute_with_tracing(
         self,
         task: str,
-        context: Dict,
-        span,
-        start_time: datetime
+        context: dict,
+        span: Any,
+        start_time: datetime,
     ) -> AgentResult:
         """内部执行逻辑（带追踪）"""
         # Step 1: 生成执行计划
@@ -194,7 +197,7 @@ class PlanExecuteExecutor:
             }
         )
 
-    async def _generate_plan(self, task: str, context: Dict = None) -> Plan:
+    async def _generate_plan(self, task: str, context: dict = None) -> Plan:
         """
         使用 LLM 生成执行计划
         """
@@ -307,8 +310,8 @@ class PlanExecuteExecutor:
     async def _execute_step(
         self,
         step: Step,
-        previous_results: List[StepResult],
-        context: Dict = None
+        previous_results: list[StepResult],
+        context: dict = None
     ) -> StepResult:
         """
         执行单个步骤（带追踪）
@@ -330,7 +333,7 @@ class PlanExecuteExecutor:
 
                 output = await self.tool_service.execute_tool(
                     tool_name=step.tool,
-                    params=params
+                    params=params  # type: ignore
                 )
             else:
                 # 没有指定工具，使用 LLM 直接处理
@@ -362,8 +365,8 @@ class PlanExecuteExecutor:
     async def _llm_process_step(
         self,
         step: Step,
-        dependency_outputs: Dict,
-        context: Dict = None
+        dependency_outputs: dict,
+        context: dict = None
     ) -> str:
         """
         使用 LLM 处理步骤（当没有合适工具时）
@@ -394,7 +397,7 @@ class PlanExecuteExecutor:
                 response.raise_for_status()
 
                 result = response.json()
-                return result["choices"][0]["message"]["content"]
+                return result["choices"][0]["message"]["content"]  # type: ignore
 
         except Exception as e:
             logger.error(f"LLM process step failed: {e}")
@@ -404,8 +407,8 @@ class PlanExecuteExecutor:
         self,
         task: str,
         plan: Plan,
-        step_results: List[StepResult]
-    ) -> str:
+        step_results: list[StepResult],
+    ) -> str:  # type: ignore
         """
         汇总所有步骤结果，生成最终答案
         """
@@ -442,7 +445,7 @@ class PlanExecuteExecutor:
                 response.raise_for_status()
 
                 result = response.json()
-                return result["choices"][0]["message"]["content"]
+                return result["choices"][0]["message"]["content"]  # type: ignore
 
         except Exception as e:
             logger.error(f"Failed to summarize results: {e}")
@@ -456,7 +459,7 @@ class PlanExecuteExecutor:
     def _check_dependencies(
         self,
         step: Step,
-        completed_results: List[StepResult]
+        completed_results: list[StepResult],
     ) -> bool:
         """
         检查步骤的依赖是否都已完成
@@ -467,7 +470,7 @@ class PlanExecuteExecutor:
         completed_ids = {r.step_id for r in completed_results if r.status == "completed"}
         return all(dep_id in completed_ids for dep_id in step.dependencies)
 
-    def _get_tools_description(self) -> str:
+    def _get_tools_description(self) -> str:  # type: ignore
         """
         获取可用工具的描述
         """

@@ -14,7 +14,7 @@ import os
 import sys
 from contextvars import ContextVar
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any
 
 # 请求ID上下文变量
 request_id_var: ContextVar[str] = ContextVar("request_id", default="")
@@ -43,7 +43,7 @@ class StructuredFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         """格式化日志记录"""
-        log_data: Dict[str, Any] = {
+        log_data: dict[str, Any] = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
             "logger": record.name,
@@ -97,8 +97,8 @@ class RequestIDFilter(logging.Filter):
 
 def setup_logging(
     service_name: str,
-    log_level: Optional[str] = None,
-    use_json: Optional[bool] = None,
+    log_level: str | None = None,
+    use_json: bool | None = None,
 ) -> None:
     """
     配置统一日志

@@ -3,7 +3,7 @@
 import logging
 import time
 import uuid
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -24,7 +24,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         start_time = time.time()
 
         logger.info(
-            f"Request started",
+            "Request started",
             extra={
                 "trace_id": trace_id,
                 "method": request.method,
@@ -40,7 +40,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             # 记录请求完成
             duration = time.time() - start_time
             logger.info(
-                f"Request completed",
+                "Request completed",
                 extra={
                     "trace_id": trace_id,
                     "method": request.method,

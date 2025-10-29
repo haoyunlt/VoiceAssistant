@@ -1,13 +1,13 @@
 """向量存储后端基类"""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class VectorStoreBackend(ABC):
     """向量存储后端抽象基类"""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         初始化后端
 
@@ -18,12 +18,12 @@ class VectorStoreBackend(ABC):
         self.initialized = False
 
     @abstractmethod
-    async def initialize(self):
+    async def initialize(self) -> None:
         """初始化连接"""
         pass
 
     @abstractmethod
-    async def cleanup(self):
+    async def cleanup(self) -> None:
         """清理资源"""
         pass
 
@@ -36,8 +36,8 @@ class VectorStoreBackend(ABC):
     async def insert_vectors(
         self,
         collection_name: str,
-        data: List[Dict],
-    ) -> Any:
+        data: list[dict],
+    ) -> None:
         """
         插入向量
 
@@ -60,12 +60,12 @@ class VectorStoreBackend(ABC):
     async def search_vectors(
         self,
         collection_name: str,
-        query_vector: List[float],
+        query_vector: list[float],
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[str] = None,
-        search_params: Optional[Dict] = None,
-    ) -> List[Dict]:
+        tenant_id: str | None = None,
+        filters: str | None = None,
+        search_params: dict | None = None,
+    ) -> list[dict]:
         """
         向量检索
 
@@ -87,7 +87,7 @@ class VectorStoreBackend(ABC):
         self,
         collection_name: str,
         document_id: str,
-    ) -> Any:
+    ) -> None:
         """
         删除文档的所有向量
 
@@ -101,7 +101,7 @@ class VectorStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def get_count(self, collection_name: str) -> int:
+    async def get_count(self, collection_name: str) -> None:
         """
         获取集合中的向量数量
 
@@ -112,14 +112,13 @@ class VectorStoreBackend(ABC):
             向量数量
         """
         pass
-
     @abstractmethod
     async def create_collection(
         self,
         collection_name: str,
         dimension: int,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         """
         创建集合
 
@@ -131,7 +130,7 @@ class VectorStoreBackend(ABC):
         pass
 
     @abstractmethod
-    async def drop_collection(self, collection_name: str):
+    async def drop_collection(self, collection_name: str) -> None:
         """
         删除集合
 

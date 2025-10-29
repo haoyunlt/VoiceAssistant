@@ -4,15 +4,14 @@ OCR (Optical Character Recognition) service
 
 import base64
 import io
+import logging
 import time
-from typing import List, Optional
 
 import httpx
 from paddleocr import PaddleOCR
 from PIL import Image
 
 from app.core.config import settings
-import logging
 from app.models.multimodal import OCRRequest, OCRResponse, OCRTextBlock
 
 logger = logging.getLogger(__name__)
@@ -108,9 +107,9 @@ class OCRService:
     async def recognize_from_bytes(
         self,
         image_data: bytes,
-        languages: Optional[List[str]] = None,
+        languages: list[str] | None = None,
         detect_orientation: bool = True,
-        confidence_threshold: Optional[float] = None,
+        confidence_threshold: float | None = None,
     ) -> OCRResponse:
         """
         从图像字节识别
@@ -143,7 +142,7 @@ class OCRService:
         )
 
     async def _recognize_with_paddleocr(
-        self, image_data: bytes, confidence_threshold: Optional[float]
+        self, image_data: bytes, confidence_threshold: float | None
     ) -> dict:
         """使用 PaddleOCR 识别"""
         if not self.ocr_engine:
@@ -205,7 +204,7 @@ class OCRService:
             raise
 
     async def _recognize_with_easyocr(
-        self, image_data: bytes, languages: Optional[List[str]], confidence_threshold: Optional[float]
+        self, image_data: bytes, languages: list[str] | None, confidence_threshold: float | None
     ) -> dict:
         """
         使用 EasyOCR 识别

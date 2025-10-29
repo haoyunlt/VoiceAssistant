@@ -8,7 +8,6 @@ Prompt Generator - Prompt 生成器
 """
 
 import logging
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ class PromptGenerator:
         self.templates = self._initialize_templates()
         logger.info("Prompt generator created")
 
-    def _initialize_templates(self) -> Dict[str, str]:
+    def _initialize_templates(self) -> dict[str, str]:
         """初始化 Prompt 模板"""
         return {
             "simple": """你是一个专业的AI助手。请根据以下参考资料回答用户的问题。

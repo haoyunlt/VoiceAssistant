@@ -3,7 +3,7 @@ Semantic-based Text Chunking Service
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 import numpy as np
 
@@ -25,7 +25,7 @@ class SemanticChunkingService:
         self.min_chunk_size = min_chunk_size
         self.max_chunk_size = max_chunk_size
 
-    async def chunk_text(self, text: str) -> List[Dict[str, Any]]:
+    async def chunk_text(self, text: str) -> list[dict[str, Any]]:
         """语义分块"""
         # 1. 按句子分割
         sentences = self._split_sentences(text)
@@ -55,7 +55,7 @@ class SemanticChunkingService:
         logger.info(f"Created {len(result)} semantic chunks from text")
         return result
 
-    def _split_sentences(self, text: str) -> List[str]:
+    def _split_sentences(self, text: str) -> list[str]:
         """分割句子"""
         import re
         # 按中英文标点分割
@@ -71,13 +71,13 @@ class SemanticChunkingService:
 
         return [s.strip() for s in combined if s.strip()]
 
-    async def _get_sentence_embeddings(self, sentences: List[str]) -> np.ndarray:
+    async def _get_sentence_embeddings(self, sentences: list[str]) -> np.ndarray:
         """获取句子embeddings"""
         # 批量获取embeddings
         embeddings = await self.embedding_service.embed_batch(sentences)
         return np.array(embeddings)
 
-    def _compute_similarities(self, embeddings: np.ndarray) -> List[float]:
+    def _compute_similarities(self, embeddings: np.ndarray) -> list[float]:
         """计算相邻句子相似度"""
         similarities = []
 
@@ -91,9 +91,9 @@ class SemanticChunkingService:
 
     def _group_by_similarity(
         self,
-        sentences: List[str],
-        similarities: List[float]
-    ) -> List[str]:
+        sentences: list[str],
+        similarities: list[float]
+    ) -> list[str]:
         """基于相似度分组"""
         chunks = []
         current_chunk = []

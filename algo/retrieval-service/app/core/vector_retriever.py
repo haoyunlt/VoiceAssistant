@@ -3,7 +3,6 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List
 
 from app.core.embedder import BGE_M3_Embedder
 
@@ -41,8 +40,8 @@ class VectorRetriever:
         query: str,
         top_k: int = 10,
         tenant_id: str = None,
-        filters: Dict = None,
-    ) -> List[Dict]:
+        filters: dict = None,
+    ) -> list[dict]:
         """
         向量检索
 

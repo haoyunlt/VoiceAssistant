@@ -2,7 +2,6 @@
 Agent Engine 配置管理
 """
 
-from typing import Optional
 
 from pydantic import BaseSettings, Field
 
@@ -20,8 +19,8 @@ class AgentConfig(BaseSettings):
     # LLM配置
     llm_provider: str = Field(default="openai", env="LLM_PROVIDER")
     llm_model: str = Field(default="gpt-4", env="LLM_MODEL")
-    llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
-    llm_api_base: Optional[str] = Field(default=None, env="LLM_API_BASE")
+    llm_api_key: str | None = Field(default=None, env="LLM_API_KEY")
+    llm_api_base: str | None = Field(default=None, env="LLM_API_BASE")
     llm_temperature: float = Field(default=0.7, env="LLM_TEMPERATURE")
     llm_max_tokens: int = Field(default=2000, env="LLM_MAX_TOKENS")
     llm_timeout: int = Field(default=30, env="LLM_TIMEOUT")
@@ -61,7 +60,7 @@ class AgentConfig(BaseSettings):
 
 
 # 全局配置实例
-_config: Optional[AgentConfig] = None
+_config: AgentConfig | None = None
 
 
 def get_config() -> AgentConfig:

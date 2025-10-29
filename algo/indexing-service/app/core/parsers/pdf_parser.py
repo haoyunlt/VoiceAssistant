@@ -2,12 +2,11 @@
 
 import io
 import logging
-from typing import Dict
 
 import pdfplumber
 import PyPDF2
 
-from .base import BaseParser
+from app.core.parsers.base import BaseParser
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +56,7 @@ class PDFParser(BaseParser):
 
         return "\n\n".join(text_parts)
 
-    def extract_metadata(self, file_data: bytes) -> Dict:
+    def extract_metadata(self, file_data: bytes) -> dict:
         """提取 PDF 元数据"""
         try:
             pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_data))

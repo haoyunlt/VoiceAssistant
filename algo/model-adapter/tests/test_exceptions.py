@@ -1,6 +1,5 @@
 """异常类单元测试."""
 
-import pytest
 from app.core.exceptions import (
     ModelAdapterError,
     ProviderAPIError,

@@ -2,9 +2,10 @@
 OCR (Optical Character Recognition) endpoints
 """
 
+import logging
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 
-import logging
 from app.models.multimodal import OCRRequest, OCRResponse
 from app.services.ocr_service import OCRService
 

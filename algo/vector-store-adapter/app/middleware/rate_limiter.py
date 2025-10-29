@@ -2,7 +2,7 @@
 
 import logging
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from fastapi import HTTPException, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -46,7 +46,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if not allowed:
             trace_id = getattr(request.state, "trace_id", "unknown")
             logger.warning(
-                f"Rate limit exceeded",
+                "Rate limit exceeded",
                 extra={
                     "trace_id": trace_id,
                     "client_id": client_id,

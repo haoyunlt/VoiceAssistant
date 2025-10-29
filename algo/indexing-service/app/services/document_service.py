@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from app.core.config import settings
 from app.models.document import DocumentStatus
@@ -25,7 +25,7 @@ class DocumentService:
         self.embedding_service = EmbeddingService()
         self.vector_service = VectorService()
         self.storage_service = StorageService()
-        self.jobs: Dict[str, Dict[str, Any]] = {}  # 简单内存存储
+        self.jobs: dict[str, dict[str, Any]] = {}  # 简单内存存储
 
     async def save_document(
         self,
@@ -33,7 +33,7 @@ class DocumentService:
         content: bytes,
         tenant_id: str,
         knowledge_base_id: str,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         保存文档到对象存储
 
@@ -81,7 +81,7 @@ class DocumentService:
         document_id: str,
         tenant_id: str,
         knowledge_base_id: str,
-        options: Dict[str, Any],
+        options: dict[str, Any],
     ) -> str:
         """创建索引任务"""
         job_id = f"job_{uuid.uuid4().hex[:16]}"
@@ -102,7 +102,7 @@ class DocumentService:
         self,
         document_id: str,
         job_id: str,
-        options: Dict[str, Any],
+        options: dict[str, Any],
     ):
         """
         处理文档（完整流程）
@@ -189,7 +189,7 @@ class DocumentService:
                 "completed_at": datetime.utcnow().isoformat(),
             })
 
-    async def get_job_status(self, job_id: str) -> Optional[Dict[str, Any]]:
+    async def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """获取任务状态"""
         return self.jobs.get(job_id)
 
@@ -223,7 +223,7 @@ class DocumentService:
             raise
 
     async def _build_knowledge_graph(
-        self, document_id: str, chunks: List[Dict[str, Any]]
+        self, document_id: str, chunks: list[dict[str, Any]]
     ) -> int:
         """构建知识图谱（示例实现）"""
         # 实际应该调用图服务

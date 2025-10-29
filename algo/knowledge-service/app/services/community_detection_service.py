@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class CommunityDetectionService:
         max_iterations: int = 10,
         resolution: float = 1.0,
         randomness: float = 0.001,
-    ) -> Dict:
+    ) -> dict:
         """
         使用Leiden算法检测社区
 
@@ -116,7 +115,7 @@ class CommunityDetectionService:
         self,
         max_iterations: int = 10,
         tolerance: float = 0.0001,
-    ) -> Dict:
+    ) -> dict:
         """
         使用Louvain算法检测社区
 
@@ -193,7 +192,7 @@ class CommunityDetectionService:
 
     async def generate_community_summary(
         self, community_id: int, llm_service=None
-    ) -> Dict:
+    ) -> dict:
         """
         生成社区摘要
 
@@ -270,7 +269,7 @@ class CommunityDetectionService:
             return {"community_id": community_id, "error": str(e)}
 
     async def _generate_llm_summary(
-        self, entities: List[Dict], relations: List[Dict], llm_service
+        self, entities: list[dict], relations: list[dict], llm_service
     ) -> str:
         """
         使用LLM生成社区摘要
@@ -317,7 +316,7 @@ class CommunityDetectionService:
         projection_name: str = "myGraph",
         node_label: str = "Entity",
         relationship_type: str = "RELATES",
-    ) -> Dict:
+    ) -> dict:
         """
         创建图投影（用于GDS算法）
 
@@ -376,7 +375,7 @@ class CommunityDetectionService:
             logger.error(f"Failed to create graph projection: {e}", exc_info=True)
             return {"status": "error", "error": str(e)}
 
-    async def drop_graph_projection(self, projection_name: str = "myGraph") -> Dict:
+    async def drop_graph_projection(self, projection_name: str = "myGraph") -> dict:
         """
         删除图投影
 

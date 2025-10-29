@@ -1,10 +1,8 @@
-import io
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
-from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +47,9 @@ class OCREngine:
         self,
         image_data: bytes,
         language: str = "auto",
-        tenant_id: Optional[str] = None,
-        user_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        tenant_id: str | None = None,
+        user_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         识别图片中的文字。
 
@@ -97,7 +95,7 @@ class OCREngine:
 
     async def _recognize_paddleocr(
         self, image_data: bytes, language: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 PaddleOCR 识别（模拟实现）"""
         logger.debug("Using PaddleOCR for text recognition")
 
@@ -127,7 +125,7 @@ class OCREngine:
 
     async def _recognize_azure(
         self, image_data: bytes, language: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 Azure Computer Vision OCR"""
         logger.debug("Using Azure Computer Vision for text recognition")
 
@@ -175,7 +173,7 @@ class OCREngine:
 
     async def _recognize_google(
         self, image_data: bytes, language: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """使用 Google Cloud Vision API（模拟实现）"""
         logger.debug("Using Google Cloud Vision for text recognition")
 
@@ -193,7 +191,7 @@ class OCREngine:
             "provider": "google",
         }
 
-    async def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         return self.stats
 

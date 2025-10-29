@@ -2,15 +2,16 @@
 
 import logging
 import time
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any
 
 from openai import AsyncOpenAI
 
-from ..core.answer_generator import AnswerGenerator
-from ..core.citation_generator import CitationGenerator
-from ..core.context_builder import ContextBuilder
-from ..core.query_rewriter import QueryRewriter
-from ..infrastructure.retrieval_client import RetrievalClient
+from app.core.answer_generator import AnswerGenerator
+from app.core.citation_generator import CitationGenerator
+from app.core.context_builder import ContextBuilder
+from app.core.query_rewriter import QueryRewriter
+from app.infrastructure.retrieval_client import RetrievalClient
 
 logger = logging.getLogger(__name__)
 
@@ -41,13 +42,13 @@ class RAGService:
     async def generate(
         self,
         query: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         rewrite_method: str = "multi",
         top_k: int = 10,
         stream: bool = False,
         include_citations: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         完整的RAG生成流程.
 
@@ -160,11 +161,11 @@ class RAGService:
     async def generate_stream(
         self,
         query: str,
-        tenant_id: Optional[str] = None,
+        tenant_id: str | None = None,
         rewrite_method: str = "none",  # 流式模式通常不做复杂改写
         top_k: int = 10,
         **kwargs,
-    ) -> AsyncIterator[Dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """
         流式RAG生成.
 
@@ -228,8 +229,8 @@ class RAGService:
             yield {"type": "error", "message": str(e)}
 
     def _deduplicate_chunks(
-        self, chunks: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+        self, chunks: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
         """
         去重分块.
 
@@ -261,10 +262,10 @@ class RAGService:
 
     async def batch_generate(
         self,
-        queries: List[str],
-        tenant_id: Optional[str] = None,
+        queries: list[str],
+        tenant_id: str | None = None,
         **kwargs,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         批量生成答案.
 

@@ -1,7 +1,7 @@
 """配置管理"""
 
 import os
-from typing import Any, Dict
+from typing import Any
 
 
 class Config:
@@ -36,7 +36,7 @@ class Config:
     REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 
     @classmethod
-    def get_backend_config(cls, backend: str) -> Dict[str, Any]:
+    def get_backend_config(cls, backend: str) -> dict[str, Any]:
         """获取特定后端的配置"""
         if backend == "milvus":
             return {

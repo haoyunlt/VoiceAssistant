@@ -4,11 +4,18 @@
 整合短期记忆和长期记忆，提供统一的接口
 """
 
-from typing import Any, Dict, List, Optional
-
 import logging
-from app.memory.memory_manager import MemoryManager as ShortTermMemory
-from app.memory.vector_memory_manager import VectorMemoryManager
+from typing import Any
+
+from langchain.schema import AIMessage, HumanMessage, SystemMessage
+
+ROLE_TO_MESSAGE = {
+    "user": HumanMessage,
+    "assistant": AIMessage,
+    "system": SystemMessage,
+}
+from app.memory.memory_manager import MemoryManager as ShortTermMemory  # noqa: E402
+from app.memory.vector_memory_manager import VectorMemoryManager  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +26,7 @@ class UnifiedMemoryManager:
     def __init__(
         self,
         # 短期记忆配置
-        redis_client=None,
+        redis_client: Any = None,
         max_short_term_messages: int = 20,
         short_term_ttl: int = 3600,
         # 长期记忆配置
@@ -31,7 +38,7 @@ class UnifiedMemoryManager:
         # 自动存储策略
         auto_save_to_long_term: bool = True,
         long_term_importance_threshold: float = 0.6,
-    ):
+    ) -> None:
         """
         初始化统一记忆管理器
 
@@ -79,8 +86,8 @@ class UnifiedMemoryManager:
         conversation_id: str,
         content: str,
         role: str = "user",
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
+        metadata: dict[str, Any] | None = None,
+    ) -> str | None:
         """
         添加记忆（自动分配到短期或长期）
 
@@ -95,11 +102,15 @@ class UnifiedMemoryManager:
             memory_id: 如果保存到长期记忆，返回 memory_id
         """
         # 1. 保存到短期记忆 (对话级)
-        # TODO: 需要先加载现有消息，然后追加
-        logger.debug(
-            f"Adding to short-term memory: conversation_id={conversation_id}, "
-            f"role={role}"
+        existing_messages = self.short_term.load_memory(conversation_id) or []
+        message_cls = ROLE_TO_MESSAGE.get(role, SystemMessage)
+        new_messages = existing_messages + [message_cls(content=content)]
+        self.short_term.save_memory(
+            conversation_id=conversation_id,
+            messages=new_messages,
+            metadata=metadata,
         )
+        logger.debug(f"Adding to short-term memory: conversation_id={conversation_id}, role={role}")
 
         # 2. 评估是否保存到长期记忆
         if self.auto_save_to_long_term:
@@ -116,8 +127,7 @@ class UnifiedMemoryManager:
                 )
 
                 logger.info(
-                    f"Saved to long-term memory: memory_id={memory_id}, "
-                    f"importance={importance:.2f}"
+                    f"Saved to long-term memory: memory_id={memory_id}, importance={importance:.2f}"
                 )
 
                 return memory_id
@@ -128,11 +138,11 @@ class UnifiedMemoryManager:
         self,
         user_id: str,
         query: str,
-        conversation_id: Optional[str] = None,
+        conversation_id: str | None = None,
         top_k: int = 5,
         include_short_term: bool = True,
         include_long_term: bool = True,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         回忆相关记忆（短期+长期）
 
@@ -151,7 +161,11 @@ class UnifiedMemoryManager:
                 "combined": [...]     # 融合后的记忆
             }
         """
-        result = {"short_term": [], "long_term": [], "combined": []}
+        result: dict[str, list[dict[str, Any]]] = {
+            "short_term": [],
+            "long_term": [],
+            "combined": [],
+        }
 
         # 1. 短期记忆 (对话级)
         if include_short_term and conversation_id:
@@ -208,7 +222,7 @@ class UnifiedMemoryManager:
         user_id: str,
         content: str,
         memory_type: str = "important",
-        importance: Optional[float] = None,
+        importance: float | None = None,
     ) -> str:
         """
         直接存储重要记忆到长期记忆
@@ -229,13 +243,11 @@ class UnifiedMemoryManager:
             importance=importance,
         )
 
-        logger.info(
-            f"Stored important memory: user_id={user_id}, memory_id={memory_id}"
-        )
+        logger.info(f"Stored important memory: user_id={user_id}, memory_id={memory_id}")
 
         return memory_id
 
-    async def delete_memory(self, memory_id: str):
+    async def delete_memory(self, memory_id: str) -> None:
         """
         删除长期记忆
 
@@ -248,7 +260,7 @@ class UnifiedMemoryManager:
 
     async def list_user_memories(
         self, user_id: str, limit: int = 20, offset: int = 0
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         列出用户的所有长期记忆
 
@@ -268,7 +280,7 @@ class UnifiedMemoryManager:
 
         return memories
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """
         获取统计信息
 
@@ -287,4 +299,3 @@ class UnifiedMemoryManager:
                 "importance_threshold": self.long_term_importance_threshold,
             },
         }
-

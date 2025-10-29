@@ -3,7 +3,6 @@
 """
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
@@ -17,7 +16,7 @@ router = APIRouter(prefix="/emotion", tags=["emotion"])
 class EmotionRecognitionRequest(BaseModel):
     """情感识别请求"""
 
-    sample_rate: Optional[int] = 16000
+    sample_rate: int | None = 16000
 
 
 class EmotionRecognitionResponse(BaseModel):
@@ -27,7 +26,7 @@ class EmotionRecognitionResponse(BaseModel):
     confidence: float
     probabilities: dict
     features: dict
-    error: Optional[str] = None
+    error: str | None = None
 
 
 @router.post("/recognize", response_model=EmotionRecognitionResponse)

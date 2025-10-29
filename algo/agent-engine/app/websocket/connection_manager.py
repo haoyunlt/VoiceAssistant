@@ -4,12 +4,10 @@ Connection Manager - WebSocket 连接管理器
 管理所有活跃的 WebSocket 连接
 """
 
+import logging
 import time
-from typing import Dict, List, Optional
 
 from fastapi import WebSocket
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +18,10 @@ class ConnectionManager:
     def __init__(self):
         """初始化连接管理器"""
         # 活跃连接: {connection_id: WebSocket}
-        self.active_connections: Dict[str, WebSocket] = {}
+        self.active_connections: dict[str, WebSocket] = {}
 
         # 连接元数据: {connection_id: metadata}
-        self.connection_metadata: Dict[str, Dict] = {}
+        self.connection_metadata: dict[str, dict] = {}
 
         # 统计信息
         self.total_connections = 0
@@ -33,7 +31,7 @@ class ConnectionManager:
         self,
         websocket: WebSocket,
         connection_id: str,
-        metadata: Optional[Dict] = None
+        metadata: dict | None = None
     ):
         """
         接受新连接
@@ -121,7 +119,7 @@ class ConnectionManager:
                 logger.error(f"Failed to send text to {connection_id}: {e}")
                 self.disconnect(connection_id)
 
-    async def broadcast(self, message: dict, exclude: Optional[List[str]] = None):
+    async def broadcast(self, message: dict, exclude: list[str] | None = None):
         """
         广播消息到所有连接
 
@@ -135,7 +133,7 @@ class ConnectionManager:
             if connection_id not in exclude:
                 await self.send_message(connection_id, message)
 
-    def get_connection(self, connection_id: str) -> Optional[WebSocket]:
+    def get_connection(self, connection_id: str) -> WebSocket | None:
         """
         获取连接
 
@@ -147,7 +145,7 @@ class ConnectionManager:
         """
         return self.active_connections.get(connection_id)
 
-    def get_metadata(self, connection_id: str) -> Optional[Dict]:
+    def get_metadata(self, connection_id: str) -> dict | None:
         """
         获取连接元数据
 
@@ -159,7 +157,7 @@ class ConnectionManager:
         """
         return self.connection_metadata.get(connection_id)
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """
         获取统计信息
 
@@ -183,7 +181,7 @@ class ConnectionManager:
 
 
 # 全局连接管理器实例
-_connection_manager: Optional[ConnectionManager] = None
+_connection_manager: ConnectionManager | None = None
 
 
 def get_connection_manager() -> ConnectionManager:

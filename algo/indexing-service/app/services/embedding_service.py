@@ -1,6 +1,5 @@
 """向量化服务"""
 import logging
-from typing import List, Optional
 
 import httpx
 
@@ -16,7 +15,7 @@ class EmbeddingService:
         self.model = settings.EMBEDDING_MODEL
         self.dimension = settings.EMBEDDING_DIMENSION
         self.batch_size = settings.EMBEDDING_BATCH_SIZE
-        self._embedder: Optional[object] = None
+        self._embedder: object | None = None
         self._init_embedder()
 
     def _init_embedder(self):
@@ -40,7 +39,7 @@ class EmbeddingService:
             logger.error(f"Failed to initialize embedder: {e}")
             raise
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """
         单个文本向量化
 
@@ -53,7 +52,7 @@ class EmbeddingService:
         embeddings = await self.embed_batch([text])
         return embeddings[0] if embeddings else []
 
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """
         批量文本向量化
 
@@ -91,7 +90,7 @@ class EmbeddingService:
             logger.error(f"Embedding failed: {e}", exc_info=True)
             raise
 
-    async def embed_with_openai(self, texts: List[str]) -> List[List[float]]:
+    async def embed_with_openai(self, texts: list[str]) -> list[list[float]]:
         """
         使用OpenAI API进行向量化
 

@@ -2,7 +2,6 @@
 
 import logging
 import time
-from typing import Dict, List, Optional
 
 import jieba
 
@@ -50,8 +49,8 @@ class GraphRetriever:
         top_k: int = 10,
         depth: int = None,
         tenant_id: str = None,
-        filters: Dict = None,
-    ) -> List[Dict]:
+        filters: dict = None,
+    ) -> list[dict]:
         """
         图谱检索（多跳关系）
 
@@ -110,7 +109,7 @@ class GraphRetriever:
 
         return results
 
-    async def _extract_entities(self, query: str) -> List[str]:
+    async def _extract_entities(self, query: str) -> list[str]:
         """
         从查询中提取实体（集成 NER 模型）
 
@@ -171,11 +170,11 @@ class GraphRetriever:
 
     async def _multi_hop_search(
         self,
-        entity_names: List[str],
+        entity_names: list[str],
         depth: int,
         top_k: int,
-        tenant_id: Optional[str] = None,
-    ) -> List[Dict]:
+        tenant_id: str | None = None,
+    ) -> list[dict]:
         """
         多跳关系搜索
 
@@ -257,7 +256,7 @@ class GraphRetriever:
 
         return results
 
-    async def get_stats(self) -> Dict:
+    async def get_stats(self) -> dict:
         """获取图谱统计信息"""
         if not self.neo4j_client:
             return {}

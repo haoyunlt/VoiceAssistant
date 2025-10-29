@@ -11,10 +11,10 @@ ASR: Azure -> Faster-Whisper
 TTS: Azure -> Edge TTS
 """
 
-import os
-from typing import Literal, Optional
-
 import logging
+import os
+from typing import Literal
+
 from app.services.asr_service import ASRService
 from app.services.tts_service import TTSService
 
@@ -28,7 +28,7 @@ class MultiVendorSpeechAdapter:
         self,
         preferred_asr: Literal["azure", "faster-whisper"] = "faster-whisper",
         preferred_tts: Literal["azure", "edge"] = "edge",
-        azure_key: Optional[str] = None,
+        azure_key: str | None = None,
         azure_region: str = "eastasia",
     ):
         """
@@ -141,7 +141,7 @@ class MultiVendorSpeechAdapter:
     async def synthesize(
         self,
         text: str,
-        voice: Optional[str] = None,
+        voice: str | None = None,
         rate: str = "0%",
         pitch: str = "0%",
         use_cache: bool = True,
@@ -311,7 +311,7 @@ class MultiVendorSpeechAdapter:
 
 
 # 单例实例
-_multi_vendor_adapter: Optional[MultiVendorSpeechAdapter] = None
+_multi_vendor_adapter: MultiVendorSpeechAdapter | None = None
 
 
 def get_multi_vendor_adapter() -> MultiVendorSpeechAdapter:

@@ -3,7 +3,6 @@ OpenTelemetry Tracing - 分布式追踪
 """
 
 import logging
-from typing import Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 def setup_tracing(
     service_name: str = "retrieval-service",
     service_version: str = "1.0.0",
-    endpoint: Optional[str] = None,
+    endpoint: str | None = None,
     enabled: bool = True,
 ):
     """
@@ -95,7 +94,7 @@ def add_span_attributes(**attributes):
             span.set_attribute(key, value)
 
 
-def add_span_event(name: str, attributes: Optional[dict] = None):
+def add_span_event(name: str, attributes: dict | None = None):
     """添加 Span 事件"""
     span = get_current_span()
     if span:

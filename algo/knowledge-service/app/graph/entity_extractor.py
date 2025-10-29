@@ -5,7 +5,7 @@ Entity Extractor - 实体提取器
 """
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 try:
     import spacy
@@ -48,7 +48,7 @@ class EntityExtractor:
                 )
                 self.nlp = None
 
-    def extract_entities(self, text: str) -> List[Dict[str, Any]]:
+    def extract_entities(self, text: str) -> list[dict[str, Any]]:
         """
         从文本提取实体
 
@@ -82,7 +82,7 @@ class EntityExtractor:
             logger.error(f"Entity extraction failed: {e}")
             return self._fallback_extract(text)
 
-    def _fallback_extract(self, text: str) -> List[Dict[str, Any]]:
+    def _fallback_extract(self, text: str) -> list[dict[str, Any]]:
         """
         后备提取方法（基于简单规则）
 
@@ -111,7 +111,7 @@ class EntityExtractor:
 
     def extract_with_context(
         self, text: str, context_window: int = 50
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         提取实体并包含上下文
 
@@ -132,8 +132,8 @@ class EntityExtractor:
         return entities
 
     def group_by_label(
-        self, entities: List[Dict[str, Any]]
-    ) -> Dict[str, List[Dict[str, Any]]]:
+        self, entities: list[dict[str, Any]]
+    ) -> dict[str, list[dict[str, Any]]]:
         """
         按标签分组实体
 
@@ -154,7 +154,7 @@ class EntityExtractor:
 
 
 # 全局实例
-_entity_extractor: Optional[EntityExtractor] = None
+_entity_extractor: EntityExtractor | None = None
 
 
 def get_entity_extractor() -> EntityExtractor:

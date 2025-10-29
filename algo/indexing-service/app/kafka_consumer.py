@@ -3,15 +3,12 @@ Kafka Consumer for Document Indexing
 订阅 document.uploaded 事件并触发文档索引流程
 """
 
-import asyncio
 import json
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, Optional
+from typing import Any
 
-import google.protobuf.message
-from google.protobuf.json_format import MessageToDict
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 
@@ -55,7 +52,7 @@ class DocumentIndexingConsumer:
         self.max_workers = max_workers
 
         # 初始化消费者（延迟到 start 方法）
-        self.consumer: Optional[KafkaConsumer] = None
+        self.consumer: KafkaConsumer | None = None
 
         # 初始化处理器
         self.document_processor = DocumentProcessor()
@@ -96,7 +93,7 @@ class DocumentIndexingConsumer:
                 heartbeat_interval_ms=10000
             )
 
-            logger.info(f"Kafka consumer started successfully")
+            logger.info("Kafka consumer started successfully")
 
             # 开始消费消息
             self._consume_messages()
@@ -147,7 +144,7 @@ class DocumentIndexingConsumer:
         finally:
             self.stop()
 
-    def _parse_message(self, message) -> Optional[Dict[str, Any]]:
+    def _parse_message(self, message) -> dict[str, Any] | None:
         """
         解析 Kafka 消息
 
@@ -169,7 +166,7 @@ class DocumentIndexingConsumer:
             logger.error(f"Failed to parse message: {e}")
             return None
 
-    def _handle_event(self, event: Dict[str, Any]) -> bool:
+    def _handle_event(self, event: dict[str, Any]) -> bool:
         """
         处理事件
 
@@ -190,7 +187,7 @@ class DocumentIndexingConsumer:
             logger.debug(f"Ignoring event type: {event_type}")
             return True  # 忽略的事件也算成功
 
-    def _handle_document_uploaded(self, event: Dict[str, Any]) -> bool:
+    def _handle_document_uploaded(self, event: dict[str, Any]) -> bool:
         """
         处理文档上传事件
 
@@ -270,7 +267,7 @@ class DocumentIndexingConsumer:
 
             # 6. 构建知识图谱（可选）
             if parsed_doc.get("entities"):
-                logger.debug(f"Building knowledge graph")
+                logger.debug("Building knowledge graph")
                 graph_stats = self.graph_builder.build_graph(
                     document_id=document_id,
                     entities=parsed_doc.get("entities", []),
@@ -287,7 +284,7 @@ class DocumentIndexingConsumer:
             logger.error(f"Failed to handle document uploaded event: {e}", exc_info=True)
             return False
 
-    def _handle_document_deleted(self, event: Dict[str, Any]) -> bool:
+    def _handle_document_deleted(self, event: dict[str, Any]) -> bool:
         """
         处理文档删除事件
 

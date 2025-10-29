@@ -1,7 +1,7 @@
 """文档相关数据模型"""
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -30,16 +30,16 @@ class Document(BaseModel):
     name: str
     format: DocumentFormat
     size: int  # bytes
-    content: Optional[str] = None
+    content: str | None = None
     storage_path: str
     tenant_id: str
     user_id: str
     knowledge_base_id: str
     status: DocumentStatus = DocumentStatus.PENDING
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    indexed_at: Optional[datetime] = None
+    indexed_at: datetime | None = None
 
 
 class Chunk(BaseModel):
@@ -49,8 +49,8 @@ class Chunk(BaseModel):
     content: str
     position: int  # 在文档中的位置
     chunk_size: int
-    embedding: Optional[List[float]] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    embedding: list[float] | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -62,18 +62,18 @@ class IndexingJob(BaseModel):
     chunks_count: int = 0
     vectors_count: int = 0
     graph_nodes_count: int = 0
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-    error_message: Optional[str] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    error_message: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class IndexingResult(BaseModel):
     """索引结果"""
     document_id: str
     status: DocumentStatus
-    chunks: List[Dict[str, Any]] = Field(default_factory=list)
+    chunks: list[dict[str, Any]] = Field(default_factory=list)
     vectors_inserted: int = 0
     graph_nodes_created: int = 0
     processing_time: float = 0.0
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)

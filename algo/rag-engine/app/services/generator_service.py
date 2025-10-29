@@ -1,7 +1,7 @@
 """生成服务"""
 import json
 import logging
-from typing import AsyncIterator, Dict, List
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -20,7 +20,7 @@ class GeneratorService:
         self,
         query: str,
         context: str,
-        history: List[Dict[str, str]] = None,
+        history: list[dict[str, str]] = None,
         model: str = None,
         temperature: float = 0.7,
     ) -> str:
@@ -79,7 +79,7 @@ class GeneratorService:
         self,
         query: str,
         context: str,
-        history: List[Dict[str, str]] = None,
+        history: list[dict[str, str]] = None,
         model: str = None,
         temperature: float = 0.7,
     ) -> AsyncIterator[str]:
