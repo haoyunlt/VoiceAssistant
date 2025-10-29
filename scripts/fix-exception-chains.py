@@ -48,10 +48,8 @@ for line in result.stdout.strip().split("\n"):
 print(f"发现 {len(errors)} 个异常链缺失问题")
 
 # 按文件分组
-files_to_fix = {}
+files_to_fix: dict[Path, list[int]] = defaultdict(list)  # type: ignore[reportUnknownReturnType]    
 for file_path, line_num in errors:
-    if file_path not in files_to_fix:
-        files_to_fix[file_path] = []
     files_to_fix[file_path].append(line_num)
 
 # 逐文件修复
