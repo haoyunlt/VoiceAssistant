@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package model_router.v1;
 
-option go_package = "voiceassistant/api/proto/model-router/v1;v1";
+option go_package = "voicehelper/api/proto/model-router/v1;v1";
 
 // ModelRouter Service - 模型路由与成本优化
 service ModelRouter {

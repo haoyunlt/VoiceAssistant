@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package vector_store.v1;
+
+option go_package = "voicehelper/api/proto/vector-store/v1;vectorstorev1";
+
+import "google/protobuf/empty.proto";
+
+// VectorStoreService 向量存储适配器服务
+service VectorStoreService {
+  // 创建集合
+  rpc CreateCollection(CreateCollectionRequest) returns (CreateCollectionResponse);
+
+  // 删除集合
+  rpc DeleteCollection(DeleteCollectionRequest) returns (google.protobuf.Empty);
+
+  // 列出集合
+  rpc ListCollections(ListCollectionsRequest) returns (ListCollectionsResponse);
+
+  // 获取集合信息
+  rpc GetCollectionInfo(GetCollectionInfoRequest) returns (CollectionInfo);
+
+  // 插入向量
+  rpc InsertVectors(InsertVectorsRequest) returns (InsertVectorsResponse);
+
+  // 批量插入
+  rpc InsertVectorsBatch(InsertVectorsBatchRequest) returns (InsertVectorsBatchResponse);
+
+  // 更新向量
+  rpc UpdateVector(UpdateVectorRequest) returns (google.protobuf.Empty);
+
+  // 删除向量
+  rpc DeleteVector(DeleteVectorRequest) returns (google.protobuf.Empty);
+
+  // 批量删除
+  rpc DeleteVectorsBatch(DeleteVectorsBatchRequest) returns (google.protobuf.Empty);
+
+  // 向量检索
+  rpc Search(SearchRequest) returns (SearchResponse);
+
+  // 批量检索
+  rpc SearchBatch(SearchBatchRequest) returns (SearchBatchResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ============ 集合管理 ============
+
+message CreateCollectionRequest {
+  string collection_name = 1;
+  int32 dimension = 2;                  // 向量维度
+  string metric_type = 3;               // L2, IP, COSINE
+  CollectionConfig config = 4;
+}
+
+message CollectionConfig {
+  string index_type = 1;                // FLAT, IVF_FLAT, HNSW
+  map<string, string> index_params = 2; // 索引参数
+  int32 shard_num = 3;                  // 分片数
+}
+
+message CreateCollectionResponse {
+  string collection_name = 1;
+  string status = 2;                    // created, exists
+}
+
+message DeleteCollectionRequest {
+  string collection_name = 1;
+}
+
+message ListCollectionsRequest {
+  string prefix = 1;                    // 集合名前缀过滤
+}
+
+message ListCollectionsResponse {
+  repeated string collection_names = 1;
+  int32 total = 2;
+}
+
+message GetCollectionInfoRequest {
+  string collection_name = 1;
+}
+
+message CollectionInfo {
+  string collection_name = 1;
+  int32 dimension = 2;
+  string metric_type = 3;
+  int64 total_vectors = 4;
+  string index_type = 5;
+  CollectionStats stats = 6;
+}
+
+message CollectionStats {
+  int64 row_count = 1;
+  int64 data_size_bytes = 2;
+  int32 segment_count = 3;
+}
+
+// ============ 向量操作 ============
+
+message InsertVectorsRequest {
+  string collection_name = 1;
+  repeated Vector vectors = 2;
+}
+
+message Vector {
+  string id = 1;
+  repeated float embedding = 2;
+  map<string, string> metadata = 3;
+}
+
+message InsertVectorsResponse {
+  int32 inserted_count = 1;
+  repeated string ids = 2;
+  string status = 3;
+}
+
+message InsertVectorsBatchRequest {
+  repeated InsertVectorsRequest batches = 1;
+}
+
+message InsertVectorsBatchResponse {
+  int32 total_inserted = 1;
+  repeated InsertVectorsResponse results = 2;
+}
+
+message UpdateVectorRequest {
+  string collection_name = 1;
+  string id = 2;
+  repeated float embedding = 3;
+  map<string, string> metadata = 4;
+}
+
+message DeleteVectorRequest {
+  string collection_name = 1;
+  string id = 2;
+}
+
+message DeleteVectorsBatchRequest {
+  string collection_name = 1;
+  repeated string ids = 2;
+}
+
+// ============ 检索 ============
+
+message SearchRequest {
+  string collection_name = 1;
+  repeated float query_vector = 2;
+  int32 top_k = 3;
+  string metric_type = 4;               // L2, IP, COSINE
+  SearchParams params = 5;
+  map<string, string> filters = 6;      // 元数据过滤
+}
+
+message SearchParams {
+  int32 nprobe = 1;                     // IVF参数
+  int32 ef = 2;                         // HNSW参数
+  float radius = 3;                     // 范围搜索半径
+  map<string, string> extra = 4;
+}
+
+message SearchResponse {
+  repeated SearchResult results = 1;
+  int64 latency_ms = 2;
+}
+
+message SearchResult {
+  string id = 1;
+  float score = 2;
+  map<string, string> metadata = 3;
+  repeated float embedding = 4;         // 可选返回
+}
+
+message SearchBatchRequest {
+  repeated SearchRequest searches = 1;
+}
+
+message SearchBatchResponse {
+  repeated SearchResponse responses = 1;
+}
+
+// ============ 健康检查 ============
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  string provider = 2;                  // milvus, qdrant, weaviate, pinecone
+  bool connected = 3;
+}

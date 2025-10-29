@@ -483,14 +483,14 @@ services:
     container_name: va-indexing-service
     environment:
       - HOST=0.0.0.0
-      - PORT=8007
+      - PORT=8011
       - MILVUS_HOST=milvus
       - MILVUS_PORT=19530
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - MODEL_ADAPTER_URL=http://model-adapter:8002
     ports:
-      - "8007:8007"
+      - "8011:8011"
     volumes:
       - ./configs:/app/configs
     depends_on:
@@ -513,13 +513,13 @@ services:
     container_name: va-knowledge-service-py
     environment:
       - HOST=0.0.0.0
-      - PORT=8008
+      - PORT=8010
       - MILVUS_HOST=milvus
       - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
       - NEO4J_USER=${NEO4J_USER:-neo4j}
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
     ports:
-      - "8008:8008"
+      - "8010:8010"
     volumes:
       - ./configs:/app/configs
     depends_on:
@@ -573,12 +573,12 @@ services:
     container_name: va-vector-store-adapter
     environment:
       - HOST=0.0.0.0
-      - PORT=8001
+      - PORT=8009
       - MILVUS_HOST=milvus
       - MILVUS_PORT=19530
       - REDIS_HOST=redis
     ports:
-      - "8001:8001"
+      - "8009:8009"
     volumes:
       - ./configs:/app/configs
     depends_on:

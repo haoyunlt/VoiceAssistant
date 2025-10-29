@@ -1,9 +1,9 @@
 package application
 
 import (
-	"ai-orchestrator/internal/infrastructure"
 	"context"
 	"fmt"
+	"voicehelper/cmd/ai-orchestrator/internal/infrastructure"
 )
 
 // ChatExecutor 聊天执行器接口（策略模式）

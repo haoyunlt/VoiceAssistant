@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package ai.orchestrator.v1;
 
-option go_package = "voiceassistant/api/proto/ai-orchestrator/v1;v1";
+option go_package = "voicehelper/api/proto/ai-orchestrator/v1;v1";
 
 import "google/protobuf/timestamp.proto";
 

@@ -334,7 +334,7 @@
   // ============================================
   // Explorer
   // ============================================
-  "explorer.confirmDelete": true,
+  "explorer.confirmDelete": false,
   "explorer.confirmDragAndDrop": true,
   "explorer.sortOrder": "type",
   "explorer.fileNesting.enabled": true,
@@ -422,5 +422,7 @@
   // ============================================
   // Telemetry (可选关闭以提升性能)
   // ============================================
-  "telemetry.telemetryLevel": "off"
+  "telemetry.telemetryLevel": "off",
+  "containers.commands.build": "docker build --rm -f \"${dockerfile}\" -t ${tag} \"${context}\"",
+  "cSpell.words": ["knowledgepb"]
 }

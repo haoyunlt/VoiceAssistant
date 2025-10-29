@@ -1,0 +1,290 @@
+syntax = "proto3";
+
+package multimodal.v1;
+
+option go_package = "voicehelper/api/proto/multimodal/v1;multimodalv1";
+
+// MultimodalService 多模态服务
+service MultimodalService {
+  // 图像分析
+  rpc AnalyzeImage(AnalyzeImageRequest) returns (AnalyzeImageResponse);
+
+  // OCR文字识别
+  rpc ExtractText(ExtractTextRequest) returns (ExtractTextResponse);
+
+  // 目标检测
+  rpc DetectObjects(DetectObjectsRequest) returns (DetectObjectsResponse);
+
+  // 场景识别
+  rpc RecognizeScene(RecognizeSceneRequest) returns (RecognizeSceneResponse);
+
+  // 图像描述
+  rpc DescribeImage(DescribeImageRequest) returns (DescribeImageResponse);
+
+  // 颜色分析
+  rpc AnalyzeColors(AnalyzeColorsRequest) returns (AnalyzeColorsResponse);
+
+  // 图像相似度
+  rpc ComputeSimilarity(ComputeSimilarityRequest) returns (ComputeSimilarityResponse);
+
+  // 视频分析
+  rpc AnalyzeVideo(AnalyzeVideoRequest) returns (AnalyzeVideoResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ============ 图像分析 ============
+
+message AnalyzeImageRequest {
+  oneof image_source {
+    string image_url = 1;
+    bytes image_data = 2;
+    string image_base64 = 3;
+  }
+  repeated string tasks = 4;            // 分析任务列表：description, text, objects, scene, colors
+  AnalyzeConfig config = 5;
+}
+
+message AnalyzeConfig {
+  string model = 1;
+  string language = 2;
+  float confidence_threshold = 3;
+}
+
+message AnalyzeImageResponse {
+  string description = 1;               // 图像描述
+  string text = 2;                      // OCR文字
+  repeated DetectedObject objects = 3;  // 检测到的对象
+  SceneInfo scene = 4;                  // 场景信息
+  ColorInfo colors = 5;                 // 颜色信息
+  map<string, string> metadata = 6;
+}
+
+// ============ OCR文字识别 ============
+
+message ExtractTextRequest {
+  oneof image_source {
+    string image_url = 1;
+    bytes image_data = 2;
+    string image_base64 = 3;
+  }
+  string language = 4;
+  OCRConfig config = 5;
+}
+
+message OCRConfig {
+  string model = 1;
+  bool detect_orientation = 2;          // 检测方向
+  bool detect_language = 3;             // 检测语言
+}
+
+message ExtractTextResponse {
+  string text = 1;
+  repeated TextBlock blocks = 2;
+  string detected_language = 3;
+  float confidence = 4;
+}
+
+message TextBlock {
+  string text = 1;
+  BoundingBox bbox = 2;
+  float confidence = 3;
+}
+
+message BoundingBox {
+  int32 x = 1;
+  int32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+// ============ 目标检测 ============
+
+message DetectObjectsRequest {
+  oneof image_source {
+    string image_url = 1;
+    bytes image_data = 2;
+    string image_base64 = 3;
+  }
+  DetectionConfig config = 4;
+}
+
+message DetectionConfig {
+  string model = 1;
+  float confidence_threshold = 2;
+  repeated string classes = 3;          // 目标类别过滤
+}
+
+message DetectObjectsResponse {
+  repeated DetectedObject objects = 1;
+  int32 total = 2;
+}
+
+message DetectedObject {
+  string label = 1;
+  float confidence = 2;
+  BoundingBox bbox = 3;
+  map<string, string> attributes = 4;
+}
+
+// ============ 场景识别 ============
+
+message RecognizeSceneRequest {
+  oneof image_source {
+    string image_url = 1;
+    bytes image_data = 2;
+    string image_base64 = 3;
+  }
+}
+
+message RecognizeSceneResponse {
+  SceneInfo scene = 1;
+  repeated SceneCategory categories = 2;
+}
+
+message SceneInfo {
+  string primary_scene = 1;
+  float confidence = 2;
+  repeated string tags = 3;
+}
+
+message SceneCategory {
+  string category = 1;
+  float confidence = 2;
+}
+
+// ============ 图像描述 ============
+
+message DescribeImageRequest {
+  oneof image_source {
+    string image_url = 1;
+    bytes image_data = 2;
+    string image_base64 = 3;
+  }
+  string language = 4;
+  DescriptionConfig config = 5;
+}
+
+message DescriptionConfig {
+  string model = 1;
+  int32 max_length = 2;
+  string style = 3;                     // detailed, brief, creative
+}
+
+message DescribeImageResponse {
+  string description = 1;
+  repeated string captions = 2;         // 多个候选描述
+  float confidence = 3;
+}
+
+// ============ 颜色分析 ============
+
+message AnalyzeColorsRequest {
+  oneof image_source {
+    string image_url = 1;
+    bytes image_data = 2;
+    string image_base64 = 3;
+  }
+  int32 max_colors = 4;                 // 最多返回的颜色数
+}
+
+message AnalyzeColorsResponse {
+  ColorInfo colors = 1;
+}
+
+message ColorInfo {
+  repeated ColorData dominant_colors = 1;
+  repeated ColorData accent_colors = 2;
+  string color_palette = 3;             // 色板类型
+}
+
+message ColorData {
+  string hex = 1;
+  RGB rgb = 2;
+  float percentage = 3;
+  string name = 4;
+}
+
+message RGB {
+  int32 r = 1;
+  int32 g = 2;
+  int32 b = 3;
+}
+
+// ============ 图像相似度 ============
+
+message ComputeSimilarityRequest {
+  oneof image1_source {
+    string image1_url = 1;
+    bytes image1_data = 2;
+  }
+  oneof image2_source {
+    string image2_url = 3;
+    bytes image2_data = 4;
+  }
+  string method = 5;                    // cosine, euclidean, perceptual
+}
+
+message ComputeSimilarityResponse {
+  float similarity = 1;                 // 相似度分数 0-1
+  string method = 2;
+}
+
+// ============ 视频分析 ============
+
+message AnalyzeVideoRequest {
+  oneof video_source {
+    string video_url = 1;
+    bytes video_data = 2;
+  }
+  repeated string tasks = 3;            // 分析任务：scene_detection, object_tracking, ocr
+  VideoAnalysisConfig config = 4;
+}
+
+message VideoAnalysisConfig {
+  int32 sample_fps = 1;                 // 采样帧率
+  int32 max_frames = 2;                 // 最大帧数
+}
+
+message AnalyzeVideoResponse {
+  repeated VideoFrame frames = 1;
+  repeated VideoScene scenes = 2;
+  repeated TrackedObject tracked_objects = 3;
+  int64 duration_ms = 4;
+  int32 total_frames = 5;
+}
+
+message VideoFrame {
+  int32 frame_number = 1;
+  float timestamp = 2;                  // 秒
+  AnalyzeImageResponse analysis = 3;
+}
+
+message VideoScene {
+  float start_time = 1;
+  float end_time = 2;
+  string scene_type = 3;
+  float confidence = 4;
+}
+
+message TrackedObject {
+  string object_id = 1;
+  string label = 2;
+  repeated TrackingPoint tracking_points = 3;
+}
+
+message TrackingPoint {
+  int32 frame = 1;
+  float timestamp = 2;
+  BoundingBox bbox = 3;
+  float confidence = 4;
+}
+
+// ============ 健康检查 ============
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+}

@@ -29,10 +29,11 @@ func (s *WebhookSender) Send(notification *domain.Notification) error {
 	// Build payload
 	payload := map[string]interface{}{
 		"notification_id": notification.ID,
-		"event_type":      notification.EventType,
+		"channel":         notification.Channel,
+		"priority":        notification.Priority,
 		"title":           notification.Title,
 		"content":         notification.Content,
-		"data":            notification.Data,
+		"metadata":        notification.Metadata,
 		"timestamp":       notification.CreatedAt,
 	}
 

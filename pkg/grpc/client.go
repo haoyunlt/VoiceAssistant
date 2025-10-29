@@ -9,7 +9,8 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/logging"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/middleware/tracing"
-	"github.com/go-kratos/kratos/v2/transport/grpc"
+	kratosgrpc "github.com/go-kratos/kratos/v2/transport/grpc"
+	"google.golang.org/grpc"
 )
 
 // NewClient creates a new gRPC client.
@@ -20,10 +21,10 @@ func NewClient(
 	logger log.Logger,
 	middlewares ...middleware.Middleware,
 ) (*grpc.ClientConn, error) {
-	opts := []grpc.ClientOption{
-		grpc.WithEndpoint(endpoint),
-		grpc.WithTimeout(timeout),
-		grpc.WithMiddleware(
+	opts := []kratosgrpc.ClientOption{
+		kratosgrpc.WithEndpoint(endpoint),
+		kratosgrpc.WithTimeout(timeout),
+		kratosgrpc.WithMiddleware(
 			recovery.Recovery(),
 			tracing.Client(),
 			logging.Client(logger),
@@ -31,10 +32,10 @@ func NewClient(
 	}
 
 	if len(middlewares) > 0 {
-		opts = append(opts, grpc.WithMiddleware(middlewares...))
+		opts = append(opts, kratosgrpc.WithMiddleware(middlewares...))
 	}
 
-	conn, err := grpc.DialInsecure(ctx, opts...)
+	conn, err := kratosgrpc.DialInsecure(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}

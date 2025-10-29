@@ -1,0 +1,234 @@
+# 服务客户端配置
+# 用于服务间 gRPC 调用
+
+# 客户端工厂配置
+client_factory:
+  # 默认超时时间（秒）
+  default_timeout: 30
+
+  # 是否启用服务发现
+  enable_discovery: true
+
+  # Consul 配置
+  consul:
+    address: "localhost:8500"
+    scheme: "http"
+    # ACL Token (可选)
+    # token: ""
+
+# 服务地址配置
+# 如果启用服务发现，这些地址作为后备地址
+services:
+  # Identity Service
+  identity-service:
+    # 直连地址（不启用服务发现时使用）
+    address: "localhost:50051"
+    # 服务发现地址（启用服务发现时使用）
+    discovery_name: "identity-service"
+    # 服务标签
+    tags:
+      - "grpc"
+      - "v1"
+    # 超时配置
+    timeout: 30s
+    # 熔断器配置
+    circuit_breaker:
+      max_failures: 5
+      timeout: 60s
+      max_requests: 3
+      success_threshold: 2
+    # 重试策略
+    retry:
+      max_retries: 3
+      initial_delay: 100ms
+      max_delay: 5s
+      backoff_multiplier: 2.0
+    # Keep-Alive 配置
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+  # Conversation Service
+  conversation-service:
+    address: "localhost:50052"
+    discovery_name: "conversation-service"
+    tags:
+      - "grpc"
+      - "v1"
+    timeout: 30s
+    circuit_breaker:
+      max_failures: 5
+      timeout: 60s
+      max_requests: 3
+      success_threshold: 2
+    retry:
+      max_retries: 3
+      initial_delay: 100ms
+      max_delay: 5s
+      backoff_multiplier: 2.0
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+  # Knowledge Service
+  knowledge-service:
+    address: "localhost:50053"
+    discovery_name: "knowledge-service"
+    tags:
+      - "grpc"
+      - "v1"
+    timeout: 60s # 文档上传可能需要更长时间
+    circuit_breaker:
+      max_failures: 5
+      timeout: 60s
+      max_requests: 3
+      success_threshold: 2
+    retry:
+      max_retries: 2
+      initial_delay: 200ms
+      max_delay: 5s
+      backoff_multiplier: 2.0
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+  # AI Orchestrator
+  ai-orchestrator:
+    address: "localhost:50054"
+    discovery_name: "ai-orchestrator"
+    tags:
+      - "grpc"
+      - "v1"
+    timeout: 120s # AI 处理可能需要更长时间
+    circuit_breaker:
+      max_failures: 3
+      timeout: 90s
+      max_requests: 5
+      success_threshold: 2
+    retry:
+      max_retries: 2
+      initial_delay: 200ms
+      max_delay: 10s
+      backoff_multiplier: 2.0
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+  # Model Router
+  model-router:
+    address: "localhost:50055"
+    discovery_name: "model-router"
+    tags:
+      - "grpc"
+      - "v1"
+    timeout: 30s
+    circuit_breaker:
+      max_failures: 5
+      timeout: 60s
+      max_requests: 3
+      success_threshold: 2
+    retry:
+      max_retries: 3
+      initial_delay: 100ms
+      max_delay: 5s
+      backoff_multiplier: 2.0
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+  # Analytics Service
+  analytics-service:
+    address: "localhost:50056"
+    discovery_name: "analytics-service"
+    tags:
+      - "grpc"
+      - "v1"
+    timeout: 30s
+    circuit_breaker:
+      max_failures: 5
+      timeout: 60s
+      max_requests: 3
+      success_threshold: 2
+    retry:
+      max_retries: 3
+      initial_delay: 100ms
+      max_delay: 5s
+      backoff_multiplier: 2.0
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+  # Notification Service
+  notification-service:
+    address: "localhost:50057"
+    discovery_name: "notification-service"
+    tags:
+      - "grpc"
+      - "v1"
+    timeout: 15s
+    circuit_breaker:
+      max_failures: 5
+      timeout: 60s
+      max_requests: 3
+      success_threshold: 2
+    retry:
+      max_retries: 3
+      initial_delay: 100ms
+      max_delay: 5s
+      backoff_multiplier: 2.0
+    keep_alive:
+      time: 30s
+      timeout: 10s
+      permit_without_stream: true
+
+# 拦截器配置
+interceptors:
+  # 是否启用链路追踪
+  enable_tracing: true
+
+  # 是否启用认证传递
+  enable_auth: true
+
+  # 是否启用日志记录
+  enable_logging: true
+
+  # 是否启用指标收集
+  enable_metrics: true
+
+# 负载均衡策略
+load_balancing:
+  # 策略: round_robin, pick_first, grpclb
+  policy: "round_robin"
+
+# TLS 配置（可选）
+tls:
+  # 是否启用 TLS
+  enabled: false
+  # 证书文件路径
+  # cert_file: "/path/to/cert.pem"
+  # 密钥文件路径
+  # key_file: "/path/to/key.pem"
+  # CA 证书文件路径
+  # ca_file: "/path/to/ca.pem"
+
+# 健康检查配置
+health_check:
+  # 健康检查间隔
+  interval: 10s
+  # 健康检查超时
+  timeout: 5s
+
+# 指标配置
+metrics:
+  # 是否启用指标
+  enabled: true
+  # Prometheus 端口
+  port: 9090
+  # 指标路径
+  path: "/metrics"

@@ -1,0 +1,239 @@
+syntax = "proto3";
+
+package indexing.v1;
+
+option go_package = "voicehelper/api/proto/indexing/v1;indexingv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// IndexingService 索引服务
+service IndexingService {
+  // 文档处理
+  rpc ProcessDocument(ProcessDocumentRequest) returns (ProcessDocumentResponse);
+
+  // 批量处理
+  rpc ProcessDocumentBatch(ProcessDocumentBatchRequest) returns (ProcessDocumentBatchResponse);
+
+  // 增量索引
+  rpc IndexIncremental(IndexIncrementalRequest) returns (IndexIncrementalResponse);
+
+  // 重建索引
+  rpc RebuildIndex(RebuildIndexRequest) returns (RebuildIndexResponse);
+
+  // 获取处理状态
+  rpc GetProcessingStatus(GetProcessingStatusRequest) returns (ProcessingStatus);
+
+  // 获取文档chunks
+  rpc GetDocumentChunks(GetDocumentChunksRequest) returns (GetDocumentChunksResponse);
+
+  // 删除文档索引
+  rpc DeleteDocumentIndex(DeleteDocumentIndexRequest) returns (google.protobuf.Empty);
+
+  // 获取统计信息
+  rpc GetStats(GetStatsRequest) returns (StatsResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // 就绪检查
+  rpc ReadinessCheck(ReadinessCheckRequest) returns (ReadinessCheckResponse);
+}
+
+// ============ 文档处理 ============
+
+message ProcessDocumentRequest {
+  string document_id = 1;
+  string tenant_id = 2;
+  string collection_id = 3;
+  oneof content_source {
+    string file_url = 4;
+    bytes file_data = 5;
+  }
+  string file_name = 6;
+  string file_type = 7;                 // pdf, docx, txt, md, html
+  ProcessingConfig config = 8;
+}
+
+message ProcessingConfig {
+  ChunkingConfig chunking = 1;
+  EmbeddingConfig embedding = 2;
+  bool enable_ocr = 3;                  // 启用OCR
+  bool enable_metadata_extraction = 4;  // 提取元数据
+  string language = 5;
+}
+
+message ChunkingConfig {
+  string strategy = 1;                  // fixed, semantic, recursive
+  int32 chunk_size = 2;
+  int32 chunk_overlap = 3;
+  string separator = 4;
+}
+
+message EmbeddingConfig {
+  string model = 1;                     // text-embedding-ada-002, bge-large-zh
+  int32 batch_size = 2;
+  string provider = 3;                  // openai, huggingface, local
+}
+
+message ProcessDocumentResponse {
+  string task_id = 1;
+  string status = 2;                    // queued, processing, completed, failed
+  ProcessingResult result = 3;          // 仅在completed时返回
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message ProcessingResult {
+  string document_id = 1;
+  int32 total_chunks = 2;
+  int32 indexed_chunks = 3;
+  int64 processing_time_ms = 4;
+  DocumentMetadata metadata = 5;
+  repeated string chunk_ids = 6;
+}
+
+message DocumentMetadata {
+  string title = 1;
+  string author = 2;
+  int32 page_count = 3;
+  int32 word_count = 4;
+  string language = 5;
+  google.protobuf.Timestamp created_date = 6;
+  map<string, string> custom = 7;
+}
+
+// ============ 批量处理 ============
+
+message ProcessDocumentBatchRequest {
+  repeated ProcessDocumentRequest documents = 1;
+  bool async = 2;                       // 是否异步处理
+}
+
+message ProcessDocumentBatchResponse {
+  repeated ProcessDocumentResponse results = 1;
+  int32 total = 2;
+  int32 success = 3;
+  int32 failed = 4;
+}
+
+// ============ 增量索引 ============
+
+message IndexIncrementalRequest {
+  string document_id = 1;
+  repeated DocumentChange changes = 2;
+  string tenant_id = 3;
+}
+
+message DocumentChange {
+  string change_type = 1;               // add, update, delete
+  string chunk_id = 2;
+  string content = 3;
+  map<string, string> metadata = 4;
+}
+
+message IndexIncrementalResponse {
+  string task_id = 1;
+  int32 chunks_added = 2;
+  int32 chunks_updated = 3;
+  int32 chunks_deleted = 4;
+  int64 processing_time_ms = 5;
+}
+
+// ============ 重建索引 ============
+
+message RebuildIndexRequest {
+  string tenant_id = 1;
+  string collection_id = 2;
+  repeated string document_ids = 3;     // 为空则重建全部
+  bool force = 4;                       // 强制重建
+}
+
+message RebuildIndexResponse {
+  string task_id = 1;
+  string status = 2;
+  int32 total_documents = 3;
+  int32 processed_documents = 4;
+  google.protobuf.Timestamp started_at = 5;
+}
+
+// ============ 处理状态 ============
+
+message GetProcessingStatusRequest {
+  string task_id = 1;
+}
+
+message ProcessingStatus {
+  string task_id = 1;
+  string status = 2;                    // queued, processing, completed, failed
+  int32 progress = 3;                   // 0-100
+  string current_step = 4;
+  ProcessingResult result = 5;
+  string error_message = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+// ============ Chunks查询 ============
+
+message GetDocumentChunksRequest {
+  string document_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetDocumentChunksResponse {
+  repeated Chunk chunks = 1;
+  int32 total = 2;
+}
+
+message Chunk {
+  string chunk_id = 1;
+  string document_id = 2;
+  string content = 3;
+  int32 chunk_index = 4;
+  repeated float embedding = 5;
+  map<string, string> metadata = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+// ============ 删除索引 ============
+
+message DeleteDocumentIndexRequest {
+  string document_id = 1;
+  string tenant_id = 2;
+}
+
+// ============ 统计信息 ============
+
+message GetStatsRequest {
+  string tenant_id = 1;
+  string collection_id = 2;
+}
+
+message StatsResponse {
+  int64 total_documents = 1;
+  int64 total_chunks = 2;
+  int64 total_size_bytes = 3;
+  int64 indexed_documents = 4;
+  int64 processing_documents = 5;
+  int64 failed_documents = 6;
+  map<string, int64> by_file_type = 7;
+  google.protobuf.Timestamp last_indexed_at = 8;
+}
+
+// ============ 健康检查 ============
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message ReadinessCheckRequest {}
+
+message ReadinessCheckResponse {
+  string status = 1;
+  map<string, string> components = 2;   // 各组件状态
+  google.protobuf.Timestamp timestamp = 3;
+}

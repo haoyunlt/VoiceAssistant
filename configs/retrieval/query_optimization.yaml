@@ -1,0 +1,33 @@
+# Query Optimization Configuration
+
+expansion:
+  enabled: false  # Phase 1 启用
+  methods:
+    - synonym
+    - spelling
+  max_expansions: 3
+  synonym_dict_path: "data/synonyms.json"
+
+multi_query:
+  enabled: false  # Phase 1 启用
+  num_queries: 3
+  llm_model: "qwen-7b"
+  llm_endpoint: "http://model-adapter:8000"
+  temperature: 0.7
+  timeout_ms: 3000
+
+hyde:
+  enabled: false  # Phase 1 启用
+  num_hypotheses: 3
+  fusion_method: "avg"  # avg, max, concat
+  llm_model: "qwen-7b"
+  temperature: 0.7
+
+intent_classification:
+  enabled: false  # Phase 1 启用
+  model_path: "models/intent_classifier/bert-tiny"
+  labels:
+    - factual
+    - procedural
+    - navigational
+    - comparative

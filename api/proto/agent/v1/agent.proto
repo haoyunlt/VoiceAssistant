@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+package agent.v1;
+
+option go_package = "voicehelper/api/proto/agent/v1;agentv1";
+
+import "google/protobuf/timestamp.proto";
+
+// AgentService Agent执行服务
+service AgentService {
+  // 执行Agent任务（同步）
+  rpc Execute(ExecuteRequest) returns (ExecuteResponse);
+
+  // 执行Agent任务（流式）
+  rpc ExecuteStream(ExecuteRequest) returns (stream ExecuteStreamResponse);
+
+  // 异步执行Agent任务
+  rpc ExecuteAsync(ExecuteRequest) returns (ExecuteAsyncResponse);
+
+  // 获取任务状态
+  rpc GetTaskStatus(GetTaskStatusRequest) returns (TaskStatus);
+
+  // 取消任务
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+
+  // LangGraph执行
+  rpc ExecuteLangGraph(LangGraphExecuteRequest) returns (LangGraphExecuteResponse);
+
+  // 列出可用工具
+  rpc ListTools(ListToolsRequest) returns (ListToolsResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ============ 执行相关 ============
+
+message ExecuteRequest {
+  string task = 1;                      // 任务描述
+  map<string, string> context = 2;      // 上下文信息
+  repeated string tools = 3;            // 可用工具列表
+  int32 max_iterations = 4;             // 最大迭代次数
+  string model = 5;                     // 使用的模型
+  string user_id = 6;
+  string tenant_id = 7;
+  AgentConfig config = 8;               // Agent配置
+}
+
+message AgentConfig {
+  float temperature = 1;
+  int32 max_tokens = 2;
+  bool enable_memory = 3;               // 启用长期记忆
+  bool enable_planning = 4;             // 启用规划
+  int32 timeout_seconds = 5;            // 超时时间
+}
+
+message ExecuteResponse {
+  string task_id = 1;
+  string result = 2;
+  repeated ExecutionStep steps = 3;
+  string status = 4;                    // success, failed, timeout
+  int32 iterations = 5;
+  float execution_time = 6;
+  map<string, string> metadata = 7;
+  TokenUsage token_usage = 8;
+}
+
+message ExecutionStep {
+  int32 step = 1;
+  string action = 2;                    // 动作：think, tool_call, respond
+  string tool = 3;                      // 工具名称
+  string tool_input = 4;                // 工具输入（JSON）
+  string tool_output = 5;               // 工具输出
+  string observation = 6;               // 观察结果
+  string thought = 7;                   // 思考过程
+  google.protobuf.Timestamp timestamp = 8;
+  float duration_ms = 9;
+}
+
+message ExecuteStreamResponse {
+  StreamEventType event_type = 1;
+  string delta = 2;                     // 增量内容
+  ExecutionStep step = 3;               // 执行步骤
+  bool finished = 4;
+  ExecuteResponse final_response = 5;
+}
+
+enum StreamEventType {
+  EVENT_UNKNOWN = 0;
+  EVENT_START = 1;
+  EVENT_THINKING = 2;
+  EVENT_TOOL_CALL = 3;
+  EVENT_TOOL_RESULT = 4;
+  EVENT_RESPONSE = 5;
+  EVENT_FINISH = 6;
+  EVENT_ERROR = 7;
+}
+
+message ExecuteAsyncResponse {
+  string task_id = 1;
+  string status = 2;                    // queued, running
+  google.protobuf.Timestamp created_at = 3;
+}
+
+// ============ 任务管理 ============
+
+message GetTaskStatusRequest {
+  string task_id = 1;
+}
+
+message TaskStatus {
+  string task_id = 1;
+  string status = 2;                    // queued, running, completed, failed, cancelled
+  int32 progress = 3;                   // 0-100
+  string current_step = 4;
+  ExecuteResponse result = 5;           // 仅在completed时返回
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+message CancelTaskRequest {
+  string task_id = 1;
+}
+
+message CancelTaskResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// ============ LangGraph相关 ============
+
+message LangGraphExecuteRequest {
+  string graph_name = 1;                // 图名称
+  map<string, string> inputs = 2;       // 输入参数
+  string user_id = 3;
+  string tenant_id = 4;
+  LangGraphConfig config = 5;
+}
+
+message LangGraphConfig {
+  int32 max_steps = 1;
+  int32 timeout_seconds = 2;
+  bool enable_checkpoints = 3;          // 启用检查点
+}
+
+message LangGraphExecuteResponse {
+  string execution_id = 1;
+  map<string, string> outputs = 2;
+  string status = 3;
+  repeated GraphStep steps = 4;
+  float execution_time = 5;
+}
+
+message GraphStep {
+  string node = 1;
+  map<string, string> inputs = 2;
+  map<string, string> outputs = 3;
+  string status = 4;
+  float duration_ms = 5;
+}
+
+// ============ 工具管理 ============
+
+message ListToolsRequest {
+  string category = 1;                  // 工具分类
+}
+
+message ListToolsResponse {
+  repeated Tool tools = 1;
+}
+
+message Tool {
+  string name = 1;
+  string description = 2;
+  string category = 3;
+  ToolSchema schema = 4;
+  bool enabled = 5;
+}
+
+message ToolSchema {
+  repeated ToolParameter parameters = 1;
+  ToolParameter returns = 2;
+}
+
+message ToolParameter {
+  string name = 1;
+  string type = 2;                      // string, number, boolean, object, array
+  string description = 3;
+  bool required = 4;
+  string default_value = 5;
+}
+
+// ============ Token使用量 ============
+
+message TokenUsage {
+  int32 prompt_tokens = 1;
+  int32 completion_tokens = 2;
+  int32 total_tokens = 3;
+  float cost_usd = 4;
+}
+
+// ============ 健康检查 ============
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+}

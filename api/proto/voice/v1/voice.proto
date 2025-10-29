@@ -1,0 +1,339 @@
+syntax = "proto3";
+
+package voice.v1;
+
+option go_package = "voicehelper/api/proto/voice/v1;voicev1";
+
+// VoiceService 语音服务（ASR + TTS + VAD）
+service VoiceService {
+  // ========== ASR（语音识别）==========
+  // 批量识别
+  rpc RecognizeSpeech(RecognizeRequest) returns (RecognizeResponse);
+
+  // 流式识别
+  rpc RecognizeSpeechStream(stream RecognizeStreamRequest) returns (stream RecognizeStreamResponse);
+
+  // ========== TTS（语音合成）==========
+  // 批量合成
+  rpc SynthesizeSpeech(SynthesizeRequest) returns (SynthesizeResponse);
+
+  // 流式合成
+  rpc SynthesizeSpeechStream(SynthesizeRequest) returns (stream SynthesizeStreamResponse);
+
+  // ========== VAD（语音活动检测）==========
+  // 批量检测
+  rpc DetectVoiceActivity(VADRequest) returns (VADResponse);
+
+  // 流式检测
+  rpc DetectVoiceActivityStream(stream VADStreamRequest) returns (stream VADStreamResponse);
+
+  // ========== 全双工 ==========
+  // 全双工对话
+  rpc FullDuplexConversation(stream FullDuplexRequest) returns (stream FullDuplexResponse);
+
+  // ========== 语音克隆 ==========
+  // 克隆音色
+  rpc CloneVoice(CloneVoiceRequest) returns (CloneVoiceResponse);
+
+  // 列出克隆的音色
+  rpc ListClonedVoices(ListClonedVoicesRequest) returns (ListClonedVoicesResponse);
+
+  // ========== 说话人分离 ==========
+  // 说话人分离
+  rpc DiarizeSpeakers(DiarizeRequest) returns (DiarizeResponse);
+
+  // ========== 情感分析 ==========
+  // 语音情感分析
+  rpc AnalyzeEmotion(EmotionRequest) returns (EmotionResponse);
+
+  // ========== 工具相关 ==========
+  // 列出可用音色
+  rpc ListVoices(ListVoicesRequest) returns (ListVoicesResponse);
+
+  // 列出支持的语言
+  rpc ListLanguages(ListLanguagesRequest) returns (ListLanguagesResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ============ ASR（语音识别）============
+
+message RecognizeRequest {
+  oneof audio_source {
+    string audio_url = 1;               // 音频文件URL
+    bytes audio_data = 2;               // 音频文件内容
+    string audio_base64 = 3;            // Base64编码的音频
+  }
+  string language = 4;                  // 语言代码，如 'zh', 'en'
+  bool enable_vad = 5;                  // 是否启用VAD
+  string task = 6;                      // transcribe（转录）或 translate（翻译）
+  string model = 7;                     // 模型名称
+  RecognizeConfig config = 8;
+}
+
+message RecognizeConfig {
+  bool enable_word_timestamps = 1;      // 启用词级时间戳
+  bool enable_punctuation = 2;          // 启用标点符号
+  float temperature = 3;                // 采样温度
+}
+
+message RecognizeResponse {
+  string text = 1;                      // 识别结果
+  string language = 2;                  // 检测到的语言
+  float confidence = 3;                 // 置信度
+  repeated WordTimestamp word_timestamps = 4;
+  int64 duration_ms = 5;                // 音频时长（毫秒）
+  RecognizeMetadata metadata = 6;
+}
+
+message WordTimestamp {
+  string word = 1;
+  float start = 2;                      // 开始时间（秒）
+  float end = 3;                        // 结束时间（秒）
+  float confidence = 4;
+}
+
+message RecognizeMetadata {
+  string model = 1;
+  int32 tokens_used = 2;
+  int64 latency_ms = 3;
+  string provider = 4;
+}
+
+// 流式识别
+message RecognizeStreamRequest {
+  oneof payload {
+    RecognizeConfig config = 1;         // 第一个消息：配置
+    bytes audio_chunk = 2;              // 后续消息：音频块
+  }
+}
+
+message RecognizeStreamResponse {
+  string text = 1;                      // 识别结果（增量或最终）
+  bool is_final = 2;                    // 是否最终结果
+  float confidence = 3;
+  repeated WordTimestamp word_timestamps = 4;
+}
+
+// ============ TTS（语音合成）============
+
+message SynthesizeRequest {
+  string text = 1;                      // 待合成文本
+  string voice = 2;                     // 音色ID
+  string language = 3;                  // 语言
+  string rate = 4;                      // 语速，如 "+10%"
+  string pitch = 5;                     // 音调，如 "+5Hz"
+  string format = 6;                    // 音频格式：mp3, wav, opus
+  SynthesizeConfig config = 7;
+  string cache_key = 8;                 // 缓存键
+}
+
+message SynthesizeConfig {
+  float volume = 1;                     // 音量 0.0-1.0
+  string model = 2;                     // 模型名称
+  bool enable_ssml = 3;                 // 启用SSML
+}
+
+message SynthesizeResponse {
+  oneof audio_output {
+    bytes audio_data = 1;               // 音频内容
+    string audio_url = 2;               // 音频URL
+    string audio_base64 = 3;            // Base64编码
+  }
+  int64 duration_ms = 4;                // 音频时长
+  bool cached = 5;                      // 是否来自缓存
+  SynthesizeMetadata metadata = 6;
+}
+
+message SynthesizeMetadata {
+  string model = 1;
+  int32 characters = 2;
+  int64 latency_ms = 3;
+  string provider = 4;
+}
+
+// 流式合成
+message SynthesizeStreamResponse {
+  bytes audio_chunk = 1;
+  bool is_final = 2;
+}
+
+// ============ VAD（语音活动检测）============
+
+message VADRequest {
+  oneof audio_source {
+    string audio_url = 1;
+    bytes audio_data = 2;
+    string audio_base64 = 3;
+  }
+  VADConfig config = 4;
+}
+
+message VADConfig {
+  float threshold = 1;                  // 阈值 0.0-1.0
+  int32 min_speech_duration_ms = 2;     // 最小语音片段时长
+  int32 min_silence_duration_ms = 3;    // 最小静音时长
+}
+
+message VADResponse {
+  repeated VADSegment segments = 1;     // 语音片段
+  float speech_ratio = 2;               // 语音占比
+  int64 total_duration_ms = 3;
+}
+
+message VADSegment {
+  float start = 1;                      // 开始时间（秒）
+  float end = 2;                        // 结束时间（秒）
+  float confidence = 3;
+}
+
+// 流式VAD
+message VADStreamRequest {
+  oneof payload {
+    VADConfig config = 1;
+    bytes audio_chunk = 2;
+  }
+}
+
+message VADStreamResponse {
+  bool is_speech = 1;
+  float confidence = 2;
+  VADSegment segment = 3;
+}
+
+// ============ 全双工 ============
+
+message FullDuplexRequest {
+  oneof payload {
+    FullDuplexConfig config = 1;
+    bytes audio_chunk = 2;
+  }
+}
+
+message FullDuplexConfig {
+  string language = 1;
+  string voice = 2;
+  bool enable_vad = 3;
+  bool enable_interrupt = 4;            // 启用打断
+}
+
+message FullDuplexResponse {
+  oneof payload {
+    RecognizeStreamResponse asr_result = 1;
+    SynthesizeStreamResponse tts_result = 2;
+    VADStreamResponse vad_result = 3;
+  }
+  int64 sequence = 4;
+}
+
+// ============ 语音克隆 ============
+
+message CloneVoiceRequest {
+  string name = 1;                      // 音色名称
+  string description = 2;
+  oneof audio_source {
+    string audio_url = 3;
+    bytes audio_data = 4;
+  }
+  string user_id = 5;
+  string tenant_id = 6;
+}
+
+message CloneVoiceResponse {
+  string voice_id = 1;
+  string name = 2;
+  string status = 3;                    // processing, ready, failed
+}
+
+message ListClonedVoicesRequest {
+  string user_id = 1;
+  string tenant_id = 2;
+}
+
+message ListClonedVoicesResponse {
+  repeated ClonedVoice voices = 1;
+}
+
+message ClonedVoice {
+  string voice_id = 1;
+  string name = 2;
+  string description = 3;
+  string status = 4;
+}
+
+// ============ 说话人分离 ============
+
+message DiarizeRequest {
+  oneof audio_source {
+    string audio_url = 1;
+    bytes audio_data = 2;
+  }
+  int32 num_speakers = 3;               // 说话人数量（可选）
+}
+
+message DiarizeResponse {
+  repeated SpeakerSegment segments = 1;
+  int32 num_speakers = 2;
+}
+
+message SpeakerSegment {
+  string speaker = 1;                   // 说话人ID
+  float start = 2;
+  float end = 3;
+  string text = 4;                      // 该片段的文本
+}
+
+// ============ 情感分析 ============
+
+message EmotionRequest {
+  oneof audio_source {
+    string audio_url = 1;
+    bytes audio_data = 2;
+  }
+}
+
+message EmotionResponse {
+  string primary_emotion = 1;           // 主要情感
+  map<string, float> emotions = 2;      // 情感分数
+  float confidence = 3;
+}
+
+// ============ 工具相关 ============
+
+message ListVoicesRequest {
+  string language = 1;                  // 按语言过滤
+  string provider = 2;                  // 按提供商过滤
+}
+
+message ListVoicesResponse {
+  repeated Voice voices = 1;
+}
+
+message Voice {
+  string voice_id = 1;
+  string name = 2;
+  string language = 3;
+  string gender = 4;                    // male, female, neutral
+  string provider = 5;
+  repeated string styles = 6;           // 可用风格
+}
+
+message ListLanguagesRequest {}
+
+message ListLanguagesResponse {
+  repeated Language languages = 1;
+}
+
+message Language {
+  string code = 1;
+  string name = 2;
+  bool asr_supported = 3;
+  bool tts_supported = 4;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+}

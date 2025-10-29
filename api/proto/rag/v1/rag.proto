@@ -1,0 +1,174 @@
+syntax = "proto3";
+
+package rag.v1;
+
+option go_package = "voicehelper/api/proto/rag/v1;ragv1";
+
+import "google/protobuf/timestamp.proto";
+
+// RAGService 检索增强生成服务
+service RAGService {
+  // 查询（非流式）
+  rpc Query(QueryRequest) returns (QueryResponse);
+
+  // 查询（流式）
+  rpc QueryStream(QueryRequest) returns (stream QueryStreamResponse);
+
+  // 简化查询
+  rpc SimpleQuery(SimpleQueryRequest) returns (SimpleQueryResponse);
+
+  // 服务状态
+  rpc GetStatus(GetStatusRequest) returns (StatusResponse);
+
+  // 功能列表
+  rpc GetFeatures(GetFeaturesRequest) returns (FeaturesResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ============ 查询相关 ============
+
+message QueryRequest {
+  string query = 1;                    // 查询文本
+  string tenant_id = 2;                // 租户ID
+  int32 top_k = 3;                     // 返回文档数
+  string mode = 4;                     // 查询模式：ultimate, simple, hybrid
+  float temperature = 5;               // LLM温度
+
+  // 功能开关
+  bool use_graph = 6;                  // 使用图谱检索
+  bool use_decomposition = 7;          // 使用查询分解
+  bool use_self_rag = 8;               // 使用自我纠错
+  bool use_compression = 9;            // 使用上下文压缩
+  float compression_ratio = 10;        // 压缩比例
+
+  // 过滤条件
+  map<string, string> filters = 11;    // 过滤条件
+  repeated string knowledge_base_ids = 12;  // 知识库ID列表
+}
+
+message QueryResponse {
+  string answer = 1;                   // 生成的答案
+  repeated Document documents = 2;      // 检索的文档
+  repeated Citation citations = 3;      // 引用来源
+  string strategy = 4;                  // 使用的策略
+
+  // Metadata
+  CompressionInfo compression = 5;      // 压缩信息
+  RetrievalInfo retrieval = 6;         // 检索信息
+  GenerationInfo generation = 7;       // 生成信息
+  PerformanceInfo performance = 8;     // 性能信息
+}
+
+message QueryStreamResponse {
+  StreamEventType event_type = 1;      // 事件类型
+  string delta = 2;                    // 内容增量
+  repeated Citation citations = 3;      // 引用来源
+  bool finished = 4;                   // 是否结束
+  QueryResponse final_response = 5;    // 最终响应
+}
+
+enum StreamEventType {
+  STREAM_EVENT_UNKNOWN = 0;
+  STREAM_EVENT_START = 1;
+  STREAM_EVENT_DELTA = 2;
+  STREAM_EVENT_CITATION = 3;
+  STREAM_EVENT_FINISH = 4;
+}
+
+message SimpleQueryRequest {
+  string query = 1;
+  string tenant_id = 2;
+  int32 top_k = 3;
+}
+
+message SimpleQueryResponse {
+  string answer = 1;
+  repeated Document documents = 2;
+  repeated Citation citations = 3;
+}
+
+// ============ 数据模型 ============
+
+message Document {
+  string id = 1;
+  string content = 2;
+  string title = 3;
+  float score = 4;
+  string source = 5;
+  map<string, string> metadata = 6;
+}
+
+message Citation {
+  string id = 1;
+  string document_id = 2;
+  string title = 3;
+  string snippet = 4;
+  float score = 5;
+  string source = 6;
+  map<string, string> metadata = 7;
+}
+
+message CompressionInfo {
+  int32 original_tokens = 1;
+  int32 compressed_tokens = 2;
+  float compression_ratio = 3;
+  string method = 4;
+}
+
+message RetrievalInfo {
+  int32 total_retrieved = 1;
+  int32 after_rerank = 2;
+  string retrieval_method = 3;          // vector, bm25, hybrid, graph
+  bool reranked = 4;
+  bool cached = 5;
+  string cache_key = 6;
+}
+
+message GenerationInfo {
+  string model = 1;
+  int32 prompt_tokens = 2;
+  int32 completion_tokens = 3;
+  int32 total_tokens = 4;
+  float temperature = 5;
+}
+
+message PerformanceInfo {
+  int64 retrieval_ms = 1;
+  int64 rerank_ms = 2;
+  int64 generation_ms = 3;
+  int64 total_ms = 4;
+}
+
+// ============ 状态相关 ============
+
+message GetStatusRequest {}
+
+message StatusResponse {
+  string status = 1;                    // healthy, degraded, unhealthy
+  string version = 2;
+  map<string, bool> features = 3;       // 功能状态
+  map<string, string> components = 4;   // 组件状态
+  google.protobuf.Timestamp timestamp = 5;
+}
+
+message GetFeaturesRequest {}
+
+message FeaturesResponse {
+  repeated Feature features = 1;
+}
+
+message Feature {
+  string name = 1;
+  string description = 2;
+  bool enabled = 3;
+  string version = 4;
+}
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}

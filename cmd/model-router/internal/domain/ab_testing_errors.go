@@ -16,7 +16,9 @@ var (
 	ErrInvalidTotalWeight = errors.New("variant weights must sum to 1.0")
 
 	// 模型相关错误
-	ErrModelNotFound = errors.New("model not found in registry")
+	ErrModelNotFound          = errors.New("model not found in registry")
+	ErrNoAvailableModel       = errors.New("no available model")
+	ErrCapabilityNotSupported = errors.New("capability not supported")
 
 	// 时间相关错误
 	ErrInvalidTimeRange = errors.New("invalid time range: end time must be after start time")

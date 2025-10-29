@@ -208,38 +208,80 @@ sequenceDiagram
     Gateway-->>Client: 最终响应
 ```
 
-### 3. RAG 检索-重排流程
+### 3. RAG 检索-重排流程（v2.0 优化版）
 
 ```mermaid
 sequenceDiagram
     participant Agent
-    participant RAG
-    participant Retrieval
-    participant VectorStore
-    participant ES
-    participant Rerank
+    participant Router as Query Router
+    participant Cache as Semantic Cache
+    participant RAG as RAG Engine
+    participant Vector as Vector Search
+    participant BM25 as BM25 Search
+    participant Graph as Graph RAG
+    participant Rerank as Cross-Encoder
+    participant LLM
+    participant SelfCheck as Self-Checker
 
-    Agent->>RAG: 查询请求
-    RAG->>RAG: 查询重写/扩展
+    Agent->>Router: 复杂查询请求
+    Router->>Router: 分析查询类型 & 复杂度
+    Router->>Cache: 检查语义缓存 (FAISS)
 
-    par 并行检索
-        RAG->>Retrieval: 向量检索
-        Retrieval->>VectorStore: 语义搜索
-        VectorStore-->>Retrieval: Top-K结果
-    and
-        RAG->>Retrieval: 关键词检索
-        Retrieval->>ES: BM25搜索
-        ES-->>Retrieval: Top-K结果
+    alt 缓存命中 (相似度>0.92)
+        Cache-->>Agent: 返回缓存结果
+    else 缓存未命中
+        Router->>RAG: 路由到最优策略
+
+        alt 简单事实查询
+            RAG->>Vector: 向量检索 (Top-20)
+        else 复杂多跳查询
+            par 并行检索
+                RAG->>Vector: 向量检索 (Top-20)
+                Vector->>Vector: Dense Retrieval
+            and
+                RAG->>BM25: 稀疏检索 (Top-20)
+                BM25->>BM25: BM25 算法
+            and
+                RAG->>Graph: 图谱路径查询 (2-3跳)
+                Graph->>Graph: BFS/DFS 遍历
+            end
+        end
+
+        Vector-->>RAG: 向量结果
+        BM25-->>RAG: 关键词结果
+        Graph-->>RAG: 图谱结果
+
+        RAG->>RAG: RRF 融合 (Reciprocal Rank Fusion)
+        RAG->>Rerank: Cross-Encoder 重排 (Batch)
+        Rerank-->>RAG: Top-5 精排结果
+
+        alt 启用上下文压缩 (Iter 3)
+            RAG->>RAG: LLMLingua 压缩 (保留50%)
+        end
+
+        RAG->>RAG: 构建上下文 + 引用标注
+        RAG->>LLM: 生成答案
+        LLM-->>SelfCheck: 初步答案
+
+        alt Self-RAG 启用 (Iter 3)
+            SelfCheck->>SelfCheck: 幻觉检测 (NLI)
+            alt 检测到幻觉
+                SelfCheck->>LLM: 重新生成（增强 Prompt）
+                LLM-->>SelfCheck: 修正答案
+            end
+        end
+
+        SelfCheck->>Cache: 缓存结果 (TTL=1h)
+        SelfCheck-->>Agent: 最终答案 + 引用来源
     end
-
-    Retrieval->>Retrieval: 混合融合
-    Retrieval->>Rerank: 重排序
-    Rerank-->>Retrieval: 精排结果
-
-    Retrieval-->>RAG: 最终Top-N
-    RAG->>RAG: 构建上下文
-    RAG-->>Agent: 增强上下文
 ```
+
+**优化亮点**：
+- ✅ 混合检索（Vector + BM25 + Graph）
+- ✅ 语义缓存（命中率 60%+）
+- ✅ Cross-Encoder 重排
+- ✅ Self-RAG 自我纠错
+- ✅ 上下文压缩（节省 Token 30%）
 
 ### 4. 工具调用流程
 
@@ -305,9 +347,14 @@ sequenceDiagram
 
 - **RAG Engine** ([`algo/rag-engine/`](../../algo/rag-engine/))
 
-  - 检索增强生成
-  - 查询重写
-  - 上下文构建
+  - **v2.0 架构** ([优化迭代计划](../RAG_ENGINE_ITERATION_PLAN.md))
+  - 多策略检索（Vector + BM25 + Graph）
+  - 查询重写/分解
+  - Cross-Encoder 重排
+  - Self-RAG 自我纠错
+  - 语义缓存（FAISS + Redis）
+  - 上下文压缩（LLMLingua）
+  - Agentic RAG（计划中）
 
 - **Voice Engine** ([`algo/voice-engine/`](../../algo/voice-engine/))
 
@@ -399,6 +446,8 @@ sequenceDiagram
 
 ## NFR 指标
 
+### 系统级指标
+
 | 指标            | 目标值  | 当前值 | 状态   |
 | --------------- | ------- | ------ | ------ |
 | API Gateway P95 | < 200ms | -      | 待测试 |
@@ -406,6 +455,20 @@ sequenceDiagram
 | E2E QA          | < 2.5s  | -      | 待测试 |
 | 可用性          | ≥ 99.9% | -      | 待测试 |
 | 并发 RPS        | ≥ 1000  | -      | 待测试 |
+
+### RAG Engine 专项指标 (v2.0 目标)
+
+| 指标类别 | 指标名称 | v1.0 当前值 | v2.0 目标值 | 提升幅度 |
+|---------|---------|------------|------------|---------|
+| **准确性** | 检索召回率@5 | 0.68 | 0.85+ | +25% |
+| **准确性** | 答案准确率 | 0.71 | 0.90+ | +27% |
+| **准确性** | 幻觉率 | 15% | <5% | -67% |
+| **性能** | E2E 延迟 P95 | 3200ms | <2500ms | -22% |
+| **性能** | 检索延迟 P95 | 800ms | <500ms | -38% |
+| **成本** | 平均 Token 消耗 | 2450 | <2000 | -18% |
+| **体验** | 缓存命中率 | 20% | 60%+ | +200% |
+
+**详细优化计划**: [RAG Engine 迭代计划](../RAG_ENGINE_ITERATION_PLAN.md)
 
 ## 扩展性
 

@@ -5,6 +5,7 @@ go 1.25.3
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
 	github.com/IBM/sarama v1.46.3
+	github.com/fumiama/go-docx v0.0.0-20250506085032-0c30fd09304b
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-kratos/kratos/v2 v2.9.1
 	github.com/go-redis/redis/v8 v8.11.5
@@ -34,6 +35,7 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.43.0
+	golang.org/x/net v0.46.0
 	golang.org/x/oauth2 v0.32.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
@@ -89,6 +91,7 @@ require (
 	github.com/eapache/queue v1.1.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
+	github.com/fumiama/imgsz v0.0.2 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/getsentry/sentry-go v0.12.0 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
@@ -188,7 +191,6 @@ require (
 	golang.org/x/arch v0.20.0 // indirect
 	golang.org/x/exp v0.0.0-20250808145144-a408d31f581a // indirect
 	golang.org/x/mod v0.28.0 // indirect
-	golang.org/x/net v0.46.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect

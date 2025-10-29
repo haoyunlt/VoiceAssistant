@@ -1,0 +1,150 @@
+# 服务端点统一配置
+# 所有服务的地址和端口定义
+
+# ==================== Go gRPC 服务 ====================
+grpc_services:
+  identity-service:
+    address: "localhost:50051"
+    discovery_name: "identity-service"
+    timeout: 30s
+
+  conversation-service:
+    address: "localhost:50052"
+    discovery_name: "conversation-service"
+    timeout: 30s
+
+  knowledge-service:
+    address: "localhost:50053"
+    discovery_name: "knowledge-service"
+    timeout: 30s
+
+  ai-orchestrator:
+    address: "localhost:50054"
+    discovery_name: "ai-orchestrator"
+    timeout: 60s
+
+  model-router:
+    address: "localhost:50055"
+    discovery_name: "model-router"
+    timeout: 30s
+
+  analytics-service:
+    address: "localhost:50056"
+    discovery_name: "analytics-service"
+    timeout: 30s
+
+  notification-service:
+    address: "localhost:50057"
+    discovery_name: "notification-service"
+    timeout: 30s
+
+# ==================== Python HTTP 服务 ====================
+http_services:
+  # 检索服务
+  retrieval-service:
+    url: "http://localhost:8012"
+    timeout: 30s
+    description: "混合检索服务（Vector + BM25 + Rerank）"
+
+  # RAG引擎
+  rag-engine:
+    url: "http://localhost:8006"
+    timeout: 60s
+    description: "RAG检索增强生成"
+
+  # Agent引擎
+  agent-engine:
+    url: "http://localhost:8003"
+    timeout: 60s
+    description: "智能Agent执行引擎"
+
+  # 语音引擎
+  voice-engine:
+    url: "http://localhost:8004"
+    timeout: 30s
+    description: "ASR/TTS/VAD语音处理"
+
+  # 模型适配器
+  model-adapter:
+    url: "http://localhost:8005"
+    timeout: 60s
+    description: "统一LLM/Embedding调用入口"
+
+  # 索引服务
+  indexing-service:
+    url: "http://localhost:8011"
+    timeout: 120s
+    description: "文档索引流水线"
+
+  # 向量存储适配器
+  vector-store-adapter:
+    url: "http://localhost:8009"
+    timeout: 30s
+    description: "统一向量数据库访问"
+
+  # 知识图谱服务（Python）
+  knowledge-service-py:
+    url: "http://localhost:8010"
+    timeout: 30s
+    description: "知识图谱管理"
+
+  # 多模态引擎
+  multimodal-engine:
+    url: "http://localhost:8008"
+    timeout: 60s
+    description: "图像/视频理解"
+
+# ==================== Docker/K8s 部署配置 ====================
+# 用于容器化部署时的内部地址
+docker_services:
+  # Go gRPC 服务
+  grpc:
+    identity-service: "identity-service:50051"
+    conversation-service: "conversation-service:50052"
+    knowledge-service: "knowledge-service:50053"
+    ai-orchestrator: "ai-orchestrator:50054"
+    model-router: "model-router:50055"
+    analytics-service: "analytics-service:50056"
+    notification-service: "notification-service:50057"
+
+  # Python HTTP 服务
+  http:
+    retrieval-service: "http://retrieval-service:8012"
+    rag-engine: "http://rag-engine:8006"
+    agent-engine: "http://agent-engine:8003"
+    voice-engine: "http://voice-engine:8004"
+    model-adapter: "http://model-adapter:8005"
+    indexing-service: "http://indexing-service:8011"
+    vector-store-adapter: "http://vector-store-adapter:8009"
+    knowledge-service-py: "http://knowledge-service-py:8010"
+    multimodal-engine: "http://multimodal-engine:8008"
+
+# ==================== 服务端口快速参考 ====================
+port_reference:
+  # Go Services (gRPC)
+  "50051": "identity-service"
+  "50052": "conversation-service"
+  "50053": "knowledge-service"
+  "50054": "ai-orchestrator"
+  "50055": "model-router"
+  "50056": "analytics-service"
+  "50057": "notification-service"
+
+  # Python Services (HTTP)
+  "8003": "agent-engine"
+  "8004": "voice-engine"
+  "8005": "model-adapter"
+  "8006": "rag-engine"
+  "8008": "multimodal-engine"
+  "8009": "vector-store-adapter"
+  "8010": "knowledge-service-py"
+  "8011": "indexing-service"
+  "8012": "retrieval-service"
+
+# ==================== 配置说明 ====================
+notes:
+  - "本地开发使用 localhost 地址"
+  - "Docker部署使用服务名作为主机名"
+  - "生产环境应使用服务发现（Consul/Nacos）"
+  - "超时时间根据服务特性设置（AI服务通常需要更长超时）"
+  - "✅ 端口冲突已修复：每个服务独立端口（2025-10-29）"

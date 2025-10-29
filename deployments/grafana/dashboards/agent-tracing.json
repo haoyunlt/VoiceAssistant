@@ -1,0 +1,137 @@
+{
+  "dashboard": {
+    "title": "Agent Engine - Execution Tracing",
+    "tags": ["agent-engine", "tracing"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Recent Tasks",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "agent_task_info",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": { "h": 12, "w": 24, "x": 0, "y": 0 }
+      },
+      {
+        "id": 2,
+        "title": "Execution Steps Distribution",
+        "type": "histogram",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(agent_step_count_bucket[5m])) by (le))",
+            "legendFormat": "P50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(agent_step_count_bucket[5m])) by (le))",
+            "legendFormat": "P95"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(agent_step_count_bucket[5m])) by (le))",
+            "legendFormat": "P99"
+          }
+        ],
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 12 }
+      },
+      {
+        "id": 3,
+        "title": "Memory Retrieval Latency",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(agent_memory_retrieval_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        },
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 12 }
+      },
+      {
+        "id": 4,
+        "title": "Context Window Usage",
+        "type": "gauge",
+        "targets": [
+          {
+            "expr": "avg(agent_context_window_usage)",
+            "legendFormat": "Usage"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 0.7, "color": "yellow" },
+                { "value": 0.9, "color": "red" }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 22 }
+      },
+      {
+        "id": 5,
+        "title": "LLM Call Frequency",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_llm_calls_total[5m])) by (model)",
+            "legendFormat": "{{model}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 18, "x": 6, "y": 22 }
+      },
+      {
+        "id": 6,
+        "title": "Error Rate",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_tasks_total{status=\"error\"}[5m])) / sum(rate(agent_tasks_total[5m]))",
+            "legendFormat": "Error Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 30 }
+      },
+      {
+        "id": 7,
+        "title": "Tool Call Timeline",
+        "type": "heatmap",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_tool_calls_total[5m])) by (tool_name)",
+            "format": "heatmap"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 30 }
+      }
+    ],
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 1,
+    "links": [
+      {
+        "title": "Jaeger Traces",
+        "url": "http://localhost:16686",
+        "type": "link",
+        "icon": "external link"
+      }
+    ]
+  }
+}

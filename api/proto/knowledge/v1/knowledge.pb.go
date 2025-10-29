@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.10
 // 	protoc        v6.33.0
-// source: knowledge/v1/knowledge.proto
+// source: api/proto/knowledge/v1/knowledge.proto
 
 package v1
 
@@ -65,11 +65,11 @@ func (x DocumentStatus) String() string {
 }
 
 func (DocumentStatus) Descriptor() protoreflect.EnumDescriptor {
-	return file_knowledge_v1_knowledge_proto_enumTypes[0].Descriptor()
+	return file_api_proto_knowledge_v1_knowledge_proto_enumTypes[0].Descriptor()
 }
 
 func (DocumentStatus) Type() protoreflect.EnumType {
-	return &file_knowledge_v1_knowledge_proto_enumTypes[0]
+	return &file_api_proto_knowledge_v1_knowledge_proto_enumTypes[0]
 }
 
 func (x DocumentStatus) Number() protoreflect.EnumNumber {
@@ -78,7 +78,7 @@ func (x DocumentStatus) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use DocumentStatus.Descriptor instead.
 func (DocumentStatus) EnumDescriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{0}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{0}
 }
 
 type CollectionType int32
@@ -117,11 +117,11 @@ func (x CollectionType) String() string {
 }
 
 func (CollectionType) Descriptor() protoreflect.EnumDescriptor {
-	return file_knowledge_v1_knowledge_proto_enumTypes[1].Descriptor()
+	return file_api_proto_knowledge_v1_knowledge_proto_enumTypes[1].Descriptor()
 }
 
 func (CollectionType) Type() protoreflect.EnumType {
-	return &file_knowledge_v1_knowledge_proto_enumTypes[1]
+	return &file_api_proto_knowledge_v1_knowledge_proto_enumTypes[1]
 }
 
 func (x CollectionType) Number() protoreflect.EnumNumber {
@@ -130,7 +130,7 @@ func (x CollectionType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use CollectionType.Descriptor instead.
 func (CollectionType) EnumDescriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{1}
 }
 
 type Document struct {
@@ -154,7 +154,7 @@ type Document struct {
 
 func (x *Document) Reset() {
 	*x = Document{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[0]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -166,7 +166,7 @@ func (x *Document) String() string {
 func (*Document) ProtoMessage() {}
 
 func (x *Document) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[0]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -179,7 +179,7 @@ func (x *Document) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Document.ProtoReflect.Descriptor instead.
 func (*Document) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{0}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Document) GetId() string {
@@ -287,7 +287,7 @@ type DocumentMetadata struct {
 
 func (x *DocumentMetadata) Reset() {
 	*x = DocumentMetadata{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[1]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -299,7 +299,7 @@ func (x *DocumentMetadata) String() string {
 func (*DocumentMetadata) ProtoMessage() {}
 
 func (x *DocumentMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[1]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -312,7 +312,7 @@ func (x *DocumentMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentMetadata.ProtoReflect.Descriptor instead.
 func (*DocumentMetadata) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{1}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *DocumentMetadata) GetTitle() string {
@@ -372,7 +372,7 @@ type UploadDocumentRequest struct {
 
 func (x *UploadDocumentRequest) Reset() {
 	*x = UploadDocumentRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[2]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -384,7 +384,7 @@ func (x *UploadDocumentRequest) String() string {
 func (*UploadDocumentRequest) ProtoMessage() {}
 
 func (x *UploadDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[2]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -397,7 +397,7 @@ func (x *UploadDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadDocumentRequest.ProtoReflect.Descriptor instead.
 func (*UploadDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{2}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *UploadDocumentRequest) GetUserId() string {
@@ -459,7 +459,7 @@ type GetDocumentRequest struct {
 
 func (x *GetDocumentRequest) Reset() {
 	*x = GetDocumentRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[3]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -471,7 +471,7 @@ func (x *GetDocumentRequest) String() string {
 func (*GetDocumentRequest) ProtoMessage() {}
 
 func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[3]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -484,7 +484,7 @@ func (x *GetDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentRequest.ProtoReflect.Descriptor instead.
 func (*GetDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{3}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetDocumentRequest) GetId() string {
@@ -515,7 +515,7 @@ type ListDocumentsRequest struct {
 
 func (x *ListDocumentsRequest) Reset() {
 	*x = ListDocumentsRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[4]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -527,7 +527,7 @@ func (x *ListDocumentsRequest) String() string {
 func (*ListDocumentsRequest) ProtoMessage() {}
 
 func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[4]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -540,7 +540,7 @@ func (x *ListDocumentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentsRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{4}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ListDocumentsRequest) GetUserId() string {
@@ -595,7 +595,7 @@ type ListDocumentsResponse struct {
 
 func (x *ListDocumentsResponse) Reset() {
 	*x = ListDocumentsResponse{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[5]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -607,7 +607,7 @@ func (x *ListDocumentsResponse) String() string {
 func (*ListDocumentsResponse) ProtoMessage() {}
 
 func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[5]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -620,7 +620,7 @@ func (x *ListDocumentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentsResponse) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{5}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListDocumentsResponse) GetDocuments() []*Document {
@@ -649,7 +649,7 @@ type UpdateDocumentRequest struct {
 
 func (x *UpdateDocumentRequest) Reset() {
 	*x = UpdateDocumentRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[6]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -661,7 +661,7 @@ func (x *UpdateDocumentRequest) String() string {
 func (*UpdateDocumentRequest) ProtoMessage() {}
 
 func (x *UpdateDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[6]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -674,7 +674,7 @@ func (x *UpdateDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateDocumentRequest.ProtoReflect.Descriptor instead.
 func (*UpdateDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{6}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *UpdateDocumentRequest) GetId() string {
@@ -715,7 +715,7 @@ type DeleteDocumentRequest struct {
 
 func (x *DeleteDocumentRequest) Reset() {
 	*x = DeleteDocumentRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[7]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +727,7 @@ func (x *DeleteDocumentRequest) String() string {
 func (*DeleteDocumentRequest) ProtoMessage() {}
 
 func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[7]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +740,7 @@ func (x *DeleteDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DeleteDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{7}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DeleteDocumentRequest) GetId() string {
@@ -767,7 +767,7 @@ type DownloadDocumentRequest struct {
 
 func (x *DownloadDocumentRequest) Reset() {
 	*x = DownloadDocumentRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[8]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -779,7 +779,7 @@ func (x *DownloadDocumentRequest) String() string {
 func (*DownloadDocumentRequest) ProtoMessage() {}
 
 func (x *DownloadDocumentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[8]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -792,7 +792,7 @@ func (x *DownloadDocumentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DownloadDocumentRequest.ProtoReflect.Descriptor instead.
 func (*DownloadDocumentRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{8}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DownloadDocumentRequest) GetId() string {
@@ -820,7 +820,7 @@ type DocumentChunk struct {
 
 func (x *DocumentChunk) Reset() {
 	*x = DocumentChunk{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[9]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -832,7 +832,7 @@ func (x *DocumentChunk) String() string {
 func (*DocumentChunk) ProtoMessage() {}
 
 func (x *DocumentChunk) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[9]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -845,7 +845,7 @@ func (x *DocumentChunk) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentChunk.ProtoReflect.Descriptor instead.
 func (*DocumentChunk) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{9}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *DocumentChunk) GetData() []byte {
@@ -887,7 +887,7 @@ type Collection struct {
 
 func (x *Collection) Reset() {
 	*x = Collection{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[10]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -899,7 +899,7 @@ func (x *Collection) String() string {
 func (*Collection) ProtoMessage() {}
 
 func (x *Collection) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[10]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -912,7 +912,7 @@ func (x *Collection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Collection.ProtoReflect.Descriptor instead.
 func (*Collection) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{10}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Collection) GetId() string {
@@ -995,7 +995,7 @@ type CollectionMetadata struct {
 
 func (x *CollectionMetadata) Reset() {
 	*x = CollectionMetadata{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[11]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1007,7 +1007,7 @@ func (x *CollectionMetadata) String() string {
 func (*CollectionMetadata) ProtoMessage() {}
 
 func (x *CollectionMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[11]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1020,7 +1020,7 @@ func (x *CollectionMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CollectionMetadata.ProtoReflect.Descriptor instead.
 func (*CollectionMetadata) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{11}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *CollectionMetadata) GetTags() map[string]string {
@@ -1051,7 +1051,7 @@ type CreateCollectionRequest struct {
 
 func (x *CreateCollectionRequest) Reset() {
 	*x = CreateCollectionRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[12]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1063,7 +1063,7 @@ func (x *CreateCollectionRequest) String() string {
 func (*CreateCollectionRequest) ProtoMessage() {}
 
 func (x *CreateCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[12]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1076,7 +1076,7 @@ func (x *CreateCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateCollectionRequest.ProtoReflect.Descriptor instead.
 func (*CreateCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{12}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateCollectionRequest) GetUserId() string {
@@ -1131,7 +1131,7 @@ type GetCollectionRequest struct {
 
 func (x *GetCollectionRequest) Reset() {
 	*x = GetCollectionRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[13]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +1143,7 @@ func (x *GetCollectionRequest) String() string {
 func (*GetCollectionRequest) ProtoMessage() {}
 
 func (x *GetCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[13]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +1156,7 @@ func (x *GetCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCollectionRequest.ProtoReflect.Descriptor instead.
 func (*GetCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{13}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetCollectionRequest) GetId() string {
@@ -1186,7 +1186,7 @@ type ListCollectionsRequest struct {
 
 func (x *ListCollectionsRequest) Reset() {
 	*x = ListCollectionsRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[14]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1198,7 +1198,7 @@ func (x *ListCollectionsRequest) String() string {
 func (*ListCollectionsRequest) ProtoMessage() {}
 
 func (x *ListCollectionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[14]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1211,7 +1211,7 @@ func (x *ListCollectionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCollectionsRequest.ProtoReflect.Descriptor instead.
 func (*ListCollectionsRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{14}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListCollectionsRequest) GetUserId() string {
@@ -1259,7 +1259,7 @@ type ListCollectionsResponse struct {
 
 func (x *ListCollectionsResponse) Reset() {
 	*x = ListCollectionsResponse{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[15]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1271,7 +1271,7 @@ func (x *ListCollectionsResponse) String() string {
 func (*ListCollectionsResponse) ProtoMessage() {}
 
 func (x *ListCollectionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[15]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1284,7 +1284,7 @@ func (x *ListCollectionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCollectionsResponse.ProtoReflect.Descriptor instead.
 func (*ListCollectionsResponse) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{15}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ListCollectionsResponse) GetCollections() []*Collection {
@@ -1314,7 +1314,7 @@ type UpdateCollectionRequest struct {
 
 func (x *UpdateCollectionRequest) Reset() {
 	*x = UpdateCollectionRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[16]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1326,7 +1326,7 @@ func (x *UpdateCollectionRequest) String() string {
 func (*UpdateCollectionRequest) ProtoMessage() {}
 
 func (x *UpdateCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[16]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1339,7 +1339,7 @@ func (x *UpdateCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCollectionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{16}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UpdateCollectionRequest) GetId() string {
@@ -1387,7 +1387,7 @@ type DeleteCollectionRequest struct {
 
 func (x *DeleteCollectionRequest) Reset() {
 	*x = DeleteCollectionRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[17]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1399,7 +1399,7 @@ func (x *DeleteCollectionRequest) String() string {
 func (*DeleteCollectionRequest) ProtoMessage() {}
 
 func (x *DeleteCollectionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[17]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1412,7 +1412,7 @@ func (x *DeleteCollectionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteCollectionRequest.ProtoReflect.Descriptor instead.
 func (*DeleteCollectionRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{17}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DeleteCollectionRequest) GetId() string {
@@ -1445,7 +1445,7 @@ type DocumentVersion struct {
 
 func (x *DocumentVersion) Reset() {
 	*x = DocumentVersion{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[18]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1457,7 +1457,7 @@ func (x *DocumentVersion) String() string {
 func (*DocumentVersion) ProtoMessage() {}
 
 func (x *DocumentVersion) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[18]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1470,7 +1470,7 @@ func (x *DocumentVersion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DocumentVersion.ProtoReflect.Descriptor instead.
 func (*DocumentVersion) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{18}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DocumentVersion) GetId() string {
@@ -1540,7 +1540,7 @@ type GetDocumentVersionRequest struct {
 
 func (x *GetDocumentVersionRequest) Reset() {
 	*x = GetDocumentVersionRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[19]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1552,7 +1552,7 @@ func (x *GetDocumentVersionRequest) String() string {
 func (*GetDocumentVersionRequest) ProtoMessage() {}
 
 func (x *GetDocumentVersionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[19]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1565,7 +1565,7 @@ func (x *GetDocumentVersionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetDocumentVersionRequest.ProtoReflect.Descriptor instead.
 func (*GetDocumentVersionRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{19}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetDocumentVersionRequest) GetDocumentId() string {
@@ -1599,7 +1599,7 @@ type ListDocumentVersionsRequest struct {
 
 func (x *ListDocumentVersionsRequest) Reset() {
 	*x = ListDocumentVersionsRequest{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[20]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1611,7 +1611,7 @@ func (x *ListDocumentVersionsRequest) String() string {
 func (*ListDocumentVersionsRequest) ProtoMessage() {}
 
 func (x *ListDocumentVersionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[20]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1624,7 +1624,7 @@ func (x *ListDocumentVersionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentVersionsRequest.ProtoReflect.Descriptor instead.
 func (*ListDocumentVersionsRequest) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{20}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListDocumentVersionsRequest) GetDocumentId() string {
@@ -1650,7 +1650,7 @@ type ListDocumentVersionsResponse struct {
 
 func (x *ListDocumentVersionsResponse) Reset() {
 	*x = ListDocumentVersionsResponse{}
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[21]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1662,7 +1662,7 @@ func (x *ListDocumentVersionsResponse) String() string {
 func (*ListDocumentVersionsResponse) ProtoMessage() {}
 
 func (x *ListDocumentVersionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_knowledge_v1_knowledge_proto_msgTypes[21]
+	mi := &file_api_proto_knowledge_v1_knowledge_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1675,7 +1675,7 @@ func (x *ListDocumentVersionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDocumentVersionsResponse.ProtoReflect.Descriptor instead.
 func (*ListDocumentVersionsResponse) Descriptor() ([]byte, []int) {
-	return file_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{21}
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ListDocumentVersionsResponse) GetVersions() []*DocumentVersion {
@@ -1685,11 +1685,11 @@ func (x *ListDocumentVersionsResponse) GetVersions() []*DocumentVersion {
 	return nil
 }
 
-var File_knowledge_v1_knowledge_proto protoreflect.FileDescriptor
+var File_api_proto_knowledge_v1_knowledge_proto protoreflect.FileDescriptor
 
-const file_knowledge_v1_knowledge_proto_rawDesc = "" +
+const file_api_proto_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\n" +
-	"\x1cknowledge/v1/knowledge.proto\x12\fknowledge.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf0\x03\n" +
+	"&api/proto/knowledge/v1/knowledge.proto\x12\fknowledge.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf0\x03\n" +
 	"\bDocument\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x1b\n" +
@@ -1861,23 +1861,23 @@ const file_knowledge_v1_knowledge_proto_rawDesc = "" +
 	"\x10UpdateCollection\x12%.knowledge.v1.UpdateCollectionRequest\x1a\x18.knowledge.v1.Collection\x12Q\n" +
 	"\x10DeleteCollection\x12%.knowledge.v1.DeleteCollectionRequest\x1a\x16.google.protobuf.Empty\x12\\\n" +
 	"\x12GetDocumentVersion\x12'.knowledge.v1.GetDocumentVersionRequest\x1a\x1d.knowledge.v1.DocumentVersion\x12m\n" +
-	"\x14ListDocumentVersions\x12).knowledge.v1.ListDocumentVersionsRequest\x1a*.knowledge.v1.ListDocumentVersionsResponseB*Z(voiceassistant/api/proto/knowledge/v1;v1b\x06proto3"
+	"\x14ListDocumentVersions\x12).knowledge.v1.ListDocumentVersionsRequest\x1a*.knowledge.v1.ListDocumentVersionsResponseB'Z%voicehelper/api/proto/knowledge/v1;v1b\x06proto3"
 
 var (
-	file_knowledge_v1_knowledge_proto_rawDescOnce sync.Once
-	file_knowledge_v1_knowledge_proto_rawDescData []byte
+	file_api_proto_knowledge_v1_knowledge_proto_rawDescOnce sync.Once
+	file_api_proto_knowledge_v1_knowledge_proto_rawDescData []byte
 )
 
-func file_knowledge_v1_knowledge_proto_rawDescGZIP() []byte {
-	file_knowledge_v1_knowledge_proto_rawDescOnce.Do(func() {
-		file_knowledge_v1_knowledge_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_knowledge_v1_knowledge_proto_rawDesc), len(file_knowledge_v1_knowledge_proto_rawDesc)))
+func file_api_proto_knowledge_v1_knowledge_proto_rawDescGZIP() []byte {
+	file_api_proto_knowledge_v1_knowledge_proto_rawDescOnce.Do(func() {
+		file_api_proto_knowledge_v1_knowledge_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_proto_knowledge_v1_knowledge_proto_rawDesc), len(file_api_proto_knowledge_v1_knowledge_proto_rawDesc)))
 	})
-	return file_knowledge_v1_knowledge_proto_rawDescData
+	return file_api_proto_knowledge_v1_knowledge_proto_rawDescData
 }
 
-var file_knowledge_v1_knowledge_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_knowledge_v1_knowledge_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
-var file_knowledge_v1_knowledge_proto_goTypes = []any{
+var file_api_proto_knowledge_v1_knowledge_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_proto_knowledge_v1_knowledge_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
+var file_api_proto_knowledge_v1_knowledge_proto_goTypes = []any{
 	(DocumentStatus)(0),                  // 0: knowledge.v1.DocumentStatus
 	(CollectionType)(0),                  // 1: knowledge.v1.CollectionType
 	(*Document)(nil),                     // 2: knowledge.v1.Document
@@ -1907,7 +1907,7 @@ var file_knowledge_v1_knowledge_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),        // 26: google.protobuf.Timestamp
 	(*emptypb.Empty)(nil),                // 27: google.protobuf.Empty
 }
-var file_knowledge_v1_knowledge_proto_depIdxs = []int32{
+var file_api_proto_knowledge_v1_knowledge_proto_depIdxs = []int32{
 	0,  // 0: knowledge.v1.Document.status:type_name -> knowledge.v1.DocumentStatus
 	3,  // 1: knowledge.v1.Document.metadata:type_name -> knowledge.v1.DocumentMetadata
 	26, // 2: knowledge.v1.Document.created_at:type_name -> google.protobuf.Timestamp
@@ -1962,29 +1962,29 @@ var file_knowledge_v1_knowledge_proto_depIdxs = []int32{
 	0,  // [0:21] is the sub-list for field type_name
 }
 
-func init() { file_knowledge_v1_knowledge_proto_init() }
-func file_knowledge_v1_knowledge_proto_init() {
-	if File_knowledge_v1_knowledge_proto != nil {
+func init() { file_api_proto_knowledge_v1_knowledge_proto_init() }
+func file_api_proto_knowledge_v1_knowledge_proto_init() {
+	if File_api_proto_knowledge_v1_knowledge_proto != nil {
 		return
 	}
-	file_knowledge_v1_knowledge_proto_msgTypes[6].OneofWrappers = []any{}
-	file_knowledge_v1_knowledge_proto_msgTypes[16].OneofWrappers = []any{}
+	file_api_proto_knowledge_v1_knowledge_proto_msgTypes[6].OneofWrappers = []any{}
+	file_api_proto_knowledge_v1_knowledge_proto_msgTypes[16].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_knowledge_v1_knowledge_proto_rawDesc), len(file_knowledge_v1_knowledge_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_knowledge_v1_knowledge_proto_rawDesc), len(file_api_proto_knowledge_v1_knowledge_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_knowledge_v1_knowledge_proto_goTypes,
-		DependencyIndexes: file_knowledge_v1_knowledge_proto_depIdxs,
-		EnumInfos:         file_knowledge_v1_knowledge_proto_enumTypes,
-		MessageInfos:      file_knowledge_v1_knowledge_proto_msgTypes,
+		GoTypes:           file_api_proto_knowledge_v1_knowledge_proto_goTypes,
+		DependencyIndexes: file_api_proto_knowledge_v1_knowledge_proto_depIdxs,
+		EnumInfos:         file_api_proto_knowledge_v1_knowledge_proto_enumTypes,
+		MessageInfos:      file_api_proto_knowledge_v1_knowledge_proto_msgTypes,
 	}.Build()
-	File_knowledge_v1_knowledge_proto = out.File
-	file_knowledge_v1_knowledge_proto_goTypes = nil
-	file_knowledge_v1_knowledge_proto_depIdxs = nil
+	File_api_proto_knowledge_v1_knowledge_proto = out.File
+	file_api_proto_knowledge_v1_knowledge_proto_goTypes = nil
+	file_api_proto_knowledge_v1_knowledge_proto_depIdxs = nil
 }

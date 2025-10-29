@@ -1,7 +1,7 @@
 # 未使用代码清理报告
 
-**日期**: 2025-10-28  
-**执行人**: AI Assistant  
+**日期**: 2025-10-28
+**执行人**: AI Assistant
 **状态**: ✅ 已完成
 
 ## 📊 清理概览
@@ -23,9 +23,9 @@
 ## 🗑️ 已删除项目
 
 ### 1. analytics-service/internal/data/cache.go
-**类型**: 未使用字段  
-**位置**: 第 19 行  
-**内容**: `mutex sync.RWMutex`  
+**类型**: 未使用字段
+**位置**: 第 19 行
+**内容**: `mutex sync.RWMutex`
 **原因**: MemoryCache 使用 sync.Map，不需要额外的互斥锁
 
 ```go
@@ -44,9 +44,9 @@ type MemoryCache struct {
 ---
 
 ### 2. analytics-service/internal/server/http.go
-**类型**: 未使用函数  
-**位置**: 第 376-389 行  
-**函数**: `respondErrorWithDetails()`  
+**类型**: 未使用函数
+**位置**: 第 376-389 行
+**函数**: `respondErrorWithDetails()`
 **原因**: 所有错误响应都使用 `respondError()`，不需要带详情的版本
 
 ```go
@@ -70,9 +70,9 @@ func (s *HTTPServer) respondErrorWithDetails(c *gin.Context, statusCode int, mes
 ---
 
 ### 3. conversation-service/internal/domain/context_manager.go
-**类型**: 未使用函数  
-**位置**: 第 284-287 行  
-**函数**: `isValid()`  
+**类型**: 未使用函数
+**位置**: 第 284-287 行
+**函数**: `isValid()`
 **原因**: 使用了更具体的 `isValidConversationContext()`
 
 ```go
@@ -86,9 +86,9 @@ func (m *ContextManagerImpl) isValid(context *ManagedContext) bool {
 ---
 
 ### 4. knowledge-service/internal/biz/document_processor.go
-**类型**: 未使用函数  
-**位置**: 第 141-169 行  
-**函数**: `splitTextIntoChunks()`  
+**类型**: 未使用函数
+**位置**: 第 141-169 行
+**函数**: `splitTextIntoChunks()`
 **原因**: 使用了更高级的 `splitTextIntoChunksWithSemanticBoundary()`
 
 ```go
@@ -131,9 +131,9 @@ func (p *DocumentProcessor) splitTextIntoChunks(text string) []string {
 ---
 
 ### 5. model-router/internal/data/metrics_repo.go
-**类型**: 未使用函数  
-**位置**: 第 155-158 行  
-**函数**: `upsert()`  
+**类型**: 未使用函数
+**位置**: 第 155-158 行
+**函数**: `upsert()`
 **原因**: 简化实现，实际未使用
 
 ```go
@@ -147,9 +147,9 @@ func upsert() interface{} {
 ---
 
 ### 6. model-router/main.go
-**类型**: 未使用函数  
-**位置**: 第 127-143 行  
-**函数**: `gracefulShutdown()`  
+**类型**: 未使用函数
+**位置**: 第 127-143 行
+**函数**: `gracefulShutdown()`
 **原因**: Kratos 框架已提供优雅关闭机制
 
 ```go
@@ -173,7 +173,7 @@ func gracefulShutdown(httpServer *server.HTTPServer, logger kratoslog.Logger) {
 }
 ```
 
-**同时删除**: 
+**同时删除**:
 - 未使用的导入: `"os/signal"`, `"time"`
 
 ---
@@ -262,7 +262,6 @@ staticcheck -tests=false ./cmd/... ./pkg/... ./internal/... 2>&1 | grep -E "unus
 
 ---
 
-**报告生成时间**: 2025-10-28  
-**工具版本**: staticcheck (latest)  
+**报告生成时间**: 2025-10-28
+**工具版本**: staticcheck (latest)
 **项目状态**: ✅ 代码质量优秀
-

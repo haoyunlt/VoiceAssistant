@@ -218,35 +218,12 @@ func (r *ConsulRegistry) DiscoverOne(serviceName string, tags []string) (*Servic
 }
 
 // Watch 监听服务变化
+// 注意: 此功能需要使用 Consul blocking queries 或其他轮询机制实现
+// 当前 Consul API 版本不支持 PlanWatch/WatchPlan，建议使用定时轮询方式
 func (r *ConsulRegistry) Watch(serviceName string, callback func([]*ServiceInstance)) error {
-	// 使用 Consul Watch API
-	// 这里简化实现，实际应该使用 blocking query
-	plan, err := api.PlanWatch(&api.WatchPlan{
-		Type:    "service",
-		Service: serviceName,
-		Handler: func(idx uint64, data interface{}) {
-			if services, ok := data.([]*api.ServiceEntry); ok {
-				instances := make([]*ServiceInstance, 0, len(services))
-				for _, service := range services {
-					instances = append(instances, &ServiceInstance{
-						ID:      service.Service.ID,
-						Name:    service.Service.Service,
-						Address: service.Service.Address,
-						Port:    service.Service.Port,
-						Tags:    service.Service.Tags,
-						Meta:    service.Service.Meta,
-					})
-				}
-				callback(instances)
-			}
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create watch plan: %w", err)
-	}
-
-	// 启动监听
-	return plan.Run(r.config.Address)
+	// TODO: 实现基于 blocking query 的服务监听
+	// 可以使用 r.client.Health().Service() 配合 QueryOptions.WaitIndex 和 WaitTime
+	return fmt.Errorf("watch not implemented: use polling with Health().Service() instead")
 }
 
 // Helper functions

@@ -1,0 +1,22 @@
+# Semantic Cache Configuration
+
+strategy: "two_level"  # single, two_level
+
+l1_cache:
+  enabled: true
+  ttl_seconds: 3600
+  max_size_mb: 512
+  eviction_policy: "lru"
+
+l2_cache:
+  enabled: false  # Phase 2 启用
+  ttl_seconds: 21600
+  similarity_threshold: 0.95
+  max_items: 10000
+  embedding_batch_size: 32
+
+warming:
+  enabled: false  # Phase 2 启用
+  schedule: "0 */6 * * *"
+  top_n_queries: 1000
+  source: "analytics"  # analytics, manual

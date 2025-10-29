@@ -2,13 +2,20 @@ syntax = "proto3";
 
 package knowledge.v1;
 
-option go_package = "voiceassistant/api/proto/knowledge/v1;v1";
+option go_package = "voicehelper/api/proto/knowledge/v1;v1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 // KnowledgeService 知识管理服务
 service KnowledgeService {
+  // 知识库管理
+  rpc CreateKnowledgeBase(CreateKnowledgeBaseRequest) returns (KnowledgeBase);
+  rpc GetKnowledgeBase(GetKnowledgeBaseRequest) returns (KnowledgeBase);
+  rpc ListKnowledgeBases(ListKnowledgeBasesRequest) returns (ListKnowledgeBasesResponse);
+  rpc UpdateKnowledgeBase(UpdateKnowledgeBaseRequest) returns (KnowledgeBase);
+  rpc DeleteKnowledgeBase(DeleteKnowledgeBaseRequest) returns (google.protobuf.Empty);
+
   // 文档管理
   rpc UploadDocument(UploadDocumentRequest) returns (Document);
   rpc GetDocument(GetDocumentRequest) returns (Document);
@@ -210,4 +217,74 @@ message ListDocumentVersionsRequest {
 
 message ListDocumentVersionsResponse {
   repeated DocumentVersion versions = 1;
+}
+
+// ============ 知识库相关 ============
+
+message KnowledgeBase {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  KnowledgeBaseType type = 4;
+  KnowledgeBaseStatus status = 5;
+  string tenant_id = 6;
+  string embedding_model = 7;
+  int32 document_count = 8;
+  int32 chunk_count = 9;
+  google.protobuf.Timestamp created_at = 10;
+  google.protobuf.Timestamp updated_at = 11;
+  string created_by = 12;
+}
+
+enum KnowledgeBaseType {
+  KNOWLEDGE_BASE_TYPE_UNSPECIFIED = 0;
+  KNOWLEDGE_BASE_TYPE_PERSONAL = 1;
+  KNOWLEDGE_BASE_TYPE_SHARED = 2;
+  KNOWLEDGE_BASE_TYPE_PUBLIC = 3;
+}
+
+enum KnowledgeBaseStatus {
+  KNOWLEDGE_BASE_STATUS_UNSPECIFIED = 0;
+  KNOWLEDGE_BASE_STATUS_ACTIVE = 1;
+  KNOWLEDGE_BASE_STATUS_INACTIVE = 2;
+  KNOWLEDGE_BASE_STATUS_DELETED = 3;
+}
+
+message CreateKnowledgeBaseRequest {
+  string name = 1;
+  string description = 2;
+  KnowledgeBaseType type = 3;
+  string tenant_id = 4;
+  string created_by = 5;
+  string embedding_model = 6;
+}
+
+message GetKnowledgeBaseRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message UpdateKnowledgeBaseRequest {
+  string id = 1;
+  string user_id = 2;
+  optional string name = 3;
+  optional string description = 4;
+  optional KnowledgeBaseStatus status = 5;
+}
+
+message DeleteKnowledgeBaseRequest {
+  string id = 1;
+  string user_id = 2;
+}
+
+message ListKnowledgeBasesRequest {
+  string tenant_id = 1;
+  KnowledgeBaseType type = 2; // 可选过滤
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message ListKnowledgeBasesResponse {
+  repeated KnowledgeBase knowledge_bases = 1;
+  int32 total = 2;
 }

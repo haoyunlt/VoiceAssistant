@@ -1,0 +1,195 @@
+syntax = "proto3";
+
+package retrieval.v1;
+
+option go_package = "voicehelper/api/proto/retrieval/v1;retrievalv1";
+
+// RetrievalService 检索服务
+service RetrievalService {
+  // 向量检索
+  rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+
+  // BM25检索
+  rpc BM25Search(BM25SearchRequest) returns (BM25SearchResponse);
+
+  // 混合检索（向量 + BM25 + RRF融合 + 重排序）
+  rpc HybridSearch(HybridSearchRequest) returns (HybridSearchResponse);
+
+  // 图谱检索
+  rpc GraphSearch(GraphSearchRequest) returns (GraphSearchResponse);
+
+  // 混合图谱检索（三路并行: Vector + BM25 + Graph）
+  rpc HybridGraphSearch(HybridGraphSearchRequest) returns (HybridGraphSearchResponse);
+
+  // 健康检查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// ============ 向量检索 ============
+
+message VectorSearchRequest {
+  string query = 1;
+  repeated float query_embedding = 2;   // 可选：预计算的查询向量
+  int32 top_k = 3;
+  string tenant_id = 4;
+  map<string, string> filters = 5;
+  repeated string collection_ids = 6;   // 集合ID列表
+}
+
+message VectorSearchResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+  int64 latency_ms = 3;
+}
+
+// ============ BM25检索 ============
+
+message BM25SearchRequest {
+  string query = 1;
+  int32 top_k = 2;
+  string tenant_id = 3;
+  map<string, string> filters = 4;
+  repeated string collection_ids = 5;
+}
+
+message BM25SearchResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+  int64 latency_ms = 3;
+}
+
+// ============ 混合检索 ============
+
+message HybridSearchRequest {
+  string query = 1;
+  repeated float query_embedding = 2;
+  int32 top_k = 3;
+  string tenant_id = 4;
+  map<string, string> filters = 5;
+  bool enable_rerank = 6;               // 是否启用重排序
+  int32 rerank_top_k = 7;               // 重排序后返回的文档数
+  repeated string collection_ids = 8;
+  HybridWeights weights = 9;            // 混合权重
+}
+
+message HybridWeights {
+  float vector = 1;                     // 向量检索权重
+  float bm25 = 2;                       // BM25检索权重
+}
+
+message HybridSearchResponse {
+  repeated Document documents = 1;
+  int32 total = 2;
+  bool reranked = 3;
+  HybridMetrics metrics = 4;
+  int64 latency_ms = 5;
+}
+
+message HybridMetrics {
+  int32 vector_results = 1;
+  int32 bm25_results = 2;
+  int32 fused_results = 3;
+  int32 reranked_results = 4;
+  int64 vector_ms = 5;
+  int64 bm25_ms = 6;
+  int64 fusion_ms = 7;
+  int64 rerank_ms = 8;
+}
+
+// ============ 图谱检索 ============
+
+message GraphSearchRequest {
+  string query = 1;
+  int32 top_k = 2;
+  int32 depth = 3;                      // 图谱查询深度
+  string tenant_id = 4;
+  map<string, string> filters = 5;
+}
+
+message GraphSearchResponse {
+  repeated Document documents = 1;
+  repeated GraphNode nodes = 2;
+  repeated GraphEdge edges = 3;
+  int32 total = 4;
+  int64 latency_ms = 5;
+}
+
+message GraphNode {
+  string id = 1;
+  string type = 2;
+  string label = 3;
+  map<string, string> properties = 4;
+}
+
+message GraphEdge {
+  string id = 1;
+  string source_id = 2;
+  string target_id = 3;
+  string type = 4;
+  map<string, string> properties = 5;
+}
+
+// ============ 混合图谱检索 ============
+
+message HybridGraphSearchRequest {
+  string query = 1;
+  repeated float query_embedding = 2;
+  int32 top_k = 3;
+  string tenant_id = 4;
+  map<string, string> filters = 5;
+  bool enable_rerank = 6;
+  int32 rerank_top_k = 7;
+  int32 graph_depth = 8;
+  HybridGraphWeights weights = 9;
+  repeated string collection_ids = 10;
+}
+
+message HybridGraphWeights {
+  float vector = 1;
+  float bm25 = 2;
+  float graph = 3;
+}
+
+message HybridGraphSearchResponse {
+  repeated Document documents = 1;
+  repeated GraphNode nodes = 2;
+  repeated GraphEdge edges = 3;
+  int32 total = 4;
+  bool reranked = 5;
+  HybridGraphMetrics metrics = 6;
+  int64 latency_ms = 7;
+}
+
+message HybridGraphMetrics {
+  int32 vector_results = 1;
+  int32 bm25_results = 2;
+  int32 graph_results = 3;
+  int32 fused_results = 4;
+  int32 reranked_results = 5;
+  int64 vector_ms = 6;
+  int64 bm25_ms = 7;
+  int64 graph_ms = 8;
+  int64 fusion_ms = 9;
+  int64 rerank_ms = 10;
+}
+
+// ============ 通用模型 ============
+
+message Document {
+  string id = 1;
+  string content = 2;
+  string title = 3;
+  float score = 4;
+  string source = 5;
+  int32 rank = 6;
+  map<string, string> metadata = 7;
+  repeated string chunks = 8;
+}
+
+// ============ 健康检查 ============
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;
+}

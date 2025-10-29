@@ -1,0 +1,133 @@
+{
+  "dashboard": {
+    "title": "Agent Engine - Performance Dashboard",
+    "tags": ["agent-engine", "performance"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Task Success Rate",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_tasks_total{status=\"success\"}[5m])) / sum(rate(agent_tasks_total[5m]))",
+            "legendFormat": "Success Rate"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit",
+            "decimals": 2,
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "red" },
+                { "value": 0.7, "color": "yellow" },
+                { "value": 0.85, "color": "green" }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 }
+      },
+      {
+        "id": 2,
+        "title": "Task Execution Time (P95)",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(agent_task_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "P95 Latency"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "decimals": 2,
+            "thresholds": {
+              "steps": [
+                { "value": 0, "color": "green" },
+                { "value": 5, "color": "yellow" },
+                { "value": 10, "color": "red" }
+              ]
+            }
+          }
+        },
+        "gridPos": { "h": 8, "w": 6, "x": 6, "y": 0 }
+      },
+      {
+        "id": 3,
+        "title": "Total Tasks (by Mode)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_tasks_total[5m])) by (mode)",
+            "legendFormat": "{{mode}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+      },
+      {
+        "id": 4,
+        "title": "Task Success Rate by Mode",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_tasks_total{status=\"success\"}[5m])) by (mode) / sum(rate(agent_tasks_total[5m])) by (mode)",
+            "legendFormat": "{{mode}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percentunit"
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+      },
+      {
+        "id": 5,
+        "title": "Average Steps per Task",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "avg(agent_step_count) by (mode)",
+            "legendFormat": "{{mode}}"
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+      },
+      {
+        "id": 6,
+        "title": "Tool Call Success Rate",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "sum(rate(agent_tool_calls_total{status=\"success\"}[5m])) by (tool_name) / sum(rate(agent_tool_calls_total[5m])) by (tool_name)",
+            "format": "table",
+            "instant": true
+          }
+        ],
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+      },
+      {
+        "id": 7,
+        "title": "Tool Call Latency (P95)",
+        "type": "timeseries",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(tool_call_duration_seconds_bucket[5m])) by (tool_name, le))",
+            "legendFormat": "{{tool_name}}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        },
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+      }
+    ],
+    "refresh": "30s",
+    "schemaVersion": 27,
+    "version": 1
+  }
+}

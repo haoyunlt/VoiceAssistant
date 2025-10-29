@@ -1,0 +1,24 @@
+# Reranking Configuration
+
+strategy: "single"  # single, multi_stage
+
+single_stage:
+  model: "BAAI/bge-reranker-base"
+  top_k: 10
+  batch_size: 32
+
+multi_stage:
+  enabled: false  # Phase 2 启用
+
+  stage1:
+    model: "BAAI/bge-reranker-base"
+    top_k: 20
+    batch_size: 64
+
+  stage2:
+    model: "BAAI/bge-reranker-large"
+    top_k: 10
+    batch_size: 32
+    use_llm: false
+    llm_model: "gpt-4"
+    llm_endpoint: "http://model-adapter:8000"

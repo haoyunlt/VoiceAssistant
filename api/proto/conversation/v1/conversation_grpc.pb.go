@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.5.1
 // - protoc             v6.33.0
-// source: conversation/v1/conversation.proto
+// source: api/proto/conversation/v1/conversation.proto
 
 package v1
 
@@ -550,5 +550,5 @@ var ConversationService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "conversation/v1/conversation.proto",
+	Metadata: "api/proto/conversation/v1/conversation.proto",
 }

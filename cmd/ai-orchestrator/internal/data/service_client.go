@@ -1,9 +1,12 @@
 package data
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/go-kratos/kratos/v2/log"
@@ -115,9 +118,9 @@ func (c *GRPCServiceClient) getCircuitBreaker(service string) *gobreaker.Circuit
 
 	settings := gobreaker.Settings{
 		Name:        service,
-		MaxRequests: 3,                    // 半开状态最大请求数
-		Interval:    10 * time.Second,     // 统计周期
-		Timeout:     60 * time.Second,     // 开启状态持续时间
+		MaxRequests: 3,                // 半开状态最大请求数
+		Interval:    10 * time.Second, // 统计周期
+		Timeout:     60 * time.Second, // 开启状态持续时间
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
 			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
 			return counts.Requests >= 3 && failureRatio >= 0.6
@@ -141,11 +144,12 @@ func (c *GRPCServiceClient) getConnection(service string) (*grpc.ClientConn, err
 	}
 
 	// 服务地址映射（实际应该从服务发现获取）
+	// TODO: 从 configs/services.yaml 读取配置
 	serviceAddrs := map[string]string{
-		"retrieval-service": "localhost:9001",
-		"rag-engine":        "localhost:9002",
-		"agent-engine":      "localhost:9003",
-		"voice-engine":      "localhost:9004",
+		"retrieval-service": "localhost:8012",
+		"rag-engine":        "localhost:8006",
+		"agent-engine":      "localhost:8003",
+		"voice-engine":      "localhost:8004",
 	}
 
 	addr, exists := serviceAddrs[service]
@@ -186,8 +190,8 @@ type HTTPServiceClient struct {
 func NewHTTPServiceClient(logger log.Logger) *HTTPServiceClient {
 	return &HTTPServiceClient{
 		baseURLs: map[string]string{
-			"retrieval-service": "http://localhost:8001",
-			"rag-engine":        "http://localhost:8002",
+			"retrieval-service": "http://localhost:8012",
+			"rag-engine":        "http://localhost:8006",
 			"agent-engine":      "http://localhost:8003",
 			"voice-engine":      "http://localhost:8004",
 		},
@@ -202,20 +206,53 @@ func (c *HTTPServiceClient) Call(service, method string, input map[string]interf
 		return nil, fmt.Errorf("unknown service: %s", service)
 	}
 
+	// 构建URL
 	url := fmt.Sprintf("%s/api/v1/%s", baseURL, method)
 	c.log.Infof("calling HTTP service: %s, url: %s", service, url)
 
-	// 实际实现需要使用HTTP客户端发送请求
-	// 这里简化为示例
+	// JSON序列化请求体
+	reqBody, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+	c.log.Debugf("request body: %s", string(reqBody))
 
-	inputJSON, _ := json.Marshal(input)
-	c.log.Debugf("request: %s", string(inputJSON))
+	// 创建HTTP请求
+	httpReq, err := http.NewRequest("POST", url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create HTTP request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
 
-	// 模拟返回
-	result := map[string]interface{}{
-		"success": true,
-		"data":    input,
+	// 发送请求
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do HTTP request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 读取响应体
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
 	}
 
+	// 检查状态码
+	if resp.StatusCode != http.StatusOK {
+		c.log.Errorf("HTTP request failed: status=%d, body=%s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	// 解析JSON响应
+	var result map[string]interface{}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	c.log.Infof("HTTP call successful: service=%s, method=%s", service, method)
 	return result, nil
 }

@@ -3,7 +3,8 @@ package middleware
 import (
 	"net/http"
 	"strings"
-	"voice-assistant/pkg/auth"
+
+	"voicehelper/pkg/auth"
 
 	"github.com/gin-gonic/gin"
 )
@@ -258,6 +259,6 @@ func GetClaims(c *gin.Context) (*auth.Claims, bool) {
 	if !exists {
 		return nil, false
 	}
-	c, ok := claims.(*auth.Claims)
-	return c, ok
+	cl, ok := claims.(*auth.Claims)
+	return cl, ok
 }

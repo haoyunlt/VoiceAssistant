@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"analytics-service/internal/biz"
 	"context"
 	"fmt"
 	"net/http"
 	"time"
+	"voicehelper/cmd/analytics-service/internal/biz"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -128,10 +128,9 @@ func (h *ReportHandler) GetReport(c *gin.Context) {
 // ListReports 列出报表
 func (h *ReportHandler) ListReports(c *gin.Context) {
 	tenantID := c.Query("tenant_id")
-	reportType := c.Query("type")
 
 	// TODO: 从数据库查询报表列表
-	// reports, err := h.reportRepo.List(ctx, tenantID, reportType)
+	// reports, err := h.reportRepo.List(ctx, tenantID)
 
 	// Mock response
 	reports := []gin.H{

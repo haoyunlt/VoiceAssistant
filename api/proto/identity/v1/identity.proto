@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package identity.v1;
 
-option go_package = "voiceassistant/api/proto/identity/v1;v1";
+option go_package = "voicehelper/api/proto/identity/v1;v1";
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";

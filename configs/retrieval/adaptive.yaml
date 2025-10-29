@@ -1,0 +1,40 @@
+# Adaptive Retrieval Configuration
+
+enabled: false  # Phase 4 启用
+
+complexity_evaluator:
+  method: "rule_based"  # rule_based, ml
+  model_path: "models/complexity_evaluator"
+
+strategies:
+  simple:
+    trigger:
+      word_count_max: 10
+      entity_count_max: 0
+    retrieval:
+      method: "vector_only"
+      top_k: 10
+    timeout_ms: 200
+    cost_weight: 1.0
+
+  medium:
+    trigger:
+      word_count_max: 30
+      entity_count_max: 2
+    retrieval:
+      method: "hybrid"
+      fusion: "rrf"
+      enable_rerank: false
+    timeout_ms: 500
+    cost_weight: 3.0
+
+  complex:
+    trigger:
+      word_count_max: 999
+    retrieval:
+      method: "agent"
+      enable_multi_query: true
+      enable_rerank: true
+      rerank_top_k: 10
+    timeout_ms: 3000
+    cost_weight: 10.0

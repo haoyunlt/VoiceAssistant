@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package analytics.v1;
+
+option go_package = "voicehelper/api/proto/analytics/v1;analyticsv1";
+
+import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
+
+// AnalyticsService 数据分析服务
+service AnalyticsService {
+  // 记录事件
+  rpc TrackEvent(TrackEventRequest) returns (google.protobuf.Empty);
+
+  // 批量记录事件
+  rpc TrackEventBatch(TrackEventBatchRequest) returns (google.protobuf.Empty);
+
+  // 获取指标
+  rpc GetMetric(GetMetricRequest) returns (MetricResponse);
+
+  // 获取报表
+  rpc GetReport(GetReportRequest) returns (ReportResponse);
+
+  // 创建自定义报表
+  rpc CreateReport(CreateReportRequest) returns (Report);
+
+  // 实时仪表盘数据
+  rpc GetDashboard(GetDashboardRequest) returns (DashboardResponse);
+
+  // 健康检查
+  rpc HealthCheck(google.protobuf.Empty) returns (HealthResponse);
+}
+
+// ============ 事件追踪 ============
+
+message TrackEventRequest {
+  string tenant_id = 1;
+  string user_id = 2;
+  string event_name = 3;
+  map<string, string> properties = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  string session_id = 6;
+  string trace_id = 7;
+}
+
+message TrackEventBatchRequest {
+  repeated TrackEventRequest events = 1;
+}
+
+// ============ 指标查询 ============
+
+message GetMetricRequest {
+  string tenant_id = 1;
+  string metric_name = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  string aggregation = 5; // sum, avg, count, max, min
+  map<string, string> filters = 6;
+  string granularity = 7; // hour, day, week, month
+}
+
+message MetricResponse {
+  string metric_name = 1;
+  double value = 2;
+  repeated DataPoint data_points = 3;
+  map<string, string> metadata = 4;
+}
+
+message DataPoint {
+  google.protobuf.Timestamp timestamp = 1;
+  double value = 2;
+  map<string, string> labels = 3;
+}
+
+// ============ 报表 ============
+
+message GetReportRequest {
+  string report_id = 1;
+  string tenant_id = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+  map<string, string> parameters = 5;
+}
+
+message ReportResponse {
+  string report_id = 1;
+  string name = 2;
+  repeated MetricResponse metrics = 3;
+  google.protobuf.Timestamp generated_at = 4;
+  string format = 5; // json, csv, pdf
+  bytes data = 6;
+}
+
+message CreateReportRequest {
+  string tenant_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string metric_names = 4;
+  string schedule = 5; // cron expression
+  ReportConfig config = 6;
+}
+
+message ReportConfig {
+  string format = 1;
+  repeated string recipients = 2;
+  map<string, string> filters = 3;
+  string time_range = 4; // last_7_days, last_30_days, custom
+}
+
+message Report {
+  string id = 1;
+  string tenant_id = 2;
+  string name = 3;
+  string description = 4;
+  repeated string metric_names = 5;
+  string schedule = 6;
+  ReportConfig config = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  string status = 10; // active, paused, archived
+}
+
+// ============ 实时仪表盘 ============
+
+message GetDashboardRequest {
+  string tenant_id = 1;
+  string dashboard_id = 2;
+  google.protobuf.Timestamp start_time = 3;
+  google.protobuf.Timestamp end_time = 4;
+}
+
+message DashboardResponse {
+  string dashboard_id = 1;
+  string name = 2;
+  map<string, MetricResponse> metrics = 3;
+  google.protobuf.Timestamp updated_at = 4;
+  repeated Widget widgets = 5;
+}
+
+message Widget {
+  string id = 1;
+  string type = 2; // chart, table, stat, gauge
+  string title = 3;
+  MetricResponse data = 4;
+  map<string, string> config = 5;
+}
+
+// ============ 健康检查 ============
+
+message HealthResponse {
+  string status = 1; // healthy, degraded, unhealthy
+  map<string, string> checks = 2;
+  google.protobuf.Timestamp timestamp = 3;
+}

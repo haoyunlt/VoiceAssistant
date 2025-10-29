@@ -6,29 +6,186 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"time"
+
+	"github.com/sony/gobreaker"
+
+	"voicehelper/pkg/config"
 )
 
 // AIServiceClient AI服务客户端
 type AIServiceClient struct {
-	httpClient *http.Client
-	baseURLs   map[string]string
+	httpClient      *http.Client
+	baseURLs        map[string]string
+	circuitBreakers map[string]*gobreaker.CircuitBreaker
+	maxRetries      int
+	retryDelay      time.Duration
 }
 
 // NewAIServiceClient 创建AI服务客户端
+// Deprecated: 使用 NewAIServiceClientFromEnv 或 NewAIServiceClientFromYAML 代替
 func NewAIServiceClient() *AIServiceClient {
-	return &AIServiceClient{
+	// 尝试从配置文件读取，失败则回退到硬编码（仅用于向后兼容）
+	client, err := NewAIServiceClientFromEnv()
+	if err != nil {
+		// 回退到硬编码地址（向后兼容）
+		return NewAIServiceClientFromConfig(map[string]string{
+			"model-adapter":     "http://localhost:8005",
+			"rag-engine":        "http://localhost:8006",
+			"agent-engine":      "http://localhost:8003",
+			"retrieval-service": "http://localhost:8012",
+		}, 60*time.Second)
+	}
+	return client
+}
+
+// NewAIServiceClientFromConfig 从配置创建AI服务客户端（推荐）
+func NewAIServiceClientFromConfig(serviceURLs map[string]string, timeout time.Duration) *AIServiceClient {
+	if timeout == 0 {
+		timeout = 60 * time.Second
+	}
+	client := &AIServiceClient{
 		httpClient: &http.Client{
-			Timeout: 60 * time.Second,
+			Timeout: timeout,
 		},
-		baseURLs: map[string]string{
-			"model-adapter":     "http://model-adapter:8000",
-			"rag-engine":        "http://rag-engine:8004",
-			"agent-engine":      "http://agent-engine:8003",
-			"retrieval-service": "http://retrieval-service:8001",
+		baseURLs:        serviceURLs,
+		circuitBreakers: make(map[string]*gobreaker.CircuitBreaker),
+		maxRetries:      3,
+		retryDelay:      100 * time.Millisecond,
+	}
+
+	// 为每个服务初始化熔断器
+	for service := range client.baseURLs {
+		client.circuitBreakers[service] = client.createCircuitBreaker(service)
+	}
+
+	return client
+}
+
+// NewAIServiceClientFromYAML 从 YAML 配置文件创建客户端（推荐）
+func NewAIServiceClientFromYAML(configPath string) (*AIServiceClient, error) {
+	// 加载配置
+	cfg, err := config.LoadServicesConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("load services config: %w", err)
+	}
+
+	// 获取所有 HTTP 服务 URL
+	baseURLs := cfg.GetHTTPServiceURLs()
+
+	// 使用默认超时（60s）
+	return NewAIServiceClientFromConfig(baseURLs, 60*time.Second), nil
+}
+
+// NewAIServiceClientFromEnv 从环境变量或默认路径创建客户端（推荐）
+func NewAIServiceClientFromEnv() (*AIServiceClient, error) {
+	cfg, err := config.LoadServicesConfigFromEnv()
+	if err != nil {
+		return nil, fmt.Errorf("load services config from env: %w", err)
+	}
+
+	baseURLs := cfg.GetHTTPServiceURLs()
+	return NewAIServiceClientFromConfig(baseURLs, 60*time.Second), nil
+}
+
+// createCircuitBreaker 创建熔断器
+func (c *AIServiceClient) createCircuitBreaker(service string) *gobreaker.CircuitBreaker {
+	settings := gobreaker.Settings{
+		Name:        service,
+		MaxRequests: 3,                // 半开状态下最大请求数
+		Interval:    10 * time.Second, // 统计周期
+		Timeout:     30 * time.Second, // 熔断器开启后等待时间
+		ReadyToTrip: func(counts gobreaker.Counts) bool {
+			// 失败率 >= 60% 且请求数 >= 5 时触发熔断
+			failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+			return counts.Requests >= 5 && failureRatio >= 0.6
 		},
 	}
+	return gobreaker.NewCircuitBreaker(settings)
+}
+
+// callWithRetry 带重试的HTTP调用
+func (c *AIServiceClient) callWithRetry(ctx context.Context, service, url string, reqBody []byte) ([]byte, error) {
+	var lastErr error
+
+	for attempt := 0; attempt <= c.maxRetries; attempt++ {
+		if attempt > 0 {
+			// 指数退避
+			backoff := time.Duration(math.Pow(2, float64(attempt-1))) * c.retryDelay
+			if backoff > 5*time.Second {
+				backoff = 5 * time.Second
+			}
+
+			select {
+			case <-time.After(backoff):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
+
+		// 通过熔断器执行调用
+		cb := c.circuitBreakers[service]
+		result, err := cb.Execute(func() (interface{}, error) {
+			return c.doHTTPCall(ctx, url, reqBody)
+		})
+
+		if err == nil {
+			return result.([]byte), nil
+		}
+
+		lastErr = err
+
+		// 判断是否应该重试
+		if !c.shouldRetry(err) {
+			break
+		}
+	}
+
+	return nil, fmt.Errorf("failed after %d attempts: %w", c.maxRetries+1, lastErr)
+}
+
+// doHTTPCall 执行实际的HTTP调用
+func (c *AIServiceClient) doHTTPCall(ctx context.Context, url string, reqBody []byte) ([]byte, error) {
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Accept", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	return respBody, nil
+}
+
+// shouldRetry 判断错误是否应该重试
+func (c *AIServiceClient) shouldRetry(err error) bool {
+	// 超时错误、临时错误应该重试
+	if err == context.DeadlineExceeded || err == context.Canceled {
+		return false
+	}
+	// 熔断器开启时不重试
+	if err == gobreaker.ErrOpenState || err == gobreaker.ErrTooManyRequests {
+		return false
+	}
+	// 其他错误默认重试
+	return true
 }
 
 // CallModelAdapter 调用模型适配器
@@ -40,27 +197,15 @@ func (c *AIServiceClient) CallModelAdapter(ctx context.Context, req *ModelReques
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
+	// 使用带重试和熔断的调用
+	respBody, err := c.callWithRetry(ctx, "model-adapter", url, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		return nil, err
 	}
 
 	var result ModelResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	return &result, nil
@@ -75,27 +220,15 @@ func (c *AIServiceClient) CallRAGEngine(ctx context.Context, req *RAGRequest) (*
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
+	// 使用带重试和熔断的调用
+	respBody, err := c.callWithRetry(ctx, "rag-engine", url, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		return nil, err
 	}
 
 	var result RAGResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	return &result, nil
@@ -110,27 +243,15 @@ func (c *AIServiceClient) CallAgentEngine(ctx context.Context, req *AgentRequest
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
+	// 使用带重试和熔断的调用
+	respBody, err := c.callWithRetry(ctx, "agent-engine", url, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		return nil, err
 	}
 
 	var result AgentResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	return &result, nil
@@ -145,27 +266,15 @@ func (c *AIServiceClient) CallRetrievalService(ctx context.Context, req *Retriev
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
+	// 使用带重试和熔断的调用
+	respBody, err := c.callWithRetry(ctx, "retrieval-service", url, reqBody)
 	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	httpReq.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("do request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
+		return nil, err
 	}
 
 	var result RetrievalResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("decode response: %w", err)
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	return &result, nil

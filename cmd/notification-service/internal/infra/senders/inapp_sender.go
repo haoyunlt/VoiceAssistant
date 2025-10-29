@@ -29,12 +29,12 @@ func (s *InAppSender) Send(notification *domain.Notification) error {
 	// Build notification data
 	data := map[string]interface{}{
 		"id":         notification.ID,
-		"type":       notification.Type,
+		"channel":    notification.Channel,
+		"priority":   notification.Priority,
 		"title":      notification.Title,
 		"content":    notification.Content,
-		"event_type": notification.EventType,
 		"created_at": notification.CreatedAt,
-		"data":       notification.Data,
+		"metadata":   notification.Metadata,
 	}
 
 	jsonData, err := json.Marshal(data)
@@ -65,4 +65,3 @@ func (s *InAppSender) Send(notification *domain.Notification) error {
 	log.Printf("In-app notification sent to user: %s", notification.UserID)
 	return nil
 }
-

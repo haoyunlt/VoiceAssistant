@@ -1,0 +1,391 @@
+# RAG Engine 配置文件 v2.0
+# 优化方案配置 - 支持多种高级检索策略
+
+service:
+  name: rag-engine
+  version: "2.0.0"
+  port: 8006
+  workers: 4
+  environment: production
+
+# ==================== 检索配置 ====================
+retrieval:
+  # 检索策略
+  strategies:
+    # 向量检索
+    vector:
+      enabled: true
+      default_top_k: 20 # 初始检索数量（重排前）
+      similarity_threshold: 0.7
+
+    # BM25 稀疏检索
+    bm25:
+      enabled: true
+      default_top_k: 20
+      k1: 1.5 # BM25 参数
+      b: 0.75
+
+    # 图谱检索
+    graph:
+      enabled: false # Iter 2 启用
+      max_hops: 3
+      max_nodes_per_hop: 10
+      neo4j_uri: "bolt://localhost:7687"
+      neo4j_user: "neo4j"
+      neo4j_password: "${NEO4J_PASSWORD}"
+
+    # HyDE (Hypothetical Document Embeddings)
+    hyde:
+      enabled: true
+      trigger_complexity_threshold: 7 # 查询复杂度>=7时触发
+      temperature: 0.7
+      max_tokens: 400
+
+  # 混合检索融合策略
+  fusion:
+    method: "rrf" # rrf | weighted | rank_fusion
+    # RRF (Reciprocal Rank Fusion) 参数
+    rrf_k: 60
+    # 加权融合权重
+    weights:
+      vector: 0.7
+      bm25: 0.3
+      graph: 0.0 # Iter 2 调整为 0.2
+
+# ==================== 重排配置 ====================
+reranking:
+  enabled: true
+  model: "cross-encoder/ms-marco-MiniLM-L-12-v2"
+  device: "cpu" # cpu | cuda
+  batch_size: 8
+  max_length: 512
+  top_k: 5 # 重排后保留数量
+
+  # 流式重排（Iter 4）
+  streaming:
+    enabled: false
+    chunk_size: 3
+
+# ==================== 查询处理 ====================
+query_processing:
+  # 查询改写
+  rewriting:
+    enabled: true
+    strategies:
+      - expand # 查询扩展
+      - decompose # 查询分解（Iter 2）
+      - clarify # 查询澄清
+    max_rewrites: 3
+
+  # 查询分类
+  classification:
+    enabled: true
+    categories:
+      - simple_fact
+      - complex_reasoning
+      - multi_hop
+      - comparison
+      - aggregation
+      - open_ended
+      - temporal
+      - causal
+      - hypothetical
+      - procedural
+
+  # 查询分解（Iter 2）
+  decomposition:
+    enabled: false # Iter 2 启用
+    max_sub_queries: 4
+    parallel_execution: true
+
+# ==================== 上下文处理 ====================
+context:
+  # 上下文窗口
+  max_tokens: 4000 # 传给LLM的最大上下文长度
+
+  # 上下文压缩（Iter 3）
+  compression:
+    enabled: false # Iter 3 启用
+    method: "llmlingua" # llmlingua | selective
+    compression_rate: 0.5 # 压缩比（保留50%）
+    preserve_entities: true
+    preserve_numbers: true
+
+  # 上下文重排（Lost-in-the-Middle缓解）
+  reordering:
+    enabled: true
+    strategy: "relevant_first_last" # relevant_first | relevant_last | relevant_first_last
+
+  # 引用标注
+  citation:
+    enabled: true
+    format: "[{index}]"
+    include_source_url: true
+
+# ==================== 生成配置 ====================
+generation:
+  # LLM 配置
+  llm:
+    provider: "openai" # openai | anthropic | azure | local
+    model: "gpt-4-turbo-preview"
+    temperature: 0.7
+    max_tokens: 2000
+    top_p: 0.9
+
+  # Self-RAG 配置（Iter 3）
+  self_rag:
+    enabled: false # Iter 3 启用
+    max_refinement_iterations: 2
+    confidence_threshold: 0.8
+    hallucination_check:
+      enabled: true
+      method: "nli" # nli | llm_judge | hybrid
+      nli_model: "microsoft/deberta-large-mnli"
+
+  # 流式生成
+  streaming:
+    enabled: true
+    chunk_size: 50 # 字符数
+
+# ==================== 缓存配置 ====================
+cache:
+  # 语义缓存
+  semantic:
+    enabled: true
+    backend: "redis"
+    redis_host: "${REDIS_HOST:-localhost}"
+    redis_port: 6379
+    redis_db: 0
+
+    # 相似度匹配
+    similarity_engine: "faiss" # faiss | redis_vector
+    embedding_model: "all-MiniLM-L6-v2"
+    similarity_threshold: 0.92
+
+    # 缓存策略
+    ttl: 3600 # 1小时
+    max_entries: 10000
+    eviction_policy: "lru"
+
+  # Embedding 缓存
+  embedding:
+    enabled: true
+    ttl: 86400 # 24小时
+    max_entries: 50000
+
+# ==================== Agentic RAG (Iter 4) ====================
+agent:
+  enabled: false # Iter 4 启用
+  framework: "react" # react | reflexion | plan_and_solve
+
+  # 工具集
+  tools:
+    - name: vector_search
+      enabled: true
+    - name: graph_query
+      enabled: false
+    - name: web_search
+      enabled: false
+    - name: calculator
+      enabled: true
+
+  # 推理限制
+  max_iterations: 10
+  max_tokens_per_iteration: 1000
+  timeout_seconds: 30
+
+# ==================== 多模态支持 (Iter 5) ====================
+multimodal:
+  enabled: false # Iter 5 启用
+
+  # 文档解析
+  parsing:
+    ocr_enabled: true
+    ocr_engine: "tesseract" # tesseract | paddleocr
+    table_extraction: true
+    image_caption: true
+    caption_model: "Salesforce/blip2-opt-2.7b"
+
+  # 跨模态检索
+  cross_modal:
+    enabled: false
+    embedding_model: "clip-ViT-B-32"
+    image_search: true
+
+# ==================== 可观测性 ====================
+observability:
+  # OpenTelemetry
+  tracing:
+    enabled: true
+    exporter: "otlp"
+    endpoint: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4318}"
+    service_name: "rag-engine"
+
+  # Prometheus 指标
+  metrics:
+    enabled: true
+    port: 8006
+    path: "/metrics"
+
+    # 自定义指标
+    custom_metrics:
+      - name: rag_retrieval_latency_ms
+        type: histogram
+        buckets: [50, 100, 200, 500, 1000, 2000]
+      - name: rag_rerank_latency_ms
+        type: histogram
+        buckets: [10, 50, 100, 200, 500]
+      - name: rag_e2e_latency_ms
+        type: histogram
+        buckets: [500, 1000, 2000, 3000, 5000]
+      - name: rag_cache_hit_ratio
+        type: gauge
+      - name: rag_token_usage_total
+        type: counter
+      - name: rag_hallucination_detected_total
+        type: counter
+      - name: rag_cost_usd_total
+        type: counter
+
+  # 日志
+  logging:
+    level: "INFO"
+    format: "json"
+    include_trace_id: true
+
+# ==================== 成本追踪 ====================
+cost_tracking:
+  enabled: true
+
+  # Token 计价（USD per 1K tokens）
+  pricing:
+    gpt-4-turbo-preview:
+      input: 0.01
+      output: 0.03
+    gpt-3.5-turbo:
+      input: 0.0005
+      output: 0.0015
+    text-embedding-3-small:
+      input: 0.00002
+
+  # 成本告警
+  alerts:
+    daily_budget_usd: 100.0
+    per_tenant_budget_usd: 10.0
+    alert_threshold: 0.8 # 80%预算时告警
+
+  # 统计维度
+  dimensions:
+    - tenant_id
+    - user_id
+    - query_type
+    - phase # retrieval | generation | verification
+
+# ==================== 性能优化 ====================
+performance:
+  # 连接池
+  connection_pools:
+    vector_store:
+      min_size: 5
+      max_size: 20
+      timeout: 10
+    redis:
+      min_size: 10
+      max_size: 50
+    database:
+      min_size: 5
+      max_size: 20
+
+  # 并发控制
+  concurrency:
+    max_concurrent_retrievals: 10
+    max_concurrent_generations: 5
+    semaphore_timeout: 30
+
+  # 批处理
+  batching:
+    embedding:
+      enabled: true
+      max_batch_size: 32
+      timeout_ms: 100
+    reranking:
+      enabled: true
+      max_batch_size: 8
+
+# ==================== 韧性配置 ====================
+resilience:
+  # 重试策略
+  retry:
+    max_attempts: 3
+    backoff_multiplier: 2
+    max_backoff_seconds: 10
+
+  # 超时
+  timeouts:
+    retrieval: 5000 # ms
+    reranking: 2000
+    llm_generation: 30000
+
+  # 断路器
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout_seconds: 60
+    half_open_max_calls: 3
+
+  # 降级策略
+  fallback:
+    cache_unavailable: "direct_retrieval"
+    llm_unavailable: "return_candidates"
+    reranking_unavailable: "skip_reranking"
+
+  # 限流
+  rate_limiting:
+    enabled: true
+    default_qps: 100
+    per_tenant_qps: 10
+    burst_multiplier: 1.5
+
+# ==================== 评测配置 ====================
+evaluation:
+  enabled: true
+
+  # 离线评测集
+  datasets:
+    - name: "general_qa"
+      path: "tests/eval/datasets/general_qa.jsonl"
+      size: 100
+    - name: "multi_hop"
+      path: "tests/eval/datasets/multi_hop.jsonl"
+      size: 50
+    - name: "comparison"
+      path: "tests/eval/datasets/comparison.jsonl"
+      size: 30
+
+  # 评测指标
+  metrics:
+    - recall_at_k
+    - precision_at_k
+    - mrr
+    - ndcg
+    - answer_accuracy
+    - hallucination_rate
+
+  # LLM Judge
+  llm_judge:
+    enabled: true
+    model: "gpt-4-turbo-preview"
+    criteria:
+      - relevance
+      - correctness
+      - completeness
+      - citation_accuracy
+
+# ==================== 开发配置 ====================
+development:
+  debug: false
+  reload: false
+  mock_llm: false
+  mock_retrieval: false
+  log_retrieval_results: true
+  log_prompts: true
