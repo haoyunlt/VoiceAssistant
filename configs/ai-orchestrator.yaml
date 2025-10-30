@@ -51,3 +51,21 @@ observability:
   logging:
     level: info
     format: json
+
+# 意图识别配置
+intent_recognition:
+  enabled: true
+  use_cache: true
+  cache_size: 10000
+  cache_ttl: 600  # 秒
+  min_confidence: 0.7
+  use_fallback: true
+  recognizers:
+    - type: rule
+      enabled: true
+      priority: 1
+    - type: llm
+      enabled: true
+      priority: 2
+      timeout: 5s
+      model: "gpt-3.5-turbo"
