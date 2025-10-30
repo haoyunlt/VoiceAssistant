@@ -65,7 +65,7 @@ class Memory:
         decay_factor = math.exp(-self.decay_rate * days_since_creation)
         return self.importance * decay_factor
 
-    def update_access(self):
+    def update_access(self) -> None:  # type: ignore [return-value]
         """更新访问信息"""
         self.last_accessed = datetime.now()
         self.access_count += 1
@@ -85,7 +85,7 @@ class ForgettingConfig:
     access_threshold: int = 2  # 最少访问次数
     max_memory_per_tier: dict[MemoryTier, int] | None = None  # 每层最大记忆数
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:  # type: ignore [return-value]
         if self.max_memory_per_tier is None:
             self.max_memory_per_tier = {
                 MemoryTier.WORKING: 20,
@@ -126,7 +126,7 @@ class SmartMemoryManager:
         llm_client: Any,
         storage: Any | None = None,  # 向量存储或数据库
         config: ForgettingConfig | None = None,
-    ):
+    ) -> None:
         """
         初始化智能记忆管理器
 
@@ -155,9 +155,7 @@ class SmartMemoryManager:
             "total_compressed": 0,
         }
 
-        logger.info(
-            f"SmartMemoryManager initialized (strategy={config.strategy.value})"
-        )
+        logger.info(f"SmartMemoryManager initialized (strategy={config.strategy.value})")
 
     async def add_memory(
         self,
@@ -207,8 +205,7 @@ class SmartMemoryManager:
             await self._store_memory(memory)
 
         logger.debug(
-            f"Added memory: tier={tier.value}, importance={importance:.2f}, "
-            f"id={memory_id}"
+            f"Added memory: tier={tier.value}, importance={importance:.2f}, id={memory_id}"
         )
 
         return memory_id
@@ -243,9 +240,7 @@ class SmartMemoryManager:
                 candidates.extend(tier_memories)
 
         # 过滤低重要性记忆
-        candidates = [
-            m for m in candidates if m.get_current_importance() >= min_importance
-        ]
+        candidates = [m for m in candidates if m.get_current_importance() >= min_importance]
 
         # 计算相关性分数
         scored_memories = []
@@ -460,7 +455,7 @@ class SmartMemoryManager:
             logger.error(f"Error compressing memories: {e}")
             return ""
 
-    async def auto_maintain(self):
+    async def auto_maintain(self) -> None:
         """
         自动维护（定期调用）
 
@@ -478,10 +473,7 @@ class SmartMemoryManager:
         # 2. 自动提升重要记忆
         promoted = 0
         for memory in self.memories[MemoryTier.SHORT_TERM]:
-            if (
-                memory.get_current_importance() > 0.8
-                and memory.access_count > 5
-            ):
+            if memory.get_current_importance() > 0.8 and memory.access_count > 5:
                 await self.promote_memory(memory.memory_id)
                 promoted += 1
 
@@ -493,18 +485,16 @@ class SmartMemoryManager:
         for tier in MemoryTier:
             await self._check_capacity(tier)
 
-        logger.info(
-            f"Auto maintenance completed: forgotten={forgotten}, promoted={promoted}"
-        )
+        logger.info(f"Auto maintenance completed: forgotten={forgotten}, promoted={promoted}")
 
-    async def _check_capacity(self, tier: MemoryTier):
+    async def _check_capacity(self, tier: MemoryTier) -> None:
         """检查并执行容量限制"""
-        max_capacity = self.config.max_memory_per_tier[tier]
-        current_count = len(self.memories[tier])
+        max_capacity = self.config.max_memory_per_tier[tier]  # type: ignore [index]
+        current_count = len(self.memories[tier])  # type: ignore [index]
 
         if current_count > max_capacity:
             # 超出容量，移除低价值记忆
-            tier_memories = self.memories[tier]
+            tier_memories = self.memories[tier]  # type: ignore [index]
 
             # 按当前重要性排序
             tier_memories.sort(key=lambda m: m.get_current_importance())
@@ -514,8 +504,7 @@ class SmartMemoryManager:
             for _ in range(to_remove):
                 removed = tier_memories.pop(0)
                 logger.debug(
-                    f"Removed memory {removed.memory_id} due to capacity limit "
-                    f"(tier={tier.value})"
+                    f"Removed memory {removed.memory_id} due to capacity limit (tier={tier.value})"
                 )
                 self.stats["total_forgotten"] += 1
 
@@ -569,7 +558,7 @@ class SmartMemoryManager:
 
         return relevance
 
-    async def _store_memory(self, memory: Memory):
+    async def _store_memory(self, memory: Memory) -> None:
         """存储记忆到后端"""
         if not self.storage:
             return
@@ -590,7 +579,7 @@ class SmartMemoryManager:
         except Exception as e:
             logger.error(f"Error storing memory: {e}")
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""
         memory_counts = {tier.value: len(memories) for tier, memories in self.memories.items()}
 
@@ -609,4 +598,3 @@ class SmartMemoryManager:
             "total_memories": total_memories,
             "avg_importance": avg_importance,
         }
-

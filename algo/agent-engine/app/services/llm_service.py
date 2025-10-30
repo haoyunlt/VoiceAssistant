@@ -1,10 +1,11 @@
 """LLM服务"""
+
 import logging
 from typing import Any
 
-import httpx
+import httpx  # type: ignore
 
-from app.core.config import settings
+from app.core.config import AgentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -12,11 +13,11 @@ logger = logging.getLogger(__name__)
 class LLMService:
     """大语言模型服务"""
 
-    def __init__(self):
-        self.api_key = settings.OPENAI_API_KEY
-        self.api_base = settings.OPENAI_API_BASE
-        self.default_model = settings.DEFAULT_MODEL
-        self.timeout = settings.TIMEOUT_SECONDS
+    def __init__(self) -> None:
+        self.api_key = AgentConfig.llm_api_key
+        self.api_base = AgentConfig.llm_api_base
+        self.default_model = AgentConfig.llm_model
+        self.timeout = AgentConfig.llm_timeout
 
     async def chat(
         self,
@@ -39,7 +40,7 @@ class LLMService:
         """
         try:
             model = model or self.default_model
-            max_tokens = max_tokens or settings.MAX_TOKENS
+            max_tokens = max_tokens or AgentConfig.llm_max_tokens
 
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.post(
@@ -98,4 +99,4 @@ class LLMService:
         """
         messages = [{"role": "user", "content": prompt}]
         response = await self.chat(messages, model, temperature, max_tokens)
-        return response.get("content", "")
+        return response.get("content", "") if isinstance(response.get("content"), str) else ""

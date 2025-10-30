@@ -1,4 +1,5 @@
 """工具服务 - 增强版with真实检索集成"""
+
 import ast
 import asyncio
 import logging
@@ -6,14 +7,15 @@ import operator
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 # 添加common目录到Python路径
 common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
 
-import httpx
+import duckduckgo_search  # type: ignore
+import httpx  # type: ignore
 
 logger = logging.getLogger(__name__)
 
@@ -21,19 +23,24 @@ logger = logging.getLogger(__name__)
 class ToolService:
     """工具服务"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.tools: dict[str, dict[str, Any]] = {}
         self.retrieval_url = os.getenv("RETRIEVAL_SERVICE_URL", "http://retrieval-service:8012")
         self._register_builtin_tools()
 
-    def _register_builtin_tools(self):
+    def _register_builtin_tools(self) -> None:
         """注册内置工具"""
         # 计算器
         self.register_tool(
             name="calculator",
             description="Execute mathematical calculations. Input should be a valid mathematical expression.",
             function=self._calculator_tool,
-            parameters={"expression": {"type": "string", "description": "Mathematical expression to evaluate"}},
+            parameters={
+                "expression": {
+                    "type": "string",
+                    "description": "Mathematical expression to evaluate",
+                }
+            },
             required_params=["expression"],
             category="computation",
         )
@@ -62,11 +69,11 @@ class ToolService:
         self,
         name: str,
         description: str,
-        function: callable,
+        function: Callable,
         parameters: dict[str, Any],
         required_params: list,
         category: str = "general",
-    ):
+    ) -> None:
         """
         注册工具
 
@@ -168,7 +175,7 @@ class ToolService:
                 ast.UAdd: operator.pos,
             }
 
-            def eval_node(node):
+            def eval_node(node: ast.AST) -> Any:
                 """递归求值AST节点"""
                 if isinstance(node, ast.Constant):  # Python 3.8+
                     if isinstance(node.value, (int, float)):
@@ -185,20 +192,20 @@ class ToolService:
                         raise ValueError(f"Unsupported binary operation: {type(node.op).__name__}")
                     left = eval_node(node.left)
                     right = eval_node(node.right)
-                    return op_func(left, right)
+                    return op_func(left, right)  # type: ignore
 
                 elif isinstance(node, ast.UnaryOp):
                     op_func = allowed_operators.get(type(node.op))
                     if not op_func:
                         raise ValueError(f"Unsupported unary operation: {type(node.op).__name__}")
                     operand = eval_node(node.operand)
-                    return op_func(operand)
+                    return op_func(operand)  # type: ignore
 
                 else:
                     raise ValueError(f"Unsupported expression type: {type(node).__name__}")
 
             # 解析表达式
-            tree = ast.parse(expression, mode='eval')
+            tree = ast.parse(expression, mode="eval")
             result = eval_node(tree.body)
 
             # 检查结果是否有效
@@ -299,12 +306,7 @@ class ToolService:
         api_key = os.getenv("SERPAPI_KEY")
         url = "https://serpapi.com/search"
 
-        params = {
-            "engine": "google",
-            "q": query,
-            "api_key": api_key,
-            "num": 5
-        }
+        params = {"engine": "google", "q": query, "api_key": api_key, "num": 5}
 
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(url, params=params)
@@ -329,7 +331,7 @@ class ToolService:
             from duckduckgo_search import DDGS
 
             # DuckDuckGo 搜索（在线程池中执行）
-            def search():
+            def search() -> list[dict[str, str]]:
                 with DDGS() as ddgs:
                     return list(ddgs.text(query, max_results=5))
 

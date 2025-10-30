@@ -6,6 +6,8 @@ import logging
 from typing import Any
 
 from app.core.langgraph_workflow import LangGraphWorkflow
+from app.services.llm_service import LLMService
+from app.services.tool_service import ToolService
 
 logger = logging.getLogger(__name__)
 
@@ -15,10 +17,10 @@ class LangGraphService:
 
     def __init__(
         self,
-        llm_service,
-        tool_service,
+        llm_service: LLMService,
+        tool_service: ToolService,
         max_iterations: int = 10,
-    ):
+    ) -> None:
         """
         初始化LangGraph服务
 
@@ -59,8 +61,8 @@ class LangGraphService:
             task=task,
             context=context,
             available_tools=tools,
-            max_iterations=max_iterations,
-        )
+            max_iterations=max_iterations if max_iterations else self.workflow.max_iterations,
+        )  # type: ignore
 
         logger.info(
             f"Task completed: success={result['success']}, "

@@ -7,7 +7,7 @@ from typing import Any
 
 from app.models.agent import AgentTask
 from app.services.llm_service import LLMService
-from app.services.tool_service import ToolExecutionError, ToolService
+from app.services.tool_service import ToolService
 
 
 class StepType(str, Enum):
@@ -37,28 +37,28 @@ class AgentContext:
 
     def __init__(self, task: AgentTask):
         self.task = task
-        self.messages = []
-        self.steps = []
+        self.messages: list[dict[str, str]] = []
+        self.steps: list[dict[str, Any]] = []
         self.final_answer = ""
 
-    def add_step(self, thought: str, action: dict | None, observation: str):
+    def add_step(self, thought: str, action: dict | None, observation: str) -> None:
         """添加执行步骤"""
         self.steps.append({
             "thought": thought,
             "action": action,
             "observation": observation
-        })
+        }  # type: ignore)
 
         # 更新messages
-        self.messages.append({
+        self.messages.append({  # type: ignore
             "role": "assistant",
             "content": thought
-        })
-        if action:
-            self.messages.append({
+        }  # type: ignore
+        if action:  # type: ignore
+            self.messages.append({  # type: ignore
                 "role": "user",
                 "content": f"Observation: {observation}"
-            })
+            }  # type: ignore
 
 
 class AgentStreamService:

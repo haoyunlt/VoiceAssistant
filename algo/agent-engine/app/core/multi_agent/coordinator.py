@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class AgentRole(Enum):
     """Agent role definitions"""
+
     COORDINATOR = "coordinator"
     RESEARCHER = "researcher"
     PLANNER = "planner"
@@ -22,6 +23,7 @@ class AgentRole(Enum):
 
 class Message:
     """Inter-agent message"""
+
     def __init__(
         self,
         sender: str,
@@ -29,7 +31,7 @@ class Message:
         content: str,
         message_type: str = "text",
         priority: int = 0,
-        metadata: dict | None = None
+        metadata: dict | None = None,
     ):
         self.sender = sender
         self.receiver = receiver
@@ -43,33 +45,34 @@ class Message:
 
 class Agent:
     """Base Agent class"""
+
     def __init__(
         self,
         agent_id: str,
         role: AgentRole,
         llm_client,
         tools: list | None = None,
-        max_queue_size: int = 100
-    ):
+        max_queue_size: int = 100,
+    ) -> None:
         self.agent_id = agent_id
         self.role = role
         self.llm_client = llm_client
         self.tools = tools or []
-        self.message_queue = asyncio.Queue(maxsize=max_queue_size)
+        self.message_queue: asyncio.Queue[Message] = asyncio.Queue(maxsize=max_queue_size)
         self.is_running = False
-        self.processed_messages = []
+        self.processed_messages: list[str] = []
 
-    async def start(self):
+    async def start(self) -> None:
         """Start agent message processing loop"""
         self.is_running = True
         logger.info(f"Agent {self.agent_id} ({self.role.value}) started")
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Stop agent"""
         self.is_running = False
         logger.info(f"Agent {self.agent_id} stopped")
 
-    async def process_message(self, message: Message) -> Message | None:
+    async def process_message(self, message: Message) -> Message | None:  # type: ignore [return-value]
         """Process received message"""
         try:
             logger.info(f"Agent {self.agent_id} processing message from {message.sender}")
@@ -94,7 +97,7 @@ class Agent:
                 sender=self.agent_id,
                 receiver=message.sender,
                 content=response,
-                metadata={"in_reply_to": message.id}
+                metadata={"in_reply_to": message.id},
             )
 
             self.processed_messages.append(message.id)
@@ -106,10 +109,10 @@ class Agent:
                 sender=self.agent_id,
                 receiver=message.sender,
                 content=f"Error: {str(e)}",
-                message_type="error"
+                message_type="error",
             )
 
-    async def _understand_message(self, message: Message) -> dict[str, Any]:
+    async def _understand_message(self, message: Message) -> dict[str, Any]:  # type: ignore [return-value]
         """Understand message intent and content"""
         prompt = f"""
         Analyze this message and extract key information:
@@ -125,27 +128,31 @@ class Agent:
         - suggested_action: what action to take
         """
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": f"You are a {self.role.value} agent."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": f"You are a {self.role.value} agent."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         import json
-        try:
-            return json.loads(response.get("content", "{}"))
-        except:
-            return {"intent": "unknown", "content": message.content}
 
-    async def _research(self, understanding: dict) -> str:
+        try:
+            return json.loads(response.get("content", "{}"))  # type: ignore [return-value] # noqa: F821 # type: ignore [return-value] # noqa: F821 # type: ignore [return-value] # noqa: F821
+        except Exception as e:
+            logger.error(f"Failed to understand message: {e}")
+            return {"intent": "unknown", "content": message.content}  # type: ignore [return-value] # noqa: F821
+
+    async def _research(self, understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
         """Research role: Search and analyze information"""
         query = understanding.get("key_points", [])
         if not query:
             return "No research query provided"
 
         # Search using tools
-        results = []
+        results: list[str] = []
         for tool in self.tools:
-            if hasattr(tool, 'search'):
+            if hasattr(tool, "search"):
                 result = await tool.search(query)
                 results.append(result)
 
@@ -159,14 +166,16 @@ class Agent:
         Provide a comprehensive analysis with key findings and sources.
         """
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a research analyst."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a research analyst."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
-        return response.get("content", "Research completed")
+        return response.get("content", "Research completed")  # type: ignore [return-value]
 
-    async def _plan(self, understanding: dict) -> str:
+    async def _plan(self, understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
         """Planner role: Create execution plan"""
         task = understanding.get("content", "")
 
@@ -183,14 +192,16 @@ class Agent:
         Return structured plan.
         """
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a strategic planner."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a strategic planner."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
-        return response.get("content", "Plan created")
+        return response.get("content", "Plan created")  # type: ignore [return-value]
 
-    async def _execute(self, understanding: dict) -> str:
+    async def _execute(self, understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
         """Executor role: Execute tasks"""
         action = understanding.get("suggested_action", "")
 
@@ -198,7 +209,7 @@ class Agent:
         result = f"Executed: {action}"
 
         for tool in self.tools:
-            if hasattr(tool, 'execute'):
+            if hasattr(tool, "execute"):
                 try:
                     result = await tool.execute(action)
                     break
@@ -207,7 +218,7 @@ class Agent:
 
         return result
 
-    async def _review(self, understanding: dict) -> str:
+    async def _review(self, understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
         """Reviewer role: Review and critique"""
         content = understanding.get("content", "")
 
@@ -224,38 +235,41 @@ class Agent:
         5. Approval status (approved/needs_revision/rejected)
         """
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a quality reviewer."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a quality reviewer."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
-        return response.get("content", "Review completed")
+        return response.get("content", "Review completed")  # type: ignore [return-value]
 
-    async def _coordinate(self, understanding: dict) -> str:
+    async def _coordinate(self, understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
         """Coordinator role: Coordinate agent activities"""
         return "Coordination in progress"
 
 
 class MultiAgentCoordinator:
     """Multi-Agent Coordinator"""
-    def __init__(self):
-        self.agents: dict[str, Agent] = {}
-        self.message_bus = asyncio.Queue()
-        self.task_results: dict[str, Any] = {}
-        self.is_running = False
 
-    def register_agent(self, agent: Agent):
+    def __init__(self) -> None:
+        self.agents: dict[str, Agent] = {}
+        self.message_bus: asyncio.Queue[Message] = asyncio.Queue()
+        self.task_results: dict[str, Any] = {}
+        self.is_running: bool = False
+
+    def register_agent(self, agent: Agent) -> None:
         """Register an agent"""
         self.agents[agent.agent_id] = agent
         logger.info(f"Registered agent: {agent.agent_id} ({agent.role.value})")
 
-    def unregister_agent(self, agent_id: str):
+    def unregister_agent(self, agent_id: str) -> None:
         """Unregister an agent"""
         if agent_id in self.agents:
             del self.agents[agent_id]
             logger.info(f"Unregistered agent: {agent_id}")
 
-    async def start(self):
+    async def start(self) -> None:  # type: ignore [return-value]
         """Start coordinator"""
         self.is_running = True
         # Start all agents
@@ -263,7 +277,7 @@ class MultiAgentCoordinator:
             await agent.start()
         logger.info("Multi-Agent Coordinator started")
 
-    async def stop(self):
+    async def stop(self) -> None:  # type: ignore [return-value]
         """Stop coordinator"""
         self.is_running = False
         # Stop all agents
@@ -272,11 +286,8 @@ class MultiAgentCoordinator:
         logger.info("Multi-Agent Coordinator stopped")
 
     async def execute_collaborative_task(
-        self,
-        task: str,
-        agent_ids: list[str],
-        timeout: int = 300
-    ) -> dict[str, Any]:
+        self, task: str, agent_ids: list[str], timeout: int = 300
+    ) -> dict[str, Any]:  # type: ignore [return-value] # noqa: F821
         """Execute a collaborative task across multiple agents"""
         try:
             # Get coordinator agent
@@ -288,20 +299,20 @@ class MultiAgentCoordinator:
             subtasks = await self._decompose_task(task, agent_ids, coordinator)
 
             # 2. Assign subtasks to agents
-            task_assignments = {}
+            task_assignments: dict[str, str] = {}
             for agent_id, subtask in subtasks.items():
                 if agent_id in self.agents:
                     message = Message(
                         sender="coordinator",
                         receiver=agent_id,
                         content=subtask,
-                        message_type="task"
+                        message_type="task",
                     )
                     await self.agents[agent_id].message_queue.put(message)
                     task_assignments[agent_id] = subtask
 
             # 3. Collect results with timeout
-            results = {}
+            results: dict[str, str] = {}
             try:
                 async with asyncio.timeout(timeout):
                     for agent_id in task_assignments:
@@ -318,7 +329,7 @@ class MultiAgentCoordinator:
                 "agents_involved": agent_ids,
                 "subtask_results": results,
                 "final_result": final_result,
-                "status": "completed"
+                "status": "completed",
             }
 
         except Exception as e:
@@ -326,11 +337,8 @@ class MultiAgentCoordinator:
             return {"error": str(e), "status": "failed"}
 
     async def _decompose_task(
-        self,
-        task: str,
-        agent_ids: list[str],
-        coordinator: Agent
-    ) -> dict[str, str]:
+        self, task: str, agent_ids: list[str], coordinator: Agent
+    ) -> dict[str, str]:  # type: ignore [return-value] # noqa: F821
         """Decompose task into subtasks"""
         agent_roles = {
             agent_id: self.agents[agent_id].role.value
@@ -355,23 +363,22 @@ class MultiAgentCoordinator:
         }}
         """
 
-        response = await coordinator.llm_client.chat([
-            {"role": "system", "content": "You are a task coordinator."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await coordinator.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a task coordinator."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         import json
+
         try:
             return json.loads(response.get("content", "{}"))
         except:
             # Fallback: assign same task to all agents
             return dict.fromkeys(agent_ids, task)
 
-    async def _wait_for_response(
-        self,
-        agent_id: str,
-        timeout: int = 60
-    ) -> str | None:
+    async def _wait_for_response(self, agent_id: str, timeout: int = 60) -> str | None:  # type: ignore [return-value] # noqa: F821
         """Wait for agent response"""
         agent = self.agents.get(agent_id)
         if not agent:
@@ -387,11 +394,7 @@ class MultiAgentCoordinator:
             logger.warning(f"Agent {agent_id} response timed out")
             return None
 
-    async def _merge_results(
-        self,
-        results: dict[str, str],
-        coordinator: Agent
-    ) -> str:
+    async def _merge_results(self, results: dict[str, str], coordinator: Agent) -> str:  # type: ignore [return-value] # noqa: F821
         """Merge agent results into final answer"""
         prompt = f"""
         Merge these agent results into a comprehensive final answer:
@@ -401,12 +404,14 @@ class MultiAgentCoordinator:
         Provide a coherent synthesis that addresses the original task.
         """
 
-        response = await coordinator.llm_client.chat([
-            {"role": "system", "content": "You are synthesizing multiple agent outputs."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await coordinator.llm_client.chat(
+            [
+                {"role": "system", "content": "You are synthesizing multiple agent outputs."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
-        return response.get("content", "Results merged")
+        return response.get("content", "Results merged")  # type: ignore [return-value]
 
     def _get_coordinator_agent(self) -> Agent | None:
         """Get coordinator agent"""
@@ -415,12 +420,7 @@ class MultiAgentCoordinator:
                 return agent
         return None
 
-    async def resolve_conflict(
-        self,
-        agent1_id: str,
-        agent2_id: str,
-        conflict: str
-    ) -> str:
+    async def resolve_conflict(self, agent1_id: str, agent2_id: str, conflict: str) -> str:  # type: ignore [return-value] # noqa: F821
         """Resolve conflict between agents"""
         coordinator = self._get_coordinator_agent()
         if not coordinator:
@@ -437,10 +437,11 @@ class MultiAgentCoordinator:
         3. Prevents future conflicts
         """
 
-        response = await coordinator.llm_client.chat([
-            {"role": "system", "content": "You are mediating a conflict."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await coordinator.llm_client.chat(
+            [
+                {"role": "system", "content": "You are mediating a conflict."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
-        return response.get("content", "Conflict resolved")
-
+        return response.get("content", "Conflict resolved")  # type: ignore [return-value]

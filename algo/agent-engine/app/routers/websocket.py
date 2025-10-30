@@ -5,6 +5,7 @@ WebSocket Router - WebSocket API 路由
 import json
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -16,7 +17,7 @@ router = APIRouter(prefix="/ws", tags=["WebSocket"])
 
 
 @router.websocket("/agent")
-async def websocket_agent_endpoint(websocket: WebSocket):
+async def websocket_agent_endpoint(websocket: WebSocket) -> None:
     """
     Agent WebSocket 端点
 
@@ -31,11 +32,7 @@ async def websocket_agent_endpoint(websocket: WebSocket):
 
     try:
         # 接受连接
-        await connection_manager.connect(
-            websocket,
-            connection_id,
-            metadata={"type": "agent"}
-        )
+        await connection_manager.connect(websocket, connection_id, metadata={"type": "agent"})
 
         # 发送欢迎消息
         await connection_manager.send_message(
@@ -77,7 +74,7 @@ async def websocket_agent_endpoint(websocket: WebSocket):
 
 
 @router.get("/statistics", summary="获取 WebSocket 统计信息")
-async def get_statistics():
+async def get_statistics() -> dict[str, Any]:
     """
     获取 WebSocket 连接统计信息
 
@@ -85,4 +82,4 @@ async def get_statistics():
         统计信息
     """
     connection_manager = get_connection_manager()
-    return connection_manager.get_statistics()
+    return connection_manager.get_statistics()  # type: ignore

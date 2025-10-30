@@ -31,7 +31,7 @@ class CompletionRequest(BaseModel):
 
 
 @router.post("/complete", summary="LLM 文本生成（多厂商 + 自动降级）")
-async def complete(request: CompletionRequest):
+async def complete(request: CompletionRequest) -> dict:
     """
     使用多厂商 LLM 生成文本（支持自动降级）
 
@@ -69,7 +69,7 @@ async def complete(request: CompletionRequest):
                 provider_override=request.provider,
             )
 
-            async def event_generator():
+            async def event_generator() -> AsyncGenerator[str, None]:
                 try:
                     async for chunk in stream:
                         yield f"data: {chunk}\n\n"
@@ -78,7 +78,7 @@ async def complete(request: CompletionRequest):
                     logger.error(f"Streaming error: {e}")
                     yield f"data: {{\"error\": \"{str(e)}\"}}\n\n"
 
-            return StreamingResponse(
+            return StreamingResponse[dict[str, Any]](
                 event_generator(),
                 media_type="text/event-stream",
                 headers={

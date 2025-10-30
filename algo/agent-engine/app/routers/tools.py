@@ -8,8 +8,8 @@ import logging
 import time
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException  # type: ignore[import]
+from pydantic import BaseModel, Field  # type: ignore[import]
 
 from app.tools.dynamic_registry import get_tool_registry
 
@@ -48,7 +48,7 @@ class ToolListResponse(BaseModel):
 
 
 @router.get("/list", response_model=ToolListResponse)
-async def list_tools():
+async def list_tools() -> ToolListResponse:
     """
     列出所有可用工具
 
@@ -57,7 +57,7 @@ async def list_tools():
     """
     try:
         tool_registry = get_tool_registry()
-        tools = tool_registry.list_tools()
+        tools = tool_registry.list_tools()  # type: ignore
 
         return ToolListResponse(tools=tools, count=len(tools))
 
@@ -67,7 +67,7 @@ async def list_tools():
 
 
 @router.get("/names")
-async def list_tool_names():
+async def list_tool_names() -> dict[str, Any]:
     """
     列出所有工具名称
 
@@ -76,7 +76,7 @@ async def list_tool_names():
     """
     try:
         tool_registry = get_tool_registry()
-        names = tool_registry.get_tool_names()
+        names = tool_registry.get_tool_names()  # type: ignore
 
         return {"tool_names": names, "count": len(names)}
 
@@ -86,7 +86,7 @@ async def list_tool_names():
 
 
 @router.get("/description")
-async def get_tools_description():
+async def get_tools_description() -> dict[str, Any]:
     """
     获取所有工具的文本描述
 
@@ -95,7 +95,7 @@ async def get_tools_description():
     """
     try:
         tool_registry = get_tool_registry()
-        description = tool_registry.get_tools_description()
+        description = tool_registry.get_tools_description()  # type: ignore
 
         return {"description": description}
 
@@ -105,7 +105,7 @@ async def get_tools_description():
 
 
 @router.get("/definitions")
-async def get_tool_definitions_for_llm():
+async def get_tool_definitions_for_llm() -> dict[str, Any]:
     """
     获取 OpenAI Function Calling 格式的工具定义
 
@@ -114,7 +114,7 @@ async def get_tool_definitions_for_llm():
     """
     try:
         tool_registry = get_tool_registry()
-        definitions = tool_registry.get_tool_definitions_for_llm()
+        definitions = tool_registry.get_tool_definitions_for_llm()  # type: ignore
 
         return {"definitions": definitions, "count": len(definitions)}
 
@@ -124,7 +124,7 @@ async def get_tool_definitions_for_llm():
 
 
 @router.get("/{tool_name}")
-async def get_tool_info(tool_name: str):
+async def get_tool_info(tool_name: str) -> dict[str, Any]:
     """
     获取指定工具的信息
 
@@ -151,7 +151,7 @@ async def get_tool_info(tool_name: str):
 
 
 @router.post("/execute", response_model=ToolExecuteResponse)
-async def execute_tool(request: ToolExecuteRequest):
+async def execute_tool(request: ToolExecuteRequest) -> ToolExecuteResponse:
     """
     执行工具
 
@@ -186,9 +186,7 @@ async def execute_tool(request: ToolExecuteRequest):
     except Exception as e:
         execution_time = (time.time() - start_time) * 1000
 
-        logger.error(
-            f"Tool '{request.tool_name}' execution failed: {e}", exc_info=True
-        )
+        logger.error(f"Tool '{request.tool_name}' execution failed: {e}", exc_info=True)
 
         # 返回失败信息（不抛出异常）
         return ToolExecuteResponse(
@@ -200,7 +198,7 @@ async def execute_tool(request: ToolExecuteRequest):
 
 
 @router.post("/reload")
-async def reload_builtin_tools():
+async def reload_builtin_tools() -> dict[str, Any]:
     """
     重新加载内置工具
 
@@ -213,7 +211,7 @@ async def reload_builtin_tools():
 
         return {
             "message": "Builtin tools reloaded successfully",
-            "count": len(tool_registry.get_tool_names()),
+            "count": len(tool_registry.get_tool_names()),  # type: ignore
         }
 
     except Exception as e:

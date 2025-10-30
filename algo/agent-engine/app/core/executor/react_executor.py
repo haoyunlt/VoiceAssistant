@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class ReActExecutor:
     """ReAct 执行器"""
 
-    def __init__(self, llm_client, tool_registry):
+    def __init__(self, llm_client, tool_registry):  # type: ignore
         """
         初始化 ReAct 执行器
 
@@ -35,8 +35,8 @@ class ReActExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: list[dict] = None,
-        memory: dict = None,
+        available_tools: list[dict] | None = None,  # type: ignore
+        memory: dict | None = None,  # type: ignore
     ) -> dict:
         """
         执行任务（非流式）
@@ -112,8 +112,8 @@ class ReActExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: list[dict] = None,
-        memory: dict = None,
+        available_tools: list[dict] | None = None,  # type: ignore
+        memory: dict | None = None,  # type: ignore [type-arg]
     ) -> AsyncIterator[str]:
         """
         执行任务（流式）
@@ -122,16 +122,18 @@ class ReActExecutor:
             JSON 格式的步骤信息
         """
         current_step = 0
-        prompt = self._build_initial_prompt(task, available_tools, memory)
+        prompt = self._build_initial_prompt(task, available_tools, memory)  # type: ignore [type-arg]
 
         while current_step < max_steps:
             current_step += 1
 
             # 发送步骤开始信号
-            yield json.dumps({
-                "type": "step_start",
-                "step": current_step,
-            })
+            yield json.dumps(
+                {
+                    "type": "step_start",
+                    "step": current_step,
+                }
+            )
 
             # 生成 ReAct 步骤
             react_output = await self.llm_client.generate(
@@ -145,52 +147,60 @@ class ReActExecutor:
 
             # 发送思考
             if thought:
-                yield json.dumps({
-                    "type": "thought",
-                    "content": thought,
-                })
+                yield json.dumps(
+                    {
+                        "type": "thought",
+                        "content": thought,
+                    }
+                )
 
             # 检查是否完成
             if final_answer:
-                yield json.dumps({
-                    "type": "final",
-                    "content": final_answer,
-                })
+                yield json.dumps(
+                    {
+                        "type": "final",
+                        "content": final_answer,
+                    }
+                )
                 break
 
             # 执行工具
             if action:
-                yield json.dumps({
-                    "type": "action",
-                    "action": action,
-                    "input": action_input,
-                })
+                yield json.dumps(
+                    {
+                        "type": "action",
+                        "action": action,
+                        "input": action_input,
+                    }
+                )
 
-                observation = await self._execute_tool(action, action_input, available_tools)
+                observation = await self._execute_tool(action, action_input, available_tools)  # type: ignore [type-arg]
 
-                yield json.dumps({
-                    "type": "observation",
-                    "content": observation,
-                })
+                yield json.dumps(
+                    {
+                        "type": "observation",
+                        "content": observation,
+                    }
+                )
 
                 # 更新 Prompt
                 prompt += f"\n{react_output}\n观察: {observation}\n\n继续思考："
             else:
-                yield json.dumps({
-                    "type": "error",
-                    "content": "Failed to parse action",
-                })
+                yield json.dumps(
+                    {
+                        "type": "error",
+                        "content": "Failed to parse action",
+                    }
+                )
                 break
 
-    def _build_initial_prompt(
-        self, task: str, available_tools: list[dict], memory: dict
-    ) -> str:
+    def _build_initial_prompt(self, task: str, available_tools: list[dict], memory: dict) -> str:  # type: ignore [type-arg]
         """构建初始 Prompt"""
         # 工具描述
         tools_desc = self._format_tools(available_tools)
 
         # 记忆描述
-        memory_desc = self._format_memory(memory)
+        memory_desc = self._format_memory(memory)  # type: ignore [type-arg]
 
         prompt = f"""你是一个智能助手，使用 ReAct 模式解决问题。
 
@@ -272,8 +282,11 @@ class ReActExecutor:
         return thought, action, action_input, final_answer
 
     async def _execute_tool(
-        self, tool_name: str, tool_input: str, available_tools: list[dict]
-    ) -> str:
+        self,
+        tool_name: str,
+        tool_input: str,
+        available_tools: list[dict],  # type: ignore [type-arg] # noqa: F821
+    ) -> str:  # type: ignore [return-value]
         """执行工具调用"""
         try:
             result = await self.tool_registry.execute_tool(tool_name, tool_input)

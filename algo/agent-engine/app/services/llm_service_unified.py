@@ -1,4 +1,5 @@
 """LLM服务 - 使用统一LLM客户端（重构版）"""
+
 import logging
 import os
 import sys
@@ -22,7 +23,7 @@ class LLMService:
     替代原有的直连OpenAI方式
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """初始化LLM服务"""
         # 使用统一LLM客户端
         self.client = UnifiedLLMClient(

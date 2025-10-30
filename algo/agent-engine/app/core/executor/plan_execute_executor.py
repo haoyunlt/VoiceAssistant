@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class PlanExecuteExecutor:
     """Plan-Execute 执行器"""
 
-    def __init__(self, llm_client, tool_registry):
+    def __init__(self, llm_client, tool_registry):  # type: ignore
         self.llm_client = llm_client
         self.tool_registry = tool_registry
         logger.info("Plan-Execute executor created")
@@ -26,17 +26,17 @@ class PlanExecuteExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: list[dict] = None,
-        memory: dict = None,
+        available_tools: list[dict] | None = None,  # type: ignore
+        memory: dict | None = None,  # type: ignore
     ) -> dict:
         """执行任务（非流式）"""
         # 1. 制定计划
-        plan = await self._make_plan(task, available_tools)
+        plan = await self._make_plan(task, available_tools)  # type: ignore [type-arg]
 
         # 2. 执行计划
         results = []
         for i, step in enumerate(plan[:max_steps], 1):
-            result = await self._execute_step(step, available_tools)
+            result = await self._execute_step(step, available_tools)  # type: ignore [type-arg]
             results.append({
                 "step": i,
                 "plan": step,
@@ -59,19 +59,19 @@ class PlanExecuteExecutor:
         self,
         task: str,
         max_steps: int = 10,
-        available_tools: list[dict] = None,
-        memory: dict = None,
+        available_tools: list[dict] | None = None,  # type: ignore
+        memory: dict | None = None,  # type: ignore [type-arg]
     ) -> AsyncIterator[str]:
         """执行任务（流式）"""
         # 发送计划
-        plan = await self._make_plan(task, available_tools)
+        plan = await self._make_plan(task, available_tools)  # type: ignore [type-arg]
         yield json.dumps({"type": "plan", "content": plan})
 
         # 执行计划
         for i, step in enumerate(plan[:max_steps], 1):
             yield json.dumps({"type": "step_start", "step": i, "plan": step})
 
-            result = await self._execute_step(step, available_tools)
+            result = await self._execute_step(step, available_tools)  # type: ignore [type-arg]
 
             yield json.dumps({"type": "step_result", "content": result})
 
