@@ -1,6 +1,6 @@
 # Agent Engine - AI Agent 执行引擎
 
-> **最新更新**: 2025-10-29 - ✅ 迭代1完成（可观测性与评测基建）
+> **最新更新**: 2025-11-01 - ✅ Multi-Agent协作与LangGraph编排完成！
 
 ## 概述
 
@@ -13,10 +13,100 @@ Agent Engine 是 VoiceHelper 平台的 AI Agent 执行引擎，负责：
 - **🆕 执行追踪**：完整的决策链追踪和可视化
 - **🆕 自动化评测**：基准数据集和 LLM-as-Judge
 - **🆕 成本控制**：预算管理和自动降级
+- **⭐ Multi-Agent协作**：去中心化通信、能力画像、智能调度、冲突解决
+- **⭐ LangGraph编排**：动态工作流、状态持久化、Checkpoint恢复
 
-## 🚀 新功能（迭代1）
+## 🚀 最新功能
 
-### ✅ 执行追踪系统
+### ⭐ Multi-Agent 协作增强（NEW!）
+```python
+from app.core.multi_agent.enhanced_coordinator import EnhancedMultiAgentCoordinator
+from app.core.multi_agent.task_scheduler import TaskPriority
+
+# 初始化增强协调器
+coordinator = EnhancedMultiAgentCoordinator(llm_client, tool_registry)
+
+# 注册Agent并记录能力
+await coordinator.register_agent_with_capabilities(
+    agent=researcher_agent,
+    capabilities={"research": 0.9, "analysis": 0.8},
+    success_rate=0.95,
+    avg_response_time=2.5
+)
+
+# 带任务调度的协作执行
+result = await coordinator.collaborate_with_scheduling(
+    task_description="分析Q4市场趋势",
+    priority=TaskPriority.HIGH,
+    required_capabilities=["research", "analysis"]
+)
+
+# 健康检查（包含异常检测）
+health = await coordinator.health_check()
+print(f"系统健康: {health['healthy']}")
+print(f"通信异常: {len(health['anomalies'])} 个")
+```
+
+**核心特性**：
+- ✅ 去中心化通信（Agent间直接通信，降低延迟50%）
+- ✅ 动态能力画像（自动学习Agent性能）
+- ✅ 智能任务调度（优先级队列+能力匹配）
+- ✅ 增强冲突解决（5种策略自适应）
+- ✅ 完整通信监控（消息追踪、异常检测）
+
+### ⭐ LangGraph 工作流编排（NEW!）
+```python
+from app.core.langgraph_engine import LangGraphWorkflowEngine, CheckpointManager
+
+# 初始化引擎（支持Redis持久化）
+checkpoint_manager = CheckpointManager(redis_client)
+engine = LangGraphWorkflowEngine(checkpoint_manager)
+
+# 注册工作流函数
+engine.register_function("analyze_task", analyze_task)
+engine.register_function("retrieve_docs", retrieve_docs)
+
+# 动态创建工作流（基于JSON配置）
+workflow_id = engine.create_workflow({
+    "nodes": [
+        {"id": "start", "type": "action", "function": "analyze_task"},
+        {"id": "retrieve", "type": "action", "function": "retrieve_docs"},
+        {"id": "decide", "type": "decision", "condition": "needs_review"},
+        {"id": "review", "type": "action", "function": "review_result"},
+        {"id": "end", "type": "action", "function": "finalize"}
+    ],
+    "edges": [
+        {"from": "start", "to": "retrieve"},
+        {"from": "retrieve", "to": "decide"},
+        {"from": "decide", "to": {"review": "needs_review", "end": "else"}},
+        {"from": "review", "to": "end"}
+    ],
+    "entry": "start"
+})
+
+# 执行工作流（自动保存checkpoint）
+result = await engine.execute(
+    workflow_id,
+    initial_data={"task": "分析数据"},
+    save_checkpoints=True
+)
+
+# 中断后恢复执行
+result = await engine.resume(workflow_id)
+
+# 可视化工作流
+from app.core.workflow_visualizer import visualize_workflow
+mermaid_code = visualize_workflow(workflow_config)
+```
+
+**核心特性**：
+- ✅ 动态工作流创建（JSON配置，无需硬编码）
+- ✅ 状态持久化（Redis Checkpoint）
+- ✅ 工作流可恢复（中断后继续执行）
+- ✅ 条件分支支持（决策节点）
+- ✅ 完整可视化（Mermaid图+执行追踪）
+
+### ✅ 执行追踪系统（迭代1）
 ```python
 from app.observability.tracer import get_tracer
 
@@ -50,14 +140,6 @@ if await controller.check_budget("tenant_123"):
 else:
     # 应用降级策略
     strategy = await controller.get_fallback_strategy("tenant_123")
-```
-
-### ✅ Grafana 仪表盘
-```bash
-# 导入仪表盘
-kubectl apply -f deployments/grafana/dashboards/agent-performance.json
-kubectl apply -f deployments/grafana/dashboards/agent-cost.json
-kubectl apply -f deployments/grafana/dashboards/agent-tracing.json
 ```
 
 ## 技术栈
@@ -302,18 +384,47 @@ agent_budget_usage_ratio{tenant_id}
 ## 🎯 路线图
 
 - ✅ **迭代1 (已完成)**: 可观测性与评测基建
-- ⏳ **迭代2 (规划中)**: Self-RAG 与记忆增强
-- ⏳ **迭代3 (规划中)**: Multi-Agent 协作增强
-- ⏳ **迭代4 (规划中)**: 人机协作与工具生态
+- ✅ **迭代2 (已完成)**: Self-RAG 与记忆增强
+- ✅ **迭代3 (已完成)**: Multi-Agent协作与LangGraph编排 ⭐
+  - ✅ Multi-Agent 去中心化通信
+  - ✅ Agent 能力画像与动态更新
+  - ✅ 智能任务调度与优先级管理
+  - ✅ 增强冲突解决机制
+  - ✅ 完整通信监控与异常检测
+  - ✅ LangGraph 动态工作流创建
+  - ✅ 状态持久化与 Checkpoint 恢复
+  - ✅ 工作流可视化（Mermaid + 执行追踪）
+- 🚧 **迭代4 (规划中)**: 人机协作与工具生态
+  - 人机协作增强（审批流程、人类反馈学习）
+  - Tool Marketplace 激活（工具注册、安全沙箱、推荐系统）
+  - 增强学习与自优化（策略学习、A/B 测试）
+- ⏳ **迭代5 (未来)**: 生产化与规模化
 
-详见: [优化路线图](../../docs/roadmap/agent-engine-optimization-roadmap.md)
+详见:
+- **[Multi-Agent + LangGraph 完成报告](MULTI_AGENT_LANGGRAPH_COMPLETION.md)** ⭐⭐⭐
+- [Iteration 3 计划](ITERATION_3_PLAN.md)
+- [快速参考](ITERATION_3_QUICK_REFERENCE.md)
 
 ## 📚 文档
 
-- [优化路线图](../../docs/roadmap/agent-engine-optimization-roadmap.md)
+### 完成报告
+- **[Multi-Agent + LangGraph 完成报告](MULTI_AGENT_LANGGRAPH_COMPLETION.md)** ⭐⭐⭐ 最新
+
+### 迭代计划与指南
+- [Iteration 1 完成报告](ITERATION1_COMPLETED.md)
+- [Iteration 2 集成指南](docs/ITER2_INTEGRATION_GUIDE.md)
+- [Iteration 3 优化计划](ITERATION_3_PLAN.md)
+- [Iteration 3 快速参考](ITERATION_3_QUICK_REFERENCE.md)
+- [Iteration 3 Issues 清单](ITERATION_3_ISSUES.md)
+- [Iteration 3 架构设计](ITERATION_3_ARCHITECTURE.md)
+
+### 技术文档
 - [可观测性集成指南](docs/OBSERVABILITY_INTEGRATION.md)
-- [迭代1完成报告](ITERATION1_COMPLETED.md)
-- [快速参考](../../docs/roadmap/agent-quick-reference.md)
+- [架构设计](../../docs/arch/overview.md)
+- [API 文档](http://localhost:8003/docs) (启动服务后访问)
+
+### 示例代码
+- [Multi-Agent + LangGraph 集成示例](examples/multi_agent_langgraph_integration.py) ⭐ 推荐
 
 ## 📞 联系与反馈
 

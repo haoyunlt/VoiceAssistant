@@ -23,7 +23,20 @@ opentelemetry-exporter-otlp==1.22.0
 pytest==7.4.4
 pytest-asyncio==0.23.3
 pytest-cov==4.1.0
+pytest-timeout==2.2.0
 httpx==0.26.0
 
 # Utilities
 python-dotenv==1.0.1
+
+# Resilience
+tenacity==8.2.3
+
+# Caching & Hashing
+xxhash==3.4.1
+
+# BM25 for hybrid search
+rank-bm25==0.2.2
+
+# Code quality
+ruff==0.1.11

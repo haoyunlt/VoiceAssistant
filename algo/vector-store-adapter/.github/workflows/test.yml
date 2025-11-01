@@ -1,0 +1,141 @@
+name: Test Vector Store Adapter
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'algo/vector-store-adapter/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'algo/vector-store-adapter/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: algo/vector-store-adapter
+
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      postgres:
+        image: ankane/pgvector:latest
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      milvus:
+        image: milvusdb/milvus:latest
+        env:
+          ETCD_USE_EMBED: "true"
+          COMMON_STORAGETYPE: local
+        options: >-
+          --health-cmd "curl -f http://localhost:9091/healthz"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 19530:19530
+          - 9091:9091
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+        cache-dependency-path: algo/vector-store-adapter/requirements.txt
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov pytest-timeout httpx
+
+    - name: Lint with ruff
+      run: |
+        pip install ruff
+        ruff check . --output-format=github
+      continue-on-error: true
+
+    - name: Run unit tests
+      run: |
+        pytest tests/unit -v -m "unit" \
+          --cov=app \
+          --cov-report=term-missing \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-fail-under=70
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        PGVECTOR_HOST: localhost
+        PGVECTOR_PORT: 5432
+        PGVECTOR_DATABASE: test_db
+        PGVECTOR_USER: postgres
+        PGVECTOR_PASSWORD: password
+        MILVUS_HOST: localhost
+        MILVUS_PORT: 19530
+
+    - name: Run integration tests
+      run: |
+        pytest tests/integration -v -m "integration" \
+          --cov=app \
+          --cov-append \
+          --cov-report=term-missing \
+          --cov-report=xml
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        PGVECTOR_HOST: localhost
+        PGVECTOR_PORT: 5432
+        PGVECTOR_DATABASE: test_db
+        PGVECTOR_USER: postgres
+        PGVECTOR_PASSWORD: password
+        MILVUS_HOST: localhost
+        MILVUS_PORT: 19530
+      continue-on-error: true
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      with:
+        files: ./algo/vector-store-adapter/coverage.xml
+        flags: vector-store-adapter
+        name: vector-store-adapter-coverage
+      if: always()
+
+    - name: Upload coverage HTML
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: algo/vector-store-adapter/htmlcov/
+      if: always()
+
+    - name: Generate test report
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Results
+        path: algo/vector-store-adapter/test-results.xml
+        reporter: java-junit
+        fail-on-error: false

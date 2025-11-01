@@ -1,0 +1,277 @@
+# Retrieval Service Enhanced Configuration
+# 包含Iter1-3所有优化功能的配置
+
+# ============================================================================
+# Iter 1: 质量提升
+# ============================================================================
+
+colbert:
+  enabled: true
+  model_name: "colbert-ir/colbertv2.0"
+  max_doc_length: 256
+  max_query_length: 32
+  device: "cpu"  # 或 "cuda"
+  index_name: "retrieval_service_colbert"
+
+splade:
+  enabled: true
+  model_name: "naver/splade-cocondenser-ensembledistil"
+  max_length: 256
+  top_k_tokens: 100
+  device: "cpu"  # 或 "cuda"
+
+semantic_cache:
+  enabled: true
+  similarity_threshold: 0.95
+  ttl: 3600  # 1小时
+  max_cache_size: 10000
+  redis:
+    host: "localhost"
+    port: 6379
+    password: ""
+    db: 3
+
+cache_warming:
+  enabled: true
+  schedule: "0 2 * * *"  # 每日凌晨2:00
+  top_k_queries: 1000
+  batch_size: 50
+  concurrent_limit: 10
+
+query_correction:
+  enabled: true
+  dictionary_path: "data/spelling_dict.txt"
+  max_edit_distance: 2
+  prefix_length: 7
+
+query_rewriting:
+  enabled: true
+  templates_path: "data/rewrite_templates.json"
+  llm_endpoint: "http://model-adapter:8006"
+  llm_model: "qwen-1.8b-chat"
+  enable_llm: false  # 默认关闭LLM
+  llm_timeout: 3.0
+
+# ============================================================================
+# Iter 2: 性能优化
+# ============================================================================
+
+batch_retrieval:
+  enabled: true
+  max_batch_size: 32
+  max_wait_ms: 50.0
+  embedding_batch_size: 32
+  vector_search_batch_size: 16  # 向量搜索批次小一些
+  rerank_batch_size: 32
+
+adaptive_rerank:
+  enabled: true
+  config_map:
+    simple:
+      stage1_top_k: 20
+      stage2_top_k: 5
+    medium:
+      stage1_top_k: 40
+      stage2_top_k: 10
+    complex:
+      stage1_top_k: 60
+      stage2_top_k: 15
+  stage1_model: "bge-reranker-v2-m3"
+  stage2_model: "cross-encoder/ms-marco-MiniLM-L-12-v2"
+
+neo4j_optimization:
+  enabled: true
+  max_depth: 2
+  use_apoc: true
+  enable_cache: true
+  cache_ttl: 3600
+  parallel_subgraphs: true
+
+index_optimization:
+  enabled: true
+  milvus:
+    auto_tune: true
+    hnsw_m: 16
+    hnsw_ef_construction: 256
+    tune_interval: "0 3 * * 0"  # 每周日凌晨3:00
+  elasticsearch:
+    auto_tune: true
+    refresh_interval: "1s"
+    number_of_replicas: 1
+
+# ============================================================================
+# Iter 3: 成本优化
+# ============================================================================
+
+smart_routing:
+  enabled: true
+  llm_endpoint: "http://model-adapter:8006"
+  enable_llm_for_complex: true
+  cost_budget_per_request: 0.001  # $0.001/请求
+  strategies:
+    simple:
+      - "correction"
+      - "synonym_expansion"
+    medium:
+      - "correction"
+      - "rewriting"
+      - "multi_query_template"
+    complex:
+      - "correction"
+      - "rewriting"
+      - "multi_query_llm"
+    knowledge_intensive:
+      - "hyde"
+      - "multi_query_llm"
+
+embedding_cache:
+  enabled: true
+  ttl: 86400  # 24小时
+  max_cache_size: 100000
+  redis:
+    host: "localhost"
+    port: 6379
+    password: ""
+    db: 4  # 使用不同的DB
+
+tiered_rerank:
+  enabled: true
+  tier1_size: 20
+  tier2_size: 30
+  tier1_model: "cross-encoder/ms-marco-MiniLM-L-12-v2"
+  tier2_model: "bge-reranker-base"
+  tier1_unit_cost: 0.00001  # $0.01 per 1K docs
+  tier2_unit_cost: 0.000002  # $0.002 per 1K docs
+
+budget_guard:
+  enabled: true
+  thresholds:
+    disable_llm: 0.90      # 90%: 禁用LLM enhancement
+    vector_only: 0.95      # 95%: 仅vector检索
+    rate_limit: 1.00       # 100%: 限流
+  alert_channels:
+    - type: "log"
+      level: "warning"
+    - type: "slack"
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      enabled: false
+    - type: "email"
+      recipients: ["admin@example.com"]
+      enabled: false
+
+# ============================================================================
+# 混合检索权重配置
+# ============================================================================
+
+hybrid_weights:
+  # 标准混合检索（Vector + BM25）
+  standard:
+    vector: 0.6
+    bm25: 0.4
+
+  # 增强混合检索（Vector + ColBERT + BM25 + SPLADE）
+  enhanced:
+    vector: 0.3
+    colbert: 0.3
+    bm25: 0.2
+    splade: 0.2
+
+  # 混合图谱检索（Vector + BM25 + Graph）
+  graph:
+    vector: 0.5
+    bm25: 0.2
+    graph: 0.3
+
+# ============================================================================
+# 可观测性配置
+# ============================================================================
+
+observability:
+  metrics:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+
+  tracing:
+    enabled: true
+    endpoint: "http://jaeger:4317"
+    sample_rate: 0.1
+
+  logging:
+    level: "INFO"
+    format: "json"
+    outputs:
+      - type: "stdout"
+      - type: "file"
+        path: "logs/retrieval-service.log"
+        max_size: "100MB"
+        max_backups: 10
+
+  cost_tracking:
+    enabled: true
+    track_per_request: true
+    track_per_tenant: true
+    export_interval: 300  # 5分钟
+
+# ============================================================================
+# 特性开关（Feature Flags）
+# ============================================================================
+
+feature_flags:
+  # Iter 1
+  enable_colbert: true
+  enable_splade: true
+  enable_semantic_cache: true
+  enable_cache_warming: true
+  enable_query_correction: true
+  enable_query_rewriting: true
+
+  # Iter 2
+  enable_batch_retrieval: true
+  enable_adaptive_rerank: true
+  enable_neo4j_optimization: true
+  enable_index_optimization: true
+
+  # Iter 3
+  enable_smart_routing: true
+  enable_embedding_cache: true
+  enable_tiered_rerank: true
+  enable_budget_guard: true
+
+# ============================================================================
+# 性能调优
+# ============================================================================
+
+performance:
+  # 并发限制
+  max_concurrent_requests: 1000
+  max_concurrent_batches: 50
+
+  # 超时配置
+  query_timeout: 5.0
+  embedding_timeout: 2.0
+  vector_search_timeout: 3.0
+  bm25_search_timeout: 2.0
+  graph_search_timeout: 5.0
+  rerank_timeout: 3.0
+
+  # 重试配置
+  max_retries: 3
+  retry_delay: 0.1
+  retry_backoff_factor: 2.0
+
+# ============================================================================
+# 开发/测试配置
+# ============================================================================
+
+development:
+  debug: false
+  mock_services: false  # 是否使用mock服务（测试用）
+  enable_profiling: false
+  profile_output_dir: "profiles/"
+
+testing:
+  # 测试模式配置
+  enable_test_mode: false
+  test_data_path: "tests/data/"
+  baseline_results_path: "tests/eval/retrieval/results/baseline_results.json"

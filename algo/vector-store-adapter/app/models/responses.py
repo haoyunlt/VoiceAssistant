@@ -49,8 +49,9 @@ class SearchResponse(BaseModel):
     status: str = Field(..., description="状态")
     collection: str = Field(..., description="集合名称")
     backend: str = Field(..., description="后端类型")
-    results: list[VectorSearchResult] = Field(..., description="搜索结果")
+    results: list[dict] = Field(..., description="搜索结果")
     count: int = Field(..., description="结果数量")
+    cached: bool = Field(default=False, description="是否来自缓存")
 
 
 class DeleteResponse(BaseModel):
@@ -82,6 +83,6 @@ class BackendStats(BaseModel):
 class StatsResponse(BaseModel):
     """统计响应"""
 
-    backends: dict[str, BackendStats] = Field(..., description="后端统计")
-    default_backend: str = Field(..., description="默认后端")
-
+    status: str = Field(..., description="状态")
+    vector_store_manager: dict = Field(..., description="向量存储管理器统计")
+    cache: dict | None = Field(default=None, description="缓存统计")

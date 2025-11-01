@@ -55,3 +55,18 @@ python-multipart==0.0.9
 
 # 日志
 loguru==0.7.2
+
+# 新增依赖 (Iter 1 & Iter 2)
+# Redis (任务队列和缓存)
+redis==5.0.1
+aioredis==2.0.1
+
+# 性能监控
+psutil==5.9.8  # 内存和CPU监控
+
+# 机器学习和数据处理
+scikit-learn==1.4.0  # 相似度计算
+pandas==2.2.0  # 数据分析（可选）
+
+# 新增依赖 (Iter 3 - 成本优化)
+tiktoken==0.5.2  # 精确 Token 计数（OpenAI 模型）

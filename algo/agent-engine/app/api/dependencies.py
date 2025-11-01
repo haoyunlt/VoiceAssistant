@@ -180,17 +180,18 @@ async def verify_token(authorization: str | None = Header(None)) -> dict:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # TODO: 实际的 token 验证逻辑
-        # 这里应该调用 JWT 验证或其他认证服务
-        # from app.auth.jwt_manager import verify_jwt
-        # user_info = verify_jwt(token)
+        # 实际的 JWT token 验证逻辑
+        from app.auth.jwt_manager import verify_jwt
 
-        # 临时返回模拟数据
-        user_info = {
-            "user_id": "temp_user",
-            "tenant_id": "temp_tenant",
-            "permissions": ["agent:execute", "tool:register", "memory:read"],
-        }
+        try:
+            user_info = verify_jwt(token)
+        except Exception as e:
+            logger.error(f"JWT verification failed: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         return user_info
 

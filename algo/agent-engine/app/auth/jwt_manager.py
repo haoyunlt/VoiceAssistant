@@ -115,3 +115,30 @@ def get_jwt_manager() -> JWTManager:
         secret_key = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
         _jwt_manager = JWTManager(secret_key)
     return _jwt_manager
+
+
+def verify_jwt(token: str) -> dict:
+    """
+    验证JWT token并返回用户信息
+    
+    Args:
+        token: JWT token字符串
+        
+    Returns:
+        用户信息字典，包含user_id, tenant_id, permissions等
+        
+    Raises:
+        ValueError: token无效或过期
+    """
+    manager = get_jwt_manager()
+    claims = manager.validate_token(token)
+    
+    # 转换为标准用户信息格式
+    return {
+        "user_id": claims.user_id,
+        "username": claims.username,
+        "email": claims.email,
+        "tenant_id": claims.user_id,  # 默认使用user_id作为tenant_id
+        "permissions": claims.roles,  # roles映射为permissions
+        "roles": claims.roles,
+    }

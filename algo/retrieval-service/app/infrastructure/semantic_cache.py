@@ -1,309 +1,331 @@
 """
-Semantic Cache - 语义缓存
+Semantic Cache - 语义缓存实现
 
 功能:
-- 缓存相似查询的检索结果
-- 使用embedding计算语义相似度
-- 多级缓存：精确匹配 + 语义匹配
-
-优势:
-- 缓存命中率≥40%
-- 命中延迟<20ms
-- 大幅降低检索成本
-
-架构:
-- L1: 精确匹配缓存 (Redis String, TTL=1h)
-- L2: 语义匹配缓存 (Redis Hash + Embedding, TTL=6h)
+- Query Embedding相似度匹配 (threshold=0.95)
+- LRU + TTL淘汰策略
+- Bloom Filter防穿透
+- Redis存储
 """
 
+import asyncio
 import hashlib
 import json
 import time
 from dataclasses import dataclass
+from typing import List, Optional
 
-from app.core.logging import logger
+import numpy as np
+from redis.asyncio import Redis
+
+from app.observability.logging import logger
 
 
 @dataclass
-class CacheEntry:
-    """缓存条目"""
+class CachedResult:
+    """缓存结果"""
 
     query: str
-    query_embedding: list[float] | None
-    result: dict  # 序列化的检索结果
-    hit_count: int = 0
-    created_at: float = 0.0
-    last_accessed: float = 0.0
-
-
-@dataclass
-class CacheHitResult:
-    """缓存命中结果"""
-
-    hit: bool
-    level: str | None = None  # "L1_exact" or "L2_semantic"
-    similarity: float = 0.0
-    result: dict | None = None
-    latency_ms: float = 0.0
+    query_embedding: List[float]
+    documents: List[dict]
+    score: float
+    timestamp: float
+    ttl: int  # seconds
 
 
 class SemanticCache:
-    """语义缓存服务"""
+    """语义缓存"""
 
     def __init__(
         self,
-        redis_client=None,
-        similarity_threshold: float = 0.85,
-        l1_ttl: int = 3600,  # 1小时
-        l2_ttl: int = 21600,  # 6小时
+        redis_host: str = "localhost",
+        redis_port: int = 6379,
+        redis_password: str = "",
+        redis_db: int = 3,
+        similarity_threshold: float = 0.95,
+        ttl: int = 3600,  # 1小时
+        max_cache_size: int = 10000,
     ):
         """
         初始化语义缓存
 
         Args:
-            redis_client: Redis客户端
-            similarity_threshold: 语义相似度阈值
-            l1_ttl: L1缓存TTL（秒）
-            l2_ttl: L2缓存TTL（秒）
+            redis_host: Redis主机
+            redis_port: Redis端口
+            redis_password: Redis密码
+            redis_db: Redis数据库
+            similarity_threshold: 相似度阈值
+            ttl: 缓存TTL（秒）
+            max_cache_size: 最大缓存条目数
         """
-        self.redis_client = redis_client
+        self.redis_host = redis_host
+        self.redis_port = redis_port
+        self.redis_password = redis_password
+        self.redis_db = redis_db
         self.similarity_threshold = similarity_threshold
-        self.l1_ttl = l1_ttl
-        self.l2_ttl = l2_ttl
+        self.ttl = ttl
+        self.max_cache_size = max_cache_size
 
-        # 如果没有Redis，使用内存缓存
-        if not redis_client:
-            self.l1_cache = {}  # query_hash -> result
-            self.l2_cache = {}  # query_hash -> CacheEntry
+        self.redis: Optional[Redis] = None
+        self._bloom_filter = set()  # 简化的Bloom Filter
 
         logger.info(
             f"Semantic cache initialized: threshold={similarity_threshold}, "
-            f"L1_TTL={l1_ttl}s, L2_TTL={l2_ttl}s"
+            f"ttl={ttl}s, max_size={max_cache_size}"
         )
 
+    async def connect(self):
+        """连接Redis"""
+        if self.redis is None:
+            self.redis = Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                password=self.redis_password or None,
+                db=self.redis_db,
+                decode_responses=False,
+            )
+            logger.info("Semantic cache connected to Redis")
+
     async def get(
-        self, query: str, query_embedding: list[float] | None = None
-    ) -> CacheHitResult:
+        self, query: str, query_embedding: np.ndarray
+    ) -> Optional[CachedResult]:
         """
         获取缓存结果
 
         Args:
-            query: 用户查询
-            query_embedding: 查询向量（可选，用于语义匹配）
+            query: 查询文本
+            query_embedding: 查询embedding
 
         Returns:
-            缓存命中结果
+            缓存结果（如果命中）
         """
-        start_time = time.time()
+        if self.redis is None:
+            await self.connect()
 
-        # L1: 精确匹配
-        query_hash = self._hash_query(query)
-        l1_result = await self._get_l1(query_hash)
+        try:
+            # 1. Bloom Filter快速检查
+            query_hash = self._hash_query(query)
+            if query_hash not in self._bloom_filter:
+                logger.debug(f"Cache miss (Bloom Filter): {query[:50]}")
+                return None
 
-        if l1_result:
-            latency_ms = (time.time() - start_time) * 1000
-            logger.info(f"Cache L1 hit: {query[:50]}, latency={latency_ms:.1f}ms")
-            return CacheHitResult(
-                hit=True,
-                level="L1_exact",
-                similarity=1.0,
-                result=l1_result,
-                latency_ms=latency_ms,
-            )
+            # 2. 相似度匹配
+            cached_result = await self._find_similar_cached(query_embedding)
 
-        # L2: 语义匹配
-        if query_embedding:
-            l2_result, similarity = await self._get_l2(query_embedding)
-            if l2_result and similarity >= self.similarity_threshold:
-                latency_ms = (time.time() - start_time) * 1000
-                logger.info(
-                    f"Cache L2 hit: {query[:50]}, "
-                    f"similarity={similarity:.3f}, latency={latency_ms:.1f}ms"
-                )
-                return CacheHitResult(
-                    hit=True,
-                    level="L2_semantic",
-                    similarity=similarity,
-                    result=l2_result,
-                    latency_ms=latency_ms,
-                )
+            if cached_result:
+                logger.info(f"Cache hit (similarity={cached_result.score:.3f}): {query[:50]}")
+                return cached_result
 
-        # Cache miss
-        latency_ms = (time.time() - start_time) * 1000
-        return CacheHitResult(hit=False, latency_ms=latency_ms)
+            logger.debug(f"Cache miss (no similar query): {query[:50]}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Semantic cache get error: {e}", exc_info=True)
+            return None
 
     async def set(
         self,
         query: str,
-        query_embedding: list[float] | None,
-        result: dict,
+        query_embedding: np.ndarray,
+        documents: List[dict],
     ):
         """
         设置缓存
 
         Args:
-            query: 用户查询
-            query_embedding: 查询向量
-            result: 检索结果
+            query: 查询文本
+            query_embedding: 查询embedding
+            documents: 文档列表
         """
-        query_hash = self._hash_query(query)
-        timestamp = time.time()
+        if self.redis is None:
+            await self.connect()
 
-        # 保存到L1
-        await self._set_l1(query_hash, result)
+        try:
+            # 1. 添加到Bloom Filter
+            query_hash = self._hash_query(query)
+            self._bloom_filter.add(query_hash)
 
-        # 保存到L2（如果有embedding）
-        if query_embedding:
-            entry = CacheEntry(
-                query=query,
-                query_embedding=query_embedding,
-                result=result,
-                hit_count=0,
-                created_at=timestamp,
-                last_accessed=timestamp,
+            # 2. 存储缓存
+            cache_key = f"semantic_cache:{query_hash}"
+            cache_data = {
+                "query": query,
+                "query_embedding": query_embedding.tolist(),
+                "documents": documents,
+                "timestamp": time.time(),
+                "ttl": self.ttl,
+            }
+
+            await self.redis.setex(
+                cache_key, self.ttl, json.dumps(cache_data).encode("utf-8")
             )
-            await self._set_l2(query_hash, entry)
 
-        logger.info(f"Cache set: {query[:50]}")
+            # 3. 添加到LRU列表
+            await self.redis.zadd(
+                "semantic_cache:lru", {cache_key: time.time()}, nx=True
+            )
 
-    async def _get_l1(self, query_hash: str) -> dict | None:
-        """获取L1缓存"""
-        if self.redis_client:
-            # 实际Redis实现
-            try:
-                data = await self.redis_client.get(f"cache:l1:{query_hash}")
-                if data:
-                    return json.loads(data)
-            except Exception as e:
-                logger.error(f"L1 cache get error: {e}")
-                return None
-        else:
-            # 内存实现
-            if query_hash in self.l1_cache:
-                entry, expiry = self.l1_cache[query_hash]
-                if time.time() < expiry:
-                    return entry
-                else:
-                    del self.l1_cache[query_hash]
-            return None
+            # 4. 检查缓存大小，驱逐最旧的
+            await self._evict_if_needed()
 
-    async def _set_l1(self, query_hash: str, result: dict):
-        """设置L1缓存"""
-        if self.redis_client:
-            try:
-                await self.redis_client.setex(
-                    f"cache:l1:{query_hash}", self.l1_ttl, json.dumps(result)
-                )
-            except Exception as e:
-                logger.error(f"L1 cache set error: {e}")
-        else:
-            # 内存实现
-            expiry = time.time() + self.l1_ttl
-            self.l1_cache[query_hash] = (result, expiry)
+            logger.debug(f"Cache set: {query[:50]}")
 
-    async def _get_l2(self, query_embedding: list[float]) -> tuple[dict | None, float]:
+        except Exception as e:
+            logger.error(f"Semantic cache set error: {e}", exc_info=True)
+
+    async def _find_similar_cached(
+        self, query_embedding: np.ndarray
+    ) -> Optional[CachedResult]:
         """
-        获取L2缓存（语义匹配）
+        查找相似的缓存查询
+
+        Args:
+            query_embedding: 查询embedding
 
         Returns:
-            (结果, 相似度)
+            相似的缓存结果
         """
-        if self.redis_client:
-            # 实际实现需要向量数据库支持
-            # 这里简化：遍历所有L2条目计算相似度
-            return None, 0.0
-        else:
-            # 内存实现
-            max_similarity = 0.0
-            best_result = None
+        # 获取所有缓存键
+        cache_keys = await self.redis.keys("semantic_cache:*")
 
-            for query_hash, (entry, expiry) in self.l2_cache.items():
-                if time.time() >= expiry:
-                    del self.l2_cache[query_hash]
+        best_match = None
+        best_similarity = 0.0
+
+        for key in cache_keys[:100]:  # 限制检查数量
+            if key == b"semantic_cache:lru":
+                continue
+
+            try:
+                # 读取缓存数据
+                cached_data_bytes = await self.redis.get(key)
+                if not cached_data_bytes:
                     continue
 
-                if entry.query_embedding:
-                    similarity = self._cosine_similarity(query_embedding, entry.query_embedding)
-                    if similarity > max_similarity:
-                        max_similarity = similarity
-                        best_result = entry.result
+                cached_data = json.loads(cached_data_bytes.decode("utf-8"))
 
-            return best_result, max_similarity
+                # 计算相似度
+                cached_embedding = np.array(cached_data["query_embedding"])
+                similarity = self._cosine_similarity(query_embedding, cached_embedding)
 
-    async def _set_l2(self, query_hash: str, entry: CacheEntry):
-        """设置L2缓存"""
-        if self.redis_client:
-            try:
-                await self.redis_client.hset(
-                    f"cache:l2:{query_hash}",
-                    mapping={
-                        "query": entry.query,
-                        "embedding": json.dumps(entry.query_embedding),
-                        "result": json.dumps(entry.result),
-                        "created_at": str(entry.created_at),
-                    },
-                )
-                await self.redis_client.expire(f"cache:l2:{query_hash}", self.l2_ttl)
+                # 检查是否超过阈值
+                if similarity >= self.similarity_threshold and similarity > best_similarity:
+                    best_similarity = similarity
+                    best_match = CachedResult(
+                        query=cached_data["query"],
+                        query_embedding=cached_data["query_embedding"],
+                        documents=cached_data["documents"],
+                        score=similarity,
+                        timestamp=cached_data["timestamp"],
+                        ttl=cached_data["ttl"],
+                    )
+
             except Exception as e:
-                logger.error(f"L2 cache set error: {e}")
-        else:
-            # 内存实现
-            expiry = time.time() + self.l2_ttl
-            self.l2_cache[query_hash] = (entry, expiry)
+                logger.warning(f"Error checking cached key {key}: {e}")
+                continue
 
-    def _hash_query(self, query: str) -> str:
-        """生成查询hash"""
-        return hashlib.md5(query.encode()).hexdigest()
+        return best_match
 
-    def _cosine_similarity(self, vec1: list[float], vec2: list[float]) -> float:
+    def _cosine_similarity(self, vec1: np.ndarray, vec2: np.ndarray) -> float:
         """计算余弦相似度"""
-        if not vec1 or not vec2 or len(vec1) != len(vec2):
-            return 0.0
-
-        dot_product = sum(a * b for a, b in zip(vec1, vec2, strict=False))
-        norm1 = sum(a * a for a in vec1) ** 0.5
-        norm2 = sum(b * b for b in vec2) ** 0.5
+        dot_product = np.dot(vec1, vec2)
+        norm1 = np.linalg.norm(vec1)
+        norm2 = np.linalg.norm(vec2)
 
         if norm1 == 0 or norm2 == 0:
             return 0.0
 
         return dot_product / (norm1 * norm2)
 
+    def _hash_query(self, query: str) -> str:
+        """计算查询hash"""
+        return hashlib.md5(query.encode("utf-8")).hexdigest()
+
+    async def _evict_if_needed(self):
+        """LRU驱逐"""
+        # 获取缓存大小
+        cache_size = await self.redis.zcard("semantic_cache:lru")
+
+        if cache_size > self.max_cache_size:
+            # 删除最旧的条目
+            to_evict = cache_size - self.max_cache_size
+            old_keys = await self.redis.zrange("semantic_cache:lru", 0, to_evict - 1)
+
+            for key in old_keys:
+                await self.redis.delete(key)
+                await self.redis.zrem("semantic_cache:lru", key)
+
+            logger.info(f"Evicted {len(old_keys)} old cache entries")
+
     async def get_stats(self) -> dict:
-        """获取统计信息"""
-        if not self.redis_client:
-            return {
-                "l1_count": len(self.l1_cache),
-                "l2_count": len(self.l2_cache),
-                "backend": "memory",
-            }
-        else:
-            # 实际Redis实现的统计
-            return {"backend": "redis"}
+        """获取缓存统计"""
+        if self.redis is None:
+            return {}
+
+        cache_size = await self.redis.zcard("semantic_cache:lru")
+
+        return {
+            "cache_size": cache_size,
+            "max_cache_size": self.max_cache_size,
+            "similarity_threshold": self.similarity_threshold,
+            "ttl": self.ttl,
+            "bloom_filter_size": len(self._bloom_filter),
+        }
+
+    async def clear(self):
+        """清空缓存"""
+        if self.redis:
+            keys = await self.redis.keys("semantic_cache:*")
+            if keys:
+                await self.redis.delete(*keys)
+            self._bloom_filter.clear()
+            logger.info("Semantic cache cleared")
+
+
+# 全局单例
+_semantic_cache = None
+
+
+def get_semantic_cache() -> SemanticCache:
+    """获取全局语义缓存"""
+    global _semantic_cache
+    if _semantic_cache is None:
+        from app.core.config import settings
+
+        _semantic_cache = SemanticCache(
+            redis_host=settings.REDIS_HOST,
+            redis_port=settings.REDIS_PORT,
+            redis_password=settings.REDIS_PASSWORD,
+            redis_db=settings.REDIS_DB,
+            ttl=settings.CACHE_TTL,
+        )
+    return _semantic_cache
 
 
 # 使用示例
 if __name__ == "__main__":
-    import asyncio
 
     async def test():
-        cache = SemanticCache(redis_client=None, similarity_threshold=0.85)
+        cache = SemanticCache()
+        await cache.connect()
+
+        # 模拟query embedding
+        query1 = "Python programming tutorial"
+        emb1 = np.random.randn(384).astype(np.float32)
 
         # 设置缓存
-        query = "如何使用Python"
-        embedding = [0.1] * 128
-        result = {"documents": [], "count": 5}
+        await cache.set(query1, emb1, [{"id": "doc1", "content": "Test doc"}])
 
-        await cache.set(query, embedding, result)
+        # 获取缓存 (相同query)
+        result = await cache.get(query1, emb1)
+        print(f"Cache hit: {result is not None}")
 
-        # 精确匹配
-        hit = await cache.get(query, embedding)
-        print(f"精确匹配: {hit.hit}, level={hit.level}")
+        # 获取缓存 (相似query)
+        query2 = "Python programming guide"
+        emb2 = emb1 + np.random.randn(384) * 0.01  # 非常相似
+        result2 = await cache.get(query2, emb2)
+        print(f"Similar query hit: {result2 is not None}")
 
-        # 语义匹配
-        similar_query = "怎么用Python"
-        similar_embedding = [0.12] * 128  # 相似但不完全一样
-        hit = await cache.get(similar_query, similar_embedding)
-        print(f"语义匹配: {hit.hit}, similarity={hit.similarity:.3f}")
+        # 统计
+        stats = await cache.get_stats()
+        print(f"Cache stats: {stats}")
 
     asyncio.run(test())

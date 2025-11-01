@@ -200,7 +200,7 @@ app.add_middleware(
 # 注意：需要在启动后才能使用redis_client，所以在启动事件中添加
 
 # 注册路由
-from app.routers import admin, community, disambiguation, graphrag, document, version
+from app.routers import admin, community, disambiguation, graphrag, document, version, enhanced_graphrag
 
 app.include_router(knowledge_graph.router)
 app.include_router(community.router)
@@ -209,6 +209,7 @@ app.include_router(admin.router)
 app.include_router(graphrag.router)  # GraphRAG路由
 app.include_router(document.router)  # 文档管理路由
 app.include_router(version.router)   # 版本管理路由
+app.include_router(enhanced_graphrag.router)  # 增强版GraphRAG路由（包含所有优化）
 
 
 @app.get("/")

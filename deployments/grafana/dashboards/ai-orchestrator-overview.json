@@ -1,0 +1,258 @@
+{
+  "dashboard": {
+    "title": "AI Orchestrator - Overview",
+    "tags": ["ai-orchestrator", "voicehelper"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "实时QPS",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 0, "w": 8, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(task_created_total[1m])",
+            "legendFormat": "{{task_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "reqps", "label": "Requests/sec"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "任务成功率",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 0, "w": 4, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(task_status_total{status=\"completed\"}[5m]) / rate(task_status_total[5m]) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 95, "color": "yellow"},
+                {"value": 99, "color": "green"}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "P50/P95/P99 延迟",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(task_execution_duration_bucket[5m]))",
+            "legendFormat": "P50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(task_execution_duration_bucket[5m]))",
+            "legendFormat": "P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(task_execution_duration_bucket[5m]))",
+            "legendFormat": "P99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "任务类型分布",
+        "type": "piechart",
+        "gridPos": {"x": 0, "y": 6, "w": 6, "h": 6},
+        "targets": [
+          {
+            "expr": "sum by (task_type) (rate(task_created_total[5m]))",
+            "legendFormat": "{{task_type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "缓存命中率",
+        "type": "graph",
+        "gridPos": {"x": 6, "y": 6, "w": 9, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(cache_hits_total{level=\"l1\"}[5m]) / rate(cache_total_requests[5m]) * 100",
+            "legendFormat": "L1 (本地)",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(cache_hits_total{level=\"l2\"}[5m]) / rate(cache_total_requests[5m]) * 100",
+            "legendFormat": "L2 (Redis)",
+            "refId": "B"
+          },
+          {
+            "expr": "(rate(cache_hits_total{level=\"l1\"}[5m]) + rate(cache_hits_total{level=\"l2\"}[5m])) / rate(cache_total_requests[5m]) * 100",
+            "legendFormat": "总命中率",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "Hit Rate", "max": 100},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "队列长度",
+        "type": "graph",
+        "gridPos": {"x": 15, "y": 6, "w": 9, "h": 6},
+        "targets": [
+          {
+            "expr": "queue_length",
+            "legendFormat": "待处理任务",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Tasks"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "每日成本趋势",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(increase(task_cost_usd_total[1d])) by (tenant_id)",
+            "legendFormat": "{{tenant_id}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "currencyUSD", "label": "Cost"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Token使用量",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(rate(task_tokens_total[5m])) by (model)",
+            "legendFormat": "{{model}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Tokens/sec"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "错误率",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 18, "w": 8, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(task_status_total{status=\"failed\"}[5m]) / rate(task_status_total[5m]) * 100",
+            "legendFormat": "失败率",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "Error Rate"},
+          {"format": "short", "show": false}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"type": "gt", "params": [5]},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"type": "avg"},
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "高错误率告警",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      },
+      {
+        "id": 10,
+        "title": "意图识别准确率",
+        "type": "stat",
+        "gridPos": {"x": 8, "y": 18, "w": 4, "h": 6},
+        "targets": [
+          {
+            "expr": "rate(intent_correct_predictions[1h]) / rate(intent_total_predictions[1h]) * 100",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 92, "color": "yellow"},
+                {"value": 97, "color": "green"}
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 11,
+        "title": "Pipeline性能对比",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 18, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(task_execution_duration_bucket{task_type=\"rag\"}[5m]))",
+            "legendFormat": "RAG P95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(task_execution_duration_bucket{task_type=\"agent\"}[5m]))",
+            "legendFormat": "Agent P95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(task_execution_duration_bucket{task_type=\"multimodal\"}[5m]))",
+            "legendFormat": "Multimodal P95",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Duration"},
+          {"format": "short", "show": false}
+        ]
+      }
+    ]
+  }
+}

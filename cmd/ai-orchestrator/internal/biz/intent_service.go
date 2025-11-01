@@ -10,9 +10,10 @@ import (
 
 // IntentService 意图识别服务
 type IntentService struct {
-	recognizers []domain.IntentRecognizer
-	cache       domain.IntentCache
-	logger      *log.Helper
+	recognizers   []domain.IntentRecognizer
+	cache         domain.IntentCache
+	mlRecognizer  *MLIntentRecognizer // ML识别器（可选）
+	logger        *log.Helper
 
 	// 策略配置
 	useCache      bool

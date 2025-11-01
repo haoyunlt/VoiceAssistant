@@ -1,0 +1,225 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: knowledge-service-alerts
+  namespace: monitoring
+data:
+  knowledge-service.rules: |
+    groups:
+      - name: knowledge_service_business
+        interval: 30s
+        rules:
+          # LLM成本告警
+          - alert: LLMCostBudgetExceeded
+            expr: sum(increase(llm_cost_usd_total[24h])) > 500
+            for: 5m
+            labels:
+              severity: warning
+              component: llm
+            annotations:
+              summary: "LLM daily cost exceeded budget"
+              description: "LLM cost in last 24h is {{ $value | humanize }}USD, exceeding 500USD budget"
+
+          - alert: LLMCostCritical
+            expr: sum(increase(llm_cost_usd_total[24h])) > 1000
+            for: 5m
+            labels:
+              severity: critical
+              component: llm
+            annotations:
+              summary: "LLM daily cost critically high"
+              description: "LLM cost in last 24h is {{ $value | humanize }}USD, exceeding 1000USD critical threshold"
+
+          # LLM错误率告警
+          - alert: LLMHighErrorRate
+            expr: |
+              sum(rate(llm_requests_total{status="failure"}[5m])) /
+              sum(rate(llm_requests_total[5m])) > 0.1
+            for: 5m
+            labels:
+              severity: warning
+              component: llm
+            annotations:
+              summary: "High LLM error rate detected"
+              description: "LLM error rate is {{ $value | humanizePercentage }}, exceeding 10% threshold"
+
+          # 缓存命中率低告警
+          - alert: LowCacheHitRate
+            expr: cache_hit_rate{cache_type="llm_extraction"} < 0.3
+            for: 10m
+            labels:
+              severity: warning
+              component: cache
+            annotations:
+              summary: "Low LLM cache hit rate"
+              description: "LLM extraction cache hit rate is {{ $value | humanizePercentage }}, below 30% threshold"
+
+          # 检索性能告警
+          - alert: RetrievalHighLatency
+            expr: |
+              histogram_quantile(0.95,
+                rate(retrieval_duration_seconds_bucket{mode="hybrid"}[5m])
+              ) > 2.0
+            for: 5m
+            labels:
+              severity: warning
+              component: retrieval
+            annotations:
+              summary: "High retrieval latency detected"
+              description: "Retrieval P95 latency is {{ $value | humanizeDuration }}, exceeding 2s threshold"
+
+          # 检索召回率低告警
+          - alert: LowRetrievalRecall
+            expr: retrieval_recall_at_k{mode="hybrid",k="10"} < 0.7
+            for: 10m
+            labels:
+              severity: warning
+              component: retrieval
+            annotations:
+              summary: "Low retrieval recall rate"
+              description: "Hybrid retrieval recall@10 is {{ $value | humanizePercentage }}, below 70% threshold"
+
+          # 服务降级告警
+          - alert: ServiceDegraded
+            expr: service_degraded > 0
+            for: 1m
+            labels:
+              severity: warning
+              component: "{{ $labels.component }}"
+            annotations:
+              summary: "Service component degraded"
+              description: "Component {{ $labels.component }} is running in degraded mode"
+
+          # 降级频繁触发告警
+          - alert: FrequentFallbacks
+            expr: sum(increase(fallback_triggered_total[5m])) by (component) > 10
+            for: 5m
+            labels:
+              severity: warning
+              component: "{{ $labels.component }}"
+            annotations:
+              summary: "Frequent fallback triggers detected"
+              description: "Component {{ $labels.component }} triggered {{ $value }} fallbacks in 5 minutes"
+
+          # GraphRAG索引构建失败率告警
+          - alert: HighIndexBuildFailureRate
+            expr: |
+              sum(rate(graphrag_index_builds_total{status="failure"}[5m])) /
+              sum(rate(graphrag_index_builds_total[5m])) > 0.2
+            for: 5m
+            labels:
+              severity: warning
+              component: graphrag
+            annotations:
+              summary: "High GraphRAG index build failure rate"
+              description: "Index build failure rate is {{ $value | humanizePercentage }}, exceeding 20% threshold"
+
+          # 实体提取失败率告警
+          - alert: HighEntityExtractionFailureRate
+            expr: |
+              sum(rate(entity_extraction_total{status="failure"}[5m])) /
+              sum(rate(entity_extraction_total[5m])) > 0.15
+            for: 5m
+            labels:
+              severity: warning
+              component: extraction
+            annotations:
+              summary: "High entity extraction failure rate"
+              description: "Entity extraction failure rate is {{ $value | humanizePercentage }}, exceeding 15% threshold"
+
+          # Neo4j连接问题告警
+          - alert: Neo4jSlowQueries
+            expr: |
+              histogram_quantile(0.95,
+                rate(neo4j_query_duration_seconds_bucket[5m])
+              ) > 5.0
+            for: 5m
+            labels:
+              severity: warning
+              component: neo4j
+            annotations:
+              summary: "Neo4j queries are slow"
+              description: "Neo4j query P95 latency is {{ $value | humanizeDuration }}, exceeding 5s threshold"
+
+          # 社区检测质量告警
+          - alert: LowCommunityModularity
+            expr: community_modularity < 0.3
+            for: 10m
+            labels:
+              severity: info
+              component: community_detection
+            annotations:
+              summary: "Low community detection modularity"
+              description: "Community modularity score is {{ $value }}, below 0.3 threshold for {{ $labels.document_id }}"
+
+          # 实体链接精度告警
+          - alert: LowEntityLinkingPrecision
+            expr: entity_linking_precision < 0.7
+            for: 10m
+            labels:
+              severity: warning
+              component: entity_linking
+            annotations:
+              summary: "Low entity linking precision"
+              description: "Entity linking precision is {{ $value | humanizePercentage }}, below 70% threshold"
+
+          # Token消耗速率异常告警
+          - alert: AbnormalTokenConsumption
+            expr: |
+              sum(rate(llm_tokens_consumed_total[5m])) >
+              sum(rate(llm_tokens_consumed_total[5m] offset 1h)) * 3
+            for: 5m
+            labels:
+              severity: warning
+              component: llm
+            annotations:
+              summary: "Abnormal LLM token consumption rate"
+              description: "Token consumption rate is 3x higher than 1 hour ago"
+
+      # SLO告警组
+      - name: knowledge_service_slo
+        interval: 60s
+        rules:
+          # 可用性SLO（99.9%）
+          - alert: SLOAvailabilityBreach
+            expr: |
+              (
+                sum(rate(http_requests_total{job="knowledge-service",code=~"2.."}[30d])) /
+                sum(rate(http_requests_total{job="knowledge-service"}[30d]))
+              ) < 0.999
+            for: 5m
+            labels:
+              severity: critical
+              slo: availability
+            annotations:
+              summary: "SLO: Availability below 99.9%"
+              description: "30-day rolling availability is {{ $value | humanizePercentage }}, breaching 99.9% SLO"
+
+          # 延迟SLO（P95 < 500ms）
+          - alert: SLOLatencyBreach
+            expr: |
+              histogram_quantile(0.95,
+                rate(retrieval_duration_seconds_bucket[30d])
+              ) > 0.5
+            for: 5m
+            labels:
+              severity: critical
+              slo: latency
+            annotations:
+              summary: "SLO: P95 latency exceeds 500ms"
+              description: "30-day rolling P95 latency is {{ $value | humanizeDuration }}, breaching 500ms SLO"
+
+          # Error Budget燃尽告警
+          - alert: ErrorBudgetBurnRate
+            expr: |
+              (
+                sum(rate(http_requests_total{job="knowledge-service",code=~"5.."}[1h])) /
+                sum(rate(http_requests_total{job="knowledge-service"}[1h]))
+              ) > 0.001 * 14.4
+            for: 5m
+            labels:
+              severity: warning
+              slo: error_budget
+            annotations:
+              summary: "Error budget burning too fast"
+              description: "Error budget is burning at {{ $value }}x the acceptable rate"

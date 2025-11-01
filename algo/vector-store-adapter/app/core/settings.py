@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     otel_endpoint: str = Field(default="http://localhost:4317", description="OTLP 端点")
     otel_service_name: str = Field(default="vector-store-adapter", description="服务名称")
 
+    # Cache 配置
+    cache_enabled: bool = Field(default=True, description="是否启用搜索缓存")
+    cache_ttl: int = Field(default=300, description="缓存TTL（秒）", ge=1)
+
     def get_backend_config(self, backend: str) -> dict[str, Any]:
         """获取特定后端的配置"""
         if backend == "milvus":

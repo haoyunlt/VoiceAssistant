@@ -3,19 +3,36 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+from app.core.circuit_breaker import CircuitBreaker
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+)
+
 
 class VectorStoreBackend(ABC):
     """向量存储后端抽象基类"""
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any], backend_name: str = "unknown"):
         """
         初始化后端
 
         Args:
             config: 后端配置
+            backend_name: 后端名称（用于日志和监控）
         """
         self.config = config
+        self.backend_name = backend_name
         self.initialized = False
+
+        # Circuit breaker for fault tolerance
+        self.circuit_breaker = CircuitBreaker(
+            failure_threshold=5,
+            recovery_timeout=30.0,
+            name=f"{backend_name}_circuit_breaker",
+        )
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -94,6 +111,24 @@ class VectorStoreBackend(ABC):
         Args:
             collection_name: 集合名称
             document_id: 文档ID
+
+        Returns:
+            删除结果
+        """
+        pass
+
+    @abstractmethod
+    async def delete_by_chunk(
+        self,
+        collection_name: str,
+        chunk_id: str,
+    ) -> None:
+        """
+        删除指定分块的向量
+
+        Args:
+            collection_name: 集合名称
+            chunk_id: 分块ID
 
         Returns:
             删除结果

@@ -1,0 +1,69 @@
+{
+  "patterns": [
+    {
+      "pattern": "怎么(.+)",
+      "template": "如何{matched}",
+      "priority": 1,
+      "description": "口语化转标准化"
+    },
+    {
+      "pattern": "咋样(.+)",
+      "template": "{matched}怎么样",
+      "priority": 1,
+      "description": "口语化转标准化"
+    },
+    {
+      "pattern": "(.+)是啥",
+      "template": "什么是{matched}",
+      "priority": 1,
+      "description": "口语化转标准化"
+    },
+    {
+      "pattern": "(.+)咋用",
+      "template": "如何使用{matched}",
+      "priority": 1,
+      "description": "口语化转标准化"
+    },
+    {
+      "pattern": "为啥(.+)",
+      "template": "为什么{matched}",
+      "priority": 1,
+      "description": "口语化转标准化"
+    },
+    {
+      "pattern": "(.+)和(.+)有什么区别",
+      "template": "{matched1}与{matched2}的区别",
+      "priority": 2,
+      "description": "对比查询标准化"
+    },
+    {
+      "pattern": "(.+)好不好",
+      "template": "{matched}的优缺点",
+      "priority": 1,
+      "description": "评价查询转换"
+    },
+    {
+      "pattern": "(.+)靠谱吗",
+      "template": "{matched}的可靠性评估",
+      "priority": 1,
+      "description": "评价查询转换"
+    },
+    {
+      "pattern": "(.+)贵不贵",
+      "template": "{matched}的价格评估",
+      "priority": 1,
+      "description": "价格查询转换"
+    },
+    {
+      "pattern": "(.+)难不难",
+      "template": "{matched}的难度评估",
+      "priority": 1,
+      "description": "难度查询转换"
+    }
+  ],
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2025-11-01",
+    "total_patterns": 10
+  }
+}

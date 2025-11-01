@@ -5,12 +5,23 @@ Ultimate RAG Service - 终极 RAG 服务
 - Iter 1: Hybrid Retrieval + Reranking + Semantic Cache + Observability
 - Iter 2: Graph RAG + Query Decomposition
 - Iter 3: Self-RAG + Context Compression
+- Iter 4: Agentic RAG (ReAct + Tool Calling)
 """
 
 import logging
 from typing import Any
 
+from app.agent.react_agent import ReactAgent
+from app.agent.tools import (
+    CalculatorTool,
+    CodeInterpreterTool,
+    GraphQueryTool,
+    SQLQueryTool,
+    VectorSearchTool,
+    WebSearchTool,
+)
 from app.compression.context_compressor import ContextCompressor
+from app.observability.agent_metrics import AgentMetrics
 from app.observability.metrics import RAGMetrics
 from app.self_rag.hallucination_detector import HallucinationDetector
 from app.self_rag.self_rag_service import SelfRAGService
@@ -43,6 +54,9 @@ class UltimateRAGService:
         enable_compression: bool = True,
         compression_ratio: float = 0.5,
         use_llmlingua: bool = False,
+        # Iter 4: Agentic RAG
+        enable_agent: bool = True,
+        agent_max_iterations: int = 10,
     ):
         """
         初始化终极 RAG 服务
@@ -111,11 +125,39 @@ class UltimateRAGService:
                 logger.warning(f"Failed to initialize compressor: {e}")
                 self.enable_compression = False
 
+        # Iter 4: Agentic RAG
+        self.enable_agent = enable_agent
+        self.agent = None
+        if enable_agent:
+            try:
+                # 初始化工具
+                tools = [
+                    VectorSearchTool(retrieval_client),
+                    CalculatorTool(),
+                    WebSearchTool(),
+                    SQLQueryTool(llm_client=llm_client),
+                    CodeInterpreterTool(),
+                ]
+
+                # 如果启用了图谱，添加图谱查询工具
+                if enable_graph and self.advanced_rag.graph_store:
+                    tools.append(GraphQueryTool(self.advanced_rag.graph_store))
+
+                # 初始化 Agent
+                self.agent = ReactAgent(
+                    llm_client=llm_client, tools=tools, max_iterations=agent_max_iterations
+                )
+                logger.info(f"Agentic RAG enabled with {len(tools)} tools")
+            except Exception as e:
+                logger.warning(f"Failed to initialize Agent: {e}")
+                self.enable_agent = False
+
         logger.info(
             f"Ultimate RAG Service initialized:\n"
             f"  Iter 1: hybrid={enable_hybrid}, rerank={enable_rerank}, cache={enable_cache}\n"
             f"  Iter 2: graph={enable_graph}, decomposition={enable_decomposition}\n"
-            f"  Iter 3: self_rag={self.enable_self_rag}, compression={self.enable_compression}"
+            f"  Iter 3: self_rag={self.enable_self_rag}, compression={self.enable_compression}\n"
+            f"  Iter 4: agent={self.enable_agent}"
         )
 
     async def query(
@@ -130,6 +172,7 @@ class UltimateRAGService:
         use_decomposition: bool = True,
         use_self_rag: bool = True,
         use_compression: bool = True,
+        use_agent: bool = False,  # 默认关闭，需要显式启用
         compression_ratio: float | None = None,
     ) -> dict[str, Any]:
         """
@@ -145,6 +188,7 @@ class UltimateRAGService:
             use_decomposition: 使用查询分解
             use_self_rag: 使用自我纠错
             use_compression: 使用上下文压缩
+            use_agent: 使用 Agentic RAG（工具调用+多步推理）
             compression_ratio: 压缩比例（覆盖默认值）
 
         Returns:
@@ -153,6 +197,11 @@ class UltimateRAGService:
         with RAGMetrics(mode=mode, tenant_id=tenant_id):
             try:
                 logger.info(f"Ultimate RAG query: {query[:100]}...")
+
+                # Iter 4: Agentic RAG 路径（如果启用且需要）
+                if use_agent and self.enable_agent and self.agent and self._should_use_agent(query):
+                    logger.info("Using Agentic RAG (ReAct + Tools)")
+                    return await self._agentic_query(query, tenant_id)
 
                 # Step 1: 高级检索（包含 Iter 1 + Iter 2）
                 logger.info("Step 1: Advanced retrieval (Iter 1 + Iter 2)")
@@ -270,10 +319,111 @@ class UltimateRAGService:
 
         return "\n\n".join(context_parts)
 
+    def _should_use_agent(self, query: str) -> bool:
+        """
+        判断是否应该使用 Agentic RAG
+
+        Args:
+            query: 用户查询
+
+        Returns:
+            是否使用 Agent
+        """
+        query_lower = query.lower()
+
+        # 规则：包含计算、实时、代码、数据查询等关键词
+        calculation_keywords = ["计算", "增长率", "百分比", "总和", "平均", "占比", "差值"]
+        realtime_keywords = ["今天", "现在", "最新", "实时", "当前"]
+        data_keywords = ["找出", "查询", "统计", "列出", "排序", "筛选"]
+        code_keywords = ["代码", "执行", "运行", "python", "script"]
+
+        # 检查是否包含关键词
+        for keyword in calculation_keywords + realtime_keywords + data_keywords + code_keywords:
+            if keyword in query_lower:
+                logger.info(f"Should use agent: detected keyword '{keyword}'")
+                return True
+
+        # 检查是否为多步骤复杂查询（包含"然后"、"接着"、"之后"等连接词）
+        multi_step_keywords = ["然后", "接着", "之后", "并且", "以及", "同时"]
+        if any(kw in query for kw in multi_step_keywords):
+            logger.info("Should use agent: detected multi-step query")
+            return True
+
+        return False
+
+    async def _agentic_query(self, query: str, tenant_id: str) -> dict[str, Any]:
+        """
+        执行 Agentic RAG 查询
+
+        Args:
+            query: 用户查询
+            tenant_id: 租户 ID
+
+        Returns:
+            查询结果
+        """
+        with AgentMetrics(tenant_id=tenant_id):
+            # 使用 Agent 解决问题
+            result = await self.agent.solve(query)
+
+            if result.success:
+                return {
+                    "answer": result.answer,
+                    "documents": [],  # Agent 自己获取信息
+                    "sources": self._extract_sources_from_agent_steps(result.steps),
+                    "strategy": "agentic_rag",
+                    "agent_info": {
+                        "iterations": result.total_iterations,
+                        "tools_used": self._extract_tools_used(result.steps),
+                        "success": True,
+                    },
+                    "features_used": {
+                        "agentic_rag": True,
+                        "hybrid_retrieval": False,
+                        "reranking": False,
+                        "semantic_cache": False,
+                        "graph_rag": False,
+                        "query_decomposition": False,
+                        "self_rag": False,
+                        "compression": False,
+                    },
+                }
+            else:
+                # Agent 失败，降级到标准 RAG
+                logger.warning(f"Agent failed: {result.error}, falling back to standard RAG")
+                return await self.query(
+                    query=query,
+                    tenant_id=tenant_id,
+                    mode="ultimate",
+                    use_agent=False,  # 避免递归
+                )
+
+    def _extract_sources_from_agent_steps(self, steps: list) -> list[dict]:
+        """从 Agent 步骤中提取信息来源"""
+        sources = []
+        for step in steps:
+            if step.action and step.observation:
+                sources.append(
+                    {
+                        "type": "tool",
+                        "tool": step.action.tool_name,
+                        "observation": step.observation[:200],  # 截断
+                    }
+                )
+        return sources
+
+    def _extract_tools_used(self, steps: list) -> list[str]:
+        """提取使用的工具列表"""
+        tools = []
+        for step in steps:
+            if step.action and step.action.tool_name not in tools:
+                tools.append(step.action.tool_name)
+        return tools
+
     async def get_service_status(self) -> dict[str, Any]:
         """获取服务状态"""
         status = {
-            "service": "Ultimate RAG v2.0",
+            "service": "Ultimate RAG v2.1 (with Agentic RAG)",
             "iter1_features": {
                 "hybrid_retrieval": self.base_rag.enable_hybrid,
                 "reranking": self.base_rag.enable_rerank,
@@ -286,6 +436,10 @@ class UltimateRAGService:
             "iter3_features": {
                 "self_rag": self.enable_self_rag,
                 "context_compression": self.enable_compression,
+            },
+            "iter4_features": {
+                "agentic_rag": self.enable_agent,
+                "tools_count": len(self.agent.tools) if self.agent else 0,
             },
         }
 
@@ -317,12 +471,14 @@ def get_ultimate_rag_service(
     enable_decomposition: bool = True,
     enable_self_rag: bool = True,
     enable_compression: bool = True,
+    enable_agent: bool = True,
     graph_backend: str = "networkx",
     neo4j_uri: str | None = None,
     neo4j_user: str | None = None,
     neo4j_password: str | None = None,
     compression_ratio: float = 0.5,
     use_llmlingua: bool = False,
+    agent_max_iterations: int = 10,
 ) -> UltimateRAGService:
     """
     获取终极 RAG 服务实例
@@ -366,6 +522,8 @@ def get_ultimate_rag_service(
             enable_compression=enable_compression,
             compression_ratio=compression_ratio,
             use_llmlingua=use_llmlingua,
+            enable_agent=enable_agent,
+            agent_max_iterations=agent_max_iterations,
         )
 
     return _ultimate_rag_service

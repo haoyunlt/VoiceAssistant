@@ -11,9 +11,12 @@ import (
 
 // TaskUsecase 任务用例
 type TaskUsecase struct {
-	repo      domain.TaskRepository
-	pipelines map[domain.TaskType]domain.Pipeline
-	log       *log.Helper
+	repo         domain.TaskRepository
+	pipelines    map[domain.TaskType]domain.Pipeline
+	queue        TaskQueue        // 任务队列（可选）
+	cacheManager *CacheManager    // 缓存管理器（可选）
+	idempotency  *IdempotencyService // 幂等性服务（可选）
+	log          *log.Helper
 }
 
 // NewTaskUsecase 创建任务用例
@@ -22,6 +25,9 @@ func NewTaskUsecase(
 	ragPipeline *domain.RAGPipeline,
 	agentPipeline *domain.AgentPipeline,
 	voicePipeline *domain.VoicePipeline,
+	queue TaskQueue, // 可以为nil
+	cacheManager *CacheManager, // 可以为nil
+	idempotency *IdempotencyService, // 可以为nil
 	logger log.Logger,
 ) *TaskUsecase {
 	pipelines := map[domain.TaskType]domain.Pipeline{
@@ -31,9 +37,12 @@ func NewTaskUsecase(
 	}
 
 	return &TaskUsecase{
-		repo:      repo,
-		pipelines: pipelines,
-		log:       log.NewHelper(logger),
+		repo:         repo,
+		pipelines:    pipelines,
+		queue:        queue,
+		cacheManager: cacheManager,
+		idempotency:  idempotency,
+		log:          log.NewHelper(logger),
 	}
 }
 
@@ -134,8 +143,20 @@ func (uc *TaskUsecase) ExecuteTask(ctx context.Context, taskID string) (*domain.
 	return output, nil
 }
 
-// GetTask 获取任务详情
+// GetTask 获取任务详情（使用缓存）
 func (uc *TaskUsecase) GetTask(ctx context.Context, taskID string) (*domain.Task, error) {
+	// 使用缓存管理器
+	if uc.cacheManager != nil {
+		task, err := uc.cacheManager.GetTask(ctx, taskID)
+		if err != nil {
+			uc.log.WithContext(ctx).Errorf("failed to get task from cache: %v", err)
+			// 降级到直接查询
+		} else {
+			return task, nil
+		}
+	}
+
+	// 直接查询数据库
 	task, err := uc.repo.GetByID(ctx, taskID)
 	if err != nil {
 		uc.log.WithContext(ctx).Errorf("failed to get task %s: %v", taskID, err)
@@ -214,6 +235,160 @@ func (uc *TaskUsecase) CreateAndExecuteTask(
 	}
 
 	return task, output, nil
+}
+
+// CreateTaskAsync 创建任务（异步执行，支持幂等性）
+func (uc *TaskUsecase) CreateTaskAsync(
+	ctx context.Context,
+	taskType domain.TaskType,
+	conversationID, userID, tenantID string,
+	input *domain.TaskInput,
+	idempotencyKey string, // 幂等键（可选）
+) (*domain.Task, error) {
+	// 幂等性检查
+	if uc.idempotency != nil && idempotencyKey != "" {
+		isNew, existingTaskID, err := uc.idempotency.CheckOrCreate(ctx, idempotencyKey, "")
+		if err != nil {
+			uc.log.WithContext(ctx).Errorf("idempotency check failed: %v", err)
+			// 继续执行（降级）
+		} else if !isNew {
+			// 重复请求，返回已存在的任务
+			uc.log.WithContext(ctx).Infof("duplicate request detected, returning existing task: %s", existingTaskID)
+			return uc.GetTask(ctx, existingTaskID)
+		}
+	}
+
+	// 验证任务类型
+	if _, exists := uc.pipelines[taskType]; !exists {
+		return nil, fmt.Errorf("unsupported task type: %s", taskType)
+	}
+
+	// 创建任务
+	task := domain.NewTask(taskType, conversationID, userID, tenantID, input)
+
+	// 更新幂等键（关联任务ID）
+	if uc.idempotency != nil && idempotencyKey != "" {
+		uc.idempotency.CheckOrCreate(ctx, idempotencyKey, task.ID)
+	}
+
+	// 如果有队列，推送到队列
+	if uc.queue != nil {
+		if err := uc.queue.Enqueue(ctx, task); err != nil {
+			uc.log.WithContext(ctx).Errorf("failed to enqueue task: %v", err)
+			return nil, err
+		}
+
+		// 记录指标
+		TaskCreatedTotal.WithLabelValues(string(task.Type), task.TenantID).Inc()
+
+		uc.log.WithContext(ctx).Infof("task %s created and enqueued (async)", task.ID)
+	} else {
+		// 无队列，同步创建
+		if err := uc.repo.Create(ctx, task); err != nil {
+			uc.log.WithContext(ctx).Errorf("failed to create task: %v", err)
+			return nil, err
+		}
+
+		// 记录指标
+		TaskCreatedTotal.WithLabelValues(string(task.Type), task.TenantID).Inc()
+
+		uc.log.WithContext(ctx).Infof("task %s created (sync)", task.ID)
+	}
+
+	// 写入缓存
+	if uc.cacheManager != nil {
+		uc.cacheManager.SetTask(ctx, task)
+	}
+
+	return task, nil
+}
+
+// ExecuteTaskStream 流式执行任务
+func (uc *TaskUsecase) ExecuteTaskStream(
+	ctx context.Context,
+	taskID string,
+	stream chan<- *domain.StreamEvent,
+) error {
+	defer close(stream)
+
+	// 获取任务
+	task, err := uc.repo.GetByID(ctx, taskID)
+	if err != nil {
+		stream <- domain.NewStreamEvent(domain.StreamEventTypeError, "").WithError(err)
+		return err
+	}
+
+	// 检查任务状态
+	if task.Status != domain.TaskStatusPending {
+		err := fmt.Errorf("task %s is not in pending state", taskID)
+		stream <- domain.NewStreamEvent(domain.StreamEventTypeError, "").WithError(err)
+		return err
+	}
+
+	// 获取对应的Pipeline
+	pipeline, exists := uc.pipelines[task.Type]
+	if !exists {
+		err := fmt.Errorf("no pipeline found for task type: %s", task.Type)
+		stream <- domain.NewStreamEvent(domain.StreamEventTypeError, "").WithError(err)
+		return err
+	}
+
+	// 开始执行
+	task.Start()
+	if err := uc.repo.Update(ctx, task); err != nil {
+		uc.log.WithContext(ctx).Errorf("failed to update task start: %v", err)
+	}
+
+	uc.log.WithContext(ctx).Infof("executing task %s (stream mode)", task.ID)
+
+	// 检查Pipeline是否支持流式
+	streamPipeline, ok := pipeline.(domain.StreamPipeline)
+	if !ok {
+		// 不支持流式，降级到普通执行
+		output, err := pipeline.Execute(task)
+		if err != nil {
+			task.Fail(err.Error())
+			uc.repo.Update(ctx, task)
+			stream <- domain.NewStreamEvent(domain.StreamEventTypeError, "").WithError(err)
+			return err
+		}
+
+		// 发送结果
+		stream <- domain.NewStreamEvent(domain.StreamEventTypeText, output.Content)
+		stream <- domain.NewStreamEvent(domain.StreamEventTypeFinal, "完成").WithDone()
+
+		task.Complete(output)
+		uc.repo.Update(ctx, task)
+		return nil
+	}
+
+	// 流式执行
+	err = streamPipeline.ExecuteStream(task, stream)
+	if err != nil {
+		task.Fail(err.Error())
+		uc.repo.Update(ctx, task)
+
+		// 记录失败指标
+		TaskStatusTotal.WithLabelValues(string(task.Type), "failed", task.TenantID).Inc()
+		TaskExecutionDuration.WithLabelValues(string(task.Type), "failed", task.TenantID).Observe(task.Duration().Seconds())
+
+		return err
+	}
+
+	// 完成任务（注意：output需要从task中提取）
+	output := &domain.TaskOutput{
+		Content: "Stream completed", // 实际应从task中提取
+	}
+	task.Complete(output)
+	uc.repo.Update(ctx, task)
+
+	// 记录成功指标
+	TaskStatusTotal.WithLabelValues(string(task.Type), "completed", task.TenantID).Inc()
+	TaskExecutionDuration.WithLabelValues(string(task.Type), "completed", task.TenantID).Observe(task.Duration().Seconds())
+
+	uc.log.WithContext(ctx).Infof("task %s completed (stream mode)", task.ID)
+
+	return nil
 }
 
 // ProcessPendingTasks 处理待执行任务（后台任务）

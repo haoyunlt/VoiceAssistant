@@ -1,0 +1,235 @@
+{
+  "dashboard": {
+    "title": "AI Orchestrator - Cost Analysis",
+    "tags": ["ai-orchestrator", "cost", "billing"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "title": "每日成本总览",
+        "type": "stat",
+        "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(task_cost_usd_total[1d]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 100, "color": "yellow"},
+                {"value": 500, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "每日Token用量",
+        "type": "stat",
+        "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(task_tokens_total[1d]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "每日任务数",
+        "type": "stat",
+        "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(task_created_total[1d]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "平均单次成本",
+        "type": "stat",
+        "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4},
+        "targets": [
+          {
+            "expr": "sum(increase(task_cost_usd_total[1d])) / sum(increase(task_created_total[1d]))",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "currencyUSD",
+            "decimals": 4
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "成本趋势（按天）",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum(increase(task_cost_usd_total[1d]))",
+            "legendFormat": "总成本",
+            "refId": "A"
+          },
+          {
+            "expr": "sum by (task_type) (increase(task_cost_usd_total[1d]))",
+            "legendFormat": "{{task_type}}",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "currencyUSD", "label": "Cost"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "成本占比（按任务类型）",
+        "type": "piechart",
+        "gridPos": {"x": 12, "y": 4, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (task_type) (increase(task_cost_usd_total[7d]))",
+            "legendFormat": "{{task_type}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "成本占比（按模型）",
+        "type": "piechart",
+        "gridPos": {"x": 18, "y": 4, "w": 6, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (model) (increase(task_cost_usd_total[7d]))",
+            "legendFormat": "{{model}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "租户成本排行（Top 10）",
+        "type": "table",
+        "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "topk(10, sum by (tenant_id) (increase(task_cost_usd_total[7d])))",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {},
+              "indexByName": {},
+              "renameByName": {
+                "tenant_id": "租户ID",
+                "Value": "成本（USD）"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "模型成本对比",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "sum by (model) (rate(task_cost_usd_total[1h]))",
+            "legendFormat": "{{model}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "currencyUSD", "label": "Cost/hour"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Token效率（Token/Cost）",
+        "type": "graph",
+        "gridPos": {"x": 0, "y": 20, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(rate(task_tokens_total[5m])) / sum(rate(task_cost_usd_total[5m]))",
+            "legendFormat": "Tokens per Dollar",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "Tokens/$"},
+          {"format": "short", "show": false}
+        ]
+      },
+      {
+        "id": 11,
+        "title": "成本异常告警",
+        "type": "graph",
+        "gridPos": {"x": 12, "y": 20, "w": 12, "h": 6},
+        "targets": [
+          {
+            "expr": "sum(rate(task_cost_usd_total[5m])) * 3600",
+            "legendFormat": "当前成本速率（$/小时）",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "currencyUSD", "label": "Cost/hour"},
+          {"format": "short", "show": false}
+        ],
+        "alert": {
+          "conditions": [
+            {
+              "evaluator": {"type": "gt", "params": [50]},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"type": "avg"},
+              "type": "query"
+            }
+          ],
+          "executionErrorState": "alerting",
+          "frequency": "60s",
+          "handler": 1,
+          "name": "成本异常告警",
+          "message": "当前成本速率超过$50/小时，请检查！",
+          "noDataState": "no_data",
+          "notifications": []
+        }
+      }
+    ]
+  }
+}

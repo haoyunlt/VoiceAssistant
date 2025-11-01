@@ -9,6 +9,13 @@ type Pipeline interface {
 	Name() string
 }
 
+// StreamPipeline 支持流式输出的Pipeline接口
+type StreamPipeline interface {
+	Pipeline
+	// ExecuteStream 流式执行
+	ExecuteStream(task *Task, stream chan<- *StreamEvent) error
+}
+
 // PipelineStep 流程步骤接口
 type PipelineStep interface {
 	// Execute 执行步骤

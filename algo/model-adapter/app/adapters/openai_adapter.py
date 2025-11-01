@@ -7,6 +7,7 @@ from typing import Any
 from openai import AsyncOpenAI, OpenAIError
 
 from app.core.base_adapter import AdapterResponse, AdapterStreamChunk, BaseAdapter
+from app.core.resilience import with_resilience, StreamErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,14 @@ class OpenAIAdapter(BaseAdapter):
             base_url=base_url,
         )
 
+    @with_resilience(
+        provider_name="openai",
+        max_attempts=3,
+        timeout=60.0,
+        fail_max=5,
+        breaker_timeout=30,
+        retry_exceptions=(OpenAIError, TimeoutError),
+    )
     async def generate(
         self,
         model: str,
@@ -43,6 +52,8 @@ class OpenAIAdapter(BaseAdapter):
         """
         生成文本 (非流式).
 
+        自动重试 (3次) + 熔断器保护 + 60s超时
+
         Args:
             model: 模型名称 (如 gpt-3.5-turbo)
             messages: 消息列表
@@ -56,6 +67,9 @@ class OpenAIAdapter(BaseAdapter):
 
         Returns:
             适配器响应
+
+        Raises:
+            RuntimeError: OpenAI API错误或熔断器打开
         """
         try:
             response = await self.client.chat.completions.create(
@@ -105,6 +119,8 @@ class OpenAIAdapter(BaseAdapter):
         """
         生成文本 (流式).
 
+        自动错误处理 + SSE格式错误事件
+
         Args:
             model: 模型名称
             messages: 消息列表
@@ -113,9 +129,10 @@ class OpenAIAdapter(BaseAdapter):
             **kwargs: 其他参数
 
         Yields:
-            流式chunk
+            流式chunk或错误事件
         """
-        try:
+        async def _internal_stream():
+            """内部流式生成器."""
             stream = await self.client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -141,9 +158,13 @@ class OpenAIAdapter(BaseAdapter):
                         metadata={"id": chunk.id},
                     )
 
-        except OpenAIError as e:
-            logger.error(f"OpenAI streaming error: {e}")
-            raise RuntimeError(f"OpenAI streaming error: {e}")
+        # 使用StreamErrorHandler包装，增加错误处理和心跳
+        async for event in StreamErrorHandler.wrap_stream_with_error_handling(
+            _internal_stream(),
+            provider=self.provider,
+            model=model,
+        ):
+            yield event
 
     async def generate_with_functions(
         self,

@@ -22,7 +22,7 @@ class MilvusBackend(VectorStoreBackend):
     """Milvus 向量数据库后端"""
 
     def __init__(self, config: dict[str, Any]):
-        super().__init__(config)
+        super().__init__(config, backend_name="milvus")
         self.collections: dict[str, Collection] = {}
         self.alias = "default"
 
@@ -215,6 +215,21 @@ class MilvusBackend(VectorStoreBackend):
         result = collection.delete(expr)
 
         logger.info(f"Deleted vectors for document {document_id} from Milvus")
+
+        return result
+
+    async def delete_by_chunk(
+        self,
+        collection_name: str,
+        chunk_id: str,
+    ) -> Any:
+        """删除指定分块的向量"""
+        collection = self._get_or_create_collection(collection_name)
+
+        expr = f'chunk_id == "{chunk_id}"'
+        result = collection.delete(expr)
+
+        logger.info(f"Deleted vector for chunk {chunk_id} from Milvus")
 
         return result
 

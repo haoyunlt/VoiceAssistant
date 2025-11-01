@@ -93,9 +93,54 @@ class PlanExecuteExecutor:
 
     async def _execute_step(self, step: str, tools: list[dict]) -> str:
         """执行单个步骤"""
-        # 简化实现：直接返回步骤描述
-        # TODO: 实际应该解析步骤，调用工具
-        return f"执行: {step}"
+        # 1. 解析步骤，提取工具调用
+        tool_call = await self._parse_step_for_tool_call(step, tools)
+        
+        if tool_call:
+            # 2. 调用工具
+            try:
+                result = await self.tool_registry.execute_tool(
+                    tool_call['tool_name'],
+                    **tool_call['arguments']
+                )
+                return f"步骤: {step}\n结果: {result}"
+            except Exception as e:
+                logger.error(f"Tool execution failed: {e}")
+                return f"步骤: {step}\n错误: {str(e)}"
+        else:
+            # 3. 如果无需工具，使用LLM直接回答
+            prompt = f"请执行以下步骤: {step}"
+            result = await self.llm_client.generate(prompt, temperature=0.3, max_tokens=300)
+            return f"步骤: {step}\n结果: {result}"
+    
+    async def _parse_step_for_tool_call(self, step: str, tools: list[dict]) -> dict | None:
+        """解析步骤，提取工具调用"""
+        # 使用LLM解析步骤，判断是否需要调用工具
+        tools_desc = "\n".join([f"- {t['name']}: {t['description']}" for t in tools])
+        
+        prompt = f"""分析以下步骤，判断是否需要使用工具。
+
+步骤: {step}
+
+可用工具:
+{tools_desc}
+
+如果需要使用工具，返回JSON格式:
+{{"tool_name": "工具名称", "arguments": {{"参数名": "参数值"}}}}
+
+如果不需要工具，返回: {{"tool_name": null}}"""
+
+        response = await self.llm_client.generate(prompt, temperature=0.0, max_tokens=200)
+        
+        try:
+            import json
+            result = json.loads(response.strip())
+            if result.get('tool_name'):
+                return result
+        except Exception as e:
+            logger.warning(f"Failed to parse tool call: {e}")
+        
+        return None
 
     async def _summarize_results(self, task: str, results: list[dict]) -> str:
         """汇总结果"""

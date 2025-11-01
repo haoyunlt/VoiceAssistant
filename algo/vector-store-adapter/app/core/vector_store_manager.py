@@ -157,6 +157,26 @@ class VectorStoreManager:
         backend_instance = self._get_backend(backend)
         return await backend_instance.delete_by_document(collection_name, document_id)
 
+    async def delete_by_chunk(
+        self,
+        collection_name: str,
+        backend: str,
+        chunk_id: str,
+    ) -> Any:
+        """
+        删除指定分块的向量
+
+        Args:
+            collection_name: 集合名称
+            backend: 后端类型
+            chunk_id: 分块ID
+
+        Returns:
+            删除结果
+        """
+        backend_instance = self._get_backend(backend)
+        return await backend_instance.delete_by_chunk(collection_name, chunk_id)
+
     async def get_count(
         self,
         collection_name: str,

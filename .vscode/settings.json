@@ -1,7 +1,7 @@
 {
   // ==============================================================================
   // Cursor IDE Performance Optimization Settings
-  // VoiceAssistant 平台 - 性能优化配置
+  // VoiceAssistant 平台 - 性能优化配置（增强版）
   // ==============================================================================
 
   // ============================================
@@ -36,7 +36,10 @@
     "**/go.sum": true,
     "**/pnpm-lock.yaml": true,
     "**/yarn.lock": true,
-    "**/package-lock.json": true
+    "**/package-lock.json": true,
+    "**/*.egg-info/**": true,
+    "**/.tox/**": true,
+    "**/.nox/**": true
   },
 
   "files.exclude": {
@@ -54,7 +57,8 @@
     "**/.parcel-cache": true,
     "**/.eslintcache": true,
     "**/.stylelintcache": true,
-    "**/tsconfig.tsbuildinfo": true
+    "**/tsconfig.tsbuildinfo": true,
+    "**/*.egg-info": true
   },
 
   "search.exclude": {
@@ -89,7 +93,11 @@
     "**/*.wav": true,
     "**/*.mp3": true,
     "**/*.mp4": true,
-    "**/*.avi": true
+    "**/*.avi": true,
+    "**/*.egg-info": true,
+    "**/.tox": true,
+    "**/.nox": true,
+    "**/api/gen/**": true
   },
 
   // ============================================
@@ -118,6 +126,8 @@
   "editor.wordWrap": "off",
   "editor.bracketPairColorization.enabled": true,
   "editor.guides.bracketPairs": "active",
+  "editor.semanticHighlighting.enabled": true,
+  "editor.inlineSuggest.enabled": true,
 
   // ============================================
   // Files & Encoding
@@ -164,7 +174,7 @@
     "staticcheck": true,
     "ui.semanticTokens": true,
     "ui.completion.usePlaceholders": true,
-    "directoryFilters": ["-node_modules", "-vendor", "-.venv", "-dist", "-build"]
+    "directoryFilters": ["-node_modules", "-vendor", "-.venv", "-dist", "-build", "-bin"]
   },
 
   // Python (Cursor 使用 cursorpyright，配置与 Pylance 兼容)
@@ -180,7 +190,7 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.autoImportCompletions": true,
   "python.analysis.indexing": true,
-  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.diagnosticMode": "openFilesOnly",
   "python.analysis.autoSearchPaths": true,
   "python.analysis.extraPaths": ["./algo/common"],
   "python.analysis.exclude": [
@@ -193,7 +203,9 @@
     "**/build",
     "**/.pytest_cache",
     "**/.mypy_cache",
-    "**/.ruff_cache"
+    "**/.ruff_cache",
+    "**/*.egg-info",
+    "**/api/gen/**"
   ],
   "python.analysis.inlayHints.functionReturnTypes": true,
   "python.analysis.inlayHints.variableTypes": false,
@@ -409,15 +421,21 @@
   "cursor.chat.alwaysSearchWeb": false,
 
   // ============================================
-  // Performance Tuning
+  // Performance Tuning (增强版)
   // ============================================
   "workbench.editor.limit.enabled": true,
-  "workbench.editor.limit.value": 10,
+  "workbench.editor.limit.value": 8,
   "workbench.editor.limit.perEditorGroup": true,
   "problems.maxNumberOfResults": 1000,
-  "search.maxResults": 20000,
+  "search.maxResults": 10000,
   "search.quickOpen.includeSymbols": false,
   "security.workspace.trust.untrustedFiles": "open",
+
+  // 禁用一些不必要的功能以提升性能
+  "workbench.enableExperiments": false,
+  "workbench.settings.enableNaturalLanguageSearch": false,
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
 
   // ============================================
   // Telemetry (可选关闭以提升性能)

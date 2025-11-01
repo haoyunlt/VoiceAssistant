@@ -20,7 +20,7 @@ class PgVectorBackend(VectorStoreBackend):
     VALID_TABLE_NAME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$')
 
     def __init__(self, config: dict[str, Any]):
-        super().__init__(config)
+        super().__init__(config, backend_name="pgvector")
         self.pool: asyncpg.Pool | None = None
 
     @staticmethod
@@ -239,6 +239,25 @@ class PgVectorBackend(VectorStoreBackend):
             )
 
         logger.info(f"Deleted vectors for document {document_id} from pgvector")
+
+        return {"deleted": result}
+
+    async def delete_by_chunk(
+        self,
+        collection_name: str,
+        chunk_id: str,
+    ) -> Any:
+        """删除指定分块的向量"""
+        # 验证表名
+        safe_table_name = self._validate_table_name(collection_name)
+
+        async with self.pool.acquire() as conn:
+            result = await conn.execute(
+                f"DELETE FROM {safe_table_name} WHERE chunk_id = $1",
+                chunk_id,
+            )
+
+        logger.info(f"Deleted vector for chunk {chunk_id} from pgvector")
 
         return {"deleted": result}
 

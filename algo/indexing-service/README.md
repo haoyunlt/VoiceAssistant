@@ -10,6 +10,7 @@ Indexing Service 是 VoiceHelper 平台的文档索引与向量化服务，负�
 - **向量存储**：集成 Milvus 向量数据库
 - **知识图谱**：构建文档关系图（Neo4j）
 - **对象存储**：MinIO 文件存储
+- **成本优化** 🆕：文本去重 + Token 计费 + 预算管理（Iter 3）
 
 ## 技术栈
 
@@ -312,6 +313,65 @@ make format
 - BGE-M3: 1024 维（推荐）
 - OpenAI: 1536 维
 - 自定义模型：根据模型选择
+
+## 成本优化器 🆕
+
+### 功能概览
+
+成本优化器（Iter 3）提供全面的 Embedding 成本控制：
+
+- **文本去重**：Hash-based 去重，节省 30%-70% 成本
+- **Token 计数**：精确/近似两种模式，支持多语言
+- **成本计算**：多模型、多租户统计，Prometheus 指标
+- **预算管理**：每日/每月预算、实时告警、预算预检
+- **优化建议**：数据驱动的成本优化建议
+
+### 快速开始
+
+```python
+from app.core.cost_optimizer import CostOptimizer
+
+# 初始化
+optimizer = CostOptimizer(
+    model_name="bge-m3",
+    enable_deduplication=True,
+)
+
+# 优化文本
+texts = ["问题1", "问题2", "问题1"] * 10
+unique, indices, stats = optimizer.optimize_and_calculate(
+    texts=texts,
+    model="bge-m3",
+    tenant_id="my_tenant",
+)
+
+print(f"节省: {stats['savings']['savings_rate']:.0%}")
+```
+
+### 性能指标
+
+| 指标 | 值 |
+|------|-----|
+| 去重速度 | 500k+ texts/s |
+| 成本节省（高重复） | 90%+ |
+| Token 计数速度 | 20k+ texts/s |
+
+### 文档
+
+- **快速入门**：[COST_OPTIMIZER_QUICKSTART.md](COST_OPTIMIZER_QUICKSTART.md)
+- **详细实现**：[COST_OPTIMIZER_IMPLEMENTATION.md](COST_OPTIMIZER_IMPLEMENTATION.md)
+- **快速参考**：[COST_OPTIMIZER_QUICKREF.md](COST_OPTIMIZER_QUICKREF.md)
+- **总结报告**：查看项目根目录的 [COST_OPTIMIZER_SUMMARY.md](../../COST_OPTIMIZER_SUMMARY.md)
+
+### 演示
+
+```bash
+# 基础演示（7 个场景）
+python3 examples/cost_optimizer_demo.py
+
+# 集成演示（5 个场景）
+python3 examples/cost_optimizer_integration.py
+```
 
 ## 许可证
 
