@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
@@ -24,15 +25,16 @@ const (
 
 // Client WebSocket客户端
 type Client struct {
-	ID        string
-	UserID    string
-	SessionID string
-	DeviceID  string
-	Conn      *websocket.Conn
-	Send      chan []byte
-	Hub       *Hub
-	log       *log.Helper
-	mu        sync.Mutex
+	ID          string
+	UserID      string
+	SessionID   string
+	DeviceID    string
+	Conn        *websocket.Conn
+	Send        chan []byte
+	Hub         *Hub
+	log         *log.Helper
+	mu          sync.Mutex
+	ConnectedAt time.Time // 连接时间
 }
 
 // NewClient 创建新的WebSocket客户端
@@ -43,14 +45,15 @@ func NewClient(
 	logger log.Logger,
 ) *Client {
 	return &Client{
-		ID:        id,
-		UserID:    userID,
-		SessionID: sessionID,
-		DeviceID:  deviceID,
-		Conn:      conn,
-		Send:      make(chan []byte, 256),
-		Hub:       hub,
-		log:       log.NewHelper(log.With(logger, "module", "ws-client", "client_id", id)),
+		ID:          id,
+		UserID:      userID,
+		SessionID:   sessionID,
+		DeviceID:    deviceID,
+		Conn:        conn,
+		Send:        make(chan []byte, 256),
+		Hub:         hub,
+		log:         log.NewHelper(log.With(logger, "module", "ws-client", "client_id", id)),
+		ConnectedAt: time.Now(),
 	}
 }
 
@@ -140,4 +143,21 @@ func (c *Client) SendMessage(message []byte) error {
 	default:
 		return ErrSendBufferFull
 	}
+}
+
+// SendJSON 发送 JSON 消息给客户端
+func (c *Client) SendJSON(data interface{}) error {
+	messageBytes, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	return c.SendMessage(messageBytes)
+}
+
+// Close 关闭客户端连接
+func (c *Client) Close() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.Conn.Close()
 }

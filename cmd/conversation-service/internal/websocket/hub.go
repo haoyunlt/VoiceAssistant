@@ -31,6 +31,10 @@ type Hub struct {
 
 	// 互斥锁
 	mu sync.RWMutex
+
+	// 连接限制配置
+	maxConnectionsPerUser int
+	maxTotalConnections   int
 }
 
 // BroadcastMessage 广播消息
@@ -40,15 +44,32 @@ type BroadcastMessage struct {
 	Exclude string // 排除的ClientID
 }
 
+// HubConfig WebSocket Hub 配置
+type HubConfig struct {
+	MaxConnectionsPerUser int
+	MaxTotalConnections   int
+	BroadcastBufferSize   int
+}
+
 // NewHub 创建新的Hub
-func NewHub(logger log.Logger) *Hub {
+func NewHub(logger log.Logger, config *HubConfig) *Hub {
+	if config == nil {
+		config = &HubConfig{
+			MaxConnectionsPerUser: 5,     // 单用户最多 5 个连接
+			MaxTotalConnections:   10000, // 总连接数限制
+			BroadcastBufferSize:   256,
+		}
+	}
+
 	return &Hub{
-		Clients:     make(map[string]*Client),
-		Register:    make(chan *Client),
-		Unregister:  make(chan *Client),
-		Broadcast:   make(chan *BroadcastMessage, 256),
-		UserClients: make(map[string]map[string]*Client),
-		log:         log.NewHelper(log.With(logger, "module", "ws-hub")),
+		Clients:               make(map[string]*Client),
+		Register:              make(chan *Client),
+		Unregister:            make(chan *Client),
+		Broadcast:             make(chan *BroadcastMessage, config.BroadcastBufferSize),
+		UserClients:           make(map[string]map[string]*Client),
+		log:                   log.NewHelper(log.With(logger, "module", "ws-hub")),
+		maxConnectionsPerUser: config.MaxConnectionsPerUser,
+		maxTotalConnections:   config.MaxTotalConnections,
 	}
 }
 
@@ -77,6 +98,28 @@ func (h *Hub) registerClient(client *Client) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
+	// 检查总连接数限制
+	if len(h.Clients) >= h.maxTotalConnections {
+		h.log.Warnf("Rejected connection: max total connections reached (%d)", h.maxTotalConnections)
+		h.sendConnectionRejected(client, "Server connection limit reached")
+		return
+	}
+
+	// 检查单用户连接数限制
+	if userClients, ok := h.UserClients[client.UserID]; ok {
+		if len(userClients) >= h.maxConnectionsPerUser {
+			h.log.Warnf("Rejected connection: user %s exceeded max connections (%d)",
+				client.UserID, h.maxConnectionsPerUser)
+
+			// 关闭最旧的连接（可选策略：也可以拒绝新连接）
+			h.closeOldestConnection(client.UserID)
+
+			// 或者直接拒绝
+			// h.sendConnectionRejected(client, "User connection limit reached")
+			// return
+		}
+	}
+
 	// 添加到客户端映射
 	h.Clients[client.ID] = client
 
@@ -95,6 +138,10 @@ func (h *Hub) registerClient(client *Client) {
 		"message":   "Connected to VoiceHelper",
 		"client_id": client.ID,
 		"timestamp": time.Now().Unix(),
+		"connections": map[string]interface{}{
+			"current": len(h.UserClients[client.UserID]),
+			"max":     h.maxConnectionsPerUser,
+		},
 	}
 	msgBytes, _ := json.Marshal(welcomeMsg)
 	client.SendMessage(msgBytes)
@@ -244,6 +291,59 @@ func (h *Hub) GetUserDeviceCount(userID string) int {
 		return len(userClients)
 	}
 	return 0
+}
+
+// sendConnectionRejected 发送连接拒绝消息
+func (h *Hub) sendConnectionRejected(client *Client, reason string) {
+	rejectMsg := map[string]interface{}{
+		"type":      "connection_rejected",
+		"reason":    reason,
+		"timestamp": time.Now().Unix(),
+	}
+	msgBytes, _ := json.Marshal(rejectMsg)
+	client.SendMessage(msgBytes)
+
+	// 延迟关闭连接
+	go func() {
+		time.Sleep(time.Second)
+		client.Close()
+	}()
+}
+
+// closeOldestConnection 关闭最旧的连接（基于连接时间）
+func (h *Hub) closeOldestConnection(userID string) {
+	if userClients, ok := h.UserClients[userID]; ok {
+		var oldestClient *Client
+		var oldestTime time.Time
+
+		// 找到最旧的连接
+		for _, client := range userClients {
+			if oldestClient == nil || client.ConnectedAt.Before(oldestTime) {
+				oldestClient = client
+				oldestTime = client.ConnectedAt
+			}
+		}
+
+		if oldestClient != nil {
+			h.log.Infof("Closing oldest connection for user %s: client_id=%s",
+				userID, oldestClient.ID)
+
+			// 发送通知
+			noticeMsg := map[string]interface{}{
+				"type":      "connection_replaced",
+				"message":   "This connection has been replaced by a newer one",
+				"timestamp": time.Now().Unix(),
+			}
+			msgBytes, _ := json.Marshal(noticeMsg)
+			oldestClient.SendMessage(msgBytes)
+
+			// 关闭连接
+			go func() {
+				time.Sleep(time.Second)
+				oldestClient.Close()
+			}()
+		}
+	}
 }
 
 // SendToUser 发送消息给用户的所有设备

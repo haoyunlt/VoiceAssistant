@@ -26,4 +26,13 @@ var (
 
 	// ErrConversationLimitReached 对话限制已达到
 	ErrConversationLimitReached = errors.New("conversation limit reached")
+
+	// ErrOperationNotAllowed 操作不允许
+	ErrOperationNotAllowed = errors.New("operation not allowed")
+
+	// ErrEditTimeExpired 编辑时间已过期
+	ErrEditTimeExpired = errors.New("edit time has expired")
+
+	// ErrRecallTimeExpired 撤回时间已过期
+	ErrRecallTimeExpired = errors.New("recall time has expired")
 )

@@ -14,8 +14,21 @@ type Message struct {
 	Tokens         int
 	Model          string
 	Provider       string
+	Status         string          // 状态：active, deleted, recalled
+	Edited         bool            // 是否已编辑
+	EditCount      int             // 编辑次数
+	EditHistory    []MessageEdit   // 编辑历史
+	RecalledAt     time.Time       // 撤回时间
+	DeletedAt      time.Time       // 删除时间
+	UpdatedAt      time.Time       // 更新时间
 	Metadata       map[string]string
 	CreatedAt      time.Time
+}
+
+// MessageEdit 消息编辑记录
+type MessageEdit struct {
+	OriginalContent string    // 原始内容
+	EditedAt        time.Time // 编辑时间
 }
 
 // MessageRole 消息角色
