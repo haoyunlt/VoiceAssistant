@@ -40,6 +40,7 @@ TASK_WAIT_TIME = Histogram(
 
 class TaskPriority(Enum):
     """任务优先级"""
+
     LOW = 0
     MEDIUM = 1
     HIGH = 2
@@ -48,6 +49,7 @@ class TaskPriority(Enum):
 
 class TaskStatus(Enum):
     """任务状态"""
+
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
@@ -205,9 +207,7 @@ class IndexingTaskQueue:
         queue_size = await self.redis.llen(queue_key)
 
         if queue_size >= self.max_queue_size:
-            logger.warning(
-                f"Queue size limit reached: {queue_size} >= {self.max_queue_size}"
-            )
+            logger.warning(f"Queue size limit reached: {queue_size} >= {self.max_queue_size}")
             raise ValueError(f"Queue is full (size={queue_size})")
 
         # 保存任务状态
@@ -257,9 +257,7 @@ class IndexingTaskQueue:
 
             if task_id:
                 # 更新队列大小指标
-                QUEUE_SIZE.labels(priority=priority.name).set(
-                    await self.redis.llen(queue_key)
-                )
+                QUEUE_SIZE.labels(priority=priority.name).set(await self.redis.llen(queue_key))
 
                 # 获取任务详情
                 task = await self.get_task(task_id)

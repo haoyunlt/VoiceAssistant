@@ -49,7 +49,7 @@ class GraphRetriever:
         top_k: int = 10,
         depth: int = None,
         tenant_id: str = None,
-        filters: dict = None,
+        _filters: dict = None,
     ) -> list[dict]:
         """
         图谱检索（多跳关系）
@@ -135,8 +135,7 @@ class GraphRetriever:
                 # 在 Neo4j 中验证这些实体
                 for entity_text in extracted_entities:
                     matches = await self.neo4j_client.search_entities_by_pattern(
-                        pattern=entity_text,
-                        limit=3
+                        pattern=entity_text, limit=3
                     )
                     entity_names.extend([m["name"] for m in matches])
 
@@ -157,10 +156,7 @@ class GraphRetriever:
 
         # 在Neo4j中查找匹配的实体
         for word in words:
-            matches = await self.neo4j_client.search_entities_by_pattern(
-                pattern=word,
-                limit=5
-            )
+            matches = await self.neo4j_client.search_entities_by_pattern(pattern=word, limit=5)
             entity_names.extend([m["name"] for m in matches])
 
         # 去重
@@ -173,7 +169,7 @@ class GraphRetriever:
         entity_names: list[str],
         depth: int,
         top_k: int,
-        tenant_id: str | None = None,
+        _tenant_id: str | None = None,
     ) -> list[dict]:
         """
         多跳关系搜索
@@ -239,20 +235,22 @@ class GraphRetriever:
         max_relevance = max([r["relevance"] for r in raw_results], default=1)
 
         for r in raw_results:
-            results.append({
-                "document_id": r.get("document_id", "unknown"),
-                "chunk_id": r.get("chunk_id", f"graph_{r.get('document_id', 'unknown')}"),
-                "text": r.get("context", ""),
-                "score": float(r["relevance"]) / max_relevance,  # 归一化到[0,1]
-                "source": "graph",
-                "metadata": {
-                    "distance": r.get("dist", 0),
-                    "entity_path": r.get("entity_path", []),
-                    "relevance": r.get("relevance", 0),
-                },
-                "entities": r.get("entity_path", []),
-                "relations": r.get("relations", []),
-            })
+            results.append(
+                {
+                    "document_id": r.get("document_id", "unknown"),
+                    "chunk_id": r.get("chunk_id", f"graph_{r.get('document_id', 'unknown')}"),
+                    "text": r.get("context", ""),
+                    "score": float(r["relevance"]) / max_relevance,  # 归一化到[0,1]
+                    "source": "graph",
+                    "metadata": {
+                        "distance": r.get("dist", 0),
+                        "entity_path": r.get("entity_path", []),
+                        "relevance": r.get("relevance", 0),
+                    },
+                    "entities": r.get("entity_path", []),
+                    "relations": r.get("relations", []),
+                }
+            )
 
         return results
 

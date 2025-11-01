@@ -238,6 +238,6 @@ class ConflictDetector:
 
     def release_resource(self, resource_id: str, agent_id: str) -> None:
         """Release agent's use of resource"""
-        if resource_id in self.watched_resources:
+        if resource_id in self.watched_resources:  # noqa: SIM102
             if agent_id in self.watched_resources[resource_id]:
                 self.watched_resources[resource_id].remove(agent_id)

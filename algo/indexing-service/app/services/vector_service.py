@@ -1,4 +1,5 @@
 """向量数据库服务 - 使用统一VectorStoreClient"""
+
 import logging
 import sys
 from pathlib import Path
@@ -9,7 +10,7 @@ common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
 
-from vector_store_client import VectorStoreClient
+from vector_store_client import VectorStoreClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,14 @@ class VectorService:
             # 准备数据
             data = []
             for chunk, embedding in zip(chunks, embeddings, strict=False):
-                data.append({
-                    "chunk_id": chunk["id"],
-                    "document_id": document_id,
-                    "content": chunk["content"],
-                    "embedding": embedding,
-                })
+                data.append(
+                    {
+                        "chunk_id": chunk["id"],
+                        "document_id": document_id,
+                        "content": chunk["content"],
+                        "embedding": embedding,
+                    }
+                )
 
             # 使用统一客户端插入
             await self.client.insert_batch(data)

@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class HTMLParser(BaseParser):
     """HTML 文档解析器"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析 HTML 文档"""
         try:
             soup = BeautifulSoup(file_data, "html.parser")

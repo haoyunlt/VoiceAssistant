@@ -63,8 +63,9 @@ class DocumentProcessor:
             logger.warning(f"Failed to initialize Kafka producer: {e}")
             # 不阻塞主流程，继续运行
 
-    async def process_document(self, document_id: str, tenant_id: str = None,
-                              user_id: str = None, file_path: str = None) -> dict:
+    async def process_document(
+        self, document_id: str, tenant_id: str = None, _user_id: str = None, file_path: str = None
+    ) -> dict:
         """处理文档（完整流程）"""
         start_time = time.time()
 
@@ -115,9 +116,7 @@ class DocumentProcessor:
                     logger.warning(f"Failed to publish vectors_stored event: {e}")
 
             # 6. 构建图谱 (异步)
-            asyncio.create_task(
-                self._build_graph(text, document_id, tenant_id)
-            )
+            asyncio.create_task(self._build_graph(text, document_id, tenant_id))
 
             # 更新统计
             self.stats["total_processed"] += 1
@@ -219,8 +218,13 @@ class DocumentProcessor:
 
         return embeddings
 
-    async def _store_vectors(self, chunks: list[dict], embeddings: list[list[float]],
-                           document_id: str, tenant_id: str = None) -> str:
+    async def _store_vectors(
+        self,
+        chunks: list[dict],
+        embeddings: list[list[float]],
+        document_id: str,
+        tenant_id: str = None,
+    ) -> str:
         """存储向量到 Milvus
 
         Returns:
@@ -233,14 +237,16 @@ class DocumentProcessor:
         collection_name = f"documents_{tenant_id or 'default'}"
 
         for chunk, embedding in zip(chunks, embeddings, strict=False):
-            data.append({
-                "chunk_id": chunk["id"],
-                "document_id": document_id,
-                "tenant_id": tenant_id or "default",
-                "content": chunk["content"],
-                "embedding": embedding,
-                "metadata": chunk.get("metadata", {}),
-            })
+            data.append(
+                {
+                    "chunk_id": chunk["id"],
+                    "document_id": document_id,
+                    "tenant_id": tenant_id or "default",
+                    "content": chunk["content"],
+                    "embedding": embedding,
+                    "metadata": chunk.get("metadata", {}),
+                }
+            )
 
         # 批量插入
         await self.vector_store_client.insert_batch(data)
@@ -265,7 +271,9 @@ class DocumentProcessor:
                 tenant_id=tenant_id,
             )
 
-            logger.info(f"Knowledge graph built: {len(entities)} entities, {len(relationships)} relationships")
+            logger.info(
+                f"Knowledge graph built: {len(entities)} entities, {len(relationships)} relationships"
+            )
 
         except Exception as e:
             logger.error(f"Error building graph: {e}", exc_info=True)
@@ -303,12 +311,18 @@ class DocumentProcessor:
 # 文档处理结果
 # ========================================
 
+
 class ProcessingResult:
     """处理结果"""
 
-    def __init__(self, document_id: str, status: str,
-                 chunks_count: int = 0, duration: float = 0,
-                 error: str = None):
+    def __init__(
+        self,
+        document_id: str,
+        status: str,
+        chunks_count: int = 0,
+        duration: float = 0,
+        error: str = None,
+    ):
         self.document_id = document_id
         self.status = status
         self.chunks_count = chunks_count

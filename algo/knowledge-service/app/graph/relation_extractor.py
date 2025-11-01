@@ -9,6 +9,7 @@ from typing import Any
 
 try:
     import spacy
+
     SPACY_AVAILABLE = True
 except ImportError:
     SPACY_AVAILABLE = False
@@ -82,12 +83,14 @@ class RelationExtractor:
 
                         # 如果找到主语和宾语，创建关系
                         if subject and obj:
-                            relations.append({
-                                "subject": self._expand_entity(subject),
-                                "predicate": token.text,
-                                "object": self._expand_entity(obj),
-                                "confidence": 0.8,
-                            })
+                            relations.append(
+                                {
+                                    "subject": self._expand_entity(subject),
+                                    "predicate": token.text,
+                                    "object": self._expand_entity(obj),
+                                    "confidence": 0.8,
+                                }
+                            )
 
             logger.info(f"Extracted {len(relations)} relations from text")
             return relations
@@ -114,7 +117,7 @@ class RelationExtractor:
         return " ".join(t.text for t in subtree)
 
     def _fallback_extract(
-        self, text: str, entities: list[dict[str, Any]] | None = None
+        self, text: str, _entities: list[dict[str, Any]] | None = None
     ) -> list[dict[str, Any]]:
         """
         后备提取方法（基于简单规则）
@@ -131,19 +134,21 @@ class RelationExtractor:
         # 简单的 SVO 模式匹配
         # Pattern: Entity1 动词 Entity2
         patterns = [
-            r'(\w+(?:\s+\w+)*)\s+(is|are|was|were|has|have|owns|creates|manages)\s+(\w+(?:\s+\w+)*)',
-            r'(\w+(?:\s+\w+)*)\s+(works\s+for|belongs\s+to|located\s+in)\s+(\w+(?:\s+\w+)*)',
+            r"(\w+(?:\s+\w+)*)\s+(is|are|was|were|has|have|owns|creates|manages)\s+(\w+(?:\s+\w+)*)",
+            r"(\w+(?:\s+\w+)*)\s+(works\s+for|belongs\s+to|located\s+in)\s+(\w+(?:\s+\w+)*)",
         ]
 
         for pattern in patterns:
             matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
-                relations.append({
-                    "subject": match.group(1).strip(),
-                    "predicate": match.group(2).strip(),
-                    "object": match.group(3).strip(),
-                    "confidence": 0.5,
-                })
+                relations.append(
+                    {
+                        "subject": match.group(1).strip(),
+                        "predicate": match.group(2).strip(),
+                        "object": match.group(3).strip(),
+                        "confidence": 0.5,
+                    }
+                )
 
         return relations
 
@@ -159,10 +164,7 @@ class RelationExtractor:
         """
         relations = self.extract_relations(text)
 
-        triplets = [
-            (rel["subject"], rel["predicate"], rel["object"])
-            for rel in relations
-        ]
+        triplets = [(rel["subject"], rel["predicate"], rel["object"]) for rel in relations]
 
         return triplets
 
@@ -179,10 +181,7 @@ class RelationExtractor:
         Returns:
             过滤后的关系列表
         """
-        return [
-            rel for rel in relations
-            if rel.get("confidence", 0) >= min_confidence
-        ]
+        return [rel for rel in relations if rel.get("confidence", 0) >= min_confidence]
 
 
 # 全局实例

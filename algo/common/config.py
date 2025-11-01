@@ -7,12 +7,14 @@ import os
 
 try:
     from pydantic import BaseSettings, Field, validator
+
     PYDANTIC_V1 = True
 except ImportError:
     # Pydantic v2
     from pydantic import Field
     from pydantic import field_validator as validator
     from pydantic_settings import BaseSettings
+
     PYDANTIC_V1 = False
 
 
@@ -34,7 +36,9 @@ class ServiceConfig(BaseSettings):
     # 可观测性配置
     otel_enabled: bool = Field(default=True, description="是否启用 OpenTelemetry")
     otel_endpoint: str = Field(default="http://localhost:4317", description="OTEL Collector 端点")
-    otel_service_name: str | None = Field(default=None, description="OTEL 服务名（默认使用 service_name）")
+    otel_service_name: str | None = Field(
+        default=None, description="OTEL 服务名（默认使用 service_name）"
+    )
     metrics_enabled: bool = Field(default=True, description="是否启用指标")
     tracing_enabled: bool = Field(default=True, description="是否启用追踪")
 
@@ -47,54 +51,57 @@ class ServiceConfig(BaseSettings):
     health_check_enabled: bool = Field(default=True, description="是否启用健康检查")
 
     # 环境
-    environment: str = Field(default="development", description="运行环境: development|staging|production")
+    environment: str = Field(
+        default="development", description="运行环境: development|staging|production"
+    )
 
     if PYDANTIC_V1:
-        @validator('log_level')
+
+        @validator("log_level")
         def validate_log_level(cls, v):
             """验证日志级别"""
-            allowed = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
             v_upper = v.upper()
             if v_upper not in allowed:
-                raise ValueError(f'log_level must be one of {allowed}')
+                raise ValueError(f"log_level must be one of {allowed}")
             return v_upper
 
-        @validator('log_format')
+        @validator("log_format")
         def validate_log_format(cls, v):
             """验证日志格式"""
-            allowed = ['json', 'text']
+            allowed = ["json", "text"]
             v_lower = v.lower()
             if v_lower not in allowed:
-                raise ValueError(f'log_format must be one of {allowed}')
+                raise ValueError(f"log_format must be one of {allowed}")
             return v_lower
 
-        @validator('environment')
+        @validator("environment")
         def validate_environment(cls, v):
             """验证环境"""
-            allowed = ['development', 'staging', 'production']
+            allowed = ["development", "staging", "production"]
             v_lower = v.lower()
             if v_lower not in allowed:
-                raise ValueError(f'environment must be one of {allowed}')
+                raise ValueError(f"environment must be one of {allowed}")
             return v_lower
 
-        @validator('otel_service_name', always=True)
+        @validator("otel_service_name", always=True)
         def set_otel_service_name(cls, v, values):
             """设置 OTEL 服务名（默认使用 service_name）"""
-            return v or values.get('service_name')
+            return v or values.get("service_name")
 
         class Config:
-            env_file = '.env'
-            env_file_encoding = 'utf-8'
+            env_file = ".env"
+            env_file_encoding = "utf-8"
             case_sensitive = False
     else:
         # Pydantic v2
-        @validator('log_level')
+        @validator("log_level")
         @classmethod
         def validate_log_level(cls, v):
-            allowed = ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']
+            allowed = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
             v_upper = v.upper()
             if v_upper not in allowed:
-                raise ValueError(f'log_level must be one of {allowed}')
+                raise ValueError(f"log_level must be one of {allowed}")
             return v_upper
 
         model_config = {
@@ -105,11 +112,11 @@ class ServiceConfig(BaseSettings):
 
     def is_production(self) -> bool:
         """是否为生产环境"""
-        return self.environment == 'production'
+        return self.environment == "production"
 
     def is_development(self) -> bool:
         """是否为开发环境"""
-        return self.environment == 'development'
+        return self.environment == "development"
 
 
 class LLMConfig(BaseSettings):
@@ -125,9 +132,10 @@ class LLMConfig(BaseSettings):
     llm_max_tokens: int = Field(default=2000, ge=1, description="LLM 最大 token 数")
 
     if PYDANTIC_V1:
+
         class Config:
-            env_file = '.env'
-            env_file_encoding = 'utf-8'
+            env_file = ".env"
+            env_file_encoding = "utf-8"
             case_sensitive = False
     else:
         model_config = {
@@ -151,9 +159,10 @@ class DatabaseConfig(BaseSettings):
     db_echo: bool = Field(default=False, description="是否打印 SQL")
 
     if PYDANTIC_V1:
+
         class Config:
-            env_file = '.env'
-            env_file_encoding = 'utf-8'
+            env_file = ".env"
+            env_file_encoding = "utf-8"
             case_sensitive = False
     else:
         model_config = {
@@ -181,9 +190,10 @@ class RedisConfig(BaseSettings):
     redis_timeout: int = Field(default=5, ge=1, description="连接超时（秒）")
 
     if PYDANTIC_V1:
+
         class Config:
-            env_file = '.env'
-            env_file_encoding = 'utf-8'
+            env_file = ".env"
+            env_file_encoding = "utf-8"
             case_sensitive = False
     else:
         model_config = {
@@ -202,7 +212,9 @@ class RedisConfig(BaseSettings):
 class VectorStoreConfig(BaseSettings):
     """向量库配置"""
 
-    vector_store_type: str = Field(default="milvus", description="向量库类型: milvus|qdrant|weaviate")
+    vector_store_type: str = Field(
+        default="milvus", description="向量库类型: milvus|qdrant|weaviate"
+    )
     vector_store_host: str = Field(default="localhost", description="向量库主机")
     vector_store_port: int = Field(default=19530, ge=1, le=65535, description="向量库端口")
     vector_store_collection: str = Field(default="documents", description="集合名称")
@@ -210,9 +222,10 @@ class VectorStoreConfig(BaseSettings):
     vector_metric_type: str = Field(default="IP", description="距离度量: IP|L2|COSINE")
 
     if PYDANTIC_V1:
+
         class Config:
-            env_file = '.env'
-            env_file_encoding = 'utf-8'
+            env_file = ".env"
+            env_file_encoding = "utf-8"
             case_sensitive = False
     else:
         model_config = {
@@ -234,9 +247,10 @@ class ElasticsearchConfig(BaseSettings):
     elasticsearch_pool_size: int = Field(default=25, ge=1, description="连接池大小")
 
     if PYDANTIC_V1:
+
         class Config:
-            env_file = '.env'
-            env_file_encoding = 'utf-8'
+            env_file = ".env"
+            env_file_encoding = "utf-8"
             case_sensitive = False
     else:
         model_config = {
@@ -247,6 +261,7 @@ class ElasticsearchConfig(BaseSettings):
 
 
 # ==================== 工具函数 ====================
+
 
 def load_config(config_class: type, env_file: str | None = None) -> BaseSettings:
     """

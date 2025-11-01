@@ -107,9 +107,7 @@ class ExecutorContext:
         if self._current_strategy is None:
             raise RuntimeError("No strategy set")
 
-        return await self._current_strategy.execute(
-            task, max_steps, available_tools, memory
-        )
+        return await self._current_strategy.execute(task, max_steps, available_tools, memory)
 
     async def execute_stream(
         self,

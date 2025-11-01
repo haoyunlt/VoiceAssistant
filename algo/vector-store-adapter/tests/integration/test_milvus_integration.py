@@ -1,7 +1,6 @@
 """Integration tests for Milvus backend (requires real Milvus instance)"""
 
 import pytest
-
 from app.backends.milvus_backend import MilvusBackend
 
 
@@ -60,5 +59,6 @@ class TestMilvusIntegration:
 
         # Clean up
         await backend.drop_collection(collection_name)
+
 
 # TODO: Add more integration tests when testcontainers is set up

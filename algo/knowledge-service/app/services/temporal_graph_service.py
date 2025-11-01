@@ -88,7 +88,7 @@ class TemporalGraphService:
             return False
 
     async def query_entity_at_time(
-        self, entity_text: str, timestamp: datetime | str, max_depth: int = 1
+        self, entity_text: str, timestamp: datetime | str, _max_depth: int = 1
     ) -> dict[str, Any]:
         """
         查询指定时间点的实体及其关系
@@ -115,9 +115,7 @@ class TemporalGraphService:
             LIMIT 1
             """
 
-            entity_result = await self.neo4j.execute_query(
-                entity_query, {"text": entity_text}
-            )
+            entity_result = await self.neo4j.execute_query(entity_query, {"text": entity_text})
 
             if not entity_result:
                 return {"found": False}
@@ -126,7 +124,7 @@ class TemporalGraphService:
             entity_id = entity["id"]
 
             # 查询时序关系
-            relations_query = f"""
+            relations_query = """
             MATCH (n)-[r]->(m)
             WHERE elementId(n) = $entity_id
               AND r.valid_from <= $timestamp
@@ -248,7 +246,10 @@ class TemporalGraphService:
             return []
 
     async def get_entity_history(
-        self, entity_text: str, start_time: datetime | str | None = None, end_time: datetime | str | None = None
+        self,
+        entity_text: str,
+        start_time: datetime | str | None = None,
+        end_time: datetime | str | None = None,
     ) -> list[dict[str, Any]]:
         """
         获取实体的历史变化
@@ -366,9 +367,7 @@ class TemporalGraphService:
             logger.error(f"Failed to update relationship validity: {e}")
             return False
 
-    async def get_temporal_statistics(
-        self, document_id: str | None = None
-    ) -> dict[str, Any]:
+    async def get_temporal_statistics(self, document_id: str | None = None) -> dict[str, Any]:
         """
         获取时序图谱统计信息
 

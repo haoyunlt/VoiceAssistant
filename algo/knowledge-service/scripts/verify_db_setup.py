@@ -26,8 +26,11 @@ async def verify_database_setup():
     logger.info("1️⃣  加载配置...")
     try:
         from app.core.config import settings
-        logger.info(f"   ✅ 配置加载成功")
-        logger.info(f"   - 数据库 URL: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}")
+
+        logger.info("   ✅ 配置加载成功")
+        logger.info(
+            f"   - 数据库 URL: {settings.DATABASE_URL.split('@')[1] if '@' in settings.DATABASE_URL else 'N/A'}"
+        )
         logger.info(f"   - Echo SQL: {settings.DATABASE_ECHO}")
     except Exception as e:
         logger.error(f"   ❌ 配置加载失败: {e}")
@@ -36,12 +39,9 @@ async def verify_database_setup():
     # 2. 初始化数据库
     logger.info("\n2️⃣  初始化数据库连接...")
     try:
-        from app.db.database import init_database, create_tables
+        from app.db.database import create_tables, init_database
 
-        init_database(
-            database_url=settings.DATABASE_URL,
-            echo=settings.DATABASE_ECHO
-        )
+        init_database(database_url=settings.DATABASE_URL, echo=settings.DATABASE_ECHO)
         logger.info("   ✅ 数据库连接初始化成功")
     except Exception as e:
         logger.error(f"   ❌ 数据库连接失败: {e}")
@@ -68,7 +68,7 @@ async def verify_database_setup():
             logger.info("   ✅ DocumentRepository 初始化成功")
 
             # 测试 VersionRepository
-            ver_repo = VersionRepository(session)
+            VersionRepository(session)
             logger.info("   ✅ VersionRepository 初始化成功")
 
             break  # 只测试一次
@@ -79,8 +79,7 @@ async def verify_database_setup():
     # 5. 测试基本 CRUD（可选）
     logger.info("\n5️⃣  测试基本 CRUD 操作...")
     try:
-        from app.models.document import Document, DocumentType, DocumentStatus
-        from datetime import datetime
+        from app.models.document import Document, DocumentStatus, DocumentType
 
         async for session in get_session():
             doc_repo = DocumentRepository(session)
@@ -96,7 +95,7 @@ async def verify_database_setup():
                 file_path="/test/path",
                 tenant_id="test_tenant",
                 uploaded_by="test_user",
-                status=DocumentStatus.PENDING
+                status=DocumentStatus.PENDING,
             )
 
             # 创建
@@ -110,14 +109,13 @@ async def verify_database_setup():
 
             # 列表
             docs, total = await doc_repo.list_by_knowledge_base(
-                knowledge_base_id="test_kb",
-                tenant_id="test_tenant"
+                knowledge_base_id="test_kb", tenant_id="test_tenant"
             )
             logger.info(f"   ✅ 列表查询成功: 共 {total} 个文档")
 
             # 删除
             await doc_repo.delete(test_doc.id)
-            logger.info(f"   ✅ 删除文档成功")
+            logger.info("   ✅ 删除文档成功")
 
             break
     except Exception as e:
@@ -128,6 +126,7 @@ async def verify_database_setup():
     logger.info("\n6️⃣  关闭数据库连接...")
     try:
         from app.db.database import close_database
+
         await close_database()
         logger.info("   ✅ 数据库连接关闭成功")
     except Exception as e:

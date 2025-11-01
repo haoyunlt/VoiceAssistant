@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Message:
     """Chat message"""
+
     role: str  # system, user, assistant, tool
     content: str
     name: str = None
@@ -24,6 +25,7 @@ class Message:
 @dataclass
 class CompletionRequest:
     """Completion request"""
+
     messages: list[Message]
     model: str
     temperature: float = 0.7
@@ -37,6 +39,7 @@ class CompletionRequest:
 @dataclass
 class CompletionResponse:
     """Completion response"""
+
     id: str
     content: str
     model: str
@@ -49,6 +52,7 @@ class CompletionResponse:
 @dataclass
 class EmbeddingRequest:
     """Embedding request"""
+
     texts: list[str]
     model: str
 
@@ -56,6 +60,7 @@ class EmbeddingRequest:
 @dataclass
 class EmbeddingResponse:
     """Embedding response"""
+
     embeddings: list[list[float]]
     model: str
     usage: dict[str, int] = None
@@ -98,7 +103,6 @@ class BaseAdapter(ABC):
     def calculate_cost(self, model: str, input_tokens: int, output_tokens: int) -> float:
         """Calculate cost in USD"""
         model_info = self.get_model_info(model)
-        input_cost = input_tokens / 1000 * model_info.get('input_cost_per_1k', 0)
-        output_cost = output_tokens / 1000 * model_info.get('output_cost_per_1k', 0)
+        input_cost = input_tokens / 1000 * model_info.get("input_cost_per_1k", 0)
+        output_cost = output_tokens / 1000 * model_info.get("output_cost_per_1k", 0)
         return input_cost + output_cost
-

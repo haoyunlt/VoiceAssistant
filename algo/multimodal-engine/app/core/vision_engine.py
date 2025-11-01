@@ -14,6 +14,7 @@ if str(common_path) not in sys.path:
 
 try:
     from llm_client import UnifiedLLMClient
+
     USE_UNIFIED_CLIENT = True
 except ImportError:
     USE_UNIFIED_CLIENT = False
@@ -64,8 +65,8 @@ class VisionEngine:
         self,
         image_data: bytes,
         prompt: str = "Describe this image in detail.",
-        tenant_id: str | None = None,
-        user_id: str | None = None,
+        _tenant_id: str | None = None,
+        _user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         图像理解（使用视觉语言模型）。
@@ -159,9 +160,7 @@ class VisionEngine:
             logger.error(f"Vision detection failed: {e}", exc_info=True)
             raise
 
-    async def _understand_openai(
-        self, image_data: bytes, prompt: str
-    ) -> dict[str, Any]:
+    async def _understand_openai(self, image_data: bytes, prompt: str) -> dict[str, Any]:
         """使用 OpenAI GPT-4 Vision 理解图像"""
         logger.debug("Using OpenAI GPT-4 Vision for image understanding")
 
@@ -179,9 +178,7 @@ class VisionEngine:
                                 {"type": "text", "text": prompt},
                                 {
                                     "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:image/jpeg;base64,{image_base64}"
-                                    },
+                                    "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
                                 },
                             ],
                         }
@@ -225,9 +222,7 @@ class VisionEngine:
                         {"type": "text", "text": prompt},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{image_base64}"
-                            },
+                            "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"},
                         },
                     ],
                 }
@@ -243,9 +238,7 @@ class VisionEngine:
         data = response.json()
         return data["choices"][0]["message"]["content"]
 
-    async def _understand_azure(
-        self, image_data: bytes, prompt: str
-    ) -> dict[str, Any]:
+    async def _understand_azure(self, _image_data: bytes, _prompt: str) -> dict[str, Any]:
         """使用 Azure Computer Vision（模拟实现）"""
         logger.debug("Using Azure Computer Vision for image understanding")
 
@@ -257,9 +250,7 @@ class VisionEngine:
             "provider": "azure",
         }
 
-    async def _understand_anthropic(
-        self, image_data: bytes, prompt: str
-    ) -> dict[str, Any]:
+    async def _understand_anthropic(self, _image_data: bytes, _prompt: str) -> dict[str, Any]:
         """使用 Anthropic Claude Vision（模拟实现）"""
         logger.debug("Using Anthropic Claude Vision for image understanding")
 
@@ -277,15 +268,22 @@ class VisionEngine:
         # 简单实现：提取名词
         words = description.lower().split()
         common_objects = [
-            "person", "car", "building", "tree", "sky", "water",
-            "animal", "food", "furniture", "device", "book",
+            "person",
+            "car",
+            "building",
+            "tree",
+            "sky",
+            "water",
+            "animal",
+            "food",
+            "furniture",
+            "device",
+            "book",
         ]
         tags = [word for word in words if word in common_objects]
         return list(set(tags))[:5]  # 返回最多 5 个标签
 
-    def _parse_detections(
-        self, description: str, detect_type: str
-    ) -> list[dict[str, Any]]:
+    def _parse_detections(self, _description: str, detect_type: str) -> list[dict[str, Any]]:
         """从描述中解析检测结果（简单实现）"""
         # 这里应该使用更复杂的 NLP 技术解析
         # 简单实现：返回模拟数据

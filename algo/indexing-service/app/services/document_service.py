@@ -1,4 +1,5 @@
 """文档处理服务"""
+
 import logging
 import time
 import uuid
@@ -159,35 +160,35 @@ class DocumentService:
             # 6. 构建知识图谱（可选）
             graph_nodes_created = 0
             if options.get("build_graph", False):
-                graph_nodes_created = await self._build_knowledge_graph(
-                    document_id, chunks
-                )
+                graph_nodes_created = await self._build_knowledge_graph(document_id, chunks)
                 logger.info(f"[{job_id}] Created {graph_nodes_created} graph nodes")
 
             # 更新任务状态
             processing_time = time.time() - start_time
-            self.jobs[job_id].update({
-                "status": DocumentStatus.INDEXED,
-                "chunks_count": len(chunks),
-                "vectors_count": vectors_inserted,
-                "graph_nodes_count": graph_nodes_created,
-                "processing_time": processing_time,
-                "completed_at": datetime.utcnow().isoformat(),
-            })
-
-            logger.info(
-                f"[{job_id}] Document processing completed in {processing_time:.2f}s"
+            self.jobs[job_id].update(
+                {
+                    "status": DocumentStatus.INDEXED,
+                    "chunks_count": len(chunks),
+                    "vectors_count": vectors_inserted,
+                    "graph_nodes_count": graph_nodes_created,
+                    "processing_time": processing_time,
+                    "completed_at": datetime.utcnow().isoformat(),
+                }
             )
+
+            logger.info(f"[{job_id}] Document processing completed in {processing_time:.2f}s")
 
         except Exception as e:
             error_msg = str(e)
             logger.error(f"[{job_id}] Document processing failed: {error_msg}", exc_info=True)
 
-            self.jobs[job_id].update({
-                "status": DocumentStatus.FAILED,
-                "error_message": error_msg,
-                "completed_at": datetime.utcnow().isoformat(),
-            })
+            self.jobs[job_id].update(
+                {
+                    "status": DocumentStatus.FAILED,
+                    "error_message": error_msg,
+                    "completed_at": datetime.utcnow().isoformat(),
+                }
+            )
 
     async def get_job_status(self, job_id: str) -> dict[str, Any] | None:
         """获取任务状态"""
@@ -222,9 +223,7 @@ class DocumentService:
             logger.error(f"Failed to delete document: {e}", exc_info=True)
             raise
 
-    async def _build_knowledge_graph(
-        self, document_id: str, chunks: list[dict[str, Any]]
-    ) -> int:
+    async def _build_knowledge_graph(self, document_id: str, chunks: list[dict[str, Any]]) -> int:
         """构建知识图谱（示例实现）"""
         # 实际应该调用图服务
         logger.info(f"Building knowledge graph for document: {document_id}")

@@ -27,9 +27,7 @@ class IncrementalIndexService:
         self.version_key_prefix = "doc_version:"
         self.hash_key_prefix = "doc_hash:"
 
-        logger.info(
-            f"IncrementalIndexService initialized with TTL={version_ttl}s"
-        )
+        logger.info(f"IncrementalIndexService initialized with TTL={version_ttl}s")
 
     async def compute_content_hash(self, content: str) -> str:
         """
@@ -97,9 +95,7 @@ class IncrementalIndexService:
             }
 
             version_key = f"{self.version_key_prefix}{document_id}"
-            await self.redis.setex(
-                version_key, self.version_ttl, json.dumps(version_info)
-            )
+            await self.redis.setex(version_key, self.version_ttl, json.dumps(version_info))
 
             # 同时保存哈希到文档ID的映射
             hash_key = f"{self.hash_key_prefix}{content_hash}"
@@ -130,9 +126,7 @@ class IncrementalIndexService:
         new_content_hash = await self.compute_content_hash(new_content)
 
         # 计算新分块哈希
-        new_chunk_hashes = [
-            await self.compute_content_hash(chunk) for chunk in new_chunks
-        ]
+        new_chunk_hashes = [await self.compute_content_hash(chunk) for chunk in new_chunks]
 
         # 获取旧版本
         old_version = await self.get_document_version(document_id)
@@ -268,9 +262,7 @@ class IncrementalIndexService:
 
             # 1. 删除旧分块（如果有）
             if changes["deleted_chunks"]:
-                deleted_chunk_ids = [
-                    f"{document_id}_chunk_{i}" for i in changes["deleted_chunks"]
-                ]
+                deleted_chunk_ids = [f"{document_id}_chunk_{i}" for i in changes["deleted_chunks"]]
                 delete_result = await vector_service.delete_vectors(deleted_chunk_ids)
                 update_tasks.append(
                     {
@@ -283,9 +275,7 @@ class IncrementalIndexService:
             # 2. 添加新分块
             if changes["new_chunks"]:
                 new_chunk_contents = [new_chunks[i] for i in changes["new_chunks"]]
-                new_chunk_ids = [
-                    f"{document_id}_chunk_{i}" for i in changes["new_chunks"]
-                ]
+                new_chunk_ids = [f"{document_id}_chunk_{i}" for i in changes["new_chunks"]]
 
                 insert_result = await vector_service.insert_chunks(
                     chunk_ids=new_chunk_ids,
@@ -302,12 +292,8 @@ class IncrementalIndexService:
 
             # 3. 更新变更的分块
             if changes["updated_chunks"]:
-                updated_chunk_contents = [
-                    new_chunks[i] for i in changes["updated_chunks"]
-                ]
-                updated_chunk_ids = [
-                    f"{document_id}_chunk_{i}" for i in changes["updated_chunks"]
-                ]
+                updated_chunk_contents = [new_chunks[i] for i in changes["updated_chunks"]]
+                updated_chunk_ids = [f"{document_id}_chunk_{i}" for i in changes["updated_chunks"]]
 
                 # 先删除再插入（更新操作）
                 await vector_service.delete_vectors(updated_chunk_ids)
@@ -326,9 +312,7 @@ class IncrementalIndexService:
 
             # 4. 保存新版本信息
             new_content_hash = changes.get("new_content_hash")
-            new_chunk_hashes = [
-                await self.compute_content_hash(chunk) for chunk in new_chunks
-            ]
+            new_chunk_hashes = [await self.compute_content_hash(chunk) for chunk in new_chunks]
 
             await self.save_document_version(
                 document_id=document_id,
@@ -366,9 +350,7 @@ class IncrementalIndexService:
                 "elapsed_time": time.time() - start_time,
             }
 
-    async def bulk_check_changes(
-        self, documents: list[dict[str, str]]
-    ) -> list[dict]:
+    async def bulk_check_changes(self, documents: list[dict[str, str]]) -> list[dict]:
         """
         批量检查文档变更
 
@@ -436,4 +418,3 @@ class IncrementalIndexService:
         except Exception as e:
             logger.error(f"Failed to get statistics: {e}")
             return {"error": str(e)}
-

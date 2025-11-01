@@ -45,31 +45,33 @@ class StatsTracker:
             "successful_requests": self.successful_requests,
             "failed_requests": self.failed_requests,
             "success_rate": (
-                self.successful_requests / self.total_requests
-                if self.total_requests > 0
-                else 0.0
+                self.successful_requests / self.total_requests if self.total_requests > 0 else 0.0
             ),
             "uptime_seconds": time.time() - self._start_time,
         }
 
         if latencies:
-            stats.update({
-                "avg_latency_ms": sum(latencies) / len(latencies),
-                "min_latency_ms": min(latencies),
-                "max_latency_ms": max(latencies),
-                "p50_latency_ms": self._percentile(latencies, 0.5),
-                "p95_latency_ms": self._percentile(latencies, 0.95),
-                "p99_latency_ms": self._percentile(latencies, 0.99),
-            })
+            stats.update(
+                {
+                    "avg_latency_ms": sum(latencies) / len(latencies),
+                    "min_latency_ms": min(latencies),
+                    "max_latency_ms": max(latencies),
+                    "p50_latency_ms": self._percentile(latencies, 0.5),
+                    "p95_latency_ms": self._percentile(latencies, 0.95),
+                    "p99_latency_ms": self._percentile(latencies, 0.99),
+                }
+            )
         else:
-            stats.update({
-                "avg_latency_ms": 0.0,
-                "min_latency_ms": 0.0,
-                "max_latency_ms": 0.0,
-                "p50_latency_ms": 0.0,
-                "p95_latency_ms": 0.0,
-                "p99_latency_ms": 0.0,
-            })
+            stats.update(
+                {
+                    "avg_latency_ms": 0.0,
+                    "min_latency_ms": 0.0,
+                    "max_latency_ms": 0.0,
+                    "p50_latency_ms": 0.0,
+                    "p95_latency_ms": 0.0,
+                    "p99_latency_ms": 0.0,
+                }
+            )
 
         return stats
 

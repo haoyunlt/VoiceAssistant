@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class AgentRole(Enum):
     """Agent 角色"""
+
     PLANNER = "planner"  # 规划者
     RESEARCHER = "researcher"  # 研究员
     WRITER = "writer"  # 写作者
@@ -24,6 +25,7 @@ class AgentRole(Enum):
 @dataclass
 class Agent:
     """Agent 定义"""
+
     name: str
     role: AgentRole
     capabilities: list[str]
@@ -35,6 +37,7 @@ class Agent:
 @dataclass
 class AgentMessage:
     """Agent 消息"""
+
     from_agent: str
     to_agent: str
     content: str
@@ -66,9 +69,7 @@ class MultiAgentCoordinator:
         logger.info(f"Registered agent: {agent.name} (role: {agent.role.value})")
 
     async def execute_collaborative_task(
-        self,
-        task: str,
-        required_roles: list[AgentRole] = None
+        self, task: str, required_roles: list[AgentRole] = None
     ) -> dict:
         """
         协作执行任务
@@ -111,12 +112,14 @@ class MultiAgentCoordinator:
         planner = self._find_agent_by_role(AgentRole.PLANNER)
         if not planner:
             # 如果没有 Planner，使用简单分解
-            return [{
-                "id": 1,
-                "description": task,
-                "required_role": AgentRole.EXECUTOR,
-                "dependencies": []
-            }]
+            return [
+                {
+                    "id": 1,
+                    "description": task,
+                    "required_role": AgentRole.EXECUTOR,
+                    "dependencies": [],
+                }
+            ]
 
         # 调用 Planner 进行任务分解
         prompt = f"""作为任务规划专家，请将以下任务分解为可执行的子任务：
@@ -153,10 +156,10 @@ class MultiAgentCoordinator:
                         "model": planner.llm_model,
                         "messages": [
                             {"role": "system", "content": "你是一个任务规划专家。"},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
-                        "temperature": 0.3
-                    }
+                        "temperature": 0.3,
+                    },
                 )
                 response.raise_for_status()
 
@@ -179,17 +182,17 @@ class MultiAgentCoordinator:
         except Exception as e:
             logger.error(f"Task decomposition failed: {e}")
             # 降级：返回单个任务
-            return [{
-                "id": 1,
-                "description": task,
-                "required_role": AgentRole.EXECUTOR.value,
-                "dependencies": []
-            }]
+            return [
+                {
+                    "id": 1,
+                    "description": task,
+                    "required_role": AgentRole.EXECUTOR.value,
+                    "dependencies": [],
+                }
+            ]
 
     async def _assign_tasks(
-        self,
-        subtasks: list[dict],
-        required_roles: list[AgentRole] = None
+        self, subtasks: list[dict], _required_roles: list[AgentRole] = None
     ) -> list[tuple[Agent, dict]]:
         """
         分配任务给 Agent
@@ -222,10 +225,7 @@ class MultiAgentCoordinator:
 
         return assignments
 
-    async def _execute_assignments(
-        self,
-        assignments: list[tuple[Agent, dict]]
-    ) -> list[dict]:
+    async def _execute_assignments(self, assignments: list[tuple[Agent, dict]]) -> list[dict]:
         """
         执行分配的任务
 
@@ -257,10 +257,7 @@ class MultiAgentCoordinator:
                 break
 
             # 并行执行可执行的任务
-            tasks = [
-                self._execute_subtask(agent, subtask)
-                for agent, subtask in executable
-            ]
+            tasks = [self._execute_subtask(agent, subtask) for agent, subtask in executable]
 
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -270,12 +267,14 @@ class MultiAgentCoordinator:
 
                 if isinstance(result, Exception):
                     logger.error(f"Task {task_id} failed: {result}")
-                    results.append({
-                        "task_id": task_id,
-                        "agent": agent.name,
-                        "result": f"Error: {str(result)}",
-                        "success": False
-                    })
+                    results.append(
+                        {
+                            "task_id": task_id,
+                            "agent": agent.name,
+                            "result": f"Error: {str(result)}",
+                            "success": False,
+                        }
+                    )
                 else:
                     results.append(result)
 
@@ -306,7 +305,7 @@ class MultiAgentCoordinator:
                 AgentRole.WRITER: "你是一个专业写作者，擅长创作高质量内容。",
                 AgentRole.CRITIC: "你是一个严格的评审专家，擅长发现问题和提出改进建议。",
                 AgentRole.EXECUTOR: "你是一个执行专家，擅长完成具体任务。",
-                AgentRole.PLANNER: "你是一个规划专家，擅长任务分解和计划制定。"
+                AgentRole.PLANNER: "你是一个规划专家，擅长任务分解和计划制定。",
             }
 
             system_message = role_description.get(agent.role, "你是一个智能助手。")
@@ -322,11 +321,11 @@ class MultiAgentCoordinator:
                         "model": agent.llm_model,
                         "messages": [
                             {"role": "system", "content": system_message},
-                            {"role": "user", "content": user_message}
+                            {"role": "user", "content": user_message},
                         ],
                         "temperature": agent.temperature,
-                        "max_tokens": agent.max_tokens
-                    }
+                        "max_tokens": agent.max_tokens,
+                    },
                 )
                 response.raise_for_status()
 
@@ -338,7 +337,7 @@ class MultiAgentCoordinator:
                 "agent": agent.name,
                 "role": agent.role.value,
                 "result": answer,
-                "success": True
+                "success": True,
             }
 
         except Exception as e:
@@ -347,7 +346,7 @@ class MultiAgentCoordinator:
                 "task_id": subtask["id"],
                 "agent": agent.name,
                 "result": f"Error: {str(e)}",
-                "success": False
+                "success": False,
             }
 
         finally:
@@ -365,11 +364,9 @@ class MultiAgentCoordinator:
             Dict: 最终结果
         """
         # 构建结果摘要
-        results_text = "\n\n".join([
-            f"[{r['agent']} - {r['role']}]\n{r['result']}"
-            for r in results
-            if r.get("success")
-        ])
+        results_text = "\n\n".join(
+            [f"[{r['agent']} - {r['role']}]\n{r['result']}" for r in results if r.get("success")]
+        )
 
         prompt = f"""基于多个 Agent 的协作结果，请生成对原始任务的完整回答。
 
@@ -391,10 +388,10 @@ class MultiAgentCoordinator:
                         "model": "gpt-4-turbo-preview",
                         "messages": [
                             {"role": "system", "content": "你是一个善于整合和总结信息的助手。"},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
-                        "temperature": 0.5
-                    }
+                        "temperature": 0.5,
+                    },
                 )
                 response.raise_for_status()
 
@@ -410,7 +407,7 @@ class MultiAgentCoordinator:
             "answer": final_answer,
             "agent_results": results,
             "agents_used": [r["agent"] for r in results],
-            "success": all(r.get("success") for r in results)
+            "success": all(r.get("success") for r in results),
         }
 
     def _find_agent_by_role(self, role: AgentRole) -> Agent | None:
@@ -428,7 +425,7 @@ class MultiAgentCoordinator:
                     "name": agent.name,
                     "role": agent.role.value,
                     "state": self.agent_states.get(agent.name, "unknown"),
-                    "capabilities": agent.capabilities
+                    "capabilities": agent.capabilities,
                 }
                 for agent in self.agents.values()
             ]

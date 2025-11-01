@@ -82,8 +82,7 @@ class CircuitBreaker:
                 self.state = CircuitState.HALF_OPEN
             else:
                 raise CircuitBreakerOpenError(
-                    f"Circuit breaker '{self.name}' is OPEN. "
-                    f"Retry after {self.recovery_timeout}s"
+                    f"Circuit breaker '{self.name}' is OPEN. Retry after {self.recovery_timeout}s"
                 )
 
         try:

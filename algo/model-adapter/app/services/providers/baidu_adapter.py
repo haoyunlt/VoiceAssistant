@@ -29,13 +29,13 @@ class BaiduAdapter:
             "ernie-bot-4",
             "ernie-bot-8k",
             "bloomz-7b",
-            "ernie-speed"
+            "ernie-speed",
         ]
 
     async def _get_access_token(self) -> str:
         """Get access token"""
         # Check if token is still valid
-        if self.access_token and self.token_expires_at:
+        if self.access_token and self.token_expires_at:  # noqa: SIM102
             if datetime.utcnow() < self.token_expires_at:
                 return self.access_token
 
@@ -45,7 +45,7 @@ class BaiduAdapter:
             params = {
                 "grant_type": "client_credentials",
                 "client_id": self.api_key,
-                "client_secret": self.secret_key
+                "client_secret": self.secret_key,
             }
 
             response = await self.client.post(url, params=params)
@@ -54,7 +54,9 @@ class BaiduAdapter:
 
             self.access_token = result["access_token"]
             expires_in = result.get("expires_in", 86400)  # Default 24 hours
-            self.token_expires_at = datetime.utcnow() + timedelta(seconds=expires_in - 300)  # 5 min buffer
+            self.token_expires_at = datetime.utcnow() + timedelta(
+                seconds=expires_in - 300
+            )  # 5 min buffer
 
             logger.info("Baidu access token obtained successfully")
             return self.access_token
@@ -63,11 +65,7 @@ class BaiduAdapter:
             logger.error(f"Failed to get Baidu access token: {e}")
             raise
 
-    async def chat(
-        self,
-        request: ChatRequest,
-        **kwargs
-    ) -> ChatResponse:
+    async def chat(self, request: ChatRequest, **_kwargs) -> ChatResponse:
         """Chat completion"""
         try:
             # Get access token
@@ -79,8 +77,7 @@ class BaiduAdapter:
             # Build request
             baidu_request = {
                 "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in request.messages
+                    {"role": msg.role, "content": msg.content} for msg in request.messages
                 ],
                 "temperature": request.temperature or 0.95,
                 "top_p": request.top_p or 0.8,
@@ -110,11 +107,7 @@ class BaiduAdapter:
             logger.error(f"Baidu chat completion failed: {e}")
             raise
 
-    async def chat_stream(
-        self,
-        request: ChatRequest,
-        **kwargs
-    ) -> AsyncIterator[str]:
+    async def chat_stream(self, request: ChatRequest, **_kwargs) -> AsyncIterator[str]:
         """Streaming chat completion"""
         try:
             # Get access token
@@ -126,12 +119,11 @@ class BaiduAdapter:
             # Build request
             baidu_request = {
                 "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in request.messages
+                    {"role": msg.role, "content": msg.content} for msg in request.messages
                 ],
                 "temperature": request.temperature or 0.95,
                 "top_p": request.top_p or 0.8,
-                "stream": True
+                "stream": True,
             }
 
             if request.max_tokens:
@@ -140,11 +132,7 @@ class BaiduAdapter:
             # Send streaming request
             url = f"{endpoint}?access_token={access_token}"
 
-            async with self.client.stream(
-                "POST",
-                url,
-                json=baidu_request
-            ) as response:
+            async with self.client.stream("POST", url, json=baidu_request) as response:
                 response.raise_for_status()
 
                 async for line in response.aiter_lines():
@@ -177,32 +165,32 @@ class BaiduAdapter:
             "ernie-bot-4": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions_pro",
             "ernie-bot-8k": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie_bot_8k",
             "bloomz-7b": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/bloomz_7b1",
-            "ernie-speed": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie_speed"
+            "ernie-speed": "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/ernie_speed",
         }
 
         return endpoint_map.get(
-            model,
-            "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions"
+            model, "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/completions"
         )
 
     def _convert_response(self, result: dict, model: str) -> ChatResponse:
         """Convert Baidu response to standard format"""
         text = result.get("result", "")
 
-        choices = [Choice(
-            index=0,
-            message=Message(
-                role="assistant",
-                content=text
-            ),
-            finish_reason=result.get("finish_reason", "stop") if result.get("is_end") else "length"
-        )]
+        choices = [
+            Choice(
+                index=0,
+                message=Message(role="assistant", content=text),
+                finish_reason=result.get("finish_reason", "stop")
+                if result.get("is_end")
+                else "length",
+            )
+        ]
 
         usage_data = result.get("usage", {})
         usage = Usage(
             prompt_tokens=usage_data.get("prompt_tokens", 0),
             completion_tokens=usage_data.get("completion_tokens", 0),
-            total_tokens=usage_data.get("total_tokens", 0)
+            total_tokens=usage_data.get("total_tokens", 0),
         )
 
         return ChatResponse(
@@ -211,7 +199,7 @@ class BaiduAdapter:
             created=result.get("created", int(datetime.utcnow().timestamp())),
             model=model,
             choices=choices,
-            usage=usage
+            usage=usage,
         )
 
     def _extract_stream_content(self, chunk: dict) -> str | None:

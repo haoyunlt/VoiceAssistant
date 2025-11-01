@@ -1,14 +1,12 @@
 """音频处理工具函数"""
+
 import io
 
 from pydub import AudioSegment
 
 
 def extract_audio_segment(
-    audio_data: bytes,
-    start_ms: float,
-    end_ms: float,
-    format: str = "wav"
+    audio_data: bytes, start_ms: float, end_ms: float, format: str = "wav"
 ) -> bytes:
     """提取音频片段
 
@@ -40,7 +38,7 @@ def convert_audio_format(
     from_format: str,
     to_format: str,
     sample_rate: int = None,
-    channels: int = None
+    channels: int = None,
 ) -> bytes:
     """转换音频格式
 

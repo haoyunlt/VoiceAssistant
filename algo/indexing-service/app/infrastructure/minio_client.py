@@ -23,7 +23,7 @@ class MinioClient:
         access_key: str | None = None,
         secret_key: str | None = None,
         secure: bool | None = None,
-        bucket_name: str | None = None
+        bucket_name: str | None = None,
     ):
         """
         初始化 MinIO 客户端
@@ -41,7 +41,9 @@ class MinioClient:
 
         access_key = access_key or os.getenv("MINIO_ACCESS_KEY")
         secret_key = secret_key or os.getenv("MINIO_SECRET_KEY")
-        secure = secure if secure is not None else os.getenv("MINIO_SECURE", "false").lower() == "true"
+        secure = (
+            secure if secure is not None else os.getenv("MINIO_SECURE", "false").lower() == "true"
+        )
 
         # 验证必需的配置
         if not self.endpoint:
@@ -54,10 +56,7 @@ class MinioClient:
         try:
             # 创建 MinIO 客户端
             self.client = Minio(
-                self.endpoint,
-                access_key=access_key,
-                secret_key=secret_key,
-                secure=secure
+                self.endpoint, access_key=access_key, secret_key=secret_key, secure=secure
             )
 
             # 确保桶存在
@@ -87,10 +86,7 @@ class MinioClient:
             # 在线程池中执行同步操作
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
-                None,
-                self.client.get_object,
-                self.bucket_name,
-                object_name
+                None, self.client.get_object, self.bucket_name, object_name
             )
 
             # 读取内容
@@ -111,10 +107,7 @@ class MinioClient:
             return None
 
     async def upload_file(
-        self,
-        object_name: str,
-        data: bytes,
-        content_type: str = "application/octet-stream"
+        self, object_name: str, data: bytes, content_type: str = "application/octet-stream"
     ) -> bool:
         """
         上传文件（异步）
@@ -139,7 +132,7 @@ class MinioClient:
                 object_name,
                 io.BytesIO(data),
                 len(data),
-                content_type
+                content_type,
             )
 
             logger.info(f"Uploaded file: {object_name}")
@@ -168,10 +161,7 @@ class MinioClient:
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
-                None,
-                self.client.remove_object,
-                self.bucket_name,
-                object_name
+                None, self.client.remove_object, self.bucket_name, object_name
             )
 
             logger.info(f"Deleted file: {object_name}")
@@ -197,12 +187,7 @@ class MinioClient:
         """
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                None,
-                self.client.stat_object,
-                self.bucket_name,
-                object_name
-            )
+            await loop.run_in_executor(None, self.client.stat_object, self.bucket_name, object_name)
             return True
         except S3Error:
             return False
@@ -227,10 +212,7 @@ class MinioClient:
         try:
             loop = asyncio.get_event_loop()
             stat = await loop.run_in_executor(
-                None,
-                self.client.stat_object,
-                self.bucket_name,
-                object_name
+                None, self.client.stat_object, self.bucket_name, object_name
             )
 
             return {
@@ -239,7 +221,7 @@ class MinioClient:
                 "etag": stat.etag,
                 "content_type": stat.content_type,
                 "last_modified": stat.last_modified,
-                "metadata": stat.metadata
+                "metadata": stat.metadata,
             }
 
         except S3Error as e:
@@ -263,21 +245,21 @@ class MinioClient:
             loop = asyncio.get_event_loop()
             objects = await loop.run_in_executor(
                 None,
-                lambda: list(self.client.list_objects(
-                    self.bucket_name,
-                    prefix=prefix,
-                    recursive=True
-                ))
+                lambda: list(
+                    self.client.list_objects(self.bucket_name, prefix=prefix, recursive=True)
+                ),
             )
 
             files = []
             for obj in objects:
-                files.append({
-                    "object_name": obj.object_name,
-                    "size": obj.size,
-                    "etag": obj.etag,
-                    "last_modified": obj.last_modified
-                })
+                files.append(
+                    {
+                        "object_name": obj.object_name,
+                        "size": obj.size,
+                        "etag": obj.etag,
+                        "last_modified": obj.last_modified,
+                    }
+                )
 
             logger.info(f"Listed {len(files)} files with prefix: {prefix}")
 

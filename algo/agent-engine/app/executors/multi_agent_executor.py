@@ -1,4 +1,5 @@
 """多Agent协作执行器"""
+
 import asyncio
 import json
 import logging
@@ -14,12 +15,7 @@ class AgentRole:
     """Agent角色定义"""
 
     def __init__(
-        self,
-        role_id: str,
-        name: str,
-        description: str,
-        capabilities: list[str],
-        tools: list[str]
+        self, role_id: str, name: str, description: str, capabilities: list[str], tools: list[str]
     ):
         self.role_id = role_id
         self.name = name
@@ -37,7 +33,7 @@ class Message:
         to_agent: str,
         content: str,
         message_type: str = "task",
-        metadata: dict | None = None
+        metadata: dict | None = None,
     ):
         self.from_agent = from_agent
         self.to_agent = to_agent
@@ -45,6 +41,7 @@ class Message:
         self.message_type = message_type
         self.metadata = metadata or {}
         import time
+
         self.timestamp = time.time()
 
 
@@ -78,10 +75,7 @@ class MultiAgentExecutor:
         logger.info(f"Registered agent: {agent.name} ({agent.role_id})")
 
     async def execute_sequential(
-        self,
-        task: str,
-        agent_sequence: list[str],
-        context: str | None = None
+        self, task: str, agent_sequence: list[str], context: str | None = None
     ) -> dict[str, Any]:
         """
         顺序协作模式：Agent按顺序完成任务
@@ -105,7 +99,7 @@ class MultiAgentExecutor:
                 logger.warning(f"Agent not found: {agent_id}")
                 continue
 
-            logger.info(f"Step {i+1}/{len(agent_sequence)}: {agent.name}")
+            logger.info(f"Step {i + 1}/{len(agent_sequence)}: {agent.name}")
 
             # 构建子任务
             sub_task = await self._decompose_task(task, agent, i, len(agent_sequence))
@@ -114,16 +108,20 @@ class MultiAgentExecutor:
             sub_result = await self._execute_agent_task(
                 agent=agent,
                 task=sub_task,
-                context=f"{context}\n\nPrevious results:\n{accumulated_output}" if accumulated_output else context
+                context=f"{context}\n\nPrevious results:\n{accumulated_output}"
+                if accumulated_output
+                else context,
             )
 
-            results.append({
-                "agent": agent.name,
-                "agent_id": agent_id,
-                "step": i + 1,
-                "task": sub_task,
-                "result": sub_result
-            })
+            results.append(
+                {
+                    "agent": agent.name,
+                    "agent_id": agent_id,
+                    "step": i + 1,
+                    "task": sub_task,
+                    "result": sub_result,
+                }
+            )
 
             accumulated_output += f"\n[{agent.name}]: {sub_result}\n"
 
@@ -135,14 +133,11 @@ class MultiAgentExecutor:
             "mode": "sequential",
             "agents_involved": len(agent_sequence),
             "steps": results,
-            "final_answer": final_answer
+            "final_answer": final_answer,
         }
 
     async def execute_parallel(
-        self,
-        task: str,
-        agent_ids: list[str],
-        context: str | None = None
+        self, task: str, agent_ids: list[str], context: str | None = None
     ) -> dict[str, Any]:
         """
         并行协作模式：多个Agent同时处理任务
@@ -164,9 +159,7 @@ class MultiAgentExecutor:
             if not agent:
                 continue
 
-            tasks_to_run.append(
-                self._execute_agent_task(agent, task, context)
-            )
+            tasks_to_run.append(self._execute_agent_task(agent, task, context))
 
         # 并行执行
         results = await asyncio.gather(*tasks_to_run, return_exceptions=True)
@@ -183,11 +176,7 @@ class MultiAgentExecutor:
                 logger.error(f"Agent {agent.name} failed: {result}")
                 result = f"Error: {str(result)}"
 
-            agent_results.append({
-                "agent": agent.name,
-                "agent_id": agent_id,
-                "result": result
-            })
+            agent_results.append({"agent": agent.name, "agent_id": agent_id, "result": result})
 
         # 综合答案
         final_answer = await self._synthesize_results(task, agent_results)
@@ -197,15 +186,11 @@ class MultiAgentExecutor:
             "mode": "parallel",
             "agents_involved": len(agent_ids),
             "agent_results": agent_results,
-            "final_answer": final_answer
+            "final_answer": final_answer,
         }
 
     async def execute_hierarchical(
-        self,
-        task: str,
-        coordinator_id: str,
-        worker_ids: list[str],
-        context: str | None = None
+        self, task: str, coordinator_id: str, worker_ids: list[str], context: str | None = None
     ) -> dict[str, Any]:
         """
         层级协作模式：coordinator分配任务给workers
@@ -239,11 +224,7 @@ class MultiAgentExecutor:
                 continue
 
             tasks_to_run.append(
-                self._execute_agent_task(
-                    agent=worker,
-                    task=subtask["task"],
-                    context=context
-                )
+                self._execute_agent_task(agent=worker, task=subtask["task"], context=context)
             )
 
         results = await asyncio.gather(*tasks_to_run, return_exceptions=True)
@@ -259,18 +240,18 @@ class MultiAgentExecutor:
             if isinstance(result, Exception):
                 result = f"Error: {str(result)}"
 
-            worker_results.append({
-                "agent": worker.name,
-                "agent_id": worker_id,
-                "subtask": subtask["task"],
-                "result": result
-            })
+            worker_results.append(
+                {
+                    "agent": worker.name,
+                    "agent_id": worker_id,
+                    "subtask": subtask["task"],
+                    "result": result,
+                }
+            )
 
         # 3. Coordinator综合结果
         final_answer = await self._coordinator_synthesize(
-            coordinator=coordinator,
-            task=task,
-            worker_results=worker_results
+            coordinator=coordinator, task=task, worker_results=worker_results
         )
 
         return {
@@ -280,15 +261,11 @@ class MultiAgentExecutor:
             "workers": len(worker_ids),
             "subtasks": subtasks,
             "worker_results": worker_results,
-            "final_answer": final_answer
+            "final_answer": final_answer,
         }
 
     async def execute_discussion(
-        self,
-        task: str,
-        agent_ids: list[str],
-        max_rounds: int = 3,
-        context: str | None = None
+        self, task: str, agent_ids: list[str], max_rounds: int = 3, context: str | None = None
     ) -> dict[str, Any]:
         """
         讨论协作模式：多个Agent讨论达成共识
@@ -302,7 +279,9 @@ class MultiAgentExecutor:
         Returns:
             执行结果
         """
-        logger.info(f"Starting discussion multi-agent execution: {len(agent_ids)} agents, {max_rounds} rounds")
+        logger.info(
+            f"Starting discussion multi-agent execution: {len(agent_ids)} agents, {max_rounds} rounds"
+        )
 
         discussion_history: list[dict[str, Any]] = []
 
@@ -322,26 +301,19 @@ class MultiAgentExecutor:
                     agent=agent,
                     discussion_history=discussion_history,
                     round_num=round_num,
-                    context=context
+                    context=context,
                 )
 
                 # Agent发表观点
                 opinion = await self.llm_client.generate(
-                    prompt=discussion_prompt,
-                    temperature=0.7,
-                    max_tokens=500
+                    prompt=discussion_prompt, temperature=0.7, max_tokens=500
                 )
 
-                round_results.append({
-                    "agent": agent.name,
-                    "agent_id": agent_id,
-                    "opinion": opinion
-                })
+                round_results.append(
+                    {"agent": agent.name, "agent_id": agent_id, "opinion": opinion}
+                )
 
-            discussion_history.append({
-                "round": round_num + 1,
-                "opinions": round_results
-            })
+            discussion_history.append({"round": round_num + 1, "opinions": round_results})
 
             # 检查是否达成共识
             consensus = await self._check_consensus(round_results)
@@ -353,7 +325,7 @@ class MultiAgentExecutor:
                     "agents_involved": len(agent_ids),
                     "rounds": round_num + 1,
                     "discussion_history": discussion_history,
-                    "consensus": consensus["conclusion"]
+                    "consensus": consensus["conclusion"],
                 }
 
         # 未达成共识，由多数投票决定
@@ -366,15 +338,11 @@ class MultiAgentExecutor:
             "rounds": max_rounds,
             "discussion_history": discussion_history,
             "final_conclusion": final_conclusion,
-            "consensus_reached": False
+            "consensus_reached": False,
         }
 
     async def _decompose_task(
-        self,
-        task: str,
-        agent: AgentRole,
-        step: int,
-        total_steps: int
+        self, task: str, agent: AgentRole, step: int, total_steps: int
     ) -> str:
         """为特定Agent分解子任务"""
         prompt = f"""Given the overall task and the agent's role, determine what specific subtask this agent should perform.
@@ -383,7 +351,7 @@ Overall Task: {task}
 
 Agent Role: {agent.name}
 Agent Description: {agent.description}
-Agent Capabilities: {', '.join(agent.capabilities)}
+Agent Capabilities: {", ".join(agent.capabilities)}
 
 This is step {step + 1} of {total_steps}.
 
@@ -394,18 +362,13 @@ Subtask:"""
         subtask = await self.llm_client.generate(prompt=prompt, temperature=0.5, max_tokens=200)
         return subtask.strip()  # type: ignore
 
-    async def _execute_agent_task(
-        self,
-        agent: AgentRole,
-        task: str,
-        context: str | None
-    ) -> str:  # type: ignore
+    async def _execute_agent_task(self, agent: AgentRole, task: str, context: str | None) -> str:  # type: ignore
         """执行单个Agent的任务"""
         prompt_parts = [
             f"You are {agent.name}.",
             f"Role: {agent.description}",
             f"Capabilities: {', '.join(agent.capabilities)}",
-            f"\nTask: {task}"
+            f"\nTask: {task}",
         ]
 
         if context:
@@ -415,20 +378,15 @@ Subtask:"""
 
         prompt = "\n".join(prompt_parts)
 
-        result = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.7,
-            max_tokens=800
-        )
+        result = await self.llm_client.generate(prompt=prompt, temperature=0.7, max_tokens=800)
 
         return result.strip()  # type: ignore
 
     async def _synthesize_results(self, task: str, results: list[dict[str, Any]]) -> str:  # type: ignore
         """综合多个Agent的结果"""
-        results_text = "\n\n".join([
-            f"[{r['agent']}]: {r.get('result', r.get('opinion', ''))}"
-            for r in results
-        ])
+        results_text = "\n\n".join(
+            [f"[{r['agent']}]: {r.get('result', r.get('opinion', ''))}" for r in results]
+        )
 
         prompt = f"""Synthesize the following agent results into a final comprehensive answer.
 
@@ -440,24 +398,22 @@ Agent Results:
 Provide a clear, comprehensive final answer:"""
 
         final_answer = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.5,
-            max_tokens=800
+            prompt=prompt, temperature=0.5, max_tokens=800
         )
 
         return final_answer.strip()  # type: ignore
 
     async def _coordinator_decompose(
-        self,
-        coordinator: AgentRole,
-        task: str,
-        worker_ids: list[str]
+        self, _coordinator: AgentRole, task: str, worker_ids: list[str]
     ) -> list[dict[str, Any]]:
         """Coordinator分解任务"""
-        workers_info = "\n".join([
-            f"- {self.agents[wid].name}: {self.agents[wid].description}"
-            for wid in worker_ids if wid in self.agents
-        ])
+        workers_info = "\n".join(
+            [
+                f"- {self.agents[wid].name}: {self.agents[wid].description}"
+                for wid in worker_ids
+                if wid in self.agents
+            ]
+        )
 
         prompt = f"""As a coordinator, decompose the following task into subtasks for your team.
 
@@ -481,22 +437,15 @@ Respond in JSON format:
             return subtasks  # type: ignore
         except json.JSONDecodeError:
             # 如果解析失败，平均分配
-            return [
-                {"task": task, "assigned_to": wid}
-                for wid in worker_ids
-            ]
+            return [{"task": task, "assigned_to": wid} for wid in worker_ids]
 
     async def _coordinator_synthesize(
-        self,
-        coordinator: AgentRole,
-        task: str,
-        worker_results: list[dict[str, Any]]
+        self, _coordinator: AgentRole, task: str, worker_results: list[dict[str, Any]]
     ) -> str:
         """Coordinator综合workers的结果"""
-        results_text = "\n\n".join([
-            f"[{r['agent']} - {r['subtask']}]:\n{r['result']}"
-            for r in worker_results
-        ])
+        results_text = "\n\n".join(
+            [f"[{r['agent']} - {r['subtask']}]:\n{r['result']}" for r in worker_results]
+        )
 
         prompt = f"""As a coordinator, synthesize your team's results into a final answer.
 
@@ -508,9 +457,7 @@ Team Results:
 Provide a comprehensive final answer:"""
 
         final_answer = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.5,
-            max_tokens=800
+            prompt=prompt, temperature=0.5, max_tokens=800
         )
 
         return final_answer.strip()  # type: ignore
@@ -521,13 +468,13 @@ Provide a comprehensive final answer:"""
         agent: AgentRole,
         discussion_history: list[dict[str, Any]],
         round_num: int,
-        context: str | None
+        context: str | None,
     ) -> str:
         """构建讨论prompt"""
         prompt_parts = [
             f"You are {agent.name}, participating in a group discussion.",
             f"Your role: {agent.description}",
-            f"\nDiscussion Topic: {task}"
+            f"\nDiscussion Topic: {task}",
         ]
 
         if context:
@@ -537,7 +484,7 @@ Provide a comprehensive final answer:"""
             prompt_parts.append("\nPrevious Discussion:")
             for round_data in discussion_history:
                 prompt_parts.append(f"\nRound {round_data['round']}:")
-                for opinion in round_data['opinions']:
+                for opinion in round_data["opinions"]:
                     prompt_parts.append(f"  [{opinion['agent']}]: {opinion['opinion']}")
 
         prompt_parts.append(f"\nRound {round_num + 1} - Provide your perspective:")
@@ -546,10 +493,7 @@ Provide a comprehensive final answer:"""
 
     async def _check_consensus(self, opinions: list[dict[str, Any]]) -> dict[str, Any]:
         """检查是否达成共识"""
-        opinions_text = "\n".join([
-            f"[{op['agent']}]: {op['opinion']}"
-            for op in opinions
-        ])
+        opinions_text = "\n".join([f"[{op['agent']}]: {op['opinion']}" for op in opinions])
 
         prompt = f"""Analyze if these opinions have reached consensus.
 
@@ -575,12 +519,9 @@ Have they reached consensus? Respond in JSON:
         """通过投票得出结论"""
         all_opinions = []
         for round_data in discussion_history:
-            all_opinions.extend(round_data['opinions'])
+            all_opinions.extend(round_data["opinions"])
 
-        opinions_text = "\n".join([
-            f"[{op['agent']}]: {op['opinion']}"
-            for op in all_opinions
-        ])
+        opinions_text = "\n".join([f"[{op['agent']}]: {op['opinion']}" for op in all_opinions])
 
         prompt = f"""Based on the discussion, determine the most supported conclusion.
 
@@ -591,10 +532,6 @@ All Opinions:
 
 What is the conclusion most agents agree on?"""
 
-        conclusion = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.5,
-            max_tokens=500
-        )
+        conclusion = await self.llm_client.generate(prompt=prompt, temperature=0.5, max_tokens=500)
 
         return conclusion.strip()  # type: ignore

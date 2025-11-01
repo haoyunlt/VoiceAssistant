@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/v1/retrieval", tags=["Enhanced Retrieval"])
 
 class Document(BaseModel):
     """文档模型"""
+
     id: str | None = None
     text: str
     score: float | None = None
@@ -26,6 +27,7 @@ class Document(BaseModel):
 
 class ReRankRequest(BaseModel):
     """Re-ranking 请求"""
+
     query: str = Field(..., description="查询文本")
     documents: list[Document] = Field(..., description="待重排序的文档列表")
     top_k: int = Field(10, description="返回的 top-k 结果", ge=1, le=100)
@@ -34,12 +36,11 @@ class ReRankRequest(BaseModel):
 
 class HybridSearchRequest(BaseModel):
     """混合检索请求"""
+
     query: str = Field(..., description="查询文本")
     vector_results: list[Document] = Field(..., description="向量检索结果")
     top_k: int = Field(10, description="返回的 top-k 结果", ge=1, le=100)
-    fusion_method: Literal["rrf", "weighted_sum"] = Field(
-        "rrf", description="融合方法"
-    )
+    fusion_method: Literal["rrf", "weighted_sum"] = Field("rrf", description="融合方法")
 
 
 @router.post("/rerank", summary="Re-ranking（重排序）")
@@ -85,9 +86,7 @@ async def rerank_documents(request: ReRankRequest):
                 documents=docs,
             )
 
-        logger.info(
-            f"Re-ranked {len(docs)} documents, returning {len(reranked_docs)}"
-        )
+        logger.info(f"Re-ranked {len(docs)} documents, returning {len(reranked_docs)}")
 
         return {
             "query": request.query,
@@ -98,7 +97,7 @@ async def rerank_documents(request: ReRankRequest):
 
     except Exception as e:
         logger.error(f"Re-ranking failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Re-ranking failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Re-ranking failed: {str(e)}") from e
 
 
 @router.post("/hybrid-search", summary="混合检索（BM25 + Vector）")
@@ -153,9 +152,7 @@ async def hybrid_search(request: HybridSearchRequest):
 
     except Exception as e:
         logger.error(f"Hybrid search failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Hybrid search failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Hybrid search failed: {str(e)}") from e
 
 
 @router.get("/status", summary="获取增强检索功能状态")
@@ -180,4 +177,4 @@ async def get_retrieval_status():
 
     except Exception as e:
         logger.error(f"Failed to get status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

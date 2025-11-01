@@ -1,12 +1,12 @@
 """Unit tests for rate limiter middleware"""
 
-import pytest
 import time
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+from app.middleware.rate_limiter import RateLimiterMiddleware
 from fastapi import HTTPException, Request, Response
 from starlette.datastructures import Headers
-
-from app.middleware.rate_limiter import RateLimiterMiddleware
 
 
 @pytest.mark.unit
@@ -39,8 +39,10 @@ class TestRateLimiterMiddleware:
     @pytest.fixture
     def mock_call_next(self):
         """Create mock call_next function"""
-        async def call_next(request):
+
+        async def call_next(_request):
             return Response(content="OK", status_code=200)
+
         return call_next
 
     @pytest.mark.asyncio
@@ -138,7 +140,9 @@ class TestRateLimiterMiddleware:
         assert allowed is True
 
     @pytest.mark.asyncio
-    async def test_dispatch_allowed(self, middleware, mock_request, mock_call_next, mock_redis_client):
+    async def test_dispatch_allowed(
+        self, middleware, mock_request, mock_call_next, mock_redis_client
+    ):
         """Test dispatch with allowed request"""
         mock_redis_client.zcard = AsyncMock(return_value=5)
 
@@ -146,7 +150,9 @@ class TestRateLimiterMiddleware:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_dispatch_rate_limited(self, middleware, mock_request, mock_call_next, mock_redis_client):
+    async def test_dispatch_rate_limited(
+        self, middleware, mock_request, mock_call_next, mock_redis_client
+    ):
         """Test dispatch with rate limited request"""
         mock_redis_client.zcard = AsyncMock(return_value=10)
 

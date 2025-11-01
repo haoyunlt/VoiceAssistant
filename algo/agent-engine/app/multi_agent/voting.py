@@ -89,9 +89,7 @@ class VotingCoordinator:
         self.confidence_threshold = confidence_threshold
         self.supermajority_ratio = supermajority_ratio
 
-        logger.info(
-            f"VotingCoordinator initialized (confidence_threshold={confidence_threshold})"
-        )
+        logger.info(f"VotingCoordinator initialized (confidence_threshold={confidence_threshold})")
 
     async def vote(
         self,
@@ -152,7 +150,7 @@ class VotingCoordinator:
         context: dict | None,
     ) -> Vote:
         """获取 Agent 的投票"""
-        options_text = "\n".join([f"{i+1}. {opt}" for i, opt in enumerate(options)])
+        options_text = "\n".join([f"{i + 1}. {opt}" for i, opt in enumerate(options)])
 
         context_text = ""
         if context:
@@ -207,9 +205,7 @@ class VotingCoordinator:
         # 计算整体置信度
         winner_votes = [v for v in votes if v.choice == winner]
         avg_confidence = (
-            sum(v.confidence for v in winner_votes) / len(winner_votes)
-            if winner_votes
-            else 0.0
+            sum(v.confidence for v in winner_votes) / len(winner_votes) if winner_votes else 0.0
         )
 
         # 合并理由
@@ -229,9 +225,7 @@ class VotingCoordinator:
         """加权投票"""
         weighted_counts = {}
         for vote in votes:
-            weighted_counts[vote.choice] = (
-                weighted_counts.get(vote.choice, 0.0) + vote.weight
-            )
+            weighted_counts[vote.choice] = weighted_counts.get(vote.choice, 0.0) + vote.weight
 
         winner = max(weighted_counts.keys(), key=lambda k: weighted_counts[k])
 
@@ -272,9 +266,7 @@ class VotingCoordinator:
 
         winner_votes = [v for v in votes if v.choice == winner]
         avg_confidence = (
-            sum(v.confidence for v in winner_votes) / len(winner_votes)
-            if winner_votes
-            else 0.0
+            sum(v.confidence for v in winner_votes) / len(winner_votes) if winner_votes else 0.0
         )
 
         reasoning = self._merge_reasoning(winner_votes)
@@ -305,9 +297,7 @@ class VotingCoordinator:
             winner = vote_counts.most_common(1)[0][0]
             winner_votes = [v for v in votes if v.choice == winner]
             avg_confidence = (
-                sum(v.confidence for v in winner_votes) / len(winner_votes)
-                if winner_votes
-                else 0.0
+                sum(v.confidence for v in winner_votes) / len(winner_votes) if winner_votes else 0.0
             )
             is_consensus = False
             reasoning = f"未达成共识，多数选择为：{winner}"
@@ -333,9 +323,7 @@ class VotingCoordinator:
 
         winner_votes = [v for v in votes if v.choice == winner]
         avg_confidence = (
-            sum(v.confidence for v in winner_votes) / len(winner_votes)
-            if winner_votes
-            else 0.0
+            sum(v.confidence for v in winner_votes) / len(winner_votes) if winner_votes else 0.0
         )
 
         if is_consensus:
@@ -406,4 +394,3 @@ class VotingCoordinator:
 
         logger.warning("Max rounds reached without consensus")
         return result
-

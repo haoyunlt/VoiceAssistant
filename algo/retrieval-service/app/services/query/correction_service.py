@@ -15,7 +15,6 @@ import asyncio
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 from app.observability.logging import logger
 
@@ -26,7 +25,7 @@ class CorrectionResult:
 
     original_query: str
     corrected_query: str
-    corrections: List[tuple]  # (original_word, corrected_word)
+    corrections: list[tuple]  # (original_word, corrected_word)
     confidence: float
     latency_ms: float
 
@@ -89,9 +88,7 @@ class QueryCorrectionService:
             return sym_spell
 
         except ImportError:
-            logger.warning(
-                "SymSpellPy not installed. Install with: pip install symspellpy"
-            )
+            logger.warning("SymSpellPy not installed. Install with: pip install symspellpy")
             return None
         except Exception as e:
             logger.error(f"Failed to initialize SymSpell: {e}")
@@ -104,7 +101,7 @@ class QueryCorrectionService:
         try:
             dict_file = Path(self.dictionary_path)
             if dict_file.exists():
-                with open(dict_file, "r", encoding="utf-8") as f:
+                with open(dict_file, encoding="utf-8") as f:
                     for line in f:
                         word = line.strip().split()[0]
                         if word:
@@ -189,7 +186,7 @@ class QueryCorrectionService:
                 latency_ms=(time.time() - start_time) * 1000,
             )
 
-    def _symspell_correct(self, query: str) -> tuple[str, List[tuple]]:
+    def _symspell_correct(self, query: str) -> tuple[str, list[tuple]]:
         """
         使用SymSpell纠错
 
@@ -218,7 +215,7 @@ class QueryCorrectionService:
                 corrected_words = corrected.split()
                 corrections = []
 
-                for orig, corr in zip(original_words, corrected_words):
+                for orig, corr in zip(original_words, corrected_words, strict=False):
                     if orig.lower() != corr.lower():
                         corrections.append((orig, corr))
 
@@ -230,7 +227,7 @@ class QueryCorrectionService:
             logger.warning(f"SymSpell correction error: {e}")
             return query, []
 
-    def _simple_correct(self, query: str) -> tuple[str, List[tuple]]:
+    def _simple_correct(self, query: str) -> tuple[str, list[tuple]]:
         """
         简单规则纠错
 
@@ -270,9 +267,7 @@ class QueryCorrectionService:
         corrected_query = " ".join(corrected_words)
         return corrected_query, corrections
 
-    async def batch_correct(
-        self, queries: List[str]
-    ) -> List[CorrectionResult]:
+    async def batch_correct(self, queries: list[str]) -> list[CorrectionResult]:
         """
         批量纠错
 
@@ -285,7 +280,7 @@ class QueryCorrectionService:
         tasks = [self.correct(q) for q in queries]
         return await asyncio.gather(*tasks)
 
-    def add_to_dictionary(self, words: List[str]):
+    def add_to_dictionary(self, words: list[str]):
         """
         添加到自定义词典
 

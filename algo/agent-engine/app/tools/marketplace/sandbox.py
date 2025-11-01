@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class SandboxConfig(BaseModel):
     """Sandbox configuration"""
+
     network_access: bool = False
     file_system_access: bool = False
     database_access: bool = False
@@ -32,12 +33,7 @@ class ToolSandbox:
         self.execution_count = 0
         self.total_execution_time = 0.0
 
-    async def execute_safe(
-        self,
-        tool_func: Callable,
-        *args,
-        **kwargs
-    ) -> Any:
+    async def execute_safe(self, tool_func: Callable, *args, **kwargs) -> Any:
         """Execute function safely in sandbox"""
         self.execution_count += 1
 
@@ -48,8 +44,7 @@ class ToolSandbox:
 
             # Execute with timeout
             result = await asyncio.wait_for(
-                _execute_with_timeout(),
-                timeout=self.config.max_execution_time
+                _execute_with_timeout(), timeout=self.config.max_execution_time
             )
 
             logger.info("Tool executed successfully in sandbox")
@@ -57,24 +52,18 @@ class ToolSandbox:
 
         except TimeoutError:
             logger.error(f"Tool execution timed out after {self.config.max_execution_time}s")
-            raise ToolExecutionError(
-                f"Execution timeout ({self.config.max_execution_time}s)"
-            )
+            raise ToolExecutionError(f"Execution timeout ({self.config.max_execution_time}s)") from None
         except MemoryError:
             logger.error("Tool exceeded memory limit")
-            raise ToolExecutionError("Memory limit exceeded")
+            raise ToolExecutionError("Memory limit exceeded") from None
         except Exception as e:
             logger.error(f"Tool execution failed: {e}")
-            raise ToolExecutionError(f"Execution failed: {str(e)}")
+            raise ToolExecutionError(f"Execution failed: {str(e)}") from e
 
-    async def _execute_function(
-        self,
-        func: Callable,
-        args: tuple,
-        kwargs: dict
-    ) -> Any:
+    async def _execute_function(self, func: Callable, args: tuple, kwargs: dict) -> Any:
         """Execute function with restrictions"""
         import time
+
         start_time = time.time()
 
         try:
@@ -89,11 +78,7 @@ class ToolSandbox:
                 else:
                     # Run sync function in executor
                     loop = asyncio.get_event_loop()
-                    result = await loop.run_in_executor(
-                        None,
-                        func,
-                        *args
-                    )
+                    result = await loop.run_in_executor(None, func, *args)
 
             # Log captured output
             stdout_text = stdout_capture.getvalue()
@@ -122,9 +107,8 @@ class ToolSandbox:
             "execution_count": self.execution_count,
             "total_execution_time": self.total_execution_time,
             "avg_execution_time": (
-                self.total_execution_time / self.execution_count
-                if self.execution_count > 0 else 0
-            )
+                self.total_execution_time / self.execution_count if self.execution_count > 0 else 0
+            ),
         }
 
 
@@ -141,8 +125,8 @@ class RestrictedEnvironment:
 
         # Save original builtins
         self.original_builtins = {
-            'open': builtins.open,
-            '__import__': builtins.__import__,
+            "open": builtins.open,
+            "__import__": builtins.__import__,
         }
 
         # Override dangerous builtins
@@ -159,10 +143,10 @@ class RestrictedEnvironment:
         import builtins
 
         # Restore original builtins
-        builtins.open = self.original_builtins['open']
-        builtins.__import__ = self.original_builtins['__import__']
+        builtins.open = self.original_builtins["open"]
+        builtins.__import__ = self.original_builtins["__import__"]
 
-    def _restricted_open(self, *args, **kwargs):
+    def _restricted_open(self, *_args, **_kwargs):
         """Restricted file open"""
         raise PermissionError("File system access not allowed")
 
@@ -170,10 +154,10 @@ class RestrictedEnvironment:
         """Restricted import"""
         if name not in self.config.allowed_modules:
             raise ImportError(f"Module {name} not allowed")
-        return self.original_builtins['__import__'](name, *args, **kwargs)
+        return self.original_builtins["__import__"](name, *args, **kwargs)
 
 
 class ToolExecutionError(Exception):
     """Tool execution error"""
-    pass
 
+    pass

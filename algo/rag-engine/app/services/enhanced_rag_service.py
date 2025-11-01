@@ -172,7 +172,7 @@ class EnhancedRAGService:
                 logger.error(f"Enhanced RAG query failed: {e}", exc_info=True)
                 raise
 
-    async def _check_cache(self, query: str, tenant_id: str) -> dict[str, Any] | None:
+    async def _check_cache(self, query: str, _tenant_id: str) -> dict[str, Any] | None:
         """检查语义缓存"""
         try:
             cached_answer = await self.cache_service.get_cached_answer(query)
@@ -201,7 +201,7 @@ class EnhancedRAGService:
             logger.warning(f"Cache set failed: {e}")
 
     async def _retrieve_documents(
-        self, query: str, tenant_id: str, top_k: int, mode: str
+        self, query: str, tenant_id: str, top_k: int, _mode: str
     ) -> list[dict[str, Any]]:
         """执行检索（混合检索）"""
         # 1. 向量检索

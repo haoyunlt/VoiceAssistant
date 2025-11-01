@@ -84,7 +84,7 @@ async def register_tool_permission(request: RegisterToolRequest):
 
     except Exception as e:
         logger.error(f"Failed to register tool permission: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/check")
@@ -145,7 +145,7 @@ async def check_permission(request: CheckPermissionRequest):
 
     except Exception as e:
         logger.error(f"Failed to check permission: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/blacklist/{tool_name}")
@@ -175,7 +175,7 @@ async def blacklist_tool(tool_name: str):
 
     except Exception as e:
         logger.error(f"Failed to blacklist tool: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/blacklist/{tool_name}")
@@ -201,7 +201,7 @@ async def whitelist_tool(tool_name: str):
 
     except Exception as e:
         logger.error(f"Failed to whitelist tool: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/tools/{permission_level}")
@@ -229,7 +229,7 @@ async def get_tools_by_permission(permission_level: ToolPermissionLevel):
 
     except Exception as e:
         logger.error(f"Failed to get tools by permission: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/summary")
@@ -251,7 +251,7 @@ async def get_permission_summary():
 
     except Exception as e:
         logger.error(f"Failed to get permission summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/levels")

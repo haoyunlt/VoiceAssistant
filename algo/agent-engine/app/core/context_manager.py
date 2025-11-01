@@ -141,9 +141,7 @@ class ContextManager:
             return ""
 
         # 按优先级排序
-        sorted_components = sorted(
-            self.components, key=lambda c: c.priority.value, reverse=True
-        )
+        sorted_components = sorted(self.components, key=lambda c: c.priority.value, reverse=True)
 
         # 贪心选择组件
         selected_components = []
@@ -165,14 +163,10 @@ class ContextManager:
                     selected_components.append(truncated)
                     total_tokens += truncated.token_count
             else:
-                logger.debug(
-                    f"Component {component.type.value} skipped (insufficient tokens)"
-                )
+                logger.debug(f"Component {component.type.value} skipped (insufficient tokens)")
 
         # 按类型顺序重排（保持结构）
-        selected_components.sort(
-            key=lambda c: list(ComponentType).index(c.type)
-        )
+        selected_components.sort(key=lambda c: list(ComponentType).index(c.type))
 
         # 构建最终文本
         context_parts = []
@@ -262,7 +256,9 @@ class ContextManager:
             "total_components": len(self.components),
             "total_tokens": total_tokens,
             "available_tokens": self.available_tokens,
-            "usage_ratio": total_tokens / self.available_tokens if self.available_tokens > 0 else 0.0,
+            "usage_ratio": total_tokens / self.available_tokens
+            if self.available_tokens > 0
+            else 0.0,
             "by_type": by_type,
             "by_priority": by_priority,
         }
@@ -338,9 +334,7 @@ class DynamicToolLoader:
 
         return len(intersection) / len(union)
 
-    def format_tool_descriptions(
-        self, tools: list[dict], compact: bool = False
-    ) -> str:
+    def format_tool_descriptions(self, tools: list[dict], compact: bool = False) -> str:
         """
         格式化工具描述
 
@@ -376,4 +370,3 @@ class DynamicToolLoader:
                 lines.append("")
 
             return "\n".join(lines)
-

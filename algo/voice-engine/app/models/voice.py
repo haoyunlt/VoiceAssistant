@@ -2,7 +2,6 @@
 Voice processing data models
 """
 
-
 from pydantic import BaseModel, Field
 
 

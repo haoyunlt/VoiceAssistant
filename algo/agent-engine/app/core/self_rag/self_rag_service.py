@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from app.core.self_rag.adaptive_retriever import AdaptiveRetriever, RetrievalStrategy
+from app.core.self_rag.adaptive_retriever import AdaptiveRetriever
 from app.core.self_rag.critique import RetrievalAssessment, RetrievalCritic
 from app.core.self_rag.hallucination_detector import (
     HallucinationDetector,
@@ -115,9 +115,7 @@ class SelfRAGService:
             enable_cache=True,
         )
 
-        self.retrieval_critic = RetrievalCritic(
-            llm_client=llm_client, model="gpt-3.5-turbo"
-        )
+        self.retrieval_critic = RetrievalCritic(llm_client=llm_client, model="gpt-3.5-turbo")
 
         self.hallucination_detector = HallucinationDetector(
             llm_client=llm_client,
@@ -196,22 +194,18 @@ class SelfRAGService:
             if config.mode == SelfRAGMode.FAST:
                 logger.debug("Fast mode: skipping hallucination detection")
             else:
-                answer, hallucination_report, refinement_count = (
-                    await self._verify_and_refine(
-                        query,
-                        answer,
-                        documents,
-                        max_attempts=config.max_refinement_attempts,
-                        hallucination_threshold=config.hallucination_threshold,
-                    )
+                answer, hallucination_report, refinement_count = await self._verify_and_refine(
+                    query,
+                    answer,
+                    documents,
+                    max_attempts=config.max_refinement_attempts,
+                    hallucination_threshold=config.hallucination_threshold,
                 )
 
         # 5. 添加引用（如果启用）
         citations = []
         if config.enable_citations and hallucination_report:
-            answer = await self.hallucination_detector.add_citations(
-                answer, hallucination_report
-            )
+            answer = await self.hallucination_detector.add_citations(answer, hallucination_report)
             citations = hallucination_report.citations
 
         # 6. 计算置信度
@@ -239,22 +233,19 @@ class SelfRAGService:
         )
 
         logger.info(
-            f"Self-RAG completed: confidence={confidence:.2f}, "
-            f"refinements={refinement_count}"
+            f"Self-RAG completed: confidence={confidence:.2f}, refinements={refinement_count}"
         )
 
         return result
 
-    async def _generate_answer(
-        self, query: str, documents: list[str], context: dict | None
-    ) -> str:
+    async def _generate_answer(self, query: str, documents: list[str], _context: dict | None) -> str:
         """生成答案"""
         if not documents:
             # 无检索结果，直接使用 LLM
             prompt = f"请回答以下问题: {query}"
         else:
             # 基于检索结果生成
-            docs_text = "\n\n".join([f"文档{i+1}:\n{doc}" for i, doc in enumerate(documents)])
+            docs_text = "\n\n".join([f"文档{i + 1}:\n{doc}" for i, doc in enumerate(documents)])
             prompt = f"""基于以下文档回答问题。如果文档中没有相关信息，请明确说明。
 
 问题: {query}
@@ -289,7 +280,7 @@ class SelfRAGService:
         answer: str,
         documents: list[str],
         max_attempts: int = 2,
-        hallucination_threshold: float = 0.3,
+        _hallucination_threshold: float = 0.3,
     ) -> tuple[str, HallucinationReport, int]:
         """
         验证并修正答案
@@ -303,9 +294,7 @@ class SelfRAGService:
 
         for attempt in range(max_attempts):
             # 检测幻觉
-            report = await self.hallucination_detector.detect(
-                current_answer, documents, query
-            )
+            report = await self.hallucination_detector.detect(current_answer, documents, query)
 
             final_report = report
 
@@ -468,4 +457,3 @@ async def create_self_rag_service(
 
     logger.info(f"Self-RAG service created (mode={mode.value})")
     return service
-

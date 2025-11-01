@@ -22,7 +22,6 @@ setup_logging(settings.LOG_LEVEL)
 logger = logging.getLogger(__name__)
 
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """应用生命周期管理"""
@@ -31,12 +30,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # 初始化 PostgreSQL 数据库
     try:
-        from app.db.database import init_database, create_tables
+        from app.db.database import create_tables, init_database
 
-        init_database(
-            database_url=settings.DATABASE_URL,
-            echo=settings.DATABASE_ECHO
-        )
+        init_database(database_url=settings.DATABASE_URL, echo=settings.DATABASE_ECHO)
         logger.info("Database initialized successfully")
 
         # 创建表（如果不存在）
@@ -164,6 +160,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # 关闭数据库连接
     try:
         from app.db.database import close_database
+
         await close_database()
         logger.info("Database connection closed")
     except Exception as e:
@@ -182,7 +179,7 @@ app = FastAPI(
 )
 
 # 设置可观测性
-from app.core.observability import instrument_app, setup_observability
+from app.core.observability import instrument_app, setup_observability  # noqa: E402
 
 setup_observability()
 instrument_app(app)
@@ -200,7 +197,15 @@ app.add_middleware(
 # 注意：需要在启动后才能使用redis_client，所以在启动事件中添加
 
 # 注册路由
-from app.routers import admin, community, disambiguation, graphrag, document, version, enhanced_graphrag
+from app.routers import (  # noqa: E402
+    admin,
+    community,
+    disambiguation,
+    document,
+    enhanced_graphrag,
+    graphrag,
+    version,
+)
 
 app.include_router(knowledge_graph.router)
 app.include_router(community.router)
@@ -208,7 +213,7 @@ app.include_router(disambiguation.router)
 app.include_router(admin.router)
 app.include_router(graphrag.router)  # GraphRAG路由
 app.include_router(document.router)  # 文档管理路由
-app.include_router(version.router)   # 版本管理路由
+app.include_router(version.router)  # 版本管理路由
 app.include_router(enhanced_graphrag.router)  # 增强版GraphRAG路由（包含所有优化）
 
 

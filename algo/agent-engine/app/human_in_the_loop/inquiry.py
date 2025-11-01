@@ -156,9 +156,7 @@ class HumanInquiry:
         # 发送到前端（通过 WebSocket）
         await self._send_to_frontend(request)
 
-        logger.info(
-            f"[{inquiry_id}] Inquiry sent: {question[:50]}... (timeout={timeout}s)"
-        )
+        logger.info(f"[{inquiry_id}] Inquiry sent: {question[:50]}... (timeout={timeout}s)")
 
         # 等待响应或超时
         try:
@@ -172,7 +170,7 @@ class HumanInquiry:
             if default_answer:
                 return default_answer
             else:
-                raise TimeoutError(f"Human inquiry timed out: {inquiry_id}")
+                raise TimeoutError(f"Human inquiry timed out: {inquiry_id}") from None
 
         finally:
             # 清理
@@ -419,17 +417,12 @@ class FeedbackLearning:
         suggestions = []
 
         if summary["correction_count"] > 10:
-            suggestions.append(
-                f"检测到 {summary['correction_count']} 次修正，建议分析常见错误模式"
-            )
+            suggestions.append(f"检测到 {summary['correction_count']} 次修正，建议分析常见错误模式")
 
         if summary["rejection_count"] > 5:
-            suggestions.append(
-                f"检测到 {summary['rejection_count']} 次拒绝，建议增强决策审慎性"
-            )
+            suggestions.append(f"检测到 {summary['rejection_count']} 次拒绝，建议增强决策审慎性")
 
         # 分析具体类别
         # （实际项目中可以使用 LLM 分析反馈文本）
 
         return suggestions
-

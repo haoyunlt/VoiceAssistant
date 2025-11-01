@@ -128,9 +128,7 @@ class MemoryCompressor:
 
         return summary
 
-    async def _generate_summary(
-        self, conversation_id: str, messages: list[dict]
-    ) -> MemorySummary:
+    async def _generate_summary(self, conversation_id: str, messages: list[dict]) -> MemorySummary:
         """生成对话摘要"""
         # 格式化消息
         conversation_text = self._format_messages(messages)
@@ -186,14 +184,14 @@ class MemoryCompressor:
             # 降级：简单截断
             return self._simple_summary(conversation_id, messages)
 
-    def _simple_summary(
-        self, conversation_id: str, messages: list[dict]
-    ) -> MemorySummary:
+    def _simple_summary(self, conversation_id: str, messages: list[dict]) -> MemorySummary:
         """简单摘要（降级方案）"""
         conversation_text = self._format_messages(messages)
 
         # 简单截断前500个字符作为摘要
-        summary = conversation_text[:500] + "..." if len(conversation_text) > 500 else conversation_text
+        summary = (
+            conversation_text[:500] + "..." if len(conversation_text) > 500 else conversation_text
+        )
 
         return MemorySummary(
             conversation_id=conversation_id,
@@ -215,9 +213,7 @@ class MemoryCompressor:
             formatted.append(f"[{timestamp}] {role}: {content}")
         return "\n".join(formatted)
 
-    async def get_compressed_context(
-        self, conversation_id: str
-    ) -> dict[str, Any]:
+    async def get_compressed_context(self, conversation_id: str) -> dict[str, Any]:
         """
         获取压缩后的上下文（用于构建 Prompt）
 
@@ -326,4 +322,3 @@ class MemoryCompressor:
             "avg_compression_ratio": avg_compression_ratio,
             "estimated_storage_saved_pct": (1 - avg_compression_ratio) * 100,
         }
-

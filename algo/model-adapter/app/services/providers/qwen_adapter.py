@@ -27,14 +27,10 @@ class QwenAdapter:
             "qwen-max",
             "qwen-max-longcontext",
             "qwen-vl-plus",
-            "qwen-vl-max"
+            "qwen-vl-max",
         ]
 
-    async def chat(
-        self,
-        request: ChatRequest,
-        **kwargs
-    ) -> ChatResponse:
+    async def chat(self, request: ChatRequest, **_kwargs) -> ChatResponse:
         """Chat completion"""
         try:
             # Build request
@@ -42,14 +38,13 @@ class QwenAdapter:
                 "model": request.model,
                 "input": {
                     "messages": [
-                        {"role": msg.role, "content": msg.content}
-                        for msg in request.messages
+                        {"role": msg.role, "content": msg.content} for msg in request.messages
                     ]
                 },
                 "parameters": {
                     "temperature": request.temperature or 0.7,
                     "max_tokens": request.max_tokens or 2048,
-                }
+                },
             }
 
             if request.top_p:
@@ -58,13 +53,13 @@ class QwenAdapter:
             # Send request
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
             response = await self.client.post(
                 f"{self.base_url}/services/aigc/text-generation/generation",
                 json=qwen_request,
-                headers=headers
+                headers=headers,
             )
 
             response.raise_for_status()
@@ -80,11 +75,7 @@ class QwenAdapter:
             logger.error(f"Qwen chat completion failed: {e}")
             raise
 
-    async def chat_stream(
-        self,
-        request: ChatRequest,
-        **kwargs
-    ) -> AsyncIterator[str]:
+    async def chat_stream(self, request: ChatRequest, **_kwargs) -> AsyncIterator[str]:
         """Streaming chat completion"""
         try:
             # Build request
@@ -92,15 +83,14 @@ class QwenAdapter:
                 "model": request.model,
                 "input": {
                     "messages": [
-                        {"role": msg.role, "content": msg.content}
-                        for msg in request.messages
+                        {"role": msg.role, "content": msg.content} for msg in request.messages
                     ]
                 },
                 "parameters": {
                     "temperature": request.temperature or 0.7,
                     "max_tokens": request.max_tokens or 2048,
-                    "incremental_output": True
-                }
+                    "incremental_output": True,
+                },
             }
 
             if request.top_p:
@@ -110,14 +100,14 @@ class QwenAdapter:
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
-                "X-DashScope-SSE": "enable"
+                "X-DashScope-SSE": "enable",
             }
 
             async with self.client.stream(
                 "POST",
                 f"{self.base_url}/services/aigc/text-generation/generation",
                 json=qwen_request,
-                headers=headers
+                headers=headers,
             ) as response:
                 response.raise_for_status()
 
@@ -148,20 +138,19 @@ class QwenAdapter:
         output = result.get("output", {})
         text = output.get("text", "")
 
-        choices = [Choice(
-            index=0,
-            message=Message(
-                role="assistant",
-                content=text
-            ),
-            finish_reason=output.get("finish_reason", "stop")
-        )]
+        choices = [
+            Choice(
+                index=0,
+                message=Message(role="assistant", content=text),
+                finish_reason=output.get("finish_reason", "stop"),
+            )
+        ]
 
         usage_data = result.get("usage", {})
         usage = Usage(
             prompt_tokens=usage_data.get("input_tokens", 0),
             completion_tokens=usage_data.get("output_tokens", 0),
-            total_tokens=usage_data.get("total_tokens", 0)
+            total_tokens=usage_data.get("total_tokens", 0),
         )
 
         return ChatResponse(
@@ -170,7 +159,7 @@ class QwenAdapter:
             created=int(datetime.utcnow().timestamp()),
             model=model,
             choices=choices,
-            usage=usage
+            usage=usage,
         )
 
     def _extract_stream_content(self, chunk: dict) -> str | None:

@@ -21,7 +21,7 @@ class EntityExtractor:
         self,
         model_name: str = "en_core_web_sm",
         use_transformer: bool = False,
-        transformer_model: str = "dslim/bert-base-NER"
+        transformer_model: str = "dslim/bert-base-NER",
     ):
         """
         初始化实体识别器
@@ -37,9 +37,7 @@ class EntityExtractor:
             # 使用 Transformer 模型
             logger.info(f"Loading transformer NER model: {transformer_model}")
             self.ner_pipeline = pipeline(
-                "ner",
-                model=transformer_model,
-                aggregation_strategy="simple"
+                "ner", model=transformer_model, aggregation_strategy="simple"
             )
         else:
             # 使用 spaCy 模型
@@ -49,6 +47,7 @@ class EntityExtractor:
             except OSError:
                 logger.warning(f"Model {model_name} not found, downloading...")
                 import subprocess
+
                 subprocess.run(["python", "-m", "spacy", "download", model_name])
                 self.nlp = spacy.load(model_name)
 
@@ -73,13 +72,15 @@ class EntityExtractor:
 
         entities = []
         for ent in doc.ents:
-            entities.append({
-                "text": ent.text,
-                "label": ent.label_,
-                "start": ent.start_char,
-                "end": ent.end_char,
-                "confidence": 1.0  # spaCy 不提供置信度
-            })
+            entities.append(
+                {
+                    "text": ent.text,
+                    "label": ent.label_,
+                    "start": ent.start_char,
+                    "end": ent.end_char,
+                    "confidence": 1.0,  # spaCy 不提供置信度
+                }
+            )
 
         logger.debug(f"Extracted {len(entities)} entities using spaCy")
         return entities
@@ -90,21 +91,21 @@ class EntityExtractor:
 
         entities = []
         for result in results:
-            entities.append({
-                "text": result["word"],
-                "label": result["entity_group"],
-                "start": result["start"],
-                "end": result["end"],
-                "confidence": result["score"]
-            })
+            entities.append(
+                {
+                    "text": result["word"],
+                    "label": result["entity_group"],
+                    "start": result["start"],
+                    "end": result["end"],
+                    "confidence": result["score"],
+                }
+            )
 
         logger.debug(f"Extracted {len(entities)} entities using Transformer")
         return entities
 
     def extract_entities_with_context(
-        self,
-        text: str,
-        context_window: int = 50
+        self, text: str, context_window: int = 50
     ) -> list[dict[str, Any]]:
         """
         提取实体并包含上下文
@@ -129,11 +130,7 @@ class EntityExtractor:
 class RelationExtractor:
     """关系抽取器"""
 
-    def __init__(
-        self,
-        use_llm: bool = False,
-        llm_model: str = "gpt-3.5-turbo"
-    ):
+    def __init__(self, use_llm: bool = False, llm_model: str = "gpt-3.5-turbo"):
         """
         初始化关系抽取器
 
@@ -146,15 +143,15 @@ class RelationExtractor:
 
         # 预定义的关系类型
         self.relation_types = [
-            "is_a",           # 是
-            "part_of",        # 部分
-            "located_in",     # 位于
-            "works_for",      # 工作于
-            "created_by",     # 创建者
-            "owns",           # 拥有
-            "related_to",     # 相关
-            "caused_by",      # 原因
-            "results_in",     # 结果
+            "is_a",  # 是
+            "part_of",  # 部分
+            "located_in",  # 位于
+            "works_for",  # 工作于
+            "created_by",  # 创建者
+            "owns",  # 拥有
+            "related_to",  # 相关
+            "caused_by",  # 原因
+            "results_in",  # 结果
         ]
 
         # 关系模式（基于规则）
@@ -167,11 +164,7 @@ class RelationExtractor:
             (r"(.+) owns (.+)", "owns"),
         ]
 
-    def extract_relations(
-        self,
-        text: str,
-        entities: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def extract_relations(self, text: str, entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         从文本和实体中提取关系
 
@@ -188,9 +181,7 @@ class RelationExtractor:
             return self._extract_with_rules(text, entities)
 
     def _extract_with_rules(
-        self,
-        text: str,
-        entities: list[dict[str, Any]]
+        self, text: str, entities: list[dict[str, Any]]
     ) -> list[dict[str, Any]]:
         """基于规则的关系抽取"""
         relations = []
@@ -200,35 +191,35 @@ class RelationExtractor:
             matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
                 if len(match.groups()) >= 2:
-                    relations.append({
-                        "source": match.group(1).strip(),
-                        "target": match.group(2).strip(),
-                        "relation": relation_type,
-                        "confidence": 0.8,
-                        "method": "rule_based"
-                    })
+                    relations.append(
+                        {
+                            "source": match.group(1).strip(),
+                            "target": match.group(2).strip(),
+                            "relation": relation_type,
+                            "confidence": 0.8,
+                            "method": "rule_based",
+                        }
+                    )
 
         # 2. 基于实体共现
         for i, entity1 in enumerate(entities):
-            for entity2 in entities[i+1:]:
+            for entity2 in entities[i + 1 :]:
                 # 检查两个实体是否在同一句子中
                 if self._in_same_sentence(text, entity1, entity2):
-                    relations.append({
-                        "source": entity1["text"],
-                        "target": entity2["text"],
-                        "relation": "related_to",
-                        "confidence": 0.6,
-                        "method": "co_occurrence"
-                    })
+                    relations.append(
+                        {
+                            "source": entity1["text"],
+                            "target": entity2["text"],
+                            "relation": "related_to",
+                            "confidence": 0.6,
+                            "method": "co_occurrence",
+                        }
+                    )
 
         logger.debug(f"Extracted {len(relations)} relations using rules")
         return relations
 
-    def _extract_with_llm(
-        self,
-        text: str,
-        entities: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _extract_with_llm(self, text: str, entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """使用 LLM 的关系抽取"""
         # TODO: 实现 LLM 关系抽取
         # 这里需要调用 LLM API
@@ -236,10 +227,7 @@ class RelationExtractor:
         return self._extract_with_rules(text, entities)
 
     def _in_same_sentence(
-        self,
-        text: str,
-        entity1: dict[str, Any],
-        entity2: dict[str, Any]
+        self, _text: str, entity1: dict[str, Any], entity2: dict[str, Any]
     ) -> bool:
         """检查两个实体是否在同一句子中"""
         # 简化版：检查是否在 100 个字符内
@@ -255,12 +243,7 @@ class GraphBuilder:
         self.entity_extractor = EntityExtractor()
         self.relation_extractor = RelationExtractor()
 
-    def build_graph_from_text(
-        self,
-        text: str,
-        document_id: str,
-        tenant_id: str
-    ) -> dict[str, Any]:
+    def build_graph_from_text(self, text: str, document_id: str, tenant_id: str) -> dict[str, Any]:
         """
         从文本构建知识图谱
 
@@ -295,15 +278,12 @@ class GraphBuilder:
             "entity_types": self._count_entity_types(entities),
             "relation_types": self._count_relation_types(relations),
             "entities": entities,
-            "relations": relations
+            "relations": relations,
         }
 
         return stats
 
-    def _deduplicate_entities(
-        self,
-        entities: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _deduplicate_entities(self, entities: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """去除重复实体"""
         seen = set()
         unique_entities = []
@@ -317,20 +297,12 @@ class GraphBuilder:
         return unique_entities
 
     def _filter_relations(
-        self,
-        relations: list[dict[str, Any]],
-        min_confidence: float = 0.5
+        self, relations: list[dict[str, Any]], min_confidence: float = 0.5
     ) -> list[dict[str, Any]]:
         """过滤低置信度关系"""
-        return [
-            r for r in relations
-            if r["confidence"] >= min_confidence
-        ]
+        return [r for r in relations if r["confidence"] >= min_confidence]
 
-    def _count_entity_types(
-        self,
-        entities: list[dict[str, Any]]
-    ) -> dict[str, int]:
+    def _count_entity_types(self, entities: list[dict[str, Any]]) -> dict[str, int]:
         """统计实体类型"""
         counts = {}
         for entity in entities:
@@ -338,10 +310,7 @@ class GraphBuilder:
             counts[label] = counts.get(label, 0) + 1
         return counts
 
-    def _count_relation_types(
-        self,
-        relations: list[dict[str, Any]]
-    ) -> dict[str, int]:
+    def _count_relation_types(self, relations: list[dict[str, Any]]) -> dict[str, int]:
         """统计关系类型"""
         counts = {}
         for relation in relations:
@@ -351,9 +320,7 @@ class GraphBuilder:
 
 
 def community_detection(
-    entities: list[dict[str, Any]],
-    relations: list[dict[str, Any]],
-    algorithm: str = "louvain"
+    entities: list[dict[str, Any]], relations: list[dict[str, Any]], algorithm: str = "louvain"
 ) -> dict[str, list[str]]:
     """
     社区检测
@@ -383,7 +350,7 @@ def community_detection(
                 relation["source"],
                 relation["target"],
                 relation=relation["relation"],
-                weight=relation["confidence"]
+                weight=relation["confidence"],
             )
 
         # 社区检测

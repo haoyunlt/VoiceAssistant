@@ -79,7 +79,7 @@ class AnswerGenerator:
 
         except Exception as e:
             logger.error(f"Answer generation failed: {e}")
-            raise RuntimeError(f"Failed to generate answer: {e}")
+            raise RuntimeError(f"Failed to generate answer: {e}") from e
 
     async def generate_stream(
         self,
@@ -173,7 +173,7 @@ class AnswerGenerator:
 
         except Exception as e:
             logger.error(f"Function calling generation failed: {e}")
-            raise RuntimeError(f"Failed to generate with functions: {e}")
+            raise RuntimeError(f"Failed to generate with functions: {e}") from e
 
     async def batch_generate(
         self,
@@ -200,9 +200,11 @@ class AnswerGenerator:
                 results.append(result)
             except Exception as e:
                 logger.error(f"Batch generation item failed: {e}")
-                results.append({
-                    "answer": None,
-                    "error": str(e),
-                })
+                results.append(
+                    {
+                        "answer": None,
+                        "error": str(e),
+                    }
+                )
 
         return results

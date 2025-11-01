@@ -15,8 +15,7 @@
 """
 
 import logging
-import re
-from typing import Dict, Literal
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +140,7 @@ class ModelSelector:
         tier: TierType = "standard",
         daily_cost_so_far: float = 0.0,
         force_model: str | None = None,
-    ) -> Dict[str, any]:
+    ) -> dict[str, any]:
         """
         选择最优模型
 
@@ -170,7 +169,7 @@ class ModelSelector:
         tier_config = self.tier_configs.get(tier, self.tier_configs["standard"])
         daily_budget = tier_config["daily_budget"]
         max_model = tier_config["max_model"]
-        default_model = tier_config["default_model"]
+        tier_config["default_model"]
 
         # 检查预算
         if daily_cost_so_far >= daily_budget * 0.9:  # 达到 90% 预算
@@ -250,7 +249,7 @@ class ModelSelector:
 
         return input_cost + output_cost
 
-    def get_model_config(self, model: str) -> Dict[str, any]:
+    def get_model_config(self, model: str) -> dict[str, any]:
         """
         获取模型配置
 
@@ -294,4 +293,3 @@ def get_model_selector() -> ModelSelector:
     if _model_selector is None:
         _model_selector = ModelSelector()
     return _model_selector
-

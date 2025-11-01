@@ -19,7 +19,9 @@ class BatchSearchRequest(BaseModel):
     """批量搜索请求"""
 
     backend: str = Field(default="milvus", description="后端类型", pattern="^(milvus|pgvector)$")
-    queries: list[BatchSearchQuery] = Field(..., description="查询列表", min_length=1, max_length=100)
+    queries: list[BatchSearchQuery] = Field(
+        ..., description="查询列表", min_length=1, max_length=100
+    )
 
 
 class BatchSearchResult(BaseModel):

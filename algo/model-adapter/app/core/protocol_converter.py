@@ -349,7 +349,7 @@ class ProtocolConverter:
         # 中文: 1 token ≈ 1.5 characters
 
         # 简单判断是否包含中文
-        chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
         english_chars = len(text) - chinese_chars
 
         estimated_tokens = int(chinese_chars / 1.5 + english_chars / 4)

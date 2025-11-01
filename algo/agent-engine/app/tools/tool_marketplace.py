@@ -1,4 +1,5 @@
 """Agent工具市场"""
+
 import logging
 from collections.abc import Callable
 from datetime import datetime
@@ -20,7 +21,7 @@ class Tool:
         execute_func: Callable,
         parameters_schema: dict[str, Any],
         author: str = "system",
-        tags: list[str] | None = None
+        tags: list[str] | None = None,
     ):
         self.tool_id = tool_id
         self.name = name
@@ -64,7 +65,7 @@ class ToolMarketplace:
         execute_func: Callable,
         parameters_schema: dict[str, Any],
         author: str = "system",
-        tags: list[str] | None = None
+        tags: list[str] | None = None,
     ) -> bool:
         """
         注册工具
@@ -96,7 +97,7 @@ class ToolMarketplace:
             execute_func=execute_func,
             parameters_schema=parameters_schema,
             author=author,
-            tags=tags
+            tags=tags,
         )
 
         self.tools[tool_id] = tool
@@ -134,7 +135,7 @@ class ToolMarketplace:
         category: str | None = None,
         tags: list[str] | None = None,
         author: str | None = None,
-        enabled_only: bool = True
+        enabled_only: bool = True,
     ) -> list[Tool]:
         """
         列出工具
@@ -168,11 +169,7 @@ class ToolMarketplace:
 
         return tools
 
-    def search_tools(
-        self,
-        query: str,
-        top_k: int = 5
-    ) -> list[Tool]:
+    def search_tools(self, query: str, top_k: int = 5) -> list[Tool]:
         """
         搜索工具
 
@@ -219,10 +216,7 @@ class ToolMarketplace:
         return [tool for _, tool in scored_tools[:top_k]]
 
     async def execute_tool(
-        self,
-        tool_id: str,
-        parameters: dict[str, Any],
-        user_id: str | None = None
+        self, tool_id: str, parameters: dict[str, Any], user_id: str | None = None
     ) -> dict[str, Any]:
         """
         执行工具
@@ -238,28 +232,16 @@ class ToolMarketplace:
         tool = self.get_tool(tool_id)
 
         if not tool:
-            return {
-                "success": False,
-                "error": f"Tool not found: {tool_id}"
-            }
+            return {"success": False, "error": f"Tool not found: {tool_id}"}
 
         if not tool.enabled:
-            return {
-                "success": False,
-                "error": f"Tool is disabled: {tool_id}"
-            }
+            return {"success": False, "error": f"Tool is disabled: {tool_id}"}
 
         # 验证参数
-        validation_result = self._validate_parameters(
-            parameters,
-            tool.parameters_schema
-        )
+        validation_result = self._validate_parameters(parameters, tool.parameters_schema)
 
         if not validation_result["valid"]:
-            return {
-                "success": False,
-                "error": f"Invalid parameters: {validation_result['error']}"
-            }
+            return {"success": False, "error": f"Invalid parameters: {validation_result['error']}"}
 
         # 执行工具
         try:
@@ -276,27 +258,13 @@ class ToolMarketplace:
             # 记录使用
             self._log_tool_usage(tool_id, user_id, parameters, result)
 
-            return {
-                "success": True,
-                "result": result,
-                "tool_id": tool_id,
-                "tool_name": tool.name
-            }
+            return {"success": True, "result": result, "tool_id": tool_id, "tool_name": tool.name}
 
         except Exception as e:
             logger.error(f"Tool execution failed: {e}")
-            return {
-                "success": False,
-                "error": str(e),
-                "tool_id": tool_id
-            }
+            return {"success": False, "error": str(e), "tool_id": tool_id}
 
-    def rate_tool(
-        self,
-        tool_id: str,
-        rating: float,
-        user_id: str | None = None
-    ) -> bool:
+    def rate_tool(self, tool_id: str, rating: float, _user_id: str | None = None) -> bool:
         """
         为工具评分
 
@@ -334,10 +302,7 @@ class ToolMarketplace:
             return None
 
         # 从日志中统计
-        usage_logs = [
-            log for log in self.tool_usage_log
-            if log["tool_id"] == tool_id
-        ]
+        usage_logs = [log for log in self.tool_usage_log if log["tool_id"] == tool_id]
 
         success_count = sum(1 for log in usage_logs if log.get("success", False))
         failure_count = len(usage_logs) - success_count
@@ -350,14 +315,11 @@ class ToolMarketplace:
             "success_count": success_count,
             "failure_count": failure_count,
             "success_rate": success_count / len(usage_logs) if usage_logs else 0,
-            "created_at": tool.created_at.isoformat()
+            "created_at": tool.created_at.isoformat(),
         }
 
     def recommend_tools(
-        self,
-        task_description: str,
-        user_history: list[str] | None = None,
-        top_k: int = 5
+        self, task_description: str, user_history: list[str] | None = None, top_k: int = 5
     ) -> list[Tool]:
         """
         推荐工具
@@ -378,21 +340,17 @@ class ToolMarketplace:
             for tool in relevant_tools:
                 if tool.tool_id in user_history:
                     # 给使用过的工具加分
-                    tool._recommendation_score = getattr(tool, '_recommendation_score', 0) + 2.0
+                    tool._recommendation_score = getattr(tool, "_recommendation_score", 0) + 2.0
 
         # 重新排序
         relevant_tools.sort(
-            key=lambda t: getattr(t, '_recommendation_score', 0) + t.rating + (t.usage_count / 100),
-            reverse=True
+            key=lambda t: getattr(t, "_recommendation_score", 0) + t.rating + (t.usage_count / 100),
+            reverse=True,
         )
 
         return relevant_tools[:top_k]
 
-    def create_tool_workflow(
-        self,
-        workflow_name: str,
-        tool_sequence: list[dict[str, Any]]
-    ) -> str:
+    def create_tool_workflow(self, workflow_name: str, tool_sequence: list[dict[str, Any]]) -> str:
         """
         创建工具工作流
 
@@ -411,11 +369,11 @@ class ToolMarketplace:
             "workflow_id": workflow_id,
             "name": workflow_name,
             "sequence": tool_sequence,
-            "created_at": datetime.now().isoformat()
+            "created_at": datetime.now().isoformat(),
         }
 
         # 保存工作流（这里简化，实际应持久化）
-        if not hasattr(self, 'workflows'):
+        if not hasattr(self, "workflows"):
             self.workflows = {}
 
         self.workflows[workflow_id] = workflow
@@ -425,9 +383,7 @@ class ToolMarketplace:
         return workflow_id
 
     async def execute_workflow(
-        self,
-        workflow_id: str,
-        initial_parameters: dict[str, Any]
+        self, workflow_id: str, initial_parameters: dict[str, Any]
     ) -> dict[str, Any]:
         """
         执行工作流
@@ -439,7 +395,7 @@ class ToolMarketplace:
         Returns:
             执行结果
         """
-        if not hasattr(self, 'workflows'):
+        if not hasattr(self, "workflows"):
             return {"success": False, "error": "No workflows defined"}
 
         workflow = self.workflows.get(workflow_id)
@@ -467,32 +423,23 @@ class ToolMarketplace:
             # 执行工具
             result = await self.execute_tool(tool_id, tool_params)
 
-            results.append({
-                "tool_id": tool_id,
-                "result": result
-            })
+            results.append({"tool_id": tool_id, "result": result})
 
             if not result.get("success"):
                 # 工作流失败
                 return {
                     "success": False,
                     "error": f"Workflow failed at step {len(results)}",
-                    "results": results
+                    "results": results,
                 }
 
             # 更新当前输出
             current_output = result.get("result", {})
 
-        return {
-            "success": True,
-            "results": results,
-            "final_output": current_output
-        }
+        return {"success": True, "results": results, "final_output": current_output}
 
     def _validate_parameters(
-        self,
-        parameters: dict[str, Any],
-        schema: dict[str, Any]
+        self, parameters: dict[str, Any], schema: dict[str, Any]
     ) -> dict[str, Any]:
         """验证参数"""
         # 简化实现：检查必需参数
@@ -500,19 +447,12 @@ class ToolMarketplace:
 
         for param in required:
             if param not in parameters:
-                return {
-                    "valid": False,
-                    "error": f"Missing required parameter: {param}"
-                }
+                return {"valid": False, "error": f"Missing required parameter: {param}"}
 
         return {"valid": True}
 
     def _log_tool_usage(
-        self,
-        tool_id: str,
-        user_id: str | None,
-        parameters: dict[str, Any],
-        result: Any
+        self, tool_id: str, user_id: str | None, parameters: dict[str, Any], result: Any
     ):
         """记录工具使用"""
         log_entry = {
@@ -520,7 +460,7 @@ class ToolMarketplace:
             "user_id": user_id,
             "parameters": parameters,
             "success": result is not None,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
         self.tool_usage_log.append(log_entry)
@@ -533,22 +473,15 @@ class ToolMarketplace:
         """导出市场统计信息"""
         return {
             "total_tools": len(self.tools),
-            "categories": {
-                cat: len(tool_ids)
-                for cat, tool_ids in self.categories.items()
-            },
+            "categories": {cat: len(tool_ids) for cat, tool_ids in self.categories.items()},
             "total_usage": sum(t.usage_count for t in self.tools.values()),
             "top_tools": [
                 {
                     "tool_id": t.tool_id,
                     "name": t.name,
                     "usage_count": t.usage_count,
-                    "rating": t.rating
+                    "rating": t.rating,
                 }
-                for t in sorted(
-                    self.tools.values(),
-                    key=lambda x: x.usage_count,
-                    reverse=True
-                )[:10]
-            ]
+                for t in sorted(self.tools.values(), key=lambda x: x.usage_count, reverse=True)[:10]
+            ],
         }

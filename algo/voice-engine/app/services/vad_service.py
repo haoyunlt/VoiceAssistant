@@ -125,7 +125,9 @@ class VADService:
 
         # 计算总时长
         total_duration_ms = (len(audio_array) / sample_rate) * 1000
-        speech_ratio = total_speech_duration_ms / total_duration_ms if total_duration_ms > 0 else 0.0
+        speech_ratio = (
+            total_speech_duration_ms / total_duration_ms if total_duration_ms > 0 else 0.0
+        )
 
         processing_time_ms = (time.time() - start_time) * 1000
 

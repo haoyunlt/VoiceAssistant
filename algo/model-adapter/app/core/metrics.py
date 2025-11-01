@@ -1,14 +1,12 @@
 """增强的Prometheus指标 - P95/P99/错误率/熔断状态."""
 
 import logging
-from typing import Optional
 
 from prometheus_client import (
     Counter,
     Gauge,
     Histogram,
     Info,
-    Summary,
     generate_latest,
 )
 
@@ -264,6 +262,7 @@ active_requests = Gauge(
 
 # ========== 便利函数 ==========
 
+
 class MetricsRecorder:
     """指标记录器."""
 
@@ -276,7 +275,7 @@ class MetricsRecorder:
         output_tokens: int,
         cost_usd: float,
         success: bool = True,
-        error_type: Optional[str] = None,
+        error_type: str | None = None,
     ):
         """
         记录一次模型请求的完整指标.
@@ -384,10 +383,12 @@ class MetricsRecorder:
     @staticmethod
     def set_service_info(version: str, environment: str):
         """设置服务信息."""
-        service_info.info({
-            "version": version,
-            "environment": environment,
-        })
+        service_info.info(
+            {
+                "version": version,
+                "environment": environment,
+            }
+        )
 
 
 # 导出指标

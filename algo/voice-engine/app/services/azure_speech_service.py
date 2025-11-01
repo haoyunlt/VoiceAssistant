@@ -1,4 +1,5 @@
 """Azure Speech SDK集成服务"""
+
 import logging
 from collections.abc import AsyncIterator
 
@@ -32,8 +33,7 @@ class AzureSpeechService:
 
             # 配置Speech SDK
             self.speech_config = speechsdk.SpeechConfig(
-                subscription=self.subscription_key,
-                region=self.region
+                subscription=self.subscription_key, region=self.region
             )
 
             # 设置语音识别语言
@@ -47,17 +47,15 @@ class AzureSpeechService:
             logger.info("Azure Speech Service initialized successfully")
 
         except ImportError:
-            logger.warning("Azure Speech SDK not installed. Install with: pip install azure-cognitiveservices-speech")
+            logger.warning(
+                "Azure Speech SDK not installed. Install with: pip install azure-cognitiveservices-speech"
+            )
             self.initialized = False
         except Exception as e:
             logger.error(f"Failed to initialize Azure Speech Service: {e}")
             self.initialized = False
 
-    async def recognize_from_bytes(
-        self,
-        audio_data: bytes,
-        language: str = "zh-CN"
-    ) -> dict:
+    async def recognize_from_bytes(self, audio_data: bytes, language: str = "zh-CN") -> dict:
         """
         从音频字节数据识别语音（ASR）
 
@@ -84,15 +82,13 @@ class AzureSpeechService:
 
             # 设置识别语言
             speech_config = speechsdk.SpeechConfig(
-                subscription=self.subscription_key,
-                region=self.region
+                subscription=self.subscription_key, region=self.region
             )
             speech_config.speech_recognition_language = language
 
             # 创建识别器
             speech_recognizer = speechsdk.SpeechRecognizer(
-                speech_config=speech_config,
-                audio_config=audio_config
+                speech_config=speech_config, audio_config=audio_config
             )
 
             # 执行识别
@@ -106,14 +102,14 @@ class AzureSpeechService:
                     "confidence": 0.95,  # Azure不提供置信度，使用固定值
                     "language": language,
                     "duration": 0,  # Azure不提供时长信息
-                    "provider": "azure"
+                    "provider": "azure",
                 }
             elif result.reason == speechsdk.ResultReason.NoMatch:
                 return {
                     "success": False,
                     "text": "",
                     "error": "No speech recognized",
-                    "provider": "azure"
+                    "provider": "azure",
                 }
             elif result.reason == speechsdk.ResultReason.Canceled:
                 cancellation = result.cancellation_details
@@ -121,29 +117,17 @@ class AzureSpeechService:
                     "success": False,
                     "text": "",
                     "error": f"Recognition canceled: {cancellation.reason}",
-                    "provider": "azure"
+                    "provider": "azure",
                 }
             else:
-                return {
-                    "success": False,
-                    "text": "",
-                    "error": "Unknown error",
-                    "provider": "azure"
-                }
+                return {"success": False, "text": "", "error": "Unknown error", "provider": "azure"}
 
         except Exception as e:
             logger.error(f"Azure ASR error: {e}")
-            return {
-                "success": False,
-                "text": "",
-                "error": str(e),
-                "provider": "azure"
-            }
+            return {"success": False, "text": "", "error": str(e), "provider": "azure"}
 
     async def recognize_streaming(
-        self,
-        audio_stream: AsyncIterator[bytes],
-        language: str = "zh-CN"
+        self, audio_stream: AsyncIterator[bytes], language: str = "zh-CN"
     ) -> AsyncIterator[dict]:
         """
         流式语音识别
@@ -169,15 +153,13 @@ class AzureSpeechService:
 
             # 设置识别语言
             speech_config = speechsdk.SpeechConfig(
-                subscription=self.subscription_key,
-                region=self.region
+                subscription=self.subscription_key, region=self.region
             )
             speech_config.speech_recognition_language = language
 
             # 创建识别器
             speech_recognizer = speechsdk.SpeechRecognizer(
-                speech_config=speech_config,
-                audio_config=audio_config
+                speech_config=speech_config, audio_config=audio_config
             )
 
             # 设置识别事件处理
@@ -185,11 +167,9 @@ class AzureSpeechService:
 
             def recognized_callback(evt):
                 if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
-                    recognized_texts.append({
-                        "text": evt.result.text,
-                        "is_final": True,
-                        "provider": "azure"
-                    })
+                    recognized_texts.append(
+                        {"text": evt.result.text, "is_final": True, "provider": "azure"}
+                    )
 
             speech_recognizer.recognized.connect(recognized_callback)
 
@@ -216,19 +196,14 @@ class AzureSpeechService:
 
         except Exception as e:
             logger.error(f"Azure streaming ASR error: {e}")
-            yield {
-                "text": "",
-                "is_final": True,
-                "error": str(e),
-                "provider": "azure"
-            }
+            yield {"text": "", "is_final": True, "error": str(e), "provider": "azure"}
 
     async def synthesize_to_bytes(
         self,
         text: str,
         voice_name: str = "zh-CN-XiaoxiaoNeural",
         rate: str = "0%",
-        pitch: str = "0%"
+        pitch: str = "0%",
     ) -> bytes:
         """
         文本转语音（TTS）
@@ -250,8 +225,7 @@ class AzureSpeechService:
 
             # 配置Speech SDK
             speech_config = speechsdk.SpeechConfig(
-                subscription=self.subscription_key,
-                region=self.region
+                subscription=self.subscription_key, region=self.region
             )
 
             # 设置音色
@@ -263,7 +237,7 @@ class AzureSpeechService:
             # 创建合成器
             synthesizer = speechsdk.SpeechSynthesizer(
                 speech_config=speech_config,
-                audio_config=None  # None表示返回音频数据
+                audio_config=None,  # None表示返回音频数据
             )
 
             # 构建SSML（用于控制语速和音调）
@@ -298,7 +272,7 @@ class AzureSpeechService:
         text: str,
         voice_name: str = "zh-CN-XiaoxiaoNeural",
         rate: str = "0%",
-        pitch: str = "0%"
+        pitch: str = "0%",
     ) -> AsyncIterator[bytes]:
         """
         流式文本转语音
@@ -323,10 +297,7 @@ class AzureSpeechService:
             for sentence in sentences:
                 if sentence.strip():
                     audio_data = await self.synthesize_to_bytes(
-                        text=sentence,
-                        voice_name=voice_name,
-                        rate=rate,
-                        pitch=pitch
+                        text=sentence, voice_name=voice_name, rate=rate, pitch=pitch
                     )
                     yield audio_data
 
@@ -337,33 +308,22 @@ class AzureSpeechService:
     def _split_sentences(self, text: str) -> list:
         """将文本分割为句子"""
         import re
+
         # 按中文和英文句号分割
-        sentences = re.split(r'[。！？.!?]', text)
+        sentences = re.split(r"[。！？.!?]", text)
         # 过滤空句子
         return [s.strip() for s in sentences if s.strip()]
 
     async def health_check(self) -> dict:
         """健康检查"""
         if not self.initialized:
-            return {
-                "healthy": False,
-                "provider": "azure",
-                "error": "Not initialized"
-            }
+            return {"healthy": False, "provider": "azure", "error": "Not initialized"}
 
         try:
             # 尝试简单的TTS来测试服务
             test_text = "测试"
             audio_data = await self.synthesize_to_bytes(test_text)
 
-            return {
-                "healthy": True,
-                "provider": "azure",
-                "test_audio_size": len(audio_data)
-            }
+            return {"healthy": True, "provider": "azure", "test_audio_size": len(audio_data)}
         except Exception as e:
-            return {
-                "healthy": False,
-                "provider": "azure",
-                "error": str(e)
-            }
+            return {"healthy": False, "provider": "azure", "error": str(e)}

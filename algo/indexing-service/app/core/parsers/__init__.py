@@ -13,7 +13,6 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 from app.core.parsers.base import BaseParser
 from app.core.parsers.excel_parser import ExcelParser
@@ -35,27 +34,21 @@ class ParserFactory:
         self._parsers = {
             # PDF
             ".pdf": PDFParser,
-
             # Word
             ".docx": WordParser,
             ".doc": WordParser,
-
             # Markdown
             ".md": MarkdownParser,
             ".markdown": MarkdownParser,
-
             # Excel
             ".xlsx": ExcelParser,
             ".xls": ExcelParser,
-
             # PowerPoint
             ".pptx": PowerPointParser,
             ".ppt": PowerPointParser,
-
             # HTML
             ".html": HTMLParser,
             ".htm": HTMLParser,
-
             # 纯文本
             ".txt": TextParser,
         }

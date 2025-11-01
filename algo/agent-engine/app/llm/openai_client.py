@@ -10,6 +10,7 @@ from typing import Any
 
 try:
     from openai import AsyncOpenAI
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -44,10 +45,7 @@ class OpenAIClient(LLMClient):
             **kwargs: 其他参数
         """
         if not OPENAI_AVAILABLE:
-            raise ImportError(
-                "OpenAI SDK not installed. "
-                "Install it with: pip install openai"
-            )
+            raise ImportError("OpenAI SDK not installed. Install it with: pip install openai")
 
         super().__init__(model, api_key, base_url, **kwargs)
 

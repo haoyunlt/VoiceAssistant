@@ -1,7 +1,6 @@
 """Integration tests for pgvector backend (requires real PostgreSQL instance)"""
 
 import pytest
-
 from app.backends.pgvector_backend import PgVectorBackend
 
 
@@ -63,5 +62,6 @@ class TestPgVectorIntegration:
 
         # Clean up
         await backend.drop_collection(collection_name)
+
 
 # TODO: Add more integration tests when testcontainers is set up

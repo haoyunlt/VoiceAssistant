@@ -3,6 +3,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
 class AdapterRegistry:
     """
     适配器注册表，管理所有模型适配器。

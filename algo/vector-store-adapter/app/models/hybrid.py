@@ -20,7 +20,7 @@ class HybridSearchRequest(BaseModel):
     fusion_method: str = Field(
         default="rrf",
         description="融合方法: rrf (Reciprocal Rank Fusion) 或 weighted",
-        pattern="^(rrf|weighted)$"
+        pattern="^(rrf|weighted)$",
     )
     vector_weight: float = Field(
         default=0.5,

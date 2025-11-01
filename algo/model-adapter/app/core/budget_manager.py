@@ -1,12 +1,8 @@
 """成本预算管理和告警."""
 
-import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
-from typing import Optional
-
-from app.core.token_counter import CostCalculator
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +94,7 @@ class BudgetManager:
 
         logger.info(
             f"Budget set for tenant {tenant_id}: "
-            f"${daily_limit_usd}/day, warning={warning_threshold*100}%"
+            f"${daily_limit_usd}/day, warning={warning_threshold * 100}%"
         )
 
     def record_usage(
@@ -152,15 +148,15 @@ class BudgetManager:
             logger.warning(
                 f"🟡 Budget warning for tenant {tenant_id}: "
                 f"${current_usage:.2f} / ${budget_config.daily_limit_usd:.2f} "
-                f"({usage_percent*100:.1f}%)"
+                f"({usage_percent * 100:.1f}%)"
             )
             self._trigger_warning_alert(tenant_id, current_usage, budget_config)
 
     def _trigger_warning_alert(
         self,
         tenant_id: str,
-        current_usage: float,
-        budget_config: BudgetConfig,
+        _current_usage: float,
+        _budget_config: BudgetConfig,
     ):
         """触发警告告警."""
         status = self.get_status(tenant_id)
@@ -174,8 +170,8 @@ class BudgetManager:
     def _trigger_exceeded_alert(
         self,
         tenant_id: str,
-        current_usage: float,
-        budget_config: BudgetConfig,
+        _current_usage: float,
+        _budget_config: BudgetConfig,
     ):
         """触发超预算告警."""
         status = self.get_status(tenant_id)
@@ -204,8 +200,8 @@ class BudgetManager:
             return BudgetStatus(
                 tenant_id=tenant_id,
                 current_usage_usd=self._daily_usage.get(tenant_id, 0.0),
-                daily_limit_usd=float('inf'),
-                remaining_usd=float('inf'),
+                daily_limit_usd=float("inf"),
+                remaining_usd=float("inf"),
                 usage_percent=0.0,
                 is_exceeded=False,
                 is_warning=False,
@@ -278,11 +274,11 @@ class BudgetManager:
         all_status = {}
 
         # 有预算配置的租户
-        for tenant_id in self._budgets.keys():
+        for tenant_id in self._budgets:
             all_status[tenant_id] = self.get_status(tenant_id)
 
         # 有使用但无预算配置的租户
-        for tenant_id in self._daily_usage.keys():
+        for tenant_id in self._daily_usage:
             if tenant_id not in all_status:
                 all_status[tenant_id] = self.get_status(tenant_id)
 
@@ -290,7 +286,7 @@ class BudgetManager:
 
 
 # Prometheus指标
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter, Gauge  # noqa: E402
 
 # 预算超限次数
 budget_exceeded_total = Counter(
@@ -341,7 +337,7 @@ def update_budget_metrics(status: BudgetStatus):
 
 
 # 全局预算管理器实例
-_budget_manager: Optional[BudgetManager] = None
+_budget_manager: BudgetManager | None = None
 
 
 def get_budget_manager() -> BudgetManager:
@@ -365,5 +361,5 @@ async def send_budget_alert_webhook(status: BudgetStatus, alert_type: str):
         f"Budget alert [{alert_type}]: tenant={status.tenant_id}, "
         f"usage=${status.current_usage_usd:.2f}, "
         f"limit=${status.daily_limit_usd:.2f}, "
-        f"percent={status.usage_percent*100:.1f}%"
+        f"percent={status.usage_percent * 100:.1f}%"
     )

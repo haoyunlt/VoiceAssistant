@@ -2,7 +2,6 @@
 Agent Engine 配置管理
 """
 
-
 from pydantic import BaseSettings, Field
 
 
@@ -51,7 +50,9 @@ class AgentConfig(BaseSettings):
     self_rag_enabled: bool = Field(default=True, env="SELF_RAG_ENABLED")
     self_rag_mode: str = Field(default="adaptive", env="SELF_RAG_MODE")
     self_rag_max_refinements: int = Field(default=2, env="SELF_RAG_MAX_REFINEMENTS")
-    self_rag_hallucination_threshold: float = Field(default=0.3, env="SELF_RAG_HALLUCINATION_THRESHOLD")
+    self_rag_hallucination_threshold: float = Field(
+        default=0.3, env="SELF_RAG_HALLUCINATION_THRESHOLD"
+    )
     self_rag_enable_citations: bool = Field(default=True, env="SELF_RAG_ENABLE_CITATIONS")
 
     # Iter 2: Multi-Agent 配置

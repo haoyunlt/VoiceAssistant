@@ -27,7 +27,7 @@ class GraphRetriever:
 
     async def query(
         self,
-        query: str,
+        _query: str,
         entities: list[str],
         max_hops: int = 2,
         top_k: int = 10,
@@ -186,4 +186,3 @@ class GraphRetriever:
             )
 
         return {"nodes": nodes, "edges": edges, "center": entity}
-

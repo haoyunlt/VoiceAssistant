@@ -26,18 +26,18 @@ def setup_observability():
     try:
         from opentelemetry import trace
         from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
         # 创建Resource
-        resource = Resource(attributes={
-            SERVICE_NAME: settings.OTEL_SERVICE_NAME,
-            "service.version": settings.VERSION,
-            "service.environment": settings.ENVIRONMENT,
-        })
+        resource = Resource(
+            attributes={
+                SERVICE_NAME: settings.OTEL_SERVICE_NAME,
+                "service.version": settings.VERSION,
+                "service.environment": settings.ENVIRONMENT,
+            }
+        )
 
         # 创建TracerProvider
         provider = TracerProvider(resource=resource)
@@ -56,9 +56,7 @@ def setup_observability():
         # 获取tracer
         _tracer = trace.get_tracer(__name__)
 
-        logger.info(
-            f"OpenTelemetry initialized: {settings.OTEL_EXPORTER_OTLP_ENDPOINT}"
-        )
+        logger.info(f"OpenTelemetry initialized: {settings.OTEL_EXPORTER_OTLP_ENDPOINT}")
 
         return _tracer
 
@@ -99,4 +97,3 @@ def instrument_app(app):
 def get_tracer():
     """获取全局tracer"""
     return _tracer
-

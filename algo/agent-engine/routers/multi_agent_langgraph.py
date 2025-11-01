@@ -6,14 +6,13 @@ Multi-Agent + LangGraph API Endpoints
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-
+from app.core.langgraph_engine import LangGraphWorkflowEngine
+from app.core.multi_agent.enhanced_conflict_resolver import ConflictType
 from app.core.multi_agent.enhanced_coordinator import EnhancedMultiAgentCoordinator
 from app.core.multi_agent.task_scheduler import TaskPriority
-from app.core.multi_agent.enhanced_conflict_resolver import ConflictType
-from app.core.langgraph_engine import LangGraphWorkflowEngine
 from app.core.workflow_visualizer import WorkflowVisualizer
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/v1", tags=["multi-agent", "langgraph"])
 
@@ -25,10 +24,14 @@ workflow_visualizer = WorkflowVisualizer()
 
 # ==================== Request/Response Models ====================
 
+
 class AgentRegistrationRequest(BaseModel):
     """Agent注册请求"""
+
     agent_id: str
-    agent_role: str = Field(..., description="角色: researcher/planner/executor/reviewer/coordinator")
+    agent_role: str = Field(
+        ..., description="角色: researcher/planner/executor/reviewer/coordinator"
+    )
     capabilities: dict[str, float] = Field(..., description="能力字典，值范围0-1")
     success_rate: float = Field(0.5, ge=0.0, le=1.0)
     avg_response_time: float = Field(2.0, gt=0.0)
@@ -36,6 +39,7 @@ class AgentRegistrationRequest(BaseModel):
 
 class CollaborationRequest(BaseModel):
     """协作任务请求"""
+
     task_description: str = Field(..., min_length=1)
     priority: str = Field("medium", description="low/medium/high/urgent")
     required_capabilities: list[str] = Field(default_factory=list)
@@ -45,6 +49,7 @@ class CollaborationRequest(BaseModel):
 
 class ConflictResolutionRequest(BaseModel):
     """冲突解决请求"""
+
     agent1_id: str
     agent2_id: str
     conflict_type: str = Field(..., description="resource/priority/opinion/data/control")
@@ -53,6 +58,7 @@ class ConflictResolutionRequest(BaseModel):
 
 class WorkflowCreateRequest(BaseModel):
     """工作流创建请求"""
+
     nodes: list[dict] = Field(..., description="节点列表")
     edges: list[dict] = Field(..., description="边列表")
     entry: str = Field("start", description="入口节点ID")
@@ -60,6 +66,7 @@ class WorkflowCreateRequest(BaseModel):
 
 class WorkflowExecuteRequest(BaseModel):
     """工作流执行请求"""
+
     workflow_id: str
     initial_data: dict[str, Any] = Field(default_factory=dict)
     entry_node: str = Field("start")
@@ -67,6 +74,7 @@ class WorkflowExecuteRequest(BaseModel):
 
 
 # ==================== Multi-Agent Endpoints ====================
+
 
 @router.post("/multi-agent/register")
 async def register_agent(request: AgentRegistrationRequest):
@@ -87,8 +95,6 @@ async def register_agent(request: AgentRegistrationRequest):
 
     try:
         # 创建Agent（简化：这里应该从registry获取或创建）
-        from app.core.multi_agent.coordinator import Agent, AgentRole
-        from app.core.agent_engine import AgentEngine
 
         # 假设已有全局llm_client
         # agent = Agent(request.agent_id, AgentRole[request.agent_role.upper()], llm_client)
@@ -105,11 +111,11 @@ async def register_agent(request: AgentRegistrationRequest):
             "success": True,
             "message": f"Agent {request.agent_id} registered successfully",
             "agent_id": request.agent_id,
-            "capabilities": list(request.capabilities.keys())
+            "capabilities": list(request.capabilities.keys()),
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/multi-agent/collaborate")
@@ -133,7 +139,7 @@ async def collaborate_task(request: CollaborationRequest):
             "low": TaskPriority.LOW,
             "medium": TaskPriority.MEDIUM,
             "high": TaskPriority.HIGH,
-            "urgent": TaskPriority.URGENT
+            "urgent": TaskPriority.URGENT,
         }
         priority = priority_map.get(request.priority.lower(), TaskPriority.MEDIUM)
 
@@ -143,7 +149,7 @@ async def collaborate_task(request: CollaborationRequest):
             priority=priority,
             required_capabilities=request.required_capabilities,
             estimated_time=request.estimated_time,
-            timeout=request.timeout
+            timeout=request.timeout,
         )
 
         return {
@@ -154,11 +160,11 @@ async def collaborate_task(request: CollaborationRequest):
             "schedule_quality": result.get("schedule_quality"),
             "result": result.get("result"),
             "error": result.get("error"),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/multi-agent/resolve-conflict")
@@ -184,11 +190,10 @@ async def resolve_conflict(request: ConflictResolutionRequest):
             "priority": ConflictType.PRIORITY_CONFLICT,
             "opinion": ConflictType.OPINION_DISAGREEMENT,
             "data": ConflictType.DATA_INCONSISTENCY,
-            "control": ConflictType.CONTROL_CONFLICT
+            "control": ConflictType.CONTROL_CONFLICT,
         }
         conflict_type = conflict_type_map.get(
-            request.conflict_type.lower(),
-            ConflictType.OPINION_DISAGREEMENT
+            request.conflict_type.lower(), ConflictType.OPINION_DISAGREEMENT
         )
 
         # 解决冲突
@@ -196,13 +201,13 @@ async def resolve_conflict(request: ConflictResolutionRequest):
             agent1_id=request.agent1_id,
             agent2_id=request.agent2_id,
             conflict_type=conflict_type,
-            context=request.context
+            context=request.context,
         )
 
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/multi-agent/stats")
@@ -220,11 +225,11 @@ async def get_multi_agent_stats():
             "communication": enhanced_coordinator.get_communication_stats(),
             "scheduling": enhanced_coordinator.get_scheduling_stats(),
             "conflict_resolution": enhanced_coordinator.get_conflict_stats(),
-            "total_agents": len(enhanced_coordinator.agents)
+            "total_agents": len(enhanced_coordinator.agents),
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/multi-agent/health")
@@ -242,7 +247,7 @@ async def get_multi_agent_health():
         return health
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/multi-agent/communication-graph")
@@ -260,7 +265,7 @@ async def get_communication_graph():
         return graph
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/multi-agent/agents/{agent_id}/capabilities")
@@ -284,10 +289,11 @@ async def get_agent_capabilities(agent_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== LangGraph Endpoints ====================
+
 
 @router.post("/langgraph/workflows")
 async def create_workflow(request: WorkflowCreateRequest):
@@ -305,11 +311,7 @@ async def create_workflow(request: WorkflowCreateRequest):
         raise HTTPException(status_code=503, detail="Workflow engine not initialized")
 
     try:
-        workflow_config = {
-            "nodes": request.nodes,
-            "edges": request.edges,
-            "entry": request.entry
-        }
+        workflow_config = {"nodes": request.nodes, "edges": request.edges, "entry": request.entry}
 
         workflow_id = workflow_engine.create_workflow(workflow_config)
 
@@ -322,14 +324,11 @@ async def create_workflow(request: WorkflowCreateRequest):
             "workflow_id": workflow_id,
             "node_count": len(request.nodes),
             "edge_count": len(request.edges),
-            "visualization": {
-                "mermaid": mermaid_code,
-                "graph": graph_json
-            }
+            "visualization": {"mermaid": mermaid_code, "graph": graph_json},
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/langgraph/workflows/execute")
@@ -352,7 +351,7 @@ async def execute_workflow(request: WorkflowExecuteRequest):
             workflow_id=request.workflow_id,
             initial_data=request.initial_data,
             entry_node=request.entry_node,
-            save_checkpoints=request.save_checkpoints
+            save_checkpoints=request.save_checkpoints,
         )
 
         return {
@@ -360,13 +359,13 @@ async def execute_workflow(request: WorkflowExecuteRequest):
             "status": result["status"],
             "node_history": result["node_history"],
             "variables": result["variables"],
-            "total_steps": len(result["node_history"])
+            "total_steps": len(result["node_history"]),
         }
 
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/langgraph/workflows/{workflow_id}/resume")
@@ -386,13 +385,13 @@ async def resume_workflow(workflow_id: str):
             "success": result["status"] == "completed",
             "status": result["status"],
             "node_history": result["node_history"],
-            "variables": result["variables"]
+            "variables": result["variables"],
         }
 
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/langgraph/workflows/{workflow_id}")
@@ -416,14 +415,11 @@ async def get_workflow_status(workflow_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/langgraph/workflows/{workflow_id}/visualization")
-async def get_workflow_visualization(
-    workflow_id: str,
-    include_trace: bool = False
-):
+async def get_workflow_visualization(_workflow_id: str, _include_trace: bool = False):
     """
     获取工作流可视化
 
@@ -438,14 +434,13 @@ async def get_workflow_visualization(
 
         # 暂时返回错误
         raise HTTPException(
-            status_code=501,
-            detail="Visualization endpoint requires workflow config storage"
+            status_code=501, detail="Visualization endpoint requires workflow config storage"
         )
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/langgraph/stats")
@@ -463,14 +458,14 @@ async def get_langgraph_stats():
         return stats
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== 初始化函数 ====================
 
+
 def init_multi_agent_langgraph_router(
-    coordinator: EnhancedMultiAgentCoordinator,
-    engine: LangGraphWorkflowEngine
+    coordinator: EnhancedMultiAgentCoordinator, engine: LangGraphWorkflowEngine
 ):
     """
     初始化路由器（在main.py中调用）

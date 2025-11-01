@@ -6,7 +6,7 @@
 
 import logging
 import os
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class WebSearchTool:
             "required": ["query"],
         }
 
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         执行网络搜索
 
@@ -72,10 +72,7 @@ class WebSearchTool:
             results = await self._serpapi_search(query, num_results)
 
             # 构建文本描述
-            if results:
-                text = self._format_results(results)
-            else:
-                text = "未找到相关结果"
+            text = self._format_results(results) if results else "未找到相关结果"
 
             return {
                 "text": text,
@@ -92,7 +89,7 @@ class WebSearchTool:
                 "error": str(e),
             }
 
-    async def _serpapi_search(self, query: str, num_results: int) -> list[Dict[str, Any]]:
+    async def _serpapi_search(self, query: str, num_results: int) -> list[dict[str, Any]]:
         """使用 SerpAPI 进行搜索"""
         try:
             import httpx
@@ -130,7 +127,7 @@ class WebSearchTool:
             logger.error(f"SerpAPI search failed: {e}")
             raise
 
-    def _mock_search(self, query: str, num_results: int) -> Dict[str, Any]:
+    def _mock_search(self, query: str, num_results: int) -> dict[str, Any]:
         """模拟搜索（用于测试）"""
         mock_results = [
             {
@@ -148,7 +145,8 @@ class WebSearchTool:
         results = mock_results[:num_results]
 
         return {
-            "text": self._format_results(results) + "\n\n⚠️ 注意：这是模拟结果（未配置 SERPAPI_API_KEY）",
+            "text": self._format_results(results)
+            + "\n\n⚠️ 注意：这是模拟结果（未配置 SERPAPI_API_KEY）",
             "results": results,
             "count": len(results),
         }

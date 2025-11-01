@@ -59,7 +59,7 @@ class SelfRAGStatsResponse(BaseModel):
 async def self_rag_query(
     request: SelfRAGQueryRequest,
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> SelfRAGQueryResponse:
     """
@@ -135,19 +135,19 @@ async def self_rag_query(
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid request: {str(e)}"
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Self-RAG query failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Self-RAG query failed: {str(e)}",
-        )
+        ) from e
 
 
 @router.get("/stats", response_model=SelfRAGStatsResponse)
 async def get_self_rag_stats(
-    tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _tenant_id: str = Depends(get_tenant_id),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> SelfRAGStatsResponse:
     """获取 Self-RAG 统计信息"""
@@ -172,4 +172,4 @@ async def get_self_rag_stats(
 
     except Exception as e:
         logger.error(f"Failed to get Self-RAG stats: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

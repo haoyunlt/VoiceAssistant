@@ -41,9 +41,7 @@ class CommunityDetectionService:
             社区检测结果
         """
         logger.info(
-            f"Running Leiden algorithm: "
-            f"max_iterations={max_iterations}, "
-            f"resolution={resolution}"
+            f"Running Leiden algorithm: max_iterations={max_iterations}, resolution={resolution}"
         )
 
         try:
@@ -128,9 +126,7 @@ class CommunityDetectionService:
         Returns:
             社区检测结果
         """
-        logger.info(
-            f"Running Louvain algorithm: " f"max_iterations={max_iterations}"
-        )
+        logger.info(f"Running Louvain algorithm: max_iterations={max_iterations}")
 
         try:
             # 使用Neo4j的GDS库执行Louvain算法
@@ -190,9 +186,7 @@ class CommunityDetectionService:
                 "error": str(e),
             }
 
-    async def generate_community_summary(
-        self, community_id: int, llm_service=None
-    ) -> dict:
+    async def generate_community_summary(self, community_id: int, llm_service=None) -> dict:
         """
         生成社区摘要
 
@@ -240,9 +234,7 @@ class CommunityDetectionService:
 
             # 如果有LLM服务，生成摘要
             if llm_service:
-                summary = await self._generate_llm_summary(
-                    entities, relations, llm_service
-                )
+                summary = await self._generate_llm_summary(entities, relations, llm_service)
             else:
                 # 简单摘要
                 entity_types = {}
@@ -357,9 +349,7 @@ class CommunityDetectionService:
             RETURN graphName, nodeCount, relationshipCount
             """
 
-            result = await self.neo4j.query(
-                create_cypher, {"projection_name": projection_name}
-            )
+            result = await self.neo4j.query(create_cypher, {"projection_name": projection_name})
 
             if result:
                 return {

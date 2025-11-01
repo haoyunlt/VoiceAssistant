@@ -100,7 +100,7 @@ class ClaudeAdapter(BaseAdapter):
 
         except AnthropicError as e:
             logger.error(f"Claude API error: {e}")
-            raise RuntimeError(f"Claude API error: {e}")
+            raise RuntimeError(f"Claude API error: {e}") from e
 
     async def generate_stream(
         self,
@@ -163,9 +163,11 @@ class ClaudeAdapter(BaseAdapter):
 
         except AnthropicError as e:
             logger.error(f"Claude streaming error: {e}")
-            raise RuntimeError(f"Claude streaming error: {e}")
+            raise RuntimeError(f"Claude streaming error: {e}") from e
 
-    def _format_messages(self, messages: list[dict[str, str]]) -> tuple[str | None, list[dict[str, str]]]:
+    def _format_messages(
+        self, messages: list[dict[str, str]]
+    ) -> tuple[str | None, list[dict[str, str]]]:
         """
         格式化消息为Claude格式.
 
@@ -192,10 +194,12 @@ class ClaudeAdapter(BaseAdapter):
                     system_prompt += "\n\n" + content
             else:
                 # 保留user和assistant消息
-                formatted_messages.append({
-                    "role": role,
-                    "content": content,
-                })
+                formatted_messages.append(
+                    {
+                        "role": role,
+                        "content": content,
+                    }
+                )
 
         return system_prompt, formatted_messages
 
@@ -260,7 +264,7 @@ class ClaudeAdapter(BaseAdapter):
 
         except AnthropicError as e:
             logger.error(f"Claude vision error: {e}")
-            raise RuntimeError(f"Claude vision error: {e}")
+            raise RuntimeError(f"Claude vision error: {e}") from e
 
     def _format_messages_with_images(
         self, messages: list[dict[str, Any]]
@@ -289,16 +293,20 @@ class ClaudeAdapter(BaseAdapter):
             else:
                 # 处理可能包含图像的内容
                 if isinstance(content, str):
-                    formatted_messages.append({
-                        "role": role,
-                        "content": content,
-                    })
+                    formatted_messages.append(
+                        {
+                            "role": role,
+                            "content": content,
+                        }
+                    )
                 elif isinstance(content, list):
                     # 多模态内容
-                    formatted_messages.append({
-                        "role": role,
-                        "content": content,
-                    })
+                    formatted_messages.append(
+                        {
+                            "role": role,
+                            "content": content,
+                        }
+                    )
 
         return system_prompt, formatted_messages
 

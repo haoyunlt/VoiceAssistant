@@ -5,7 +5,6 @@ Document Repository
 """
 
 import logging
-from typing import List, Optional
 
 from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,7 +49,7 @@ class DocumentRepository:
             error_message=document.error_message,
             processed_at=document.processed_at,
             created_at=document.created_at,
-            updated_at=document.updated_at
+            updated_at=document.updated_at,
         )
 
         self.session.add(model)
@@ -59,7 +58,7 @@ class DocumentRepository:
         logger.info(f"Created document: {document.id}")
         return document
 
-    async def get_by_id(self, document_id: str) -> Optional[Document]:
+    async def get_by_id(self, document_id: str) -> Document | None:
         """根据 ID 获取文档
 
         Args:
@@ -84,8 +83,8 @@ class DocumentRepository:
         tenant_id: str,
         offset: int = 0,
         limit: int = 20,
-        status: Optional[str] = None
-    ) -> tuple[List[Document], int]:
+        status: str | None = None,
+    ) -> tuple[list[Document], int]:
         """列出知识库的文档
 
         Args:
@@ -101,16 +100,14 @@ class DocumentRepository:
         # 构建查询条件
         conditions = [
             DocumentModel.knowledge_base_id == knowledge_base_id,
-            DocumentModel.tenant_id == tenant_id
+            DocumentModel.tenant_id == tenant_id,
         ]
 
         if status:
             conditions.append(DocumentModel.status == status)
 
         # 查询总数
-        count_result = await self.session.execute(
-            select(DocumentModel).where(and_(*conditions))
-        )
+        count_result = await self.session.execute(select(DocumentModel).where(and_(*conditions)))
         total = len(count_result.all())
 
         # 查询数据
@@ -184,7 +181,7 @@ class DocumentRepository:
         logger.info(f"Deleted document: {document_id}")
         return True
 
-    async def create_chunks(self, chunks: List[Chunk]) -> List[Chunk]:
+    async def create_chunks(self, chunks: list[Chunk]) -> list[Chunk]:
         """批量创建文档块
 
         Args:
@@ -201,7 +198,7 @@ class DocumentRepository:
                 content=chunk.content,
                 sequence=chunk.sequence,
                 metadata=chunk.metadata,
-                created_at=chunk.created_at
+                created_at=chunk.created_at,
             )
             for chunk in chunks
         ]
@@ -212,7 +209,7 @@ class DocumentRepository:
         logger.info(f"Created {len(chunks)} chunks")
         return chunks
 
-    async def get_chunks_by_document(self, document_id: str) -> List[Chunk]:
+    async def get_chunks_by_document(self, document_id: str) -> list[Chunk]:
         """获取文档的所有块
 
         Args:
@@ -258,7 +255,7 @@ class DocumentRepository:
             error_message=model.error_message or "",
             processed_at=model.processed_at,
             created_at=model.created_at,
-            updated_at=model.updated_at
+            updated_at=model.updated_at,
         )
 
     def _chunk_model_to_entity(self, model: ChunkModel) -> Chunk:
@@ -277,5 +274,5 @@ class DocumentRepository:
             content=model.content,
             sequence=model.sequence,
             metadata=model.metadata or {},
-            created_at=model.created_at
+            created_at=model.created_at,
         )

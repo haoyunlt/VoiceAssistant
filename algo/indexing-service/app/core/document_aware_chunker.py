@@ -69,7 +69,7 @@ class MarkdownChunkStrategy(ChunkingStrategy):
         self,
         text: str,
         document_id: str,
-        metadata: dict[str, Any] | None = None,
+        _metadata: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         按 Markdown 标题切分
@@ -134,7 +134,7 @@ class MarkdownChunkStrategy(ChunkingStrategy):
     def _split_by_headers(self, text: str) -> list[dict[str, Any]]:
         """按标题分割文本"""
         # 匹配 Markdown 标题 (# 到 ######)
-        header_pattern = r'^(#{1,6})\s+(.+)$'
+        header_pattern = r"^(#{1,6})\s+(.+)$"
 
         lines = text.split("\n")
         sections = []
@@ -263,9 +263,9 @@ class CodeChunkStrategy(ChunkingStrategy):
         blocks = []
 
         # 匹配类定义
-        class_pattern = r'^class\s+(\w+).*?:'
+        class_pattern = r"^class\s+(\w+).*?:"
         # 匹配函数定义
-        function_pattern = r'^def\s+(\w+).*?:'
+        function_pattern = r"^def\s+(\w+).*?:"
 
         lines = text.split("\n")
         current_block = {"type": "module", "name": "", "content": "", "indent": 0}
@@ -291,7 +291,10 @@ class CodeChunkStrategy(ChunkingStrategy):
                 indent = len(line) - len(line.lstrip())
 
                 # 如果是同级或外层函数，保存当前块
-                if indent <= current_block["indent"] and current_block["type"] in ["function", "method"]:
+                if indent <= current_block["indent"] and current_block["type"] in [
+                    "function",
+                    "method",
+                ]:
                     if current_block["content"].strip():
                         blocks.append(current_block)
 
@@ -321,14 +324,14 @@ class CodeChunkStrategy(ChunkingStrategy):
 
         # 匹配函数定义
         function_patterns = [
-            r'function\s+(\w+)',  # function foo()
-            r'const\s+(\w+)\s*=\s*(?:async\s+)?\(',  # const foo = () => {}
-            r'let\s+(\w+)\s*=\s*(?:async\s+)?\(',  # let foo = () => {}
-            r'var\s+(\w+)\s*=\s*(?:async\s+)?\(',  # var foo = () => {}
+            r"function\s+(\w+)",  # function foo()
+            r"const\s+(\w+)\s*=\s*(?:async\s+)?\(",  # const foo = () => {}
+            r"let\s+(\w+)\s*=\s*(?:async\s+)?\(",  # let foo = () => {}
+            r"var\s+(\w+)\s*=\s*(?:async\s+)?\(",  # var foo = () => {}
         ]
 
         # 匹配类定义
-        class_pattern = r'class\s+(\w+)'
+        class_pattern = r"class\s+(\w+)"
 
         lines = text.split("\n")
         current_block = {"type": "module", "name": "", "content": ""}
@@ -412,7 +415,7 @@ class PDFChunkStrategy(ChunkingStrategy):
         self,
         text: str,
         document_id: str,
-        metadata: dict[str, Any] | None = None,
+        _metadata: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         按页面和段落切分
@@ -441,7 +444,9 @@ class PDFChunkStrategy(ChunkingStrategy):
                     if current_chunk:
                         chunks.append(
                             {
-                                "id": self._generate_chunk_id(document_id, len(chunks), current_chunk),
+                                "id": self._generate_chunk_id(
+                                    document_id, len(chunks), current_chunk
+                                ),
                                 "content": current_chunk.strip(),
                                 "index": len(chunks),
                                 "tokens": self._estimate_tokens(current_chunk),
@@ -479,7 +484,7 @@ class PDFChunkStrategy(ChunkingStrategy):
     def _extract_pages(self, text: str) -> dict[int, str]:
         """提取页面内容"""
         # 简单实现：按 [PAGE:N] 标记分割
-        page_pattern = r'\[PAGE:(\d+)\]'
+        page_pattern = r"\[PAGE:(\d+)\]"
 
         pages = {}
         current_page = 1
@@ -512,7 +517,7 @@ class TableChunkStrategy(ChunkingStrategy):
         self,
         text: str,
         document_id: str,
-        metadata: dict[str, Any] | None = None,
+        _metadata: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
         保留表格完整性的分块

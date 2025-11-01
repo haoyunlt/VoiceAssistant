@@ -1,4 +1,5 @@
 """检索服务客户端"""
+
 import logging
 
 import httpx
@@ -78,9 +79,7 @@ class RetrievalClient:
             logger.error(f"Retrieval failed: {e}", exc_info=True)
             return []
 
-    def _deduplicate_documents(
-        self, documents: list[RetrievedDocument]
-    ) -> list[RetrievedDocument]:
+    def _deduplicate_documents(self, documents: list[RetrievedDocument]) -> list[RetrievedDocument]:
         """去重文档"""
         seen_ids = set()
         unique_docs = []

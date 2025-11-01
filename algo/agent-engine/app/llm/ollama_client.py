@@ -38,21 +38,17 @@ class OllamaClient(LLMClient):
         """
         super().__init__(model, api_key, base_url, **kwargs)
 
-        self.base_url = base_url or os.getenv(
-            "OLLAMA_BASE_URL", "http://localhost:11434"
-        )
+        self.base_url = base_url or os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 
-        logger.info(
-            f"Ollama client initialized (model: {self.model}, url: {self.base_url})"
-        )
+        logger.info(f"Ollama client initialized (model: {self.model}, url: {self.base_url})")
 
     async def complete(
         self,
         messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: list[dict[str, Any]] | None = None,
-        **kwargs,
+        _tools: list[dict[str, Any]] | None = None,
+        **_kwargs,
     ) -> CompletionResponse:
         """
         生成完成响应（非流式）
@@ -100,14 +96,13 @@ class OllamaClient(LLMClient):
                 usage={
                     "prompt_tokens": data.get("prompt_eval_count", 0),
                     "completion_tokens": data.get("eval_count", 0),
-                    "total_tokens": data.get("prompt_eval_count", 0)
-                    + data.get("eval_count", 0),
+                    "total_tokens": data.get("prompt_eval_count", 0) + data.get("eval_count", 0),
                 },
             )
 
         except httpx.HTTPStatusError as e:
             logger.error(f"Ollama HTTP error: {e.response.status_code} - {e.response.text}")
-            raise Exception(f"Ollama completion failed: HTTP {e.response.status_code}")
+            raise Exception(f"Ollama completion failed: HTTP {e.response.status_code}") from e
         except Exception as e:
             logger.error(f"Ollama completion failed: {e}", exc_info=True)
             raise
@@ -117,8 +112,8 @@ class OllamaClient(LLMClient):
         messages: list[Message],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tools: list[dict[str, Any]] | None = None,
-        **kwargs,
+        _tools: list[dict[str, Any]] | None = None,
+        **_kwargs,
     ) -> AsyncIterator[str]:
         """
         生成完成响应（流式）
@@ -150,7 +145,7 @@ class OllamaClient(LLMClient):
             }
 
             # 调用 Ollama API（流式）
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:  # noqa: SIM117
                 async with client.stream("POST", url, json=payload) as response:
                     response.raise_for_status()
 
@@ -167,7 +162,7 @@ class OllamaClient(LLMClient):
 
         except httpx.HTTPStatusError as e:
             logger.error(f"Ollama HTTP error: {e.response.status_code}")
-            raise Exception(f"Ollama streaming failed: HTTP {e.response.status_code}")
+            raise Exception(f"Ollama streaming failed: HTTP {e.response.status_code}") from e
         except Exception as e:
             logger.error(f"Ollama streaming completion failed: {e}", exc_info=True)
             raise

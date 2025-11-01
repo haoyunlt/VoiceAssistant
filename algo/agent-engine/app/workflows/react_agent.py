@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 # 定义 Agent 状态
 class AgentState(TypedDict):
     """Agent 状态"""
+
     messages: Annotated[list[Any], operator.add]  # 消息历史
     iteration: int  # 当前迭代次数
     max_iterations: int  # 最大迭代次数
@@ -36,7 +37,7 @@ class ReActAgent:
         model: str = "gpt-3.5-turbo",
         temperature: float = 0.7,
         max_iterations: int = 5,
-        verbose: bool = False
+        verbose: bool = False,
     ):
         """
         初始化 ReAct Agent
@@ -53,10 +54,7 @@ class ReActAgent:
         self.verbose = verbose
 
         # 初始化 LLM
-        self.llm = ChatOpenAI(
-            model=model,
-            temperature=temperature
-        )
+        self.llm = ChatOpenAI(model=model, temperature=temperature)
 
         # 初始化工具注册表
         self.tool_registry = ToolRegistry()
@@ -84,12 +82,7 @@ class ReActAgent:
         # 添加边
         workflow.add_edge("planner", "executor")
         workflow.add_conditional_edges(
-            "executor",
-            self._should_continue,
-            {
-                "continue": "reflector",
-                "end": END
-            }
+            "executor", self._should_continue, {"continue": "reflector", "end": END}
         )
         workflow.add_edge("reflector", "planner")
 
@@ -281,10 +274,12 @@ Think step by step and use tools when necessary.
                 action_input = line.replace("Action Input:", "").strip()
 
                 if action and action_input:
-                    tool_calls.append({
-                        "name": action,
-                        "args": {"query": action_input}  # 简化版
-                    })
+                    tool_calls.append(
+                        {
+                            "name": action,
+                            "args": {"query": action_input},  # 简化版
+                        }
+                    )
                     action = None
                     action_input = None
 
@@ -300,7 +295,7 @@ Think step by step and use tools when necessary.
         self,
         user_input: str,
         conversation_id: str | None = None,
-        context: dict[str, Any] | None = None
+        _context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         运行 Agent
@@ -322,7 +317,7 @@ Think step by step and use tools when necessary.
             "max_iterations": self.max_iterations,
             "tools_called": [],
             "final_answer": None,
-            "error": None
+            "error": None,
         }
 
         # 如果有对话 ID，加载记忆
@@ -337,10 +332,7 @@ Think step by step and use tools when necessary.
 
             # 保存记忆
             if conversation_id:
-                self.memory_manager.save_memory(
-                    conversation_id,
-                    final_state["messages"]
-                )
+                self.memory_manager.save_memory(conversation_id, final_state["messages"])
 
             # 构造响应
             result = {
@@ -348,10 +340,12 @@ Think step by step and use tools when necessary.
                 "iterations": final_state["iteration"],
                 "tools_called": final_state["tools_called"],
                 "success": final_state.get("error") is None,
-                "error": final_state.get("error")
+                "error": final_state.get("error"),
             }
 
-            logger.info(f"Agent completed: {result['iterations']} iterations, {len(result['tools_called'])} tools called")
+            logger.info(
+                f"Agent completed: {result['iterations']} iterations, {len(result['tools_called'])} tools called"
+            )
 
             return result
 
@@ -362,14 +356,14 @@ Think step by step and use tools when necessary.
                 "iterations": 0,
                 "tools_called": [],
                 "success": False,
-                "error": str(e)
+                "error": str(e),
             }
 
     def stream(
         self,
         user_input: str,
         conversation_id: str | None = None,
-        context: dict[str, Any] | None = None
+        context: dict[str, Any] | None = None,
     ):
         """
         流式运行 Agent

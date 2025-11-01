@@ -2,7 +2,6 @@
 RAG Engine 配置管理
 """
 
-
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -21,10 +20,7 @@ class RAGConfig(BaseSettings):
     llm_provider: str = Field(default="openai", env="LLM_PROVIDER")
     llm_model: str = Field(default="gpt-3.5-turbo", env="LLM_MODEL")
     llm_api_key: str | None = Field(default=None, env="LLM_API_KEY")
-    llm_api_base: str | None = Field(
-        default="http://model-adapter:8005/api/v1",
-        env="LLM_API_BASE"
-    )
+    llm_api_base: str | None = Field(default="http://model-adapter:8005/api/v1", env="LLM_API_BASE")
     llm_temperature: float = Field(default=0.7, env="LLM_TEMPERATURE", ge=0.0, le=2.0)
     llm_max_tokens: int = Field(default=2000, env="LLM_MAX_TOKENS", ge=1, le=32000)
     llm_timeout: int = Field(default=30, env="LLM_TIMEOUT", ge=1)
@@ -40,9 +36,7 @@ class RAGConfig(BaseSettings):
 
     # 查询改写配置
     query_rewrite_enabled: bool = Field(default=True, env="QUERY_REWRITE_ENABLED")
-    query_rewrite_model: str = Field(
-        default="gpt-3.5-turbo", env="QUERY_REWRITE_MODEL"
-    )
+    query_rewrite_model: str = Field(default="gpt-3.5-turbo", env="QUERY_REWRITE_MODEL")
 
     # 缓存配置
     cache_enabled: bool = Field(default=True, env="CACHE_ENABLED")
@@ -56,9 +50,7 @@ class RAGConfig(BaseSettings):
 
     # 上下文配置
     max_context_tokens: int = Field(default=4000, env="MAX_CONTEXT_TOKENS")
-    context_compression_enabled: bool = Field(
-        default=False, env="CONTEXT_COMPRESSION_ENABLED"
-    )
+    context_compression_enabled: bool = Field(default=False, env="CONTEXT_COMPRESSION_ENABLED")
 
     # Observability
     metrics_enabled: bool = Field(default=True, env="METRICS_ENABLED")

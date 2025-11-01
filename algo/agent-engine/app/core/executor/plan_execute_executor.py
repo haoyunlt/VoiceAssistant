@@ -27,7 +27,7 @@ class PlanExecuteExecutor:
         task: str,
         max_steps: int = 10,
         available_tools: list[dict] | None = None,  # type: ignore
-        memory: dict | None = None,  # type: ignore
+        _memory: dict | None = None,  # type: ignore
     ) -> dict:
         """执行任务（非流式）"""
         # 1. 制定计划
@@ -37,11 +37,13 @@ class PlanExecuteExecutor:
         results = []
         for i, step in enumerate(plan[:max_steps], 1):
             result = await self._execute_step(step, available_tools)  # type: ignore [type-arg]
-            results.append({
-                "step": i,
-                "plan": step,
-                "result": result,
-            })
+            results.append(
+                {
+                    "step": i,
+                    "plan": step,
+                    "result": result,
+                }
+            )
 
         # 3. 汇总结果
         final_answer = await self._summarize_results(task, results)
@@ -60,7 +62,7 @@ class PlanExecuteExecutor:
         task: str,
         max_steps: int = 10,
         available_tools: list[dict] | None = None,  # type: ignore
-        memory: dict | None = None,  # type: ignore [type-arg]
+        _memory: dict | None = None,  # type: ignore [type-arg]
     ) -> AsyncIterator[str]:
         """执行任务（流式）"""
         # 发送计划
@@ -83,25 +85,24 @@ class PlanExecuteExecutor:
         """制定计划"""
         prompt = f"""任务: {task}
 
-可用工具: {', '.join([t['name'] for t in tools])}
+可用工具: {", ".join([t["name"] for t in tools])}
 
 请制定一个逐步解决该任务的计划，每行一个步骤："""
 
         response = await self.llm_client.generate(prompt, temperature=0.3, max_tokens=500)
-        steps = [s.strip() for s in response.strip().split('\n') if s.strip()]
+        steps = [s.strip() for s in response.strip().split("\n") if s.strip()]
         return steps
 
     async def _execute_step(self, step: str, tools: list[dict]) -> str:
         """执行单个步骤"""
         # 1. 解析步骤，提取工具调用
         tool_call = await self._parse_step_for_tool_call(step, tools)
-        
+
         if tool_call:
             # 2. 调用工具
             try:
                 result = await self.tool_registry.execute_tool(
-                    tool_call['tool_name'],
-                    **tool_call['arguments']
+                    tool_call["tool_name"], **tool_call["arguments"]
                 )
                 return f"步骤: {step}\n结果: {result}"
             except Exception as e:
@@ -112,12 +113,12 @@ class PlanExecuteExecutor:
             prompt = f"请执行以下步骤: {step}"
             result = await self.llm_client.generate(prompt, temperature=0.3, max_tokens=300)
             return f"步骤: {step}\n结果: {result}"
-    
+
     async def _parse_step_for_tool_call(self, step: str, tools: list[dict]) -> dict | None:
         """解析步骤，提取工具调用"""
         # 使用LLM解析步骤，判断是否需要调用工具
         tools_desc = "\n".join([f"- {t['name']}: {t['description']}" for t in tools])
-        
+
         prompt = f"""分析以下步骤，判断是否需要使用工具。
 
 步骤: {step}
@@ -131,17 +132,18 @@ class PlanExecuteExecutor:
 如果不需要工具，返回: {{"tool_name": null}}"""
 
         response = await self.llm_client.generate(prompt, temperature=0.0, max_tokens=200)
-        
+
         try:
             import json
+
             result = json.loads(response.strip())
-            if result.get('tool_name'):
+            if result.get("tool_name"):
                 return result
         except Exception as e:
             logger.warning(f"Failed to parse tool call: {e}")
-        
+
         return None
 
-    async def _summarize_results(self, task: str, results: list[dict]) -> str:
+    async def _summarize_results(self, task: str, _results: list[dict]) -> str:
         """汇总结果"""
         return f"任务'{task}'已完成"

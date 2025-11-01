@@ -138,9 +138,7 @@ class KnowledgeBaseTool:
             "RAG_SERVICE_URL", "http://localhost:8006"
         )
 
-    async def execute(
-        self, query: str, knowledge_base_id: str = "default", top_k: int = 3
-    ) -> str:
+    async def execute(self, query: str, knowledge_base_id: str = "default", top_k: int = 3) -> str:
         """
         查询知识库
 
@@ -181,10 +179,7 @@ class KnowledgeBaseTool:
                     source = metadata.get("title") or metadata.get("source", "未知来源")
                     score = doc.get("score", 0.0)
 
-                    results.append(
-                        f"{i}. {content}...\n"
-                        f"   (来源: {source}, 相关度: {score:.2f})"
-                    )
+                    results.append(f"{i}. {content}...\n   (来源: {source}, 相关度: {score:.2f})")
 
                 return "\n\n".join(results)
 
@@ -394,7 +389,7 @@ class CalculatorTool:
             node = ast.parse(expression, mode="eval")
             return self._eval_node(node.body)
         except SyntaxError:
-            raise ValueError("语法错误")
+            raise ValueError("语法错误") from None
 
     def _eval_node(self, node):
         """递归求值 AST 节点"""
@@ -451,9 +446,9 @@ class CurrentTimeTool:
         """
         try:
             now = datetime.now()
-            return f"""当前时间: {now.strftime('%Y-%m-%d %H:%M:%S')}
-日期: {now.strftime('%Y年%m月%d日')}
-星期: {['一', '二', '三', '四', '五', '六', '日'][now.weekday()]}
+            return f"""当前时间: {now.strftime("%Y-%m-%d %H:%M:%S")}
+日期: {now.strftime("%Y年%m月%d日")}
+星期: {["一", "二", "三", "四", "五", "六", "日"][now.weekday()]}
 时区: {timezone}"""
 
         except Exception as e:

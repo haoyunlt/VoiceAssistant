@@ -7,6 +7,7 @@
 - 增益(Gain)
 - 去混响(Dereverberation)
 """
+
 import io
 import logging
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 class AudioEnhancementResult(BaseModel):
     """音频增强结果"""
+
     audio_data: bytes
     sample_rate: int
     duration_ms: float
@@ -60,11 +62,7 @@ class AudioEnhancementService:
         """
         try:
             # 加载音频
-            audio, sr = librosa.load(
-                io.BytesIO(audio_data),
-                sr=sample_rate,
-                mono=True
-            )
+            audio, sr = librosa.load(io.BytesIO(audio_data), sr=sample_rate, mono=True)
 
             enhancements = []
 
@@ -95,14 +93,14 @@ class AudioEnhancementService:
 
             # 转换回bytes
             output_buffer = io.BytesIO()
-            sf.write(output_buffer, audio, sr, format='WAV')
+            sf.write(output_buffer, audio, sr, format="WAV")
             output_buffer.seek(0)
 
             return AudioEnhancementResult(
                 audio_data=output_buffer.read(),
                 sample_rate=sr,
                 duration_ms=len(audio) / sr * 1000,
-                enhancements_applied=enhancements
+                enhancements_applied=enhancements,
             )
 
         except Exception as e:
@@ -111,7 +109,7 @@ class AudioEnhancementService:
                 audio_data=audio_data,
                 sample_rate=sample_rate,
                 duration_ms=0,
-                enhancements_applied=[]
+                enhancements_applied=[],
             )
 
     async def _normalize(self, audio: np.ndarray) -> np.ndarray:
@@ -121,7 +119,9 @@ class AudioEnhancementService:
             return audio / max_val
         return audio
 
-    async def _compress(self, audio: np.ndarray, threshold: float = -20.0, ratio: float = 4.0) -> np.ndarray:
+    async def _compress(
+        self, audio: np.ndarray, threshold: float = -20.0, ratio: float = 4.0
+    ) -> np.ndarray:
         """
         动态范围压缩
 
@@ -164,7 +164,7 @@ class AudioEnhancementService:
 
         return equalized_audio
 
-    async def _dereverberate(self, audio: np.ndarray, sr: int) -> np.ndarray:
+    async def _dereverberate(self, audio: np.ndarray, _sr: int) -> np.ndarray:
         """
         去混响（简化版）
         使用维纳滤波
@@ -216,10 +216,7 @@ class AudioEnhancementService:
         return gained_audio
 
     async def normalize_loudness(
-        self,
-        audio_data: bytes,
-        target_loudness_db: float = -23.0,
-        sample_rate: int = 16000
+        self, audio_data: bytes, target_loudness_db: float = -23.0, sample_rate: int = 16000
     ) -> AudioEnhancementResult:
         """
         响度归一化（EBU R128标准）
@@ -233,11 +230,7 @@ class AudioEnhancementService:
             import pyloudnorm as pyln
 
             # 加载音频
-            audio, sr = librosa.load(
-                io.BytesIO(audio_data),
-                sr=sample_rate,
-                mono=True
-            )
+            audio, sr = librosa.load(io.BytesIO(audio_data), sr=sample_rate, mono=True)
 
             # 创建响度计
             meter = pyln.Meter(sr)
@@ -250,14 +243,14 @@ class AudioEnhancementService:
 
             # 转换回bytes
             output_buffer = io.BytesIO()
-            sf.write(output_buffer, normalized_audio, sr, format='WAV')
+            sf.write(output_buffer, normalized_audio, sr, format="WAV")
             output_buffer.seek(0)
 
             return AudioEnhancementResult(
                 audio_data=output_buffer.read(),
                 sample_rate=sr,
                 duration_ms=len(normalized_audio) / sr * 1000,
-                enhancements_applied=["loudness_normalization"]
+                enhancements_applied=["loudness_normalization"],
             )
 
         except ImportError:
@@ -269,14 +262,11 @@ class AudioEnhancementService:
                 audio_data=audio_data,
                 sample_rate=sample_rate,
                 duration_ms=0,
-                enhancements_applied=[]
+                enhancements_applied=[],
             )
 
     async def remove_silence(
-        self,
-        audio_data: bytes,
-        sample_rate: int = 16000,
-        top_db: int = 30
+        self, audio_data: bytes, sample_rate: int = 16000, top_db: int = 30
     ) -> AudioEnhancementResult:
         """
         移除静音段
@@ -288,25 +278,21 @@ class AudioEnhancementService:
         """
         try:
             # 加载音频
-            audio, sr = librosa.load(
-                io.BytesIO(audio_data),
-                sr=sample_rate,
-                mono=True
-            )
+            audio, sr = librosa.load(io.BytesIO(audio_data), sr=sample_rate, mono=True)
 
             # 移除静音
             trimmed_audio, _ = librosa.effects.trim(audio, top_db=top_db)
 
             # 转换回bytes
             output_buffer = io.BytesIO()
-            sf.write(output_buffer, trimmed_audio, sr, format='WAV')
+            sf.write(output_buffer, trimmed_audio, sr, format="WAV")
             output_buffer.seek(0)
 
             return AudioEnhancementResult(
                 audio_data=output_buffer.read(),
                 sample_rate=sr,
                 duration_ms=len(trimmed_audio) / sr * 1000,
-                enhancements_applied=["silence_removal"]
+                enhancements_applied=["silence_removal"],
             )
 
         except Exception as e:
@@ -315,7 +301,7 @@ class AudioEnhancementService:
                 audio_data=audio_data,
                 sample_rate=sample_rate,
                 duration_ms=0,
-                enhancements_applied=[]
+                enhancements_applied=[],
             )
 
     async def health_check(self) -> dict:
@@ -330,6 +316,6 @@ class AudioEnhancementService:
                 "dereverberation",
                 "gain",
                 "loudness_normalization",
-                "silence_removal"
-            ]
+                "silence_removal",
+            ],
         }

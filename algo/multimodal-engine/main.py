@@ -21,10 +21,8 @@ from fastapi.middleware.cors import CORSMiddleware
 # 配置日志
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
 )
 
 logger = logging.getLogger(__name__)
@@ -35,7 +33,7 @@ vision_service: VisionService = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """
     应用生命周期管理
 
@@ -150,4 +148,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -70,19 +70,21 @@ func NewClientManager(cfg *ClientManagerConfig) (*ClientManager, error) {
 		})
 	}
 
-	if url, ok := serviceURLs["rag-engine"]; ok {
-		manager.RAGEngine = NewBaseClient(BaseClientConfig{
-			ServiceName: "rag-engine",
-			BaseURL:     url,
-			Timeout:     30 * time.Second,
-		})
-	}
+	// RAG Engine 已合并到 knowledge-service，保留此字段用于向后兼容
+	// 如果需要 RAG 功能，请使用 knowledge-service
+	// if url, ok := serviceURLs["rag-engine"]; ok {
+	// 	manager.RAGEngine = NewBaseClient(BaseClientConfig{
+	// 		ServiceName: "rag-engine",
+	// 		BaseURL:     url,
+	// 		Timeout:     30 * time.Second,
+	// 	})
+	// }
 
 	if url, ok := serviceURLs["retrieval-service"]; ok {
 		manager.RetrievalService = NewBaseClient(BaseClientConfig{
 			ServiceName: "retrieval-service",
 			BaseURL:     url,
-			Timeout:     10 * time.Second,
+			Timeout:     30 * time.Second,  // 更新为 30s，混合检索+重排可能较慢
 		})
 	}
 
@@ -144,7 +146,7 @@ func (m *ClientManager) performHealthCheck() {
 
 	clients := map[string]interface{}{
 		"agent-engine":         m.AgentEngine,
-		"rag-engine":           m.RAGEngine,
+		// "rag-engine":           m.RAGEngine,  // 已废弃，已合并到 knowledge-service
 		"retrieval-service":    m.RetrievalService,
 		"model-adapter":        m.ModelAdapter,
 		"voice-engine":         m.VoiceEngine,
@@ -211,7 +213,7 @@ func (m *ClientManager) IsServiceHealthy(serviceName string) bool {
 func (m *ClientManager) GetAllServiceStatus(ctx context.Context) map[string]ServiceStatus {
 	clients := map[string]interface{}{
 		"agent-engine":         m.AgentEngine,
-		"rag-engine":           m.RAGEngine,
+		// "rag-engine":           m.RAGEngine,  // 已废弃，已合并到 knowledge-service
 		"retrieval-service":    m.RetrievalService,
 		"model-adapter":        m.ModelAdapter,
 		"voice-engine":         m.VoiceEngine,

@@ -49,9 +49,7 @@ class AdapterManager:
             try:
                 from app.adapters.claude_adapter import ClaudeAdapter
 
-                self._adapters["claude"] = ClaudeAdapter(
-                    api_key=self.settings.anthropic_api_key
-                )
+                self._adapters["claude"] = ClaudeAdapter(api_key=self.settings.anthropic_api_key)
                 logger.info("Claude adapter initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize Claude adapter: {e}")
@@ -61,9 +59,7 @@ class AdapterManager:
             try:
                 from app.services.providers.zhipu_adapter import ZhipuAdapter
 
-                self._adapters["zhipu"] = ZhipuAdapter(
-                    api_key=self.settings.zhipu_api_key
-                )
+                self._adapters["zhipu"] = ZhipuAdapter(api_key=self.settings.zhipu_api_key)
                 logger.info("Zhipu adapter initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize Zhipu adapter: {e}")
@@ -73,9 +69,7 @@ class AdapterManager:
             try:
                 from app.services.providers.qwen_adapter import QwenAdapter
 
-                self._adapters["qwen"] = QwenAdapter(
-                    api_key=self.settings.dashscope_api_key
-                )
+                self._adapters["qwen"] = QwenAdapter(api_key=self.settings.dashscope_api_key)
                 logger.info("Qwen adapter initialized")
             except Exception as e:
                 logger.error(f"Failed to initialize Qwen adapter: {e}")

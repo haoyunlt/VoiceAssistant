@@ -1,4 +1,5 @@
 """聊天接口路由"""
+
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -44,7 +45,7 @@ async def create_chat_completion(request: ChatRequest):
 
     except Exception as e:
         logger.error(f"Chat completion failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/models")

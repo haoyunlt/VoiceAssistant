@@ -145,4 +145,3 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
     async def _create_body_iterator(self, body: bytes):
         """创建body迭代器"""
         yield body
-

@@ -85,9 +85,7 @@ class BatchDocumentProcessor:
 
         # 创建处理任务
         tasks = [
-            self._process_document_with_semaphore(
-                doc_id, tenant_id, metadata
-            )
+            self._process_document_with_semaphore(doc_id, tenant_id, metadata)
             for doc_id in document_ids
         ]
 
@@ -163,7 +161,7 @@ class BatchDocumentProcessor:
                 )
                 return result
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.error(f"Document {document_id} processing timeout after {self.timeout}s")
                 return {
                     "status": "failed",
@@ -205,10 +203,7 @@ class BatchDocumentProcessor:
         document_ids = [doc["id"] for doc in sorted_docs]
 
         # 构建元数据映射
-        metadata_map = {
-            doc["id"]: doc.get("metadata", {})
-            for doc in sorted_docs
-        }
+        metadata_map = {doc["id"]: doc.get("metadata", {}) for doc in sorted_docs}
 
         # 批量处理
         return await self.process_batch(
@@ -257,10 +252,7 @@ class OptimizedBatchProcessor(BatchDocumentProcessor):
 
         try:
             # 1. 并发下载和解析
-            download_tasks = [
-                self._download_and_parse(doc_id)
-                for doc_id in document_ids
-            ]
+            download_tasks = [self._download_and_parse(doc_id) for doc_id in document_ids]
             parsed_docs = await asyncio.gather(*download_tasks, return_exceptions=True)
 
             # 2. 批量分块

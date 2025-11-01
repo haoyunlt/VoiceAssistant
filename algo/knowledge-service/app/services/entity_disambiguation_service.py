@@ -39,9 +39,7 @@ class EntityDisambiguationService:
             f"threshold={similarity_threshold}, auto_merge={auto_merge}"
         )
 
-    async def compute_similarity(
-        self, entity1: dict, entity2: dict
-    ) -> float:
+    async def compute_similarity(self, entity1: dict, entity2: dict) -> float:
         """
         计算两个实体的相似度
 
@@ -57,11 +55,8 @@ class EntityDisambiguationService:
             name1 = entity1.get("name", "").lower()
             name2 = entity2.get("name", "").lower()
 
-            if name1 == name2:
-                name_similarity = 1.0
-            else:
-                # 使用Levenshtein距离
-                name_similarity = self._string_similarity(name1, name2)
+            # 使用Levenshtein距离
+            name_similarity = 1.0 if name1 == name2 else self._string_similarity(name1, name2)
 
             # 2. 向量相似度（如果有embedding）
             vector_similarity = 0.0
@@ -222,9 +217,7 @@ class EntityDisambiguationService:
             logger.error(f"Failed to find similar entities: {e}", exc_info=True)
             return []
 
-    async def merge_entities(
-        self, source_entity_id: str, target_entity_id: str
-    ) -> dict:
+    async def merge_entities(self, source_entity_id: str, target_entity_id: str) -> dict:
         """
         合并两个实体
 
@@ -394,9 +387,7 @@ class EntityDisambiguationService:
 
             if not dry_run:
                 for dup in duplicates:
-                    result = await self.merge_entities(
-                        dup["entity2_id"], dup["entity1_id"]
-                    )
+                    result = await self.merge_entities(dup["entity2_id"], dup["entity1_id"])
 
                     if result["success"]:
                         merged_count += 1
@@ -414,9 +405,7 @@ class EntityDisambiguationService:
             logger.error(f"Failed to auto merge duplicates: {e}", exc_info=True)
             return {"success": False, "error": str(e)}
 
-    async def disambiguate_entity(
-        self, entity_name: str, context: str | None = None
-    ) -> list[dict]:
+    async def disambiguate_entity(self, entity_name: str, context: str | None = None) -> list[dict]:
         """
         实体消歧（根据上下文选择正确的实体）
 
@@ -478,7 +467,7 @@ class EntityDisambiguationService:
                                     "type": entity.get("type"),
                                     "description": entity.get("description"),
                                     "confidence": similarity / total_sim,
-                                    "context_similarity": similarity
+                                    "context_similarity": similarity,
                                 }
                             )
                         return result
@@ -497,8 +486,7 @@ class EntityDisambiguationService:
                         "name": entity.get("name"),
                         "type": entity.get("type"),
                         "description": entity.get("description"),
-                        "confidence": 1.0
-                        / len(candidates),  # 简化：平均分配置信度
+                        "confidence": 1.0 / len(candidates),  # 简化：平均分配置信度
                     }
                 )
 

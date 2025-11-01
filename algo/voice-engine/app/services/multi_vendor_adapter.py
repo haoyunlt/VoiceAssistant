@@ -65,9 +65,7 @@ class MultiVendorSpeechAdapter:
         else:
             logger.info("Azure Speech not configured (missing AZURE_SPEECH_KEY)")
 
-        logger.info(
-            f"Multi-vendor adapter initialized: ASR={preferred_asr}, TTS={preferred_tts}"
-        )
+        logger.info(f"Multi-vendor adapter initialized: ASR={preferred_asr}, TTS={preferred_tts}")
 
     async def recognize(
         self, audio_data: bytes, language: str = "zh", model_size: str = "base"
@@ -100,9 +98,7 @@ class MultiVendorSpeechAdapter:
                 # Azure 语言代码映射
                 azure_lang = self._map_language_to_azure(language)
 
-                result = await self.azure_service.recognize_from_bytes(
-                    audio_data, azure_lang
-                )
+                result = await self.azure_service.recognize_from_bytes(audio_data, azure_lang)
 
                 # 检查是否成功
                 if "error" not in result or not result["error"]:
@@ -110,7 +106,9 @@ class MultiVendorSpeechAdapter:
                     logger.info("ASR succeeded with Azure")
                     return result
                 else:
-                    logger.warning(f"Azure ASR failed: {result.get('error')}, falling back to Faster-Whisper")
+                    logger.warning(
+                        f"Azure ASR failed: {result.get('error')}, falling back to Faster-Whisper"
+                    )
 
             except Exception as e:
                 logger.warning(f"Azure ASR error: {e}, falling back to Faster-Whisper")
@@ -200,7 +198,7 @@ class MultiVendorSpeechAdapter:
 
         except Exception as e:
             logger.error(f"Edge TTS failed: {e}")
-            raise Exception(f"所有 TTS 服务均失败: {str(e)}")
+            raise Exception(f"所有 TTS 服务均失败: {str(e)}") from e
 
     def list_voices(self, vendor: Literal["azure", "edge", "all"] = "all") -> list:
         """

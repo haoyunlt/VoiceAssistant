@@ -84,7 +84,7 @@ async def demo_text_deduplicator():
 
     logger.info(f"\nReconstruction indices: {indices}")
 
-    logger.info(f"\nDeduplication stats:")
+    logger.info("\nDeduplication stats:")
     logger.info(f"  Original: {stats['original_count']}")
     logger.info(f"  Unique: {stats['unique_count']}")
     logger.info(f"  Duplicates: {stats['duplicates']}")
@@ -198,8 +198,8 @@ async def demo_cost_optimizer():
         tenant_id="demo_tenant",
     )
 
-    logger.info(f"\n📊 Optimization Results:")
-    logger.info(f"\n  Deduplication:")
+    logger.info("\n📊 Optimization Results:")
+    logger.info("\n  Deduplication:")
     logger.info(f"    Original: {stats['deduplication']['original_count']}")
     logger.info(f"    Unique: {stats['deduplication']['unique_count']}")
     logger.info(
@@ -207,12 +207,12 @@ async def demo_cost_optimizer():
         f"({stats['deduplication']['deduplication_rate']:.1%})"
     )
 
-    logger.info(f"\n  Cost (after deduplication):")
+    logger.info("\n  Cost (after deduplication):")
     logger.info(f"    Texts: {stats['cost']['text_count']}")
     logger.info(f"    Tokens: {stats['cost']['total_tokens']:,}")
     logger.info(f"    Cost: ${stats['cost']['total_cost']:.6f}")
 
-    logger.info(f"\n  Savings:")
+    logger.info("\n  Savings:")
     logger.info(f"    Tokens saved: {stats['savings']['tokens_saved']:,}")
     logger.info(f"    Cost saved: ${stats['savings']['cost_saved']:.6f}")
     logger.info(f"    Savings rate: {stats['savings']['savings_rate']:.1%}")
@@ -291,9 +291,9 @@ async def demo_budget_manager():
     )
 
     logger.info("Initial budget:")
-    logger.info(f"  Daily: $10.00")
-    logger.info(f"  Monthly: $300.00")
-    logger.info(f"  Alert threshold: 80%")
+    logger.info("  Daily: $10.00")
+    logger.info("  Monthly: $300.00")
+    logger.info("  Alert threshold: 80%")
 
     # 模拟成本记录
     costs = [1.5, 2.0, 3.5, 4.0]  # 累计 $11，超过每日预算
@@ -313,7 +313,7 @@ async def demo_budget_manager():
         )
 
         if status["alerts"]:
-            logger.info(f"    Alerts:")
+            logger.info("    Alerts:")
             for alert in status["alerts"]:
                 logger.info(f"      {alert}")
 
@@ -344,9 +344,7 @@ async def demo_comparison():
         enable_deduplication=False,
     )
 
-    _, _, stats_no_opt = optimizer_disabled.optimize_and_calculate(
-        texts, "text-embedding-ada-002"
-    )
+    _, _, stats_no_opt = optimizer_disabled.optimize_and_calculate(texts, "text-embedding-ada-002")
 
     logger.info(f"  Texts processed: {stats_no_opt['cost']['text_count']}")
     logger.info(f"  Tokens: {stats_no_opt['cost']['total_tokens']:,}")
@@ -359,9 +357,7 @@ async def demo_comparison():
         enable_deduplication=True,
     )
 
-    _, _, stats_opt = optimizer_enabled.optimize_and_calculate(
-        texts, "text-embedding-ada-002"
-    )
+    _, _, stats_opt = optimizer_enabled.optimize_and_calculate(texts, "text-embedding-ada-002")
 
     logger.info(f"  Texts processed: {stats_opt['cost']['text_count']}")
     logger.info(f"  Tokens: {stats_opt['cost']['total_tokens']:,}")
@@ -369,9 +365,7 @@ async def demo_comparison():
 
     # 对比
     logger.info("\n📊 Comparison:")
-    tokens_saved = (
-        stats_no_opt["cost"]["total_tokens"] - stats_opt["cost"]["total_tokens"]
-    )
+    tokens_saved = stats_no_opt["cost"]["total_tokens"] - stats_opt["cost"]["total_tokens"]
     cost_saved = stats_no_opt["cost"]["total_cost"] - stats_opt["cost"]["total_cost"]
     savings_rate = cost_saved / stats_no_opt["cost"]["total_cost"]
 
@@ -401,4 +395,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

@@ -5,7 +5,7 @@ SQL 查询工具 - SQL Query Tool
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class SQLQueryTool:
             "required": ["query"],
         }
 
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         执行 SQL 查询
 
@@ -143,7 +143,7 @@ SQL：
 
     def _rule_based_sql(self, query: str) -> str:
         """基于规则的 SQL 生成（降级方案）"""
-        query_lower = query.lower()
+        query.lower()
 
         # 简单的模式匹配
         if "销量" in query and "最高" in query:
@@ -157,14 +157,14 @@ SQL：
         else:
             return "SELECT * FROM products LIMIT 10"
 
-    async def _execute_sql(self, sql: str) -> list[Dict[str, Any]]:
+    async def _execute_sql(self, _sql: str) -> list[dict[str, Any]]:
         """执行 SQL 查询（需要数据库连接）"""
         # 这里应该连接真实数据库
         # 当前返回空，因为没有配置数据库
         logger.warning("Database client not configured, skipping execution")
         return []
 
-    def _mock_results(self, query: str) -> list[Dict[str, Any]]:
+    def _mock_results(self, _query: str) -> list[dict[str, Any]]:
         """模拟查询结果"""
         return [
             {"id": 1, "name": "产品A", "sales": 1000, "price": 99.99},

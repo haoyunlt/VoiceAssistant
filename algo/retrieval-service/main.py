@@ -8,28 +8,40 @@ Retrieval Service - 检索服务
 - 混合检索 (RRF)
 - Cross-Encoder 重排序
 - Redis 语义缓存
+
+集成：
+- 统一配置管理（Nacos/本地/环境变量）
+- 统一错误码规范（全局错误码体系）
+- 错误监控和指标收集（Prometheus）
 """
 
 import os
+import sys
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-# 导入配置
 from app.core.config import settings
-
-# 导入中间件
 from app.middleware import (
     AuthMiddleware,
     RequestIDMiddleware,
 )
-
-# 导入可观测性
 from app.observability.logging import logger, setup_logging
 from app.observability.metrics import metrics
 from app.observability.tracing import setup_tracing
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
+
+# 添加 common 目录到 Python 路径
+_common_path = Path(__file__).parent.parent / "common"
+if str(_common_path) not in sys.path:
+    sys.path.insert(0, str(_common_path))
+
+# 导入依赖common路径的模块
+from config_audit import ConfigAuditLogger  # noqa: E402
+from error_monitoring import get_error_monitor  # noqa: E402
+from unified_config import create_config  # noqa: E402
 
 # 设置结构化日志
 setup_logging(
@@ -51,18 +63,41 @@ retrieval_service = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # type: ignore
-    """应用生命周期管理"""
+async def lifespan(_app: FastAPI):  # type: ignore
+    """应用生命周期管理（集成统一配置和错误监控）"""
     logger.info("Starting Retrieval Service...")
 
     try:
-        # 初始化检索服务 - 在路由中引用
+        # 1. 加载统一配置
+        config = create_config(
+            service_name="retrieval-service",
+            config_path="./configs/retrieval-service.yaml",
+            required_keys=["server.host", "server.port"],
+        )
+        _app.state.config = config
+        logger.info("Unified config loaded")
+
+        # 2. 启动配置审计日志
+        audit_logger = ConfigAuditLogger("retrieval-service", enable_audit=True)
+        _app.state.audit_logger = audit_logger
+        audit_logger.log_config_load(
+            source="unified", success=True, config_keys=list(config._config_data.keys())
+        )
+
+        # 3. 启动错误监控
+        error_monitor = get_error_monitor("retrieval-service")
+        _app.state.error_monitor = error_monitor
+        logger.info("Error monitoring initialized")
+
+        # 4. 初始化检索服务
         from app.routers.retrieval import retrieval_service
 
         # 启动Neo4j连接
         await retrieval_service.startup()
 
-        logger.info("Retrieval Service started successfully")
+        logger.info(
+            "Retrieval Service started successfully with unified config and error monitoring"
+        )
 
         yield
 
@@ -122,7 +157,7 @@ metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 # 注册路由
-from app.routers import query_enhancement, retrieval
+from app.routers import query_enhancement, retrieval  # noqa: E402
 
 app.include_router(retrieval.router)
 app.include_router(query_enhancement.router)  # P2级：查询增强功能
@@ -247,7 +282,7 @@ async def get_neo4j_stats() -> dict:
         return {"graph_enabled": True, "neo4j": stats}
     except Exception as e:
         logger.error(f"Error getting stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.on_event("startup")

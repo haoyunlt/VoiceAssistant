@@ -33,17 +33,14 @@ class AdapterManager:
         if "openai" in self.config:
             openai_config = self.config["openai"]
             self.adapters["openai"] = OpenAIAdapter(
-                api_key=openai_config.get("api_key"),
-                base_url=openai_config.get("base_url")
+                api_key=openai_config.get("api_key"), base_url=openai_config.get("base_url")
             )
             logger.info("Initialized OpenAI adapter")
 
         # Claude
         if "anthropic" in self.config:
             claude_config = self.config["anthropic"]
-            self.adapters["anthropic"] = ClaudeAdapter(
-                api_key=claude_config.get("api_key")
-            )
+            self.adapters["anthropic"] = ClaudeAdapter(api_key=claude_config.get("api_key"))
             logger.info("Initialized Claude adapter")
 
         # 通义千问 (Qwen) - Using OpenAI-compatible API
@@ -51,7 +48,9 @@ class AdapterManager:
             qwen_config = self.config["qwen"]
             self.adapters["qwen"] = OpenAIAdapter(
                 api_key=qwen_config.get("api_key"),
-                base_url=qwen_config.get("base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+                base_url=qwen_config.get(
+                    "base_url", "https://dashscope.aliyuncs.com/compatible-mode/v1"
+                ),
             )
             logger.info("Initialized Qwen adapter")
 
@@ -91,4 +90,3 @@ class AdapterManager:
     def is_provider_available(self, provider: str) -> bool:
         """Check if provider is available"""
         return provider in self.adapters
-

@@ -31,7 +31,7 @@ class CitationGenerator:
         Returns:
             引用的source编号列表
         """
-        pattern = r'\[Source (\d+)\]'
+        pattern = r"\[Source (\d+)\]"
         matches = re.findall(pattern, answer)
         return [int(m) for m in matches]
 
@@ -188,7 +188,7 @@ class CitationGenerator:
         # 简单实现: 在每个句子末尾添加 [Source N]
         # 更复杂的实现可以使用语义相似度匹配
 
-        sentences = re.split(r'([.!?])\s+', answer)
+        sentences = re.split(r"([.!?])\s+", answer)
 
         result = []
         chunk_idx = 0
@@ -197,13 +197,13 @@ class CitationGenerator:
             result.append(part)
 
             # 如果是句子结束标记，添加引用
-            if part in ['.', '!', '?'] and chunks:
+            if part in [".", "!", "?"] and chunks:
                 # 轮流引用不同的source
                 source_id = (chunk_idx % len(chunks)) + 1
                 result.append(f" [Source {source_id}]")
                 chunk_idx += 1
 
-        return ''.join(result)
+        return "".join(result)
 
     def generate_response_with_citations(
         self,

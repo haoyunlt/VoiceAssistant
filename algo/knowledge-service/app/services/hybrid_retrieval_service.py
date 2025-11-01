@@ -74,7 +74,7 @@ class HybridRetrievalService:
         query: str,
         top_k: int = 10,
         tenant_id: str | None = None,
-        knowledge_base_id: str | None = None,
+        _knowledge_base_id: str | None = None,
         mode: str = "hybrid",
         enable_rerank: bool = True,
     ) -> list[dict[str, Any]]:
@@ -190,7 +190,7 @@ class HybridRetrievalService:
             return []
 
     async def _graph_retrieve(
-        self, query: str, top_k: int, tenant_id: str | None
+        self, query: str, top_k: int, _tenant_id: str | None
     ) -> list[RetrievalResult]:
         """图谱检索：实体识别 + 多跳邻居 + 路径查找"""
         try:

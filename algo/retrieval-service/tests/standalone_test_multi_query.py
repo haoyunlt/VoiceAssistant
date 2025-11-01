@@ -26,9 +26,7 @@ class MultiQueryService:
     def __init__(self, num_queries: int = 3):
         self.num_queries = num_queries
 
-    async def generate(
-        self, query: str, num_queries: int | None = None
-    ) -> MultiQueryResult:
+    async def generate(self, query: str, num_queries: int | None = None) -> MultiQueryResult:
         """生成多个查询变体"""
         start_time = time.time()
         num = num_queries or self.num_queries
@@ -62,7 +60,7 @@ class MultiQueryService:
                 variant = template(query)
                 if variant != query and variant not in queries:
                     queries.append(variant)
-            except:
+            except Exception:
                 pass
 
         return queries
@@ -276,4 +274,3 @@ async def main():
 if __name__ == "__main__":
     exit_code = asyncio.run(main())
     exit(exit_code)
-

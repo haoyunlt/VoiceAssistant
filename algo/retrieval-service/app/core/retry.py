@@ -52,9 +52,7 @@ async def retry_async(
             last_exception = e
 
             if attempt == max_retries:
-                logger.error(
-                    f"Function {func.__name__} failed after {max_retries} retries: {e}"
-                )
+                logger.error(f"Function {func.__name__} failed after {max_retries} retries: {e}")
                 raise
 
             # 计算延迟时间（指数退避）
@@ -104,9 +102,7 @@ def with_timeout(timeout: float):
                 from app.core.exceptions import TimeoutError
 
                 logger.error(f"Function {func.__name__} timed out after {timeout}s")
-                raise TimeoutError(
-                    f"Function {func.__name__} timed out after {timeout}s"
-                )
+                raise TimeoutError(f"Function {func.__name__} timed out after {timeout}s") from None
 
         return wrapper
 

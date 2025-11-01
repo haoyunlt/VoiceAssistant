@@ -65,8 +65,7 @@ class LangGraphService:
         )  # type: ignore
 
         logger.info(
-            f"Task completed: success={result['success']}, "
-            f"iterations={result['iterations']}"
+            f"Task completed: success={result['success']}, iterations={result['iterations']}"
         )
 
         return result

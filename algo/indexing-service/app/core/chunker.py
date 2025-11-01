@@ -34,7 +34,9 @@ class DocumentChunker:
             length_function=len,
         )
 
-        logger.info(f"Document chunker initialized: chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
+        logger.info(
+            f"Document chunker initialized: chunk_size={chunk_size}, chunk_overlap={chunk_overlap}"
+        )
 
     async def chunk(self, text: str, document_id: str) -> list[dict]:
         """
@@ -59,17 +61,19 @@ class DocumentChunker:
         for i, chunk_text in enumerate(chunks):
             chunk_id = self._generate_chunk_id(document_id, i, chunk_text)
 
-            result.append({
-                "id": chunk_id,
-                "content": chunk_text,
-                "index": i,
-                "tokens": self._estimate_tokens(chunk_text),
-                "metadata": {
-                    "document_id": document_id,
-                    "chunk_index": i,
-                    "total_chunks": len(chunks),
-                },
-            })
+            result.append(
+                {
+                    "id": chunk_id,
+                    "content": chunk_text,
+                    "index": i,
+                    "tokens": self._estimate_tokens(chunk_text),
+                    "metadata": {
+                        "document_id": document_id,
+                        "chunk_index": i,
+                        "total_chunks": len(chunks),
+                    },
+                }
+            )
 
         logger.info(f"Created {len(result)} chunks for document {document_id}")
 

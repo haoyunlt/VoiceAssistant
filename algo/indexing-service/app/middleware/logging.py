@@ -1,4 +1,5 @@
 """结构化日志中间件"""
+
 import json
 import logging
 import time

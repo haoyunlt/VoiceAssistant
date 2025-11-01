@@ -72,13 +72,9 @@ async def execute_task(request: ExecuteTaskRequest):
         executor = get_plan_execute_executor()
 
         # 执行任务
-        trace: ExecutionTrace = await executor.execute(
-            task=request.task, context=request.context
-        )
+        trace: ExecutionTrace = await executor.execute(task=request.task, context=request.context)
 
-        logger.info(
-            f"Task completed: success={trace.success}, time={trace.total_time_ms:.2f}ms"
-        )
+        logger.info(f"Task completed: success={trace.success}, time={trace.total_time_ms:.2f}ms")
 
         # 转换为响应格式
         return ExecuteTaskResponse(
@@ -92,9 +88,7 @@ async def execute_task(request: ExecuteTaskRequest):
 
     except Exception as e:
         logger.error(f"Task execution failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Task execution failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Task execution failed: {str(e)}") from e
 
 
 class PlanTaskRequest(BaseModel):
@@ -138,9 +132,7 @@ async def plan_task(request: PlanTaskRequest):
 
     except Exception as e:
         logger.error(f"Task planning failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Task planning failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Task planning failed: {str(e)}") from e
 
 
 @router.get("/status", summary="获取执行器状态")
@@ -168,4 +160,4 @@ async def get_executor_status():
 
     except Exception as e:
         logger.error(f"Failed to get executor status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

@@ -15,7 +15,6 @@ Cache Warming Service - 缓存预热服务
 import asyncio
 import time
 from collections import Counter
-from typing import List, Optional
 
 from app.infrastructure.semantic_cache import get_semantic_cache
 from app.observability.logging import logger
@@ -48,7 +47,7 @@ class CacheWarmingService:
             f"batch_size={batch_size}, concurrent={concurrent_limit}"
         )
 
-    async def warm_cache(self, query_log_path: Optional[str] = None) -> dict:
+    async def warm_cache(self, query_log_path: str | None = None) -> dict:
         """
         执行缓存预热
 
@@ -126,9 +125,7 @@ class CacheWarmingService:
                 "failed_count": 0,
             }
 
-    async def extract_hot_queries(
-        self, query_log_path: Optional[str] = None
-    ) -> List[str]:
+    async def extract_hot_queries(self, query_log_path: str | None = None) -> list[str]:
         """
         从查询日志提取高频queries
 
@@ -145,11 +142,11 @@ class CacheWarmingService:
             # 从Redis/数据库读取
             return await self._extract_from_redis()
 
-    async def _extract_from_file(self, log_path: str) -> List[str]:
+    async def _extract_from_file(self, log_path: str) -> list[str]:
         """从日志文件提取"""
         try:
             # 读取日志文件
-            with open(log_path, "r", encoding="utf-8") as f:
+            with open(log_path, encoding="utf-8") as f:
                 lines = f.readlines()
 
             # 统计查询频率
@@ -169,7 +166,7 @@ class CacheWarmingService:
             logger.error(f"Failed to extract from file: {e}")
             return []
 
-    async def _extract_from_redis(self) -> List[str]:
+    async def _extract_from_redis(self) -> list[str]:
         """从Redis提取（模拟实现）"""
         # 实际应该从Redis或时序数据库读取查询统计
         # 这里返回模拟数据

@@ -1,10 +1,12 @@
 """Agent流式执行服务"""
+
 import asyncio
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from app.core.exceptions import ToolExecutionError
 from app.models.agent import AgentTask
 from app.services.llm_service import LLMService
 from app.services.tool_service import ToolService
@@ -12,6 +14,7 @@ from app.services.tool_service import ToolService
 
 class StepType(str, Enum):
     """步骤类型"""
+
     THOUGHT = "thought"
     ACTION = "action"
     OBSERVATION = "observation"
@@ -23,6 +26,7 @@ class StepType(str, Enum):
 @dataclass
 class AgentStepResult:
     """Agent步骤结果"""
+
     step_type: StepType
     content: str = ""
     is_partial: bool = False
@@ -43,22 +47,22 @@ class AgentContext:
 
     def add_step(self, thought: str, action: dict | None, observation: str) -> None:
         """添加执行步骤"""
-        self.steps.append({
-            "thought": thought,
-            "action": action,
-            "observation": observation
-        }  # type: ignore)
+        self.steps.append({"thought": thought, "action": action, "observation": observation})  # type: ignore
 
         # 更新messages
-        self.messages.append({  # type: ignore
-            "role": "assistant",
-            "content": thought
-        }  # type: ignore
+        self.messages.append(
+            {  # type: ignore
+                "role": "assistant",
+                "content": thought,
+            }
+        )  # type: ignore
         if action:  # type: ignore
-            self.messages.append({  # type: ignore
-                "role": "user",
-                "content": f"Observation: {observation}"
-            }  # type: ignore
+            self.messages.append(
+                {  # type: ignore
+                    "role": "user",
+                    "content": f"Observation: {observation}",
+                }
+            )  # type: ignore
 
 
 class AgentStreamService:
@@ -68,10 +72,7 @@ class AgentStreamService:
         self.llm_service = llm_service
         self.tool_service = tool_service
 
-    async def execute_stream(
-        self,
-        task: AgentTask
-    ) -> AsyncIterator[AgentStepResult]:
+    async def execute_stream(self, task: AgentTask) -> AsyncIterator[AgentStepResult]:
         """流式执行Agent任务"""
 
         # 初始化上下文
@@ -85,16 +86,14 @@ class AgentStreamService:
                 # 1. Thought阶段 - 流式返回
                 thought_chunk = ""
                 async for chunk in self.llm_service.chat_stream(
-                    messages=context.messages,
-                    model=task.model,
-                    temperature=task.temperature
+                    messages=context.messages, model=task.model, temperature=task.temperature
                 ):
                     thought_chunk += chunk
                     yield AgentStepResult(
                         step_type=StepType.THOUGHT,
                         content=chunk,
                         is_partial=True,
-                        iteration=iteration
+                        iteration=iteration,
                     )
 
                 # 2. 解析Action
@@ -109,7 +108,7 @@ class AgentStreamService:
                         step_type=StepType.FINAL_ANSWER,
                         content=final_answer,
                         is_partial=False,
-                        iteration=iteration
+                        iteration=iteration,
                     )
                     break
 
@@ -119,7 +118,7 @@ class AgentStreamService:
                     tool_name=action["tool"],
                     parameters=action["parameters"],
                     is_partial=False,
-                    iteration=iteration
+                    iteration=iteration,
                 )
 
                 # 3. 执行Tool（带容错）
@@ -127,7 +126,7 @@ class AgentStreamService:
                     observation = await self._execute_tool_with_retry(
                         tool_name=action["tool"],
                         parameters=action["parameters"],
-                        timeout=task.tool_timeout
+                        timeout=task.tool_timeout,
                     )
                 except ToolExecutionError as e:
                     observation = f"❌ Tool execution error: {str(e)}"
@@ -138,7 +137,7 @@ class AgentStreamService:
                     step_type=StepType.OBSERVATION,
                     content=observation,
                     is_partial=False,
-                    iteration=iteration
+                    iteration=iteration,
                 )
 
                 # 4. 更新上下文
@@ -149,15 +148,12 @@ class AgentStreamService:
                 step_type=StepType.COMPLETED,
                 content=context.final_answer,
                 is_partial=False,
-                iteration=iteration
+                iteration=iteration,
             )
 
         except Exception as e:
             yield AgentStepResult(
-                step_type=StepType.ERROR,
-                error=str(e),
-                is_partial=False,
-                iteration=iteration
+                step_type=StepType.ERROR, error=str(e), is_partial=False, iteration=iteration
             )
 
     def _init_context(self, task: AgentTask) -> AgentContext:
@@ -166,20 +162,14 @@ class AgentStreamService:
 
         # 构建系统提示词
         system_prompt = self._build_system_prompt(task)
-        context.messages.append({
-            "role": "system",
-            "content": system_prompt
-        })
+        context.messages.append({"role": "system", "content": system_prompt})
 
         # 添加用户问题
-        context.messages.append({
-            "role": "user",
-            "content": task.query
-        })
+        context.messages.append({"role": "user", "content": task.query})
 
         return context
 
-    def _build_system_prompt(self, task: AgentTask) -> str:
+    def _build_system_prompt(self, _task: AgentTask) -> str:
         """构建系统提示词"""
         tools_desc = self.tool_service.get_tools_description()
 
@@ -215,19 +205,19 @@ Final Answer: [Your complete answer]
             return None
 
         try:
-            action_line = [line for line in thought.split('\n') if line.startswith('Action:')][0]
-            tool_name = action_line.replace('Action:', '').strip()
+            action_line = [line for line in thought.split("\n") if line.startswith("Action:")][0]
+            tool_name = action_line.replace("Action:", "").strip()
 
             # 提取参数
-            input_line = [line for line in thought.split('\n') if line.startswith('Action Input:')][0]
+            input_line = [line for line in thought.split("\n") if line.startswith("Action Input:")][
+                0
+            ]
             import json
-            params_str = input_line.replace('Action Input:', '').strip()
+
+            params_str = input_line.replace("Action Input:", "").strip()
             parameters = json.loads(params_str)
 
-            return {
-                "tool": tool_name,
-                "parameters": parameters
-            }
+            return {"tool": tool_name, "parameters": parameters}
         except Exception:
             return None
 
@@ -240,11 +230,7 @@ Final Answer: [Your complete answer]
         return thought.strip()
 
     async def _execute_tool_with_retry(
-        self,
-        tool_name: str,
-        parameters: dict[str, Any],
-        timeout: int = 30,
-        max_retries: int = 3
+        self, tool_name: str, parameters: dict[str, Any], timeout: int = 30, max_retries: int = 3
     ) -> str:
         """带重试的工具执行"""
         last_error = None
@@ -252,16 +238,14 @@ Final Answer: [Your complete answer]
         for attempt in range(max_retries):
             try:
                 result = await self.tool_service.execute_tool(
-                    tool_name=tool_name,
-                    parameters=parameters,
-                    timeout=timeout
+                    tool_name=tool_name, parameters=parameters, timeout=timeout
                 )
                 return self._format_result(result)
             except ToolExecutionError as e:
                 last_error = e
                 if attempt < max_retries - 1:
                     # 指数退避
-                    await asyncio.sleep(2 ** attempt)
+                    await asyncio.sleep(2**attempt)
                     continue
                 else:
                     raise
@@ -275,6 +259,7 @@ Final Answer: [Your complete answer]
             return result
         elif isinstance(result, (dict, list)):
             import json
+
             return json.dumps(result, ensure_ascii=False, indent=2)
         else:
             return str(result)

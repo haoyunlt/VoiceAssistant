@@ -1,4 +1,5 @@
 """适配器服务 - 统一调度各个模型提供商"""
+
 import logging
 from collections.abc import AsyncIterator
 

@@ -32,8 +32,8 @@ class VideoEngine:
         self,
         video_data: bytes,
         analysis_type: str = "summary",
-        tenant_id: str | None = None,
-        user_id: str | None = None,
+        _tenant_id: str | None = None,
+        _user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         视频分析。
@@ -75,7 +75,7 @@ class VideoEngine:
             logger.error(f"Video analysis failed: {e}", exc_info=True)
             raise
 
-    async def _analyze_summary(self, video_data: bytes) -> dict[str, Any]:
+    async def _analyze_summary(self, _video_data: bytes) -> dict[str, Any]:
         """生成视频摘要"""
         logger.debug("Generating video summary")
 
@@ -83,7 +83,7 @@ class VideoEngine:
         # 简单实现：返回模拟数据
         return {
             "summary": "This video shows a person walking in a park during sunset. "
-                      "The scene is peaceful with trees and a lake in the background.",
+            "The scene is peaceful with trees and a lake in the background.",
             "duration_seconds": 120.5,
             "fps": 30,
             "resolution": "1920x1080",
@@ -95,7 +95,7 @@ class VideoEngine:
             "provider": self.provider,
         }
 
-    async def _extract_keyframes(self, video_data: bytes) -> dict[str, Any]:
+    async def _extract_keyframes(self, _video_data: bytes) -> dict[str, Any]:
         """提取关键帧"""
         logger.debug("Extracting video keyframes")
 
@@ -126,7 +126,7 @@ class VideoEngine:
             "provider": self.provider,
         }
 
-    async def _detect_objects(self, video_data: bytes) -> dict[str, Any]:
+    async def _detect_objects(self, _video_data: bytes) -> dict[str, Any]:
         """检测视频中的对象"""
         logger.debug("Detecting objects in video")
 
@@ -137,30 +137,24 @@ class VideoEngine:
                 {
                     "label": "person",
                     "confidence": 0.95,
-                    "appearances": [
-                        {"start": 0.0, "end": 120.5, "bbox": [100, 100, 50, 100]}
-                    ],
+                    "appearances": [{"start": 0.0, "end": 120.5, "bbox": [100, 100, 50, 100]}],
                 },
                 {
                     "label": "tree",
                     "confidence": 0.88,
-                    "appearances": [
-                        {"start": 0.0, "end": 120.5, "bbox": [400, 50, 200, 300]}
-                    ],
+                    "appearances": [{"start": 0.0, "end": 120.5, "bbox": [400, 50, 200, 300]}],
                 },
                 {
                     "label": "lake",
                     "confidence": 0.92,
-                    "appearances": [
-                        {"start": 30.0, "end": 120.5, "bbox": [0, 400, 1920, 680]}
-                    ],
+                    "appearances": [{"start": 30.0, "end": 120.5, "bbox": [0, 400, 1920, 680]}],
                 },
             ],
             "total_objects": 3,
             "provider": self.provider,
         }
 
-    async def _extract_speech(self, video_data: bytes) -> dict[str, Any]:
+    async def _extract_speech(self, _video_data: bytes) -> dict[str, Any]:
         """提取视频中的语音"""
         logger.debug("Extracting speech from video")
 

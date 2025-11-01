@@ -200,9 +200,7 @@ class SemanticCacheService:
             self.stats["misses"] += 1
             return None
 
-    async def _find_best_match_linear(
-        self, query_embedding: np.ndarray
-    ) -> dict[str, Any] | None:
+    async def _find_best_match_linear(self, query_embedding: np.ndarray) -> dict[str, Any] | None:
         """线性搜索最佳匹配（回退方案）"""
         cached_queries = self._get_all_cached_queries()
 

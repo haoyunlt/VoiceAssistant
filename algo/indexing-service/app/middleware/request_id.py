@@ -1,4 +1,5 @@
 """请求ID中间件 - 用于分布式追踪"""
+
 import time
 import uuid
 from collections.abc import Callable

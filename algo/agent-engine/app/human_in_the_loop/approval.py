@@ -317,9 +317,7 @@ class ApprovalWorkflow:
 
             logger.info(f"[{approval_id}] Approval cancelled")
 
-    async def get_approval_history(
-        self, agent_id: str | None = None, days: int = 7
-    ) -> list[dict]:
+    async def get_approval_history(self, agent_id: str | None = None, days: int = 7) -> list[dict]:
         """获取审批历史"""
         if self.storage and hasattr(self.storage, "get_approval_history"):
             return await self.storage.get_approval_history(agent_id, days)

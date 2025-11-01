@@ -1,4 +1,5 @@
 """文本块管理路由"""
+
 import logging
 
 from fastapi import APIRouter, HTTPException, Query
@@ -36,7 +37,7 @@ async def get_document_chunks(
 
     except Exception as e:
         logger.error(f"Failed to get chunks: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/chunk/{chunk_id}")
@@ -54,7 +55,7 @@ async def get_chunk(chunk_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get chunk: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/reindex/{document_id}")
@@ -80,4 +81,4 @@ async def reindex_chunks(document_id: str):
 
     except Exception as e:
         logger.error(f"Failed to reindex document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

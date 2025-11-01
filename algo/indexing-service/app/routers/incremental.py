@@ -28,7 +28,8 @@ async def get_incremental_service():
         redis_client = redis.from_url("redis://localhost:6379/0")
 
         incremental_service = IncrementalIndexService(
-            redis_client=redis_client, version_ttl=604800  # 7天
+            redis_client=redis_client,
+            version_ttl=604800,  # 7天
         )
         logger.info("IncrementalIndexService initialized")
 
@@ -46,9 +47,7 @@ class DetectChangesRequest(BaseModel):
 class BulkCheckRequest(BaseModel):
     """批量检查请求"""
 
-    documents: list[dict] = Field(
-        ..., description="文档列表，每个文档包含 {id, content}"
-    )
+    documents: list[dict] = Field(..., description="文档列表，每个文档包含 {id, content}")
 
 
 class IncrementalUpdateRequest(BaseModel):
@@ -97,7 +96,7 @@ async def detect_changes(request: DetectChangesRequest):
 
     except Exception as e:
         logger.error(f"Failed to detect changes: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/update")
@@ -150,7 +149,7 @@ async def incremental_update(request: IncrementalUpdateRequest):
 
     except Exception as e:
         logger.error(f"Incremental update failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/bulk-check")
@@ -182,7 +181,7 @@ async def bulk_check_changes(request: BulkCheckRequest):
 
     except Exception as e:
         logger.error(f"Bulk check failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/version/{document_id}")
@@ -205,9 +204,7 @@ async def get_document_version(document_id: str):
         version = await service.get_document_version(document_id)
 
         if not version:
-            raise HTTPException(
-                status_code=404, detail=f"Document {document_id} not found"
-            )
+            raise HTTPException(status_code=404, detail=f"Document {document_id} not found")
 
         return version
 
@@ -215,7 +212,7 @@ async def get_document_version(document_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get document version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/stats")
@@ -235,4 +232,4 @@ async def get_statistics():
 
     except Exception as e:
         logger.error(f"Failed to get statistics: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

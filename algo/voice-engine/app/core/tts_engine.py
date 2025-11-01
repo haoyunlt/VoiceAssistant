@@ -24,7 +24,7 @@ class TTSEngine:
         voice: str = "zh-CN-XiaoxiaoNeural",
         rate: str = "+0%",
         volume: str = "+0%",
-        pitch: str = "+0Hz"
+        pitch: str = "+0Hz",
     ):
         """
         初始化 TTS 引擎
@@ -45,9 +45,7 @@ class TTSEngine:
         logger.info(f"TTS engine initialized: provider={provider}, voice={voice}")
 
     async def synthesize(
-        self,
-        text: str,
-        output_format: str = "audio-24khz-48kbitrate-mono-mp3"
+        self, text: str, output_format: str = "audio-24khz-48kbitrate-mono-mp3"
     ) -> bytes:
         """
         合成语音（批处理模式）
@@ -72,9 +70,7 @@ class TTSEngine:
             raise
 
     async def synthesize_stream(
-        self,
-        text: str,
-        chunk_size: int = 1024
+        self, text: str, chunk_size: int = 1024
     ) -> Generator[bytes, None, None]:
         """
         流式合成语音
@@ -95,20 +91,12 @@ class TTSEngine:
             # 对于不支持流式的提供商，先全量合成再分块发送
             audio_data = await self.synthesize(text)
             for i in range(0, len(audio_data), chunk_size):
-                yield audio_data[i:i + chunk_size]
+                yield audio_data[i : i + chunk_size]
 
-    async def _synthesize_edge_tts(
-        self,
-        text: str,
-        output_format: str
-    ) -> bytes:
+    async def _synthesize_edge_tts(self, text: str, _output_format: str) -> bytes:
         """使用 Edge TTS 合成"""
         communicate = edge_tts.Communicate(
-            text=text,
-            voice=self.voice,
-            rate=self.rate,
-            volume=self.volume,
-            pitch=self.pitch
+            text=text, voice=self.voice, rate=self.rate, volume=self.volume, pitch=self.pitch
         )
 
         audio_chunks = []
@@ -118,27 +106,17 @@ class TTSEngine:
 
         return b"".join(audio_chunks)
 
-    async def _synthesize_edge_tts_stream(
-        self,
-        text: str
-    ) -> Generator[bytes, None, None]:
+    async def _synthesize_edge_tts_stream(self, text: str) -> Generator[bytes, None, None]:
         """使用 Edge TTS 流式合成"""
         communicate = edge_tts.Communicate(
-            text=text,
-            voice=self.voice,
-            rate=self.rate,
-            volume=self.volume,
-            pitch=self.pitch
+            text=text, voice=self.voice, rate=self.rate, volume=self.volume, pitch=self.pitch
         )
 
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 yield chunk["data"]
 
-    async def batch_synthesize(
-        self,
-        texts: list[str]
-    ) -> list[bytes]:
+    async def batch_synthesize(self, texts: list[str]) -> list[bytes]:
         """
         批量合成
 
@@ -162,14 +140,54 @@ class TTSEngine:
         if self.provider == "edge_tts":
             # Edge TTS 支持的中文语音
             return [
-                {"name": "zh-CN-XiaoxiaoNeural", "gender": "Female", "locale": "zh-CN", "description": "晓晓 (女)"},
-                {"name": "zh-CN-XiaoyiNeural", "gender": "Female", "locale": "zh-CN", "description": "晓伊 (女)"},
-                {"name": "zh-CN-YunjianNeural", "gender": "Male", "locale": "zh-CN", "description": "云健 (男)"},
-                {"name": "zh-CN-YunxiNeural", "gender": "Male", "locale": "zh-CN", "description": "云希 (男)"},
-                {"name": "zh-CN-YunxiaNeural", "gender": "Male", "locale": "zh-CN", "description": "云夏 (男)"},
-                {"name": "zh-CN-YunyangNeural", "gender": "Male", "locale": "zh-CN", "description": "云扬 (男)"},
-                {"name": "zh-CN-liaoning-XiaobeiNeural", "gender": "Female", "locale": "zh-CN-liaoning", "description": "晓北 (辽宁女)"},
-                {"name": "zh-CN-shaanxi-XiaoniNeural", "gender": "Female", "locale": "zh-CN-shaanxi", "description": "晓妮 (陕西女)"},
+                {
+                    "name": "zh-CN-XiaoxiaoNeural",
+                    "gender": "Female",
+                    "locale": "zh-CN",
+                    "description": "晓晓 (女)",
+                },
+                {
+                    "name": "zh-CN-XiaoyiNeural",
+                    "gender": "Female",
+                    "locale": "zh-CN",
+                    "description": "晓伊 (女)",
+                },
+                {
+                    "name": "zh-CN-YunjianNeural",
+                    "gender": "Male",
+                    "locale": "zh-CN",
+                    "description": "云健 (男)",
+                },
+                {
+                    "name": "zh-CN-YunxiNeural",
+                    "gender": "Male",
+                    "locale": "zh-CN",
+                    "description": "云希 (男)",
+                },
+                {
+                    "name": "zh-CN-YunxiaNeural",
+                    "gender": "Male",
+                    "locale": "zh-CN",
+                    "description": "云夏 (男)",
+                },
+                {
+                    "name": "zh-CN-YunyangNeural",
+                    "gender": "Male",
+                    "locale": "zh-CN",
+                    "description": "云扬 (男)",
+                },
+                {
+                    "name": "zh-CN-liaoning-XiaobeiNeural",
+                    "gender": "Female",
+                    "locale": "zh-CN-liaoning",
+                    "description": "晓北 (辽宁女)",
+                },
+                {
+                    "name": "zh-CN-shaanxi-XiaoniNeural",
+                    "gender": "Female",
+                    "locale": "zh-CN-shaanxi",
+                    "description": "晓妮 (陕西女)",
+                },
             ]
         return []
 
@@ -178,7 +196,7 @@ class TTSEngine:
         audio_data: bytes,
         speed: float = 1.0,
         volume_gain: float = 0.0,
-        sample_rate: int = None
+        sample_rate: int = None,
     ) -> bytes:
         """
         调整音频属性
@@ -221,11 +239,7 @@ class TTSEngine:
 class StreamingTTSSession:
     """流式 TTS 会话（用于全双工对话）"""
 
-    def __init__(
-        self,
-        tts_engine: TTSEngine,
-        buffer_size: int = 3
-    ):
+    def __init__(self, tts_engine: TTSEngine, buffer_size: int = 3):
         """
         初始化流式会话
 
@@ -276,10 +290,7 @@ class StreamingTTSSession:
         while self.is_running:
             try:
                 # 获取文本
-                text = await asyncio.wait_for(
-                    self.text_queue.get(),
-                    timeout=1.0
-                )
+                text = await asyncio.wait_for(self.text_queue.get(), timeout=1.0)
 
                 # 合成音频
                 audio = await self.tts_engine.synthesize(text)
@@ -305,7 +316,7 @@ class StreamingTTSSession:
         import re
 
         # 按标点分割
-        sentences = re.split(r'([。！？\.\!\?]+)', text)
+        sentences = re.split(r"([。！？\.\!\?]+)", text)
 
         # 重新组合
         result = []
@@ -330,11 +341,7 @@ class VoiceCloner:
         self.model_path = model_path
         logger.info("Voice cloner initialized (placeholder)")
 
-    def clone_voice(
-        self,
-        reference_audio: bytes,
-        text: str
-    ) -> bytes:
+    def clone_voice(self, _reference_audio: bytes, _text: str) -> bytes:
         """
         克隆语音
 

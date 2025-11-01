@@ -2,6 +2,7 @@
 API 依赖注入
 """
 
+import logging
 from collections.abc import Callable
 from typing import Any
 
@@ -11,6 +12,8 @@ from app.core.agent_engine_v2 import AgentEngineV2
 from app.core.exceptions import AuthenticationError
 from app.core.tools.tool_registry import ToolRegistry
 from app.memory.unified_memory_manager import UnifiedMemoryManager
+
+logger = logging.getLogger(__name__)
 
 
 def get_agent_engine(request: Request) -> AgentEngineV2:
@@ -191,7 +194,7 @@ async def verify_token(authorization: str | None = Header(None)) -> dict:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid or expired token",
                 headers={"WWW-Authenticate": "Bearer"},
-            )
+            ) from e
 
         return user_info
 
@@ -200,13 +203,13 @@ async def verify_token(authorization: str | None = Header(None)) -> dict:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authorization header format",
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from None
     except AuthenticationError as e:
         raise HTTPException(  # noqa: B904
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
-        )
+        ) from e
 
 
 def check_permissions(required_permissions: list) -> Callable[[dict], None]:

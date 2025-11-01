@@ -5,7 +5,7 @@ Database Connection and Session Management
 """
 
 import logging
-from typing import AsyncGenerator, Optional
+from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
@@ -16,8 +16,8 @@ logger = logging.getLogger(__name__)
 Base = declarative_base()
 
 # Global engine and session maker
-_engine: Optional[any] = None
-_async_session_maker: Optional[async_sessionmaker] = None
+_engine: any | None = None
+_async_session_maker: async_sessionmaker | None = None
 
 
 def init_database(database_url: str, echo: bool = False) -> None:
@@ -35,16 +35,14 @@ def init_database(database_url: str, echo: bool = False) -> None:
         pool_size=10,
         max_overflow=20,
         pool_pre_ping=True,
-        pool_recycle=3600
+        pool_recycle=3600,
     )
 
-    _async_session_maker = async_sessionmaker(
-        _engine,
-        class_=AsyncSession,
-        expire_on_commit=False
-    )
+    _async_session_maker = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
-    logger.info(f"Database initialized: {database_url.split('@')[1] if '@' in database_url else 'unknown'}")
+    logger.info(
+        f"Database initialized: {database_url.split('@')[1] if '@' in database_url else 'unknown'}"
+    )
 
 
 async def create_tables() -> None:

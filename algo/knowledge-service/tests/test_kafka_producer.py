@@ -32,11 +32,7 @@ async def test_publish_event_success(mock_producer):
     kafka_producer = KafkaProducer()
     kafka_producer.producer = mock_producer
 
-    await kafka_producer.publish_event(
-        "test.event",
-        {"key": "value"},
-        {"source": "test"}
-    )
+    await kafka_producer.publish_event("test.event", {"key": "value"}, {"source": "test"})
 
     # Verify produce was called
     assert mock_producer.produce.called
@@ -53,7 +49,7 @@ async def test_publish_event_with_compensation(mock_producer, mock_compensation_
     # Simulate failure
     mock_producer.produce.side_effect = Exception("Kafka error")
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         await kafka_producer.publish_event("test.event", {"key": "value"})
 
     # Verify compensation service was called
@@ -69,13 +65,13 @@ async def test_publish_entity_created(mock_producer):
     await kafka_producer.publish_entity_created(
         entity_id="entity-123",
         tenant_id="tenant-1",
-        entity_data={"name": "Test Entity", "type": "Person"}
+        entity_data={"name": "Test Entity", "type": "Person"},
     )
 
     assert mock_producer.produce.called
 
 
-def test_get_metrics(mock_producer):
+def test_get_metrics(_mock_producer):
     """测试获取指标"""
     kafka_producer = KafkaProducer()
     kafka_producer.sent_count = 10

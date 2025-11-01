@@ -91,4 +91,3 @@ class BaseAdapter(ABC):
             是否健康
         """
         pass
-

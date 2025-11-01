@@ -60,9 +60,7 @@ class ServiceConfigBase(BaseSettings):
             level=getattr(logging, self.log_level.upper(), logging.INFO),
             format=self.log_format,
         )
-        logger.info(
-            f"Logging configured: level={self.log_level}, service={self.service_name}"
-        )
+        logger.info(f"Logging configured: level={self.log_level}, service={self.service_name}")
 
 
 class LLMConfigMixin(BaseSettings):
@@ -78,9 +76,7 @@ class LLMConfigMixin(BaseSettings):
     llm_timeout: int = Field(default=30, env="LLM_TIMEOUT")
 
     # Model Adapter配置（统一LLM路由）
-    model_adapter_url: str = Field(
-        default="http://model-adapter:8005", env="MODEL_ADAPTER_URL"
-    )
+    model_adapter_url: str = Field(default="http://model-adapter:8005", env="MODEL_ADAPTER_URL")
 
     class Config:
         env_file = ".env"
@@ -95,9 +91,7 @@ class VectorStoreConfigMixin(BaseSettings):
     vector_store_adapter_url: str = Field(
         default="http://vector-store-adapter:8003", env="VECTOR_STORE_ADAPTER_URL"
     )
-    vector_collection_name: str = Field(
-        default="document_chunks", env="VECTOR_COLLECTION_NAME"
-    )
+    vector_collection_name: str = Field(default="document_chunks", env="VECTOR_COLLECTION_NAME")
     vector_backend: str = Field(default="milvus", env="VECTOR_BACKEND")
 
     # 向量检索配置

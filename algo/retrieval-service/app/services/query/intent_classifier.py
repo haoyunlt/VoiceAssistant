@@ -152,17 +152,14 @@ class IntentClassifier:
 
         # 开放式问题判断（长查询且无明确模式）
         if len(query) > 30 and not any(
-            query.startswith(prefix)
-            for prefix in ["什么", "如何", "为什么", "怎么"]
+            query.startswith(prefix) for prefix in ["什么", "如何", "为什么", "怎么"]
         ):
             return QueryIntent.OPENENDED, 0.6
 
         # 默认：未知
         return QueryIntent.UNKNOWN, 0.3
 
-    def _get_recommended_strategy(
-        self, intent: QueryIntent, query: str
-    ) -> dict[str, any]:
+    def _get_recommended_strategy(self, intent: QueryIntent, _query: str) -> dict[str, any]:
         """
         根据意图推荐检索策略
 
@@ -275,4 +272,3 @@ if __name__ == "__main__":
             print(f"延迟: {result.latency_ms:.2f}ms")
 
     asyncio.run(test())
-

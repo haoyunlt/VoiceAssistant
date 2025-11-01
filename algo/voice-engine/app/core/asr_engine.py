@@ -24,7 +24,7 @@ class ASREngine:
         language: str = "zh",
         task: str = "transcribe",
         beam_size: int = 5,
-        enable_streaming: bool = True
+        enable_streaming: bool = True,
     ):
         """
         初始化 ASR 引擎
@@ -61,9 +61,7 @@ class ASREngine:
         else:
             # 批处理模式：使用 pipeline
             self.pipe = pipeline(
-                "automatic-speech-recognition",
-                model=model_name,
-                device=self.device
+                "automatic-speech-recognition", model=model_name, device=self.device
             )
 
         # 音频缓冲区
@@ -74,10 +72,7 @@ class ASREngine:
         logger.info(f"ASR engine initialized: {model_name}, streaming={enable_streaming}")
 
     def transcribe(
-        self,
-        audio_data: bytes,
-        sample_rate: int = 16000,
-        return_timestamps: bool = False
+        self, audio_data: bytes, sample_rate: int = 16000, return_timestamps: bool = False
     ) -> dict[str, Any]:
         """
         转录音频（批处理模式）
@@ -99,30 +94,22 @@ class ASREngine:
                 result = self._transcribe_with_model(audio_array, sample_rate)
             else:
                 # 使用 pipeline
-                result = self.pipe(
-                    audio_array,
-                    return_timestamps=return_timestamps
-                )
+                result = self.pipe(audio_array, return_timestamps=return_timestamps)
 
             logger.info(f"Transcription completed: {len(result.get('text', ''))} characters")
 
             return {
                 "text": result.get("text", ""),
                 "chunks": result.get("chunks", []),
-                "language": result.get("language", self.language)
+                "language": result.get("language", self.language),
             }
 
         except Exception as e:
             logger.error(f"Transcription failed: {e}", exc_info=True)
-            return {
-                "text": "",
-                "error": str(e)
-            }
+            return {"text": "", "error": str(e)}
 
     def transcribe_stream(
-        self,
-        audio_stream: Generator[bytes, None, None],
-        sample_rate: int = 16000
+        self, audio_stream: Generator[bytes, None, None], sample_rate: int = 16000
     ) -> Generator[dict[str, Any], None, None]:
         """
         流式转录
@@ -149,11 +136,7 @@ class ASREngine:
                 # 转录
                 result = self.transcribe(combined_audio, sample_rate)
 
-                yield {
-                    "text": result["text"],
-                    "is_final": False,
-                    "timestamp": self.buffer_duration
-                }
+                yield {"text": result["text"], "is_final": False, "timestamp": self.buffer_duration}
 
                 # 重置缓冲区（保留最后 1 秒用于上下文）
                 overlap_duration = 1.0
@@ -171,50 +154,27 @@ class ASREngine:
             combined_audio = b"".join(self.audio_buffer)
             result = self.transcribe(combined_audio, sample_rate)
 
-            yield {
-                "text": result["text"],
-                "is_final": True,
-                "timestamp": self.buffer_duration
-            }
+            yield {"text": result["text"], "is_final": True, "timestamp": self.buffer_duration}
 
-    def _transcribe_with_model(
-        self,
-        audio_array: np.ndarray,
-        sample_rate: int
-    ) -> dict[str, Any]:
+    def _transcribe_with_model(self, audio_array: np.ndarray, sample_rate: int) -> dict[str, Any]:
         """使用模型直接转录"""
         # 处理音频特征
         input_features = self.processor(
-            audio_array,
-            sampling_rate=sample_rate,
-            return_tensors="pt"
+            audio_array, sampling_rate=sample_rate, return_tensors="pt"
         ).input_features.to(self.device)
 
         # 生成转录
         with torch.no_grad():
             predicted_ids = self.model.generate(
-                input_features,
-                num_beams=self.beam_size,
-                language=self.language,
-                task=self.task
+                input_features, num_beams=self.beam_size, language=self.language, task=self.task
             )
 
         # 解码
-        transcription = self.processor.batch_decode(
-            predicted_ids,
-            skip_special_tokens=True
-        )[0]
+        transcription = self.processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
 
-        return {
-            "text": transcription,
-            "language": self.language
-        }
+        return {"text": transcription, "language": self.language}
 
-    def _bytes_to_array(
-        self,
-        audio_data: bytes,
-        sample_rate: int
-    ) -> np.ndarray:
+    def _bytes_to_array(self, audio_data: bytes, _sample_rate: int) -> np.ndarray:
         """将字节流转换为 numpy 数组"""
         # 假设 PCM 16-bit 格式
         audio_array = np.frombuffer(audio_data, dtype=np.int16)
@@ -236,7 +196,7 @@ class VoiceActivityDetection:
         model_name: str = "silero_vad",
         threshold: float = 0.5,
         min_speech_duration_ms: int = 250,
-        min_silence_duration_ms: int = 100
+        min_silence_duration_ms: int = 100,
     ):
         """
         初始化 VAD
@@ -255,20 +215,14 @@ class VoiceActivityDetection:
 
         # 加载 Silero VAD
         self.model, _ = torch.hub.load(
-            repo_or_dir='snakers4/silero-vad',
-            model='silero_vad',
-            force_reload=False
+            repo_or_dir="snakers4/silero-vad", model="silero_vad", force_reload=False
         )
 
         self.model.eval()
 
         logger.info("VAD initialized")
 
-    def is_speech(
-        self,
-        audio_chunk: bytes,
-        sample_rate: int = 16000
-    ) -> bool:
+    def is_speech(self, audio_chunk: bytes, sample_rate: int = 16000) -> bool:
         """
         检测音频块是否包含语音
 
@@ -290,10 +244,7 @@ class VoiceActivityDetection:
         return speech_prob > self.threshold
 
     def detect_speech_segments(
-        self,
-        audio_data: bytes,
-        sample_rate: int = 16000,
-        chunk_size_ms: int = 30
+        self, audio_data: bytes, sample_rate: int = 16000, chunk_size_ms: int = 30
     ) -> list:
         """
         检测语音段落
@@ -314,7 +265,7 @@ class VoiceActivityDetection:
         speech_start = 0
 
         for i in range(0, len(audio_array), chunk_samples):
-            chunk = audio_array[i:i + chunk_samples]
+            chunk = audio_array[i : i + chunk_samples]
             if len(chunk) == 0:
                 continue
 

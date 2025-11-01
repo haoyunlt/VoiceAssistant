@@ -1,4 +1,5 @@
 """文档处理路由"""
+
 import logging
 from typing import Any
 
@@ -16,6 +17,7 @@ document_service = DocumentService()
 
 class IndexDocumentRequest(BaseModel):
     """索引文档请求"""
+
     document_id: str = Field(..., description="文档ID")
     tenant_id: str = Field(..., description="租户ID")
     knowledge_base_id: str = Field(..., description="知识库ID")
@@ -24,6 +26,7 @@ class IndexDocumentRequest(BaseModel):
 
 class IndexDocumentResponse(BaseModel):
     """索引文档响应"""
+
     job_id: str
     document_id: str
     status: str
@@ -46,8 +49,7 @@ async def upload_document(
         file_extension = file.filename.split(".")[-1].lower()
         if file_extension not in ["pdf", "docx", "txt", "md", "html"]:
             raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported file format: {file_extension}"
+                status_code=400, detail=f"Unsupported file format: {file_extension}"
             )
 
         # 读取文件内容
@@ -72,7 +74,7 @@ async def upload_document(
 
     except Exception as e:
         logger.error(f"Failed to upload document: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/index", response_model=IndexDocumentResponse)
@@ -118,7 +120,7 @@ async def index_document(
 
     except Exception as e:
         logger.error(f"Failed to create indexing job: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/index/{job_id}")
@@ -136,7 +138,7 @@ async def get_indexing_status(job_id: str):
         raise
     except Exception as e:
         logger.error(f"Failed to get job status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/{document_id}")
@@ -162,4 +164,4 @@ async def delete_document(document_id: str):
 
     except Exception as e:
         logger.error(f"Failed to delete document: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

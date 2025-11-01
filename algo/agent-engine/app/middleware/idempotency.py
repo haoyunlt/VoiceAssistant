@@ -1,9 +1,9 @@
-"""幂等性中间件实现。"""
+"""幂等性中间件 - 基于 Redis 的生产级实现。"""
 
-import asyncio
 import hashlib
 import json
-import time
+import logging
+import os
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
@@ -11,56 +11,112 @@ from typing import Any
 from fastapi import Request, Response  # type: ignore[import]
 from fastapi.responses import JSONResponse  # type: ignore[import]
 
+logger = logging.getLogger(__name__)
 
-class IdempotencyStore:
+
+class RedisIdempotencyStore:
     """
-    幂等性存储（内存实现，生产环境应使用 Redis）
+    基于 Redis 的幂等性存储
+
+    使用 Redis 字符串类型存储响应，自动过期，支持分布式部署
     """
 
-    def __init__(self, ttl_seconds: int = 300) -> None:
+    def __init__(self, redis_client=None, ttl_seconds: int = 300) -> None:
         """
         初始化幂等性存储
 
         Args:
+            redis_client: Redis 客户端实例
             ttl_seconds: 幂等键 TTL（秒）
         """
-        self.store: dict[str, dict[str, Any]] = {}
+        self.redis = redis_client
         self.ttl_seconds = ttl_seconds
-        self.lock = asyncio.Lock()
+        self._warned_no_redis = False
 
     async def get(self, key: str) -> dict[str, Any] | None:
-        """获取幂等性响应"""
-        async with self.lock:
-            data = self.store.get(key)
+        """
+        获取幂等性响应
+
+        Args:
+            key: 幂等键
+
+        Returns:
+            缓存的响应数据，如果不存在或已过期则返回 None
+        """
+        if not self.redis:
+            # Redis 不可用时返回 None（不缓存）
+            if not self._warned_no_redis:
+                logger.warning("Redis not available, idempotency check disabled")
+                self._warned_no_redis = True
+            return None
+
+        try:
+            redis_key = f"idempotency:{key}"
+            data = await self.redis.get(redis_key)
+
             if data:
-                # 检查是否过期
-                if time.time() - data["timestamp"] < self.ttl_seconds:
-                    return data["response"]
-                else:
-                    # 清理过期数据
-                    del self.store[key]
+                return json.loads(data)
+            return None
+
+        except Exception as e:
+            logger.error(f"Idempotency store get error: {e}", exc_info=True)
             return None
 
     async def set(self, key: str, response: dict[str, Any]) -> None:
-        """保存幂等性响应"""
-        async with self.lock:
-            self.store[key] = {"response": response, "timestamp": time.time()}
+        """
+        保存幂等性响应
 
-    async def cleanup(self) -> None:
-        """清理过期数据"""
-        async with self.lock:
-            now = time.time()
-            expired_keys = [
-                key
-                for key, data in self.store.items()
-                if now - data["timestamp"] >= self.ttl_seconds
-            ]
-            for key in expired_keys:
-                del self.store[key]
+        Args:
+            key: 幂等键
+            response: 响应数据
+        """
+        if not self.redis:
+            return
+
+        try:
+            redis_key = f"idempotency:{key}"
+            data = json.dumps(response, default=str)
+
+            # 使用 SETEX 设置值和过期时间
+            await self.redis.setex(redis_key, self.ttl_seconds, data)
+
+        except Exception as e:
+            logger.error(f"Idempotency store set error: {e}", exc_info=True)
 
 
-# 全局幂等性存储
-idempotency_store = IdempotencyStore()
+# 全局幂等性存储（延迟初始化）
+_idempotency_store = None
+
+
+def get_idempotency_store(ttl_seconds: int = 300):
+    """获取或创建全局幂等性存储实例"""
+    global _idempotency_store
+    if _idempotency_store is None:
+        # 尝试获取 Redis 客户端
+        redis_client = None
+        try:
+            import redis.asyncio as aioredis
+
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            redis_client = aioredis.from_url(
+                redis_url,
+                encoding="utf-8",
+                decode_responses=True,
+                socket_timeout=2.0,
+                socket_connect_timeout=2.0,
+            )
+            logger.info(f"Redis idempotency store initialized: {redis_url}")
+        except ImportError:
+            logger.warning("redis package not installed, idempotency check disabled")
+        except Exception as e:
+            logger.error(f"Failed to initialize Redis for idempotency: {e}")
+
+        _idempotency_store = RedisIdempotencyStore(redis_client, ttl_seconds)
+
+    return _idempotency_store
+
+
+idempotency_store = get_idempotency_store()
 
 
 class IdempotencyMiddleware:

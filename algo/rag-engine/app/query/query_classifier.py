@@ -40,7 +40,9 @@ class QueryClassifier:
         # 补充规则分析
         analysis.update(self._analyze_with_rules(query))
 
-        logger.info(f"Query classified: type={analysis.get('type')}, complexity={analysis.get('complexity')}")
+        logger.info(
+            f"Query classified: type={analysis.get('type')}, complexity={analysis.get('complexity')}"
+        )
         return analysis
 
     async def _analyze_with_llm(self, query: str) -> dict[str, Any]:
@@ -127,4 +129,3 @@ JSON:"""
             analysis["length_complexity"] = "low"
 
         return analysis
-

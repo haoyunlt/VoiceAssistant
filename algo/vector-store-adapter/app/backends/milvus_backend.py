@@ -189,15 +189,17 @@ class MilvusBackend(VectorStoreBackend):
         output = []
         for hits in results:
             for hit in hits:
-                output.append({
-                    "chunk_id": hit.entity.get("chunk_id"),
-                    "document_id": hit.entity.get("document_id"),
-                    "content": hit.entity.get("content"),
-                    "tenant_id": hit.entity.get("tenant_id"),
-                    "score": hit.score,
-                    "distance": hit.distance,
-                    "backend": "milvus",
-                })
+                output.append(
+                    {
+                        "chunk_id": hit.entity.get("chunk_id"),
+                        "document_id": hit.entity.get("document_id"),
+                        "content": hit.entity.get("content"),
+                        "tenant_id": hit.entity.get("tenant_id"),
+                        "score": hit.score,
+                        "distance": hit.distance,
+                        "backend": "milvus",
+                    }
+                )
 
         logger.info(f"Milvus search returned {len(output)} results")
 
@@ -245,7 +247,7 @@ class MilvusBackend(VectorStoreBackend):
         self,
         collection_name: str,
         dimension: int,
-        **kwargs,
+        **_kwargs,
     ):
         """创建集合"""
         if utility.has_collection(collection_name):

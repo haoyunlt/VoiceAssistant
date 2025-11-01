@@ -1,4 +1,5 @@
 """RAG相关数据模型"""
+
 from datetime import datetime
 from typing import Any
 
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 
 class RetrievedDocument(BaseModel):
     """检索到的文档"""
+
     chunk_id: str
     document_id: str
     content: str
@@ -16,6 +18,7 @@ class RetrievedDocument(BaseModel):
 
 class RAGRequest(BaseModel):
     """RAG请求"""
+
     query: str = Field(..., description="用户查询")
     knowledge_base_id: str = Field(..., description="知识库ID")
     tenant_id: str = Field(..., description="租户ID")
@@ -30,6 +33,7 @@ class RAGRequest(BaseModel):
 
 class RAGResponse(BaseModel):
     """RAG响应"""
+
     query: str
     answer: str
     sources: list[RetrievedDocument]
@@ -40,6 +44,7 @@ class RAGResponse(BaseModel):
 
 class QueryExpansionResult(BaseModel):
     """查询扩展结果"""
+
     original_query: str
     expanded_queries: list[str]
     keywords: list[str] = Field(default_factory=list)
@@ -47,5 +52,6 @@ class QueryExpansionResult(BaseModel):
 
 class RerankResult(BaseModel):
     """重排序结果"""
+
     documents: list[RetrievedDocument]
     scores: list[float]

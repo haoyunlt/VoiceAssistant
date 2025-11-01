@@ -75,8 +75,7 @@ async def validate_image_file(file: UploadFile) -> bytes:
         raise ValidationException("Image file is empty")
 
     logger.debug(
-        f"Image file validated: {file.filename}, "
-        f"type: {file.content_type}, size: {file_size} bytes"
+        f"Image file validated: {file.filename}, type: {file.content_type}, size: {file_size} bytes"
     )
 
     return content
@@ -124,8 +123,7 @@ async def validate_video_file(file: UploadFile) -> bytes:
         raise ValidationException("Video file is empty")
 
     logger.debug(
-        f"Video file validated: {file.filename}, "
-        f"type: {file.content_type}, size: {file_size} bytes"
+        f"Video file validated: {file.filename}, type: {file.content_type}, size: {file_size} bytes"
     )
 
     return content
@@ -151,8 +149,28 @@ def validate_language(language: str | None) -> str:
 
     # Common language codes
     valid_languages = {
-        "auto", "en", "zh", "ja", "ko", "fr", "de", "es", "it", "pt", "ru",
-        "ar", "hi", "th", "vi", "id", "ms", "tl", "nl", "tr", "pl", "uk"
+        "auto",
+        "en",
+        "zh",
+        "ja",
+        "ko",
+        "fr",
+        "de",
+        "es",
+        "it",
+        "pt",
+        "ru",
+        "ar",
+        "hi",
+        "th",
+        "vi",
+        "id",
+        "ms",
+        "tl",
+        "nl",
+        "tr",
+        "pl",
+        "uk",
     }
 
     if language not in valid_languages:

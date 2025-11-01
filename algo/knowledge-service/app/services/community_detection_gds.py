@@ -4,14 +4,16 @@ Community Detection with Neo4j GDS - 使用Neo4j Graph Data Science进行社区�
 集成Louvain算法，提升社区检测质量
 """
 
+import builtins
+import contextlib
 import logging
-from typing import Any
 from datetime import datetime
+from typing import Any
 
 from app.common.exceptions import CommunityDetectionError
 from app.core.metrics import (
-    community_detection_total,
     community_detection_duration,
+    community_detection_total,
     community_modularity,
 )
 
@@ -65,9 +67,7 @@ class CommunityDetectionGDS:
             await self._create_graph_projection(graph_name, document_id)
 
             # 2. 运行Louvain算法
-            communities = await self._run_louvain(
-                graph_name, max_levels, max_iterations, tolerance
-            )
+            communities = await self._run_louvain(graph_name, max_levels, max_iterations, tolerance)
 
             # 3. 计算模块度
             modularity_score = await self._calculate_modularity(graph_name)
@@ -81,13 +81,11 @@ class CommunityDetectionGDS:
             duration = (datetime.now() - start_time).total_seconds()
 
             # 记录指标
-            community_detection_total.labels(
-                algorithm="louvain", status="success"
-            ).inc()
+            community_detection_total.labels(algorithm="louvain", status="success").inc()
             community_detection_duration.labels(algorithm="louvain").observe(duration)
-            community_modularity.labels(
-                document_id=document_id, algorithm="louvain"
-            ).set(modularity_score)
+            community_modularity.labels(document_id=document_id, algorithm="louvain").set(
+                modularity_score
+            )
 
             logger.info(
                 f"Louvain detection completed: {len(communities)} communities, "
@@ -106,19 +104,13 @@ class CommunityDetectionGDS:
 
         except Exception as e:
             logger.error(f"Louvain community detection failed: {e}")
-            community_detection_total.labels(
-                algorithm="louvain", status="failure"
-            ).inc()
+            community_detection_total.labels(algorithm="louvain", status="failure").inc()
 
             # 尝试清理图投影
-            try:
+            with contextlib.suppress(builtins.BaseException):
                 await self._drop_graph_projection(graph_name)
-            except:
-                pass
 
-            raise CommunityDetectionError(
-                f"Louvain detection failed: {e}", algorithm="louvain"
-            )
+            raise CommunityDetectionError(f"Louvain detection failed: {e}", algorithm="louvain") from e
 
     async def _create_graph_projection(self, graph_name: str, document_id: str):
         """创建图投影"""
@@ -177,9 +169,7 @@ class CommunityDetectionGDS:
             # 尝试使用简化版本（不带高级特性）
             await self._create_simple_graph_projection(graph_name, document_id)
 
-    async def _create_simple_graph_projection(
-        self, graph_name: str, document_id: str
-    ):
+    async def _create_simple_graph_projection(self, graph_name: str, _document_id: str):
         """创建简化版图投影（兼容旧版Neo4j）"""
         await self.neo4j.execute_query(
             """
@@ -245,9 +235,7 @@ class CommunityDetectionGDS:
                     "id": entity_node.element_id,
                     "text": entity_node.get("text", ""),
                     "label": entity_node.get("label", ""),
-                    "intermediate_communities": record.get(
-                        "intermediateCommunityIds", []
-                    ),
+                    "intermediate_communities": record.get("intermediateCommunityIds", []),
                 }
             )
 
@@ -322,9 +310,7 @@ class CommunityDetectionGDS:
         except Exception as e:
             logger.warning(f"Failed to drop graph projection: {e}")
 
-    async def detect_communities_fallback(
-        self, document_id: str
-    ) -> dict[str, Any]:
+    async def detect_communities_fallback(self, document_id: str) -> dict[str, Any]:
         """降级方案：使用简单的连通分量算法"""
         start_time = datetime.now()
 
@@ -374,9 +360,7 @@ class CommunityDetectionGDS:
             community_detection_total.labels(
                 algorithm="connected_components", status="success"
             ).inc()
-            community_detection_duration.labels(
-                algorithm="connected_components"
-            ).observe(duration)
+            community_detection_duration.labels(algorithm="connected_components").observe(duration)
 
             return {
                 "success": True,
@@ -394,7 +378,7 @@ class CommunityDetectionGDS:
             ).inc()
             raise CommunityDetectionError(
                 f"Fallback detection failed: {e}", algorithm="connected_components"
-            )
+            ) from e
 
 
 # 全局实例

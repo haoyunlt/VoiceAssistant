@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AudioSegment:
     """音频段"""
+
     audio: np.ndarray
     start_time: float
     end_time: float
@@ -45,23 +46,19 @@ class StreamingASRService:
 
             # VAD 检测
             speech_timestamps = self.vad_model(
-                audio_np,
-                self.sample_rate,
-                threshold=self.vad_threshold
+                audio_np, self.sample_rate, threshold=self.vad_threshold
             )
 
             # 提取语音段
             segments = []
             for ts in speech_timestamps:
-                start_sample = int(ts['start'] * self.sample_rate)
-                end_sample = int(ts['end'] * self.sample_rate)
+                start_sample = int(ts["start"] * self.sample_rate)
+                end_sample = int(ts["end"] * self.sample_rate)
                 segment_audio = audio_np[start_sample:end_sample]
 
-                segments.append(AudioSegment(
-                    audio=segment_audio,
-                    start_time=ts['start'],
-                    end_time=ts['end']
-                ))
+                segments.append(
+                    AudioSegment(audio=segment_audio, start_time=ts["start"], end_time=ts["end"])
+                )
 
             return segments
 
@@ -83,11 +80,7 @@ class StreamingASRService:
         try:
             # 使用 Whisper 识别
             segments, info = self.whisper_model.transcribe(
-                segment.audio,
-                language=language,
-                beam_size=5,
-                best_of=5,
-                temperature=0.0
+                segment.audio, language=language, beam_size=5, best_of=5, temperature=0.0
             )
 
             # 提取结果
@@ -96,23 +89,21 @@ class StreamingASRService:
                 text += seg.text
 
             # 计算置信度 (使用平均对数概率)
-            confidence = np.exp(info.language_probability) if hasattr(info, 'language_probability') else 0.8
+            confidence = (
+                np.exp(info.language_probability) if hasattr(info, "language_probability") else 0.8
+            )
 
             return {
                 "text": text.strip(),
                 "confidence": float(confidence),
                 "language": info.language,
                 "start_time": segment.start_time,
-                "end_time": segment.end_time
+                "end_time": segment.end_time,
             }
 
         except Exception as e:
             logger.error(f"ASR recognition failed: {e}")
-            return {
-                "text": "",
-                "confidence": 0.0,
-                "error": str(e)
-            }
+            return {"text": "", "confidence": 0.0, "error": str(e)}
 
     def merge_partial_results(self, results: list[dict]) -> str:
         """

@@ -5,9 +5,8 @@ Authorization Repository
 """
 
 import logging
-from typing import List, Optional
 
-from sqlalchemy import and_, desc, or_, select
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import AuditLogModel, RoleModel, UserRoleModel
@@ -40,7 +39,7 @@ class AuthzRepository:
             permissions=[p.to_dict() for p in role.permissions],
             tenant_id=role.tenant_id,
             created_at=role.created_at,
-            updated_at=role.updated_at
+            updated_at=role.updated_at,
         )
 
         self.session.add(model)
@@ -49,7 +48,7 @@ class AuthzRepository:
         logger.info(f"Created role: {role.id}")
         return role
 
-    async def get_role_by_id(self, role_id: str) -> Optional[Role]:
+    async def get_role_by_id(self, role_id: str) -> Role | None:
         """根据 ID 获取角色
 
         Args:
@@ -58,9 +57,7 @@ class AuthzRepository:
         Returns:
             角色对象或 None
         """
-        result = await self.session.execute(
-            select(RoleModel).where(RoleModel.id == role_id)
-        )
+        result = await self.session.execute(select(RoleModel).where(RoleModel.id == role_id))
         model = result.scalar_one_or_none()
 
         if not model:
@@ -68,7 +65,7 @@ class AuthzRepository:
 
         return self._role_model_to_entity(model)
 
-    async def get_role_by_name(self, name: str, tenant_id: str) -> Optional[Role]:
+    async def get_role_by_name(self, name: str, tenant_id: str) -> Role | None:
         """根据名称获取角色
 
         Args:
@@ -79,12 +76,7 @@ class AuthzRepository:
             角色对象或 None
         """
         result = await self.session.execute(
-            select(RoleModel).where(
-                and_(
-                    RoleModel.name == name,
-                    RoleModel.tenant_id == tenant_id
-                )
-            )
+            select(RoleModel).where(and_(RoleModel.name == name, RoleModel.tenant_id == tenant_id))
         )
         model = result.scalar_one_or_none()
 
@@ -111,7 +103,7 @@ class AuthzRepository:
             tenant_id=user_role.tenant_id,
             resource=user_role.resource,
             created_at=user_role.created_at,
-            expires_at=user_role.expires_at
+            expires_at=user_role.expires_at,
         )
 
         self.session.add(model)
@@ -132,10 +124,7 @@ class AuthzRepository:
         """
         result = await self.session.execute(
             select(UserRoleModel).where(
-                and_(
-                    UserRoleModel.user_id == user_id,
-                    UserRoleModel.role_id == role_id
-                )
+                and_(UserRoleModel.user_id == user_id, UserRoleModel.role_id == role_id)
             )
         )
         model = result.scalar_one_or_none()
@@ -149,7 +138,7 @@ class AuthzRepository:
         logger.info(f"Revoked role {role_id} from user {user_id}")
         return True
 
-    async def get_user_roles(self, user_id: str, tenant_id: str) -> List[Role]:
+    async def get_user_roles(self, user_id: str, tenant_id: str) -> list[Role]:
         """获取用户的所有角色
 
         Args:
@@ -161,10 +150,7 @@ class AuthzRepository:
         """
         result = await self.session.execute(
             select(UserRoleModel).where(
-                and_(
-                    UserRoleModel.user_id == user_id,
-                    UserRoleModel.tenant_id == tenant_id
-                )
+                and_(UserRoleModel.user_id == user_id, UserRoleModel.tenant_id == tenant_id)
             )
         )
         user_role_models = result.scalars().all()
@@ -200,7 +186,7 @@ class AuthzRepository:
             user_agent=audit_log.user_agent,
             status=audit_log.status,
             error=audit_log.error,
-            created_at=audit_log.created_at
+            created_at=audit_log.created_at,
         )
 
         self.session.add(model)
@@ -213,9 +199,9 @@ class AuthzRepository:
         tenant_id: str,
         offset: int = 0,
         limit: int = 100,
-        user_id: Optional[str] = None,
-        action: Optional[str] = None
-    ) -> tuple[List[AuditLog], int]:
+        user_id: str | None = None,
+        action: str | None = None,
+    ) -> tuple[list[AuditLog], int]:
         """列出审计日志
 
         Args:
@@ -237,9 +223,7 @@ class AuthzRepository:
             conditions.append(AuditLogModel.action == action)
 
         # 查询总数
-        count_result = await self.session.execute(
-            select(AuditLogModel).where(and_(*conditions))
-        )
+        count_result = await self.session.execute(select(AuditLogModel).where(and_(*conditions)))
         total = len(count_result.all())
 
         # 查询数据
@@ -274,7 +258,7 @@ class AuthzRepository:
             permissions=permissions,
             tenant_id=model.tenant_id,
             created_at=model.created_at,
-            updated_at=model.updated_at
+            updated_at=model.updated_at,
         )
 
     def _audit_log_model_to_entity(self, model: AuditLogModel) -> AuditLog:
@@ -297,5 +281,5 @@ class AuthzRepository:
             user_agent=model.user_agent or "",
             status=model.status,
             error=model.error or "",
-            created_at=model.created_at
+            created_at=model.created_at,
         )

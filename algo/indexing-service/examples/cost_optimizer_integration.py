@@ -8,7 +8,7 @@ import asyncio
 import logging
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 # 添加项目根目录到 sys.path
 project_root = Path(__file__).parent.parent
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class MockEmbedder:
     """模拟 Embedder"""
 
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """模拟向量化"""
         # 返回模拟向量
         return [[0.1, 0.2, 0.3] * 256 for _ in texts]
@@ -77,8 +77,8 @@ class DocumentProcessorWithCostOptimization:
         )
 
     async def process_document(
-        self, document: Dict[str, Any], tenant_id: str = "default"
-    ) -> Dict[str, Any]:
+        self, document: dict[str, Any], tenant_id: str = "default"
+    ) -> dict[str, Any]:
         """
         处理单个文档
 
@@ -141,8 +141,8 @@ class DocumentProcessorWithCostOptimization:
         return result
 
     async def process_documents_batch(
-        self, documents: List[Dict[str, Any]], tenant_id: str = "default"
-    ) -> List[Dict[str, Any]]:
+        self, documents: list[dict[str, Any]], tenant_id: str = "default"
+    ) -> list[dict[str, Any]]:
         """
         批量处理文档
 
@@ -171,11 +171,11 @@ class DocumentProcessorWithCostOptimization:
 
         return results
 
-    def get_optimization_report(self) -> Dict[str, Any]:
+    def get_optimization_report(self) -> dict[str, Any]:
         """获取优化报告"""
         return self.cost_optimizer.get_optimization_report()
 
-    def get_budget_status(self) -> Dict[str, Any]:
+    def get_budget_status(self) -> dict[str, Any]:
         """获取预算状态"""
         return {
             "daily_spent": self.budget_manager.daily_spent,
@@ -215,13 +215,13 @@ async def demo_basic_usage():
     # 处理文档
     result = await processor.process_document(document, tenant_id="demo_tenant")
 
-    logger.info(f"\n处理结果:")
+    logger.info("\n处理结果:")
     logger.info(f"  文档 ID: {result['document_id']}")
     logger.info(f"  分块数: {result['chunks_count']}")
     logger.info(f"  向量数: {len(result['embeddings'])}")
 
     opt_stats = result["optimization_stats"]
-    logger.info(f"\n  优化统计:")
+    logger.info("\n  优化统计:")
     logger.info(
         f"    去重: {opt_stats['deduplication']['original_count']} -> "
         f"{opt_stats['deduplication']['unique_count']}"
@@ -231,7 +231,7 @@ async def demo_basic_usage():
     logger.info(f"    节省: ${opt_stats['savings']['cost_saved']:.6f}")
 
     budget_status = result["budget_status"]
-    logger.info(f"\n  预算状态:")
+    logger.info("\n  预算状态:")
     logger.info(
         f"    每日: ${budget_status['daily_spent']:.2f}/${budget_status['daily_budget']:.2f} "
         f"({budget_status['daily_usage_rate']:.1%})"
@@ -313,7 +313,7 @@ async def demo_budget_management():
 
     # 查看预算状态
     budget_status = processor.get_budget_status()
-    logger.info(f"\n预算状态:")
+    logger.info("\n预算状态:")
     logger.info(f"  每日: ${budget_status['daily_spent']:.8f}/${budget_status['daily_budget']:.8f}")
     logger.info(f"  使用率: {budget_status['daily_usage_rate']:.1%}")
 

@@ -127,7 +127,7 @@ async def expand_query(request: QueryExpansionRequest) -> QueryExpansionResponse
 
     except Exception as e:
         logger.error(f"Query expansion failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Query expansion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Query expansion failed: {str(e)}") from e
 
 
 @router.post("/multi-query", response_model=MultiQueryResponse)
@@ -179,7 +179,7 @@ async def generate_multi_query(request: MultiQueryRequest) -> MultiQueryResponse
 
     except Exception as e:
         logger.error(f"Multi-query generation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Multi-query generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Multi-query generation failed: {str(e)}") from e
 
 
 @router.post("/hyde", response_model=HyDEResponse)
@@ -235,7 +235,7 @@ async def generate_hyde(request: HyDERequest) -> HyDEResponse:
 
     except Exception as e:
         logger.error(f"HyDE generation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"HyDE generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"HyDE generation failed: {str(e)}") from e
 
 
 @router.get("/stats")

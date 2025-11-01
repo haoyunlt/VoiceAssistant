@@ -36,7 +36,7 @@ class OCREngine:
             # Azure Computer Vision OCR
             if not self.api_key or not self.endpoint:
                 logger.warning("Azure OCR credentials not configured")
-        elif self.provider == "google":
+        elif self.provider == "google":  # noqa: SIM102
             # Google Cloud Vision API
             if not self.api_key:
                 logger.warning("Google Cloud Vision API key not configured")
@@ -47,8 +47,8 @@ class OCREngine:
         self,
         image_data: bytes,
         language: str = "auto",
-        tenant_id: str | None = None,
-        user_id: str | None = None,
+        _tenant_id: str | None = None,
+        _user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         识别图片中的文字。
@@ -93,9 +93,7 @@ class OCREngine:
             logger.error(f"OCR recognition failed: {e}", exc_info=True)
             raise
 
-    async def _recognize_paddleocr(
-        self, image_data: bytes, language: str
-    ) -> dict[str, Any]:
+    async def _recognize_paddleocr(self, _image_data: bytes, _language: str) -> dict[str, Any]:
         """使用 PaddleOCR 识别（模拟实现）"""
         logger.debug("Using PaddleOCR for text recognition")
 
@@ -123,9 +121,7 @@ class OCREngine:
             "provider": "paddleocr",
         }
 
-    async def _recognize_azure(
-        self, image_data: bytes, language: str
-    ) -> dict[str, Any]:
+    async def _recognize_azure(self, image_data: bytes, language: str) -> dict[str, Any]:
         """使用 Azure Computer Vision OCR"""
         logger.debug("Using Azure Computer Vision for text recognition")
 
@@ -141,9 +137,7 @@ class OCREngine:
             url = f"{self.endpoint}/vision/v3.2/ocr"
             params = {"language": language if language != "auto" else "unk"}
 
-            response = await client.post(
-                url, headers=headers, params=params, content=image_data
-            )
+            response = await client.post(url, headers=headers, params=params, content=image_data)
             response.raise_for_status()
 
             data = response.json()
@@ -158,11 +152,13 @@ class OCREngine:
                     full_text.append(line_text)
 
                     bbox = line.get("boundingBox", "0,0,0,0").split(",")
-                    regions.append({
-                        "text": line_text,
-                        "bbox": [int(x) for x in bbox],
-                        "confidence": 0.9,  # Azure 不提供置信度
-                    })
+                    regions.append(
+                        {
+                            "text": line_text,
+                            "bbox": [int(x) for x in bbox],
+                            "confidence": 0.9,  # Azure 不提供置信度
+                        }
+                    )
 
             return {
                 "text": "\n".join(full_text),
@@ -171,9 +167,7 @@ class OCREngine:
                 "provider": "azure",
             }
 
-    async def _recognize_google(
-        self, image_data: bytes, language: str
-    ) -> dict[str, Any]:
+    async def _recognize_google(self, _image_data: bytes, _language: str) -> dict[str, Any]:
         """使用 Google Cloud Vision API（模拟实现）"""
         logger.debug("Using Google Cloud Vision for text recognition")
 

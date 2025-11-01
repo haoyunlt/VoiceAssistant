@@ -54,7 +54,9 @@ class RerankService:
         elif self.model_type == "llm":
             return await self._rerank_with_llm(query, documents, top_k)
         else:
-            logger.warning(f"Unknown rerank model type: {self.model_type}, returning original order")
+            logger.warning(
+                f"Unknown rerank model type: {self.model_type}, returning original order"
+            )
             return documents[:top_k]
 
     async def _rerank_with_cross_encoder(

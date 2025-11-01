@@ -32,9 +32,9 @@ class ChunkQualityEvaluator:
         # 默认权重
         self.weights = weights or {
             "completeness": 0.3,  # 完整性
-            "coherence": 0.3,     # 连贯性
-            "size": 0.2,          # 大小合理性
-            "overlap": 0.2,       # 重叠度
+            "coherence": 0.3,  # 连贯性
+            "size": 0.2,  # 大小合理性
+            "overlap": 0.2,  # 重叠度
         }
 
         logger.info(f"ChunkQualityEvaluator initialized: min_score={min_score}")
@@ -260,7 +260,7 @@ class ChunkQualityEvaluator:
             词列表
         """
         # 简单分词（按空格和标点）
-        words = re.findall(r'\w+', text)
+        words = re.findall(r"\w+", text)
 
         if position == "start":
             return words[:n]
@@ -497,7 +497,9 @@ class ComparativeEvaluator:
             strategy_result = comparison["strategies"][strategy_name]
             report_lines.append(f"{rank}. **{strategy_name}**")
             report_lines.append(f"   - Overall Score: {strategy_result['overall_score']:.2f}")
-            report_lines.append(f"   - Completeness: {strategy_result['scores']['completeness']:.2f}")
+            report_lines.append(
+                f"   - Completeness: {strategy_result['scores']['completeness']:.2f}"
+            )
             report_lines.append(f"   - Coherence: {strategy_result['scores']['coherence']:.2f}")
             report_lines.append(f"   - Size: {strategy_result['scores']['size']:.2f}")
             report_lines.append(f"   - Overlap: {strategy_result['scores']['overlap']:.2f}")
@@ -514,7 +516,9 @@ class ComparativeEvaluator:
             report_lines.append(f"- Total Chunks: {stats['total_chunks']}")
             report_lines.append(f"- Avg Chunk Size: {stats['avg_chunk_size']:.0f} chars")
             report_lines.append(f"- Size Std Dev: {stats['std_chunk_size']:.0f}")
-            report_lines.append(f"- Min/Max Size: {stats['min_chunk_size']}/{stats['max_chunk_size']}")
+            report_lines.append(
+                f"- Min/Max Size: {stats['min_chunk_size']}/{stats['max_chunk_size']}"
+            )
             report_lines.append("")
 
             if strategy_result["issues"]:

@@ -5,7 +5,7 @@
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class CalculatorTool:
             "required": ["expression"],
         }
 
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         执行计算
 
@@ -57,10 +57,7 @@ class CalculatorTool:
             result = sympy.sympify(expression)
 
             # 计算数值结果
-            if result.is_number:
-                numeric_result = float(result.evalf())
-            else:
-                numeric_result = str(result)
+            numeric_result = float(result.evalf()) if result.is_number else str(result)
 
             # 格式化输出
             if isinstance(numeric_result, float):
@@ -91,20 +88,21 @@ class CalculatorTool:
             try:
                 # 安全检查
                 if any(
-                    keyword in expression.lower()
-                    for keyword in ["import", "exec", "eval", "__"]
+                    keyword in expression.lower() for keyword in ["import", "exec", "eval", "__"]
                 ):
-                    raise ValueError("表达式包含不安全内容")
+                    raise ValueError("表达式包含不安全内容") from e
 
                 # 仅允许基本数学运算
                 allowed_chars = set("0123456789+-*/().%eE ")
                 if not all(c in allowed_chars for c in expression):
-                    raise ValueError("表达式包含不支持的字符")
+                    raise ValueError("表达式包含不支持的字符") from e
 
                 result = eval(expression, {"__builtins__": {}}, {})
 
                 return {
-                    "text": f"计算结果：{result:.2f}" if isinstance(result, float) else f"计算结果：{result}",
+                    "text": f"计算结果：{result:.2f}"
+                    if isinstance(result, float)
+                    else f"计算结果：{result}",
                     "result": result,
                     "expression": expression,
                 }

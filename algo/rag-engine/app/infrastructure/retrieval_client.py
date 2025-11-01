@@ -83,27 +83,23 @@ class RetrievalClient:
             if filters:
                 payload["filters"] = filters
 
-            response = await self.client.post(
-                f"{self.base_url}/retrieve", json=payload
-            )
+            response = await self.client.post(f"{self.base_url}/retrieve", json=payload)
             response.raise_for_status()
 
             data = response.json()
             return data.get("results", [])
 
         except httpx.HTTPStatusError as e:
-            logger.error(
-                f"Retrieval HTTP error: {e.response.status_code} - {e.response.text}"
-            )
+            logger.error(f"Retrieval HTTP error: {e.response.status_code} - {e.response.text}")
             raise RuntimeError(
                 f"Retrieval service error (HTTP {e.response.status_code}): {e.response.text[:200]}"
-            )
+            ) from e
         except httpx.TimeoutException as e:
             logger.error(f"Retrieval timeout: {e}")
-            raise TimeoutError(f"Retrieval service timeout after {self.timeout}s")
+            raise TimeoutError(f"Retrieval service timeout after {self.timeout}s") from e
         except httpx.HTTPError as e:
             logger.error(f"Retrieval request failed: {e}")
-            raise RuntimeError(f"Failed to retrieve: {e}")
+            raise RuntimeError(f"Failed to retrieve: {e}") from e
 
     async def multi_retrieve(
         self, queries: list[str], top_k: int = 10, **kwargs

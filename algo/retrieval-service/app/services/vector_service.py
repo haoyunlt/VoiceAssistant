@@ -97,7 +97,9 @@ class VectorService:
                     documents.append(doc)
 
             latency = (time.time() - start_time) * 1000
-            logger.info(f"Vector search completed: {len(documents)} documents, latency={latency:.2f}ms")
+            logger.info(
+                f"Vector search completed: {len(documents)} documents, latency={latency:.2f}ms"
+            )
 
             return documents
 

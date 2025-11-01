@@ -8,6 +8,7 @@ from typing import Any
 
 try:
     from neo4j import AsyncGraphDatabase
+
     NEO4J_AVAILABLE = True
 except ImportError:
     NEO4J_AVAILABLE = False
@@ -44,10 +45,7 @@ class Neo4jClient:
             max_transaction_retry_time: 最大事务重试时间（秒）
         """
         if not NEO4J_AVAILABLE:
-            logger.warning(
-                "neo4j driver not installed. "
-                "Install with: pip install neo4j"
-            )
+            logger.warning("neo4j driver not installed. Install with: pip install neo4j")
             self.driver = None
         else:
             try:
@@ -59,7 +57,9 @@ class Neo4jClient:
                     connection_timeout=connection_timeout,
                     max_transaction_retry_time=max_transaction_retry_time,
                 )
-                logger.info(f"Neo4j client initialized: {uri} (pool_size={max_connection_pool_size})")
+                logger.info(
+                    f"Neo4j client initialized: {uri} (pool_size={max_connection_pool_size})"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize Neo4j: {e}")
                 self.driver = None
@@ -103,9 +103,7 @@ class Neo4jClient:
         """执行 Cypher 查询（别名方法）"""
         return await self.execute_query(query, parameters)
 
-    async def create_node(
-        self, label: str, properties: dict[str, Any]
-    ) -> str | None:
+    async def create_node(self, label: str, properties: dict[str, Any]) -> str | None:
         """
         创建节点
 
@@ -195,9 +193,7 @@ class Neo4jClient:
 
         try:
             result = await self.execute_query(query, properties or {})
-            return [
-                {"id": record["id"], **dict(record["n"])} for record in result
-            ]
+            return [{"id": record["id"], **dict(record["n"])} for record in result]
 
         except Exception as e:
             logger.error(f"Failed to find nodes: {e}")
@@ -236,7 +232,9 @@ class Neo4jClient:
                     "target": {
                         "id": record["target_id"],
                         "labels": record["target_labels"],
-                        "properties": dict(record["target_props"]) if record["target_props"] else {},
+                        "properties": dict(record["target_props"])
+                        if record["target_props"]
+                        else {},
                     },
                 }
                 for record in result

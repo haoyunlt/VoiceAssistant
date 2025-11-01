@@ -5,9 +5,8 @@ Version Repository
 """
 
 import logging
-from typing import List, Optional
 
-from sqlalchemy import and_, desc, select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import VersionModel
@@ -39,7 +38,7 @@ class VersionRepository:
             description=version.description,
             created_by=version.created_by,
             tenant_id=version.tenant_id,
-            created_at=version.created_at
+            created_at=version.created_at,
         )
 
         self.session.add(model)
@@ -48,7 +47,7 @@ class VersionRepository:
         logger.info(f"Created version: {version.id}")
         return version
 
-    async def get_by_id(self, version_id: str) -> Optional[KnowledgeBaseVersion]:
+    async def get_by_id(self, version_id: str) -> KnowledgeBaseVersion | None:
         """根据 ID 获取版本
 
         Args:
@@ -68,11 +67,8 @@ class VersionRepository:
         return self._model_to_entity(model)
 
     async def list_by_knowledge_base(
-        self,
-        knowledge_base_id: str,
-        offset: int = 0,
-        limit: int = 10
-    ) -> tuple[List[KnowledgeBaseVersion], int]:
+        self, knowledge_base_id: str, offset: int = 0, limit: int = 10
+    ) -> tuple[list[KnowledgeBaseVersion], int]:
         """列出知识库的版本
 
         Args:
@@ -85,9 +81,7 @@ class VersionRepository:
         """
         # 查询总数
         count_result = await self.session.execute(
-            select(VersionModel).where(
-                VersionModel.knowledge_base_id == knowledge_base_id
-            )
+            select(VersionModel).where(VersionModel.knowledge_base_id == knowledge_base_id)
         )
         total = len(count_result.all())
 
@@ -105,10 +99,7 @@ class VersionRepository:
 
         return versions, total
 
-    async def get_latest_version(
-        self,
-        knowledge_base_id: str
-    ) -> Optional[KnowledgeBaseVersion]:
+    async def get_latest_version(self, knowledge_base_id: str) -> KnowledgeBaseVersion | None:
         """获取最新版本
 
         Args:
@@ -172,5 +163,5 @@ class VersionRepository:
             description=model.description,
             created_by=model.created_by,
             tenant_id=model.tenant_id,
-            created_at=model.created_at
+            created_at=model.created_at,
         )

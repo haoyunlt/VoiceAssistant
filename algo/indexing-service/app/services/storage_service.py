@@ -1,4 +1,5 @@
 """对象存储服务（MinIO）"""
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,9 +19,7 @@ class StorageService:
         # )
         pass
 
-    async def upload(
-        self, document_id: str, filename: str, content: bytes
-    ) -> str:
+    async def upload(self, document_id: str, filename: str, _content: bytes) -> str:
         """
         上传文件到MinIO
 

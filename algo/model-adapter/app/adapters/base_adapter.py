@@ -81,6 +81,6 @@ class BaseAdapter(ABC):
         """获取适配器的统计信息"""
         return self.stats
 
-    async def close(self):
+    async def close(self):  # noqa: B027
         """关闭适配器，清理资源"""
         pass

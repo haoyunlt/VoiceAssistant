@@ -131,9 +131,7 @@ class IncrementalIndexManager:
 
         # Step 2: 重新提取新实体和关系
         chunks = await self._fetch_document_chunks(change.document_id)
-        await self.graphrag.build_hierarchical_index(
-            change.document_id, chunks, domain
-        )
+        await self.graphrag.build_hierarchical_index(change.document_id, chunks, domain)
 
         new_entities = await self._get_document_entities(change.document_id)
         new_entity_texts = {e["text"] for e in new_entities}
@@ -300,26 +298,23 @@ class IncrementalIndexManager:
 
             # 策略1: 查询 Neo4j 中维护的实体-社区映射表
             # 如果实体属于某个社区，返回该社区 ID
-            
+
             # Cypher 查询：找到包含这些实体的所有社区
             query = """
             MATCH (e:Entity)-[:BELONGS_TO]->(c:Community)
             WHERE e.text IN $entity_texts
             RETURN DISTINCT c.id as community_id
             """
-            
-            results = await self.neo4j.execute_query(
-                query,
-                {"entity_texts": list(entity_texts)}
-            )
-            
+
+            results = await self.neo4j.execute_query(query, {"entity_texts": list(entity_texts)})
+
             community_ids = [r["community_id"] for r in results if r.get("community_id")]
-            
+
             logger.info(
                 f"Found {len(community_ids)} affected communities "
                 f"from {len(entity_texts)} changed entities"
             )
-            
+
             return community_ids
 
         except Exception as e:
@@ -334,18 +329,17 @@ class IncrementalIndexManager:
             MATCH (e:Entity)-[:BELONGS_TO]->(c:Community {id: $community_id})
             RETURN e.text as text, e.label as label
             """
-            
+
             entity_results = await self.neo4j.execute_query(
-                entity_query,
-                {"community_id": community_id}
+                entity_query, {"community_id": community_id}
             )
-            
+
             if not entity_results:
                 logger.warning(f"Community {community_id} has no entities")
                 return
-            
+
             entities = [r["text"] for r in entity_results]
-            
+
             # 2. 获取社区内的关系
             relation_query = """
             MATCH (e1:Entity)-[:BELONGS_TO]->(c:Community {id: $community_id}),
@@ -354,17 +348,14 @@ class IncrementalIndexManager:
             RETURN e1.text as source, type(r) as relation, e2.text as target
             LIMIT 100
             """
-            
+
             relation_results = await self.neo4j.execute_query(
-                relation_query,
-                {"community_id": community_id}
+                relation_query, {"community_id": community_id}
             )
-            
+
             # 3. 构建社区描述文本
-            community_text = self._build_community_description(
-                entities, relation_results
-            )
-            
+            self._build_community_description(entities, relation_results)
+
             # 4. 使用 GraphRAG 服务生成摘要
             if self.graphrag:
                 try:
@@ -372,7 +363,7 @@ class IncrementalIndexManager:
                         community_id=community_id,
                         entities=entities,
                         relations=relation_results,
-                        domain=domain
+                        domain=domain,
                     )
                 except Exception as e:
                     logger.warning(f"GraphRAG summary generation failed: {e}")
@@ -380,7 +371,7 @@ class IncrementalIndexManager:
                     summary = f"Community with {len(entities)} entities"
             else:
                 summary = f"Community with {len(entities)} entities"
-            
+
             # 5. 更新社区节点的摘要属性
             update_query = """
             MATCH (c:Community {id: $community_id})
@@ -389,14 +380,10 @@ class IncrementalIndexManager:
                 c.updated_at = datetime()
             RETURN c
             """
-            
+
             await self.neo4j.execute_query(
                 update_query,
-                {
-                    "community_id": community_id,
-                    "summary": summary,
-                    "entity_count": len(entities)
-                }
+                {"community_id": community_id, "summary": summary, "entity_count": len(entities)},
             )
 
             logger.info(
@@ -407,37 +394,31 @@ class IncrementalIndexManager:
         except Exception as e:
             logger.error(f"Failed to recompute community: {e}", exc_info=True)
 
-    def _build_community_description(
-        self, entities: list[str], relations: list[dict]
-    ) -> str:
+    def _build_community_description(self, entities: list[str], relations: list[dict]) -> str:
         """构建社区描述文本用于摘要生成"""
         description = f"This community contains {len(entities)} entities"
-        
+
         if entities:
             sample_entities = entities[:10]
             description += f": {', '.join(sample_entities)}"
             if len(entities) > 10:
                 description += f" and {len(entities) - 10} more"
-        
+
         if relations:
             description += f". It has {len(relations)} relationships"
-            
+
             # 统计关系类型
             relation_types = {}
             for r in relations:
                 rel_type = r.get("relation", "unknown")
                 relation_types[rel_type] = relation_types.get(rel_type, 0) + 1
-            
-            top_relations = sorted(
-                relation_types.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:3]
-            
+
+            top_relations = sorted(relation_types.items(), key=lambda x: x[1], reverse=True)[:3]
+
             if top_relations:
                 rel_str = ", ".join([f"{rt}({count})" for rt, count in top_relations])
                 description += f", including {rel_str}"
-        
+
         return description
 
     async def _fetch_document_chunks(self, document_id: str) -> list[dict[str, Any]]:
@@ -445,51 +426,49 @@ class IncrementalIndexManager:
         try:
             import sys
             from pathlib import Path
-            import httpx
-            
+
             # 添加 common 路径
             common_path = Path(__file__).parent.parent.parent.parent / "common"
             if str(common_path) not in sys.path:
                 sys.path.insert(0, str(common_path))
-            
+
             from vector_store_client import VectorStoreClient
-            
+
             # 初始化向量存储客户端
             vector_client = VectorStoreClient()
-            
+
             # 注意：当前 VectorStoreClient 的 search 需要 query_vector
             # 这里我们需要通过 document_id 过滤获取所有 chunks
             # 简化策略：使用零向量 + document_id 过滤
-            
+
             # 获取 embedding 维度（通常是 768 或 1024）
             embedding_dim = 768  # BGE-M3 默认维度
             dummy_vector = [0.0] * embedding_dim
-            
+
             # 搜索该文档的所有 chunks（使用高 top_k）
             results = await vector_client.search(
                 query_vector=dummy_vector,
                 top_k=1000,  # 假设单文档不超过 1000 个 chunks
-                filters=f'document_id == "{document_id}"'
+                filters=f'document_id == "{document_id}"',
             )
-            
+
             chunks = []
             for result in results:
-                chunks.append({
-                    "chunk_id": result.get("chunk_id"),
-                    "content": result.get("content"),
-                    "metadata": result.get("metadata", {})
-                })
-            
+                chunks.append(
+                    {
+                        "chunk_id": result.get("chunk_id"),
+                        "content": result.get("content"),
+                        "metadata": result.get("metadata", {}),
+                    }
+                )
+
             await vector_client.close()
-            
+
             logger.info(f"Fetched {len(chunks)} chunks for document {document_id}")
             return chunks
-            
+
         except Exception as e:
-            logger.error(
-                f"Failed to fetch chunks for {document_id}: {e}",
-                exc_info=True
-            )
+            logger.error(f"Failed to fetch chunks for {document_id}: {e}", exc_info=True)
             # 降级：返回空列表
             return []
 

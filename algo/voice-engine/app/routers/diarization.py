@@ -123,7 +123,7 @@ async def analyze_speakers(
 
     except Exception as e:
         logger.error(f"说话人分离失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/statistics")
@@ -184,7 +184,7 @@ async def get_speaker_statistics(
 
     except Exception as e:
         logger.error(f"获取说话人统计失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/health")

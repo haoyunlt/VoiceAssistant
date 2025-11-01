@@ -14,7 +14,7 @@ import hashlib
 import logging
 from collections import OrderedDict
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from prometheus_client import Counter, Histogram
@@ -196,7 +196,7 @@ class LLMCallOptimizer:
         temperature: float = 0.7,
         max_tokens: int = 500,
         use_cache: bool = True,
-        metadata: dict | None = None,
+        _metadata: dict | None = None,
     ) -> str:
         """
         调用LLM（单次）
@@ -346,7 +346,7 @@ class LLMCallOptimizer:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 设置Future结果
-        for req, result in zip(batch, results):
+        for req, result in zip(batch, results, strict=False):
             if isinstance(result, Exception):
                 req.future.set_exception(result)
             else:

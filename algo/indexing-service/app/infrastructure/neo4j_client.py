@@ -20,7 +20,7 @@ class Neo4jClient:
         uri: str = "bolt://localhost:7687",
         user: str = "neo4j",
         password: str = "voiceassistant",
-        database: str = "neo4j"
+        database: str = "neo4j",
     ):
         """
         初始化 Neo4j 客户端
@@ -48,12 +48,7 @@ class Neo4jClient:
             self.driver.close()
             logger.info("Neo4j connection closed")
 
-    def create_entity(
-        self,
-        entity: dict[str, Any],
-        document_id: str,
-        tenant_id: str
-    ) -> str:
+    def create_entity(self, entity: dict[str, Any], document_id: str, tenant_id: str) -> str:
         """
         创建实体节点
 
@@ -84,17 +79,12 @@ class Neo4jClient:
                 label=entity["label"],
                 tenant_id=tenant_id,
                 document_id=document_id,
-                confidence=entity.get("confidence", 1.0)
+                confidence=entity.get("confidence", 1.0),
             )
             record = result.single()
             return record["node_id"] if record else None
 
-    def create_relation(
-        self,
-        relation: dict[str, Any],
-        document_id: str,
-        tenant_id: str
-    ) -> bool:
+    def create_relation(self, relation: dict[str, Any], document_id: str, tenant_id: str) -> bool:
         """
         创建关系
 
@@ -132,7 +122,7 @@ class Neo4jClient:
                     tenant_id=tenant_id,
                     document_id=document_id,
                     confidence=relation.get("confidence", 1.0),
-                    method=relation.get("method", "unknown")
+                    method=relation.get("method", "unknown"),
                 )
                 record = result.single()
                 return record is not None
@@ -145,7 +135,7 @@ class Neo4jClient:
         entities: list[dict[str, Any]],
         relations: list[dict[str, Any]],
         document_id: str,
-        tenant_id: str
+        tenant_id: str,
     ) -> dict[str, int]:
         """
         批量创建图谱
@@ -180,16 +170,9 @@ class Neo4jClient:
             f"{relations_created}/{len(relations)} relations"
         )
 
-        return {
-            "entities_created": entities_created,
-            "relations_created": relations_created
-        }
+        return {"entities_created": entities_created, "relations_created": relations_created}
 
-    def find_entity(
-        self,
-        text: str,
-        tenant_id: str
-    ) -> dict[str, Any] | None:
+    def find_entity(self, text: str, tenant_id: str) -> dict[str, Any] | None:
         """
         查找实体
 
@@ -213,10 +196,7 @@ class Neo4jClient:
             return None
 
     def find_relations(
-        self,
-        entity_text: str,
-        tenant_id: str,
-        direction: str = "outgoing"
+        self, entity_text: str, tenant_id: str, direction: str = "outgoing"
     ) -> list[dict[str, Any]]:
         """
         查找实体的关系
@@ -277,9 +257,7 @@ class Neo4jClient:
             return deleted_count
 
     def community_detection(
-        self,
-        tenant_id: str,
-        algorithm: str = "louvain"
+        self, tenant_id: str, algorithm: str = "louvain"
     ) -> dict[str, list[str]]:
         """
         执行社区检测
@@ -350,7 +328,7 @@ class Neo4jClient:
                 return {
                     "entity_count": record["entity_count"],
                     "relation_count": record["relation_count"] // 2,  # 无向图
-                    "entity_labels": record["entity_labels"]
+                    "entity_labels": record["entity_labels"],
                 }
             return {"entity_count": 0, "relation_count": 0, "entity_labels": []}
 

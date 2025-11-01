@@ -33,19 +33,19 @@ class MockLogger:
     """Mock日志"""
 
     @staticmethod
-    def info(msg, **kwargs):
+    def info(msg, **_kwargs):
         print(f"[INFO] {msg}")
 
     @staticmethod
-    def debug(msg, **kwargs):
+    def debug(msg, **_kwargs):
         print(f"[DEBUG] {msg}")
 
     @staticmethod
-    def warning(msg, **kwargs):
+    def warning(msg, **_kwargs):
         print(f"[WARNING] {msg}")
 
     @staticmethod
-    def error(msg, **kwargs):
+    def error(msg, **_kwargs):
         print(f"[ERROR] {msg}")
 
 
@@ -57,12 +57,12 @@ sys.modules["app.core.logging"] = type("module", (), {"logger": MockLogger()})()
 
 # Mock服务
 class MockVectorService:
-    async def search(self, **kwargs):
+    async def search(self, **_kwargs):
         return []
 
 
 class MockBM25Service:
-    async def search(self, **kwargs):
+    async def search(self, **_kwargs):
         return []
 
 
@@ -70,17 +70,17 @@ class MockHybridService:
     def __init__(self, **kwargs):
         pass
 
-    async def fuse_results(self, **kwargs):
+    async def fuse_results(self, **_kwargs):
         return []
 
 
 class MockRerankService:
-    async def rerank(self, **kwargs):
+    async def rerank(self, **__kwargs):
         return []
 
 
 class MockEmbeddingService:
-    async def embed_query(self, query):
+    async def embed_query(self, _query):
         # 返回假的embedding
         return [0.1] * 768
 
@@ -100,18 +100,18 @@ sys.modules["app.services.embedding_service"] = type(
     "module", (), {"EmbeddingService": MockEmbeddingService}
 )()
 sys.modules["app.services.graph_retrieval_service"] = type(
-    "module", (), {"GraphRetrievalService": lambda x: None}
+    "module", (), {"GraphRetrievalService": lambda _x: None}
 )()
 sys.modules["app.services.hybrid_graph_service"] = type(
-    "module", (), {"HybridGraphService": lambda **x: None}
+    "module", (), {"HybridGraphService": lambda **_x: None}
 )()
 sys.modules["app.infrastructure.neo4j_client"] = type(
-    "module", (), {"Neo4jClient": lambda **x: None}
+    "module", (), {"Neo4jClient": lambda **_x: None}
 )()
 
 # 导入要测试的模块
-from app.models.retrieval import HybridRequest, HybridResponse
-from app.services.retrieval_service import RetrievalService
+from app.models.retrieval import HybridRequest, HybridResponse  # noqa: E402
+from app.services.retrieval_service import RetrievalService  # noqa: E402
 
 
 async def test_query_expansion_integration():
@@ -243,7 +243,7 @@ async def test_performance():
     )
 
     latencies_no_expansion = []
-    for i in range(5):
+    for i in range(5):  # noqa: B007
         response = await service.hybrid_search(request_no_expansion)
         latencies_no_expansion.append(response.latency_ms)
 

@@ -21,6 +21,10 @@ type CostTracker struct {
 	// 内存缓存（批量写入Redis）
 	pendingCosts map[string]*CostRecord
 	flushTicker  *time.Ticker
+
+	// 关闭信号
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // CostRecord 成本记录
@@ -92,11 +96,15 @@ var DefaultModelPricing = map[string]*ModelPricing{
 
 // NewCostTracker 创建成本追踪器
 func NewCostTracker(cache *redis.Client, logger log.Logger) *CostTracker {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	tracker := &CostTracker{
 		cache:        cache,
 		logger:       log.NewHelper(logger),
 		pendingCosts: make(map[string]*CostRecord),
 		flushTicker:  time.NewTicker(10 * time.Second), // 每10秒批量写入
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 
 	// 启动后台刷新任务
@@ -330,7 +338,10 @@ func (t *CostTracker) flush() {
 
 	t.logger.Infof("flushing %d cost records to Redis", len(t.pendingCosts))
 
-	ctx := context.Background()
+	// 使用带超时的上下文，避免 Redis 阻塞
+	ctx, cancel := context.WithTimeout(t.ctx, 5*time.Second)
+	defer cancel()
+
 	for taskID, record := range t.pendingCosts {
 		data, err := json.Marshal(record)
 		if err != nil {
@@ -347,7 +358,9 @@ func (t *CostTracker) flush() {
 
 		// 租户索引
 		tenantKey := t.buildTenantKey(record.TenantID, taskID)
-		t.cache.Set(ctx, tenantKey, string(data), 30*24*time.Hour)
+		if err := t.cache.Set(ctx, tenantKey, string(data), 30*24*time.Hour).Err(); err != nil {
+			t.logger.Warnf("failed to write tenant index: %v", err)
+		}
 
 		delete(t.pendingCosts, taskID)
 	}
@@ -392,7 +405,8 @@ func (t *CostTracker) extractStepCost(stepData map[string]interface{}) *StepCost
 // Close 关闭追踪器
 func (t *CostTracker) Close() error {
 	t.flushTicker.Stop()
-	t.flush() // 最后一次刷新
+	t.cancel() // 取消后台任务
+	t.flush()  // 最后一次刷新
 	return nil
 }
 

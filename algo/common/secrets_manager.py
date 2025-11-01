@@ -78,7 +78,7 @@ class VaultBackend(SecretsBackend):
             logger.info(f"Vault backend initialized: {vault_addr}")
 
         except ImportError:
-            raise ImportError("hvac package not installed. Install with: pip install hvac")
+            raise ImportError("hvac package not installed. Install with: pip install hvac") from None
         except Exception as e:
             logger.error(f"Failed to initialize Vault: {e}")
             raise
@@ -174,7 +174,7 @@ class AWSSecretsBackend(SecretsBackend):
             logger.info(f"AWS Secrets Manager backend initialized: {region_name}")
 
         except ImportError:
-            raise ImportError("boto3 package not installed. Install with: pip install boto3")
+            raise ImportError("boto3 package not installed. Install with: pip install boto3") from None
         except Exception as e:
             logger.error(f"Failed to initialize AWS Secrets Manager: {e}")
             raise

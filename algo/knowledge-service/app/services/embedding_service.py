@@ -7,6 +7,7 @@ Embedding服务
 - 相似度计算
 - 向量缓存
 """
+
 import asyncio
 import logging
 import os
@@ -26,7 +27,7 @@ class EmbeddingService:
         model_name: str = "BAAI/bge-small-zh-v1.5",
         device: str = "cpu",
         cache_enabled: bool = True,
-        batch_size: int = 32
+        batch_size: int = 32,
     ):
         """
         初始化Embedding服务
@@ -66,9 +67,7 @@ class EmbeddingService:
 
             # 在线程池中加载模型（避免阻塞事件循环）
             self.model = await asyncio.to_thread(
-                SentenceTransformer,
-                self.model_name,
-                device=self.device
+                SentenceTransformer, self.model_name, device=self.device
             )
 
             self._model_loaded = True
@@ -79,10 +78,7 @@ class EmbeddingService:
             raise
 
     async def encode(
-        self,
-        texts: str | list[str],
-        normalize: bool = True,
-        show_progress: bool = False
+        self, texts: str | list[str], normalize: bool = True, show_progress: bool = False
     ) -> np.ndarray | list[np.ndarray]:
         """
         文本向量化
@@ -131,7 +127,7 @@ class EmbeddingService:
                 if uncached_texts:
                     logger.debug(
                         f"Encoding {len(uncached_texts)}/{len(texts)} texts "
-                        f"(cache hit rate: {self.cache_hits/(self.cache_hits+self.cache_misses):.2%})"
+                        f"(cache hit rate: {self.cache_hits / (self.cache_hits + self.cache_misses):.2%})"
                     )
 
                     new_embeddings = await asyncio.to_thread(
@@ -139,7 +135,7 @@ class EmbeddingService:
                         uncached_texts,
                         normalize_embeddings=normalize,
                         show_progress_bar=show_progress,
-                        batch_size=self.batch_size
+                        batch_size=self.batch_size,
                     )
 
                     # 更新缓存
@@ -165,7 +161,7 @@ class EmbeddingService:
                     texts,
                     normalize_embeddings=normalize,
                     show_progress_bar=show_progress,
-                    batch_size=self.batch_size
+                    batch_size=self.batch_size,
                 )
 
                 return embeddings[0] if is_single else embeddings
@@ -175,10 +171,7 @@ class EmbeddingService:
             raise
 
     async def compute_similarity(
-        self,
-        text1: str,
-        text2: str,
-        similarity_metric: str = "cosine"
+        self, text1: str, text2: str, similarity_metric: str = "cosine"
     ) -> float:
         """
         计算两个文本的相似度
@@ -212,10 +205,7 @@ class EmbeddingService:
             return 0.0
 
     async def compute_similarities(
-        self,
-        query_text: str,
-        corpus_texts: list[str],
-        top_k: int | None = None
+        self, query_text: str, corpus_texts: list[str], top_k: int | None = None
     ) -> list[tuple]:
         """
         计算查询文本与语料库的相似度
@@ -256,9 +246,7 @@ class EmbeddingService:
             return []
 
     async def batch_encode(
-        self,
-        text_batches: list[list[str]],
-        normalize: bool = True
+        self, text_batches: list[list[str]], normalize: bool = True
     ) -> list[list[np.ndarray]]:
         """
         批量编码（适用于大规模文本）
@@ -273,7 +261,7 @@ class EmbeddingService:
         results = []
 
         for i, batch in enumerate(text_batches):
-            logger.info(f"Processing batch {i+1}/{len(text_batches)}")
+            logger.info(f"Processing batch {i + 1}/{len(text_batches)}")
             embeddings = await self.encode(batch, normalize=normalize)
             results.append(embeddings)
 
@@ -282,6 +270,7 @@ class EmbeddingService:
     def _get_cache_key(self, text: str) -> str:
         """生成缓存键"""
         import hashlib
+
         return hashlib.md5(text.encode()).hexdigest()
 
     def clear_cache(self):
@@ -301,7 +290,7 @@ class EmbeddingService:
             "cache_size": len(self.cache),
             "cache_hits": self.cache_hits,
             "cache_misses": self.cache_misses,
-            "hit_rate": hit_rate
+            "hit_rate": hit_rate,
         }
 
     def get_embedding_dim(self) -> int:
@@ -329,25 +318,19 @@ class EmbeddingService:
                 "device": self.device,
                 "embedding_dim": self.get_embedding_dim(),
                 "test_latency_ms": int(elapsed * 1000),
-                "cache_stats": self.get_cache_stats()
+                "cache_stats": self.get_cache_stats(),
             }
 
         except Exception as e:
             logger.error(f"Health check failed: {e}")
-            return {
-                "healthy": False,
-                "error": str(e)
-            }
+            return {"healthy": False, "error": str(e)}
 
 
 # 全局单例
 _embedding_service_instance: EmbeddingService | None = None
 
 
-async def get_embedding_service(
-    model_name: str = None,
-    device: str = None
-) -> EmbeddingService:
+async def get_embedding_service(model_name: str = None, device: str = None) -> EmbeddingService:
     """获取Embedding服务单例"""
     global _embedding_service_instance
 
@@ -355,10 +338,7 @@ async def get_embedding_service(
         model_name = model_name or os.getenv("EMBEDDING_MODEL", "BAAI/bge-small-zh-v1.5")
         device = device or os.getenv("EMBEDDING_DEVICE", "cpu")
 
-        _embedding_service_instance = EmbeddingService(
-            model_name=model_name,
-            device=device
-        )
+        _embedding_service_instance = EmbeddingService(model_name=model_name, device=device)
 
         # 初始化模型
         await _embedding_service_instance.initialize()

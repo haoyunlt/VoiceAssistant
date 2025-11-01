@@ -52,9 +52,7 @@ class TracingConfig:
             "OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317"
         )
         self.sampling_rate = float(os.getenv("OTEL_SAMPLING_RATE", str(sampling_rate)))
-        self.enabled = (
-            os.getenv("OTEL_ENABLED", str(enabled)).lower() == "true"
-        )
+        self.enabled = os.getenv("OTEL_ENABLED", str(enabled)).lower() == "true"
         self.console_export = (
             os.getenv("OTEL_CONSOLE_EXPORT", str(console_export)).lower() == "true"
         )
@@ -100,9 +98,7 @@ def init_tracing(config: TracingConfig) -> trace.Tracer | None:
                 insecure=True,  # 生产环境应使用TLS
             )
             provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-            logger.info(
-                f"OTLP exporter configured: {config.otlp_endpoint}"
-            )
+            logger.info(f"OTLP exporter configured: {config.otlp_endpoint}")
         except Exception as e:
             logger.warning(f"Failed to configure OTLP exporter: {e}")
 
@@ -224,6 +220,7 @@ def traced(span_name: str | None = None):
         async def my_function():
             pass
     """
+
     def decorator(func):
         import functools
         import inspect

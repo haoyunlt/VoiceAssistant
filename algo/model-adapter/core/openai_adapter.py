@@ -35,19 +35,13 @@ class OpenAIAdapter(BaseAdapter):
 
     def __init__(self, api_key: str, base_url: str = None, **kwargs):
         super().__init__(api_key, base_url, **kwargs)
-        self.client = AsyncOpenAI(
-            api_key=api_key,
-            base_url=base_url or "https://api.openai.com/v1"
-        )
+        self.client = AsyncOpenAI(api_key=api_key, base_url=base_url or "https://api.openai.com/v1")
 
     async def complete(self, request: CompletionRequest) -> CompletionResponse:
         """Generate completion"""
         try:
             # Convert messages
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in request.messages
-            ]
+            messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
 
             # Call API
             response = await self.client.chat.completions.create(
@@ -58,7 +52,7 @@ class OpenAIAdapter(BaseAdapter):
                 top_p=request.top_p,
                 stream=False,
                 tools=request.tools,
-                tool_choice=request.tool_choice if request.tools else None
+                tool_choice=request.tool_choice if request.tools else None,
             )
 
             choice = response.choices[0]
@@ -74,18 +68,15 @@ class OpenAIAdapter(BaseAdapter):
                     {
                         "id": tc.id,
                         "type": tc.type,
-                        "function": {
-                            "name": tc.function.name,
-                            "arguments": tc.function.arguments
-                        }
+                        "function": {"name": tc.function.name, "arguments": tc.function.arguments},
                     }
                     for tc in (message.tool_calls or [])
                 ],
                 usage={
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
+                    "total_tokens": response.usage.total_tokens,
+                },
             )
 
         except Exception as e:
@@ -95,10 +86,7 @@ class OpenAIAdapter(BaseAdapter):
     async def complete_stream(self, request: CompletionRequest) -> AsyncGenerator[str, None]:
         """Generate completion with streaming"""
         try:
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in request.messages
-            ]
+            messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
 
             stream = await self.client.chat.completions.create(
                 model=request.model,
@@ -106,7 +94,7 @@ class OpenAIAdapter(BaseAdapter):
                 temperature=request.temperature,
                 max_tokens=request.max_tokens,
                 top_p=request.top_p,
-                stream=True
+                stream=True,
             )
 
             async for chunk in stream:
@@ -120,10 +108,7 @@ class OpenAIAdapter(BaseAdapter):
     async def embed(self, request: EmbeddingRequest) -> EmbeddingResponse:
         """Generate embeddings"""
         try:
-            response = await self.client.embeddings.create(
-                model=request.model,
-                input=request.texts
-            )
+            response = await self.client.embeddings.create(model=request.model, input=request.texts)
 
             embeddings = [item.embedding for item in response.data]
 
@@ -132,8 +117,8 @@ class OpenAIAdapter(BaseAdapter):
                 model=response.model,
                 usage={
                     "prompt_tokens": response.usage.prompt_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
+                    "total_tokens": response.usage.total_tokens,
+                },
             )
 
         except Exception as e:
@@ -151,6 +136,5 @@ class OpenAIAdapter(BaseAdapter):
             "output_cost_per_1k": pricing["output"],
             "max_tokens": 128000 if "turbo" in model else 8192,
             "supports_tools": True,
-            "supports_vision": "4o" in model or "vision" in model
+            "supports_vision": "4o" in model or "vision" in model,
         }
-

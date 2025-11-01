@@ -1,4 +1,5 @@
 """Anthropic (Claude)适配器"""
+
 import logging
 import time
 import uuid
@@ -94,7 +95,7 @@ class AnthropicAdapter(BaseAdapter):
             logger.error(f"Anthropic API error: {e}")
             raise
 
-    async def chat_stream(self, request: ChatRequest) -> AsyncIterator[str]:
+    async def chat_stream(self, _request: ChatRequest) -> AsyncIterator[str]:
         """流式聊天接口"""
         # Anthropic支持流式，实现与OpenAI类似
         logger.info("Anthropic stream not fully implemented")
@@ -128,7 +129,7 @@ class AnthropicAdapter(BaseAdapter):
             created=chat_response.created,
         )
 
-    async def completion_stream(self, request: CompletionRequest) -> AsyncIterator[str]:
+    async def completion_stream(self, _request: CompletionRequest) -> AsyncIterator[str]:
         """流式补全接口"""
         yield "data: [DONE]\n\n"
 

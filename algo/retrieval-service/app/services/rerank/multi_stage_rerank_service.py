@@ -137,7 +137,7 @@ class MultiStageRerankService:
         )
 
     async def _stage2_rerank(
-        self, query: str, documents: list[RetrievalDocument]
+        self, _query: str, documents: list[RetrievalDocument]
     ) -> RerankStageResult:
         """
         Stage 2: 精准精排

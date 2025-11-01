@@ -13,8 +13,7 @@ Budget Guard Middleware - 预算守卫中间件
 - 告警及时（<1min）
 """
 
-import time
-from typing import Callable
+from collections.abc import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware

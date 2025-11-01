@@ -1,4 +1,5 @@
 """基础适配器抽象类"""
+
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 

@@ -19,7 +19,7 @@ common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
 
-from llm_client import UnifiedLLMClient
+from llm_client import UnifiedLLMClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -106,9 +106,7 @@ class RAGEngine:
             logger.info(f"Rewritten query: {rewritten_query}")
 
             # 2. 检索相关文档
-            retrieved_docs = await self._retrieve_documents(
-                rewritten_query, tenant_id, top_k, mode
-            )
+            retrieved_docs = await self._retrieve_documents(rewritten_query, tenant_id, top_k, mode)
             logger.info(f"Retrieved {len(retrieved_docs)} documents")
 
             # 3. 构建上下文
@@ -184,21 +182,23 @@ class RAGEngine:
             rewritten_query = await self._rewrite_query(query, conversation_id)
 
             # 发送改写结果
-            yield json.dumps({
-                "type": "rewritten_query",
-                "content": rewritten_query,
-            })
-
-            # 2. 检索相关文档
-            retrieved_docs = await self._retrieve_documents(
-                rewritten_query, tenant_id, top_k, mode
+            yield json.dumps(
+                {
+                    "type": "rewritten_query",
+                    "content": rewritten_query,
+                }
             )
 
+            # 2. 检索相关文档
+            retrieved_docs = await self._retrieve_documents(rewritten_query, tenant_id, top_k, mode)
+
             # 发送检索结果数量
-            yield json.dumps({
-                "type": "retrieved_count",
-                "content": len(retrieved_docs),
-            })
+            yield json.dumps(
+                {
+                    "type": "retrieved_count",
+                    "content": len(retrieved_docs),
+                }
+            )
 
             # 3. 构建上下文
             context = await self._build_context(retrieved_docs, query)
@@ -212,24 +212,30 @@ class RAGEngine:
                 temperature=temperature,
                 max_tokens=2000,
             ):
-                yield json.dumps({
-                    "type": "answer_chunk",
-                    "content": chunk,
-                })
+                yield json.dumps(
+                    {
+                        "type": "answer_chunk",
+                        "content": chunk,
+                    }
+                )
 
             # 6. 发送来源信息
             sources = self._extract_sources(retrieved_docs)
-            yield json.dumps({
-                "type": "sources",
-                "content": sources,
-            })
+            yield json.dumps(
+                {
+                    "type": "sources",
+                    "content": sources,
+                }
+            )
 
             # 发送完成信号
             generation_time = time.time() - start_time
-            yield json.dumps({
-                "type": "done",
-                "generation_time": generation_time,
-            })
+            yield json.dumps(
+                {
+                    "type": "done",
+                    "generation_time": generation_time,
+                }
+            )
 
             self.stats["successful_generations"] += 1
 
@@ -237,10 +243,12 @@ class RAGEngine:
             self.stats["failed_generations"] += 1
             logger.error(f"Error in streaming generation: {e}", exc_info=True)
 
-            yield json.dumps({
-                "type": "error",
-                "content": str(e),
-            })
+            yield json.dumps(
+                {
+                    "type": "error",
+                    "content": str(e),
+                }
+            )
 
     async def _rewrite_query(self, query: str, conversation_id: str = None) -> str:
         """查询改写"""
@@ -252,9 +260,7 @@ class RAGEngine:
                     conversation_id, max_messages=5
                 )
             except Exception as e:
-                logger.warning(
-                    f"Failed to fetch conversation history for {conversation_id}: {e}"
-                )
+                logger.warning(f"Failed to fetch conversation history for {conversation_id}: {e}")
                 conversation_history = []
 
         # 执行查询改写
@@ -276,13 +282,13 @@ class RAGEngine:
             消息列表 [{"role": "user"|"assistant", "content": "..."}]
         """
         try:
-            import httpx
             import os
+
+            import httpx
 
             # 获取 Conversation Service 地址
             conv_service_url = os.getenv(
-                "CONVERSATION_SERVICE_URL",
-                "http://conversation-service:8002"
+                "CONVERSATION_SERVICE_URL", "http://conversation-service:8002"
             )
 
             # 调用 API 获取消息
@@ -291,8 +297,8 @@ class RAGEngine:
                     f"{conv_service_url}/api/v1/conversations/{conversation_id}/messages",
                     params={
                         "limit": max_messages,
-                        "order": "desc"  # 最近的消息
-                    }
+                        "order": "desc",  # 最近的消息
+                    },
                 )
                 response.raise_for_status()
 
@@ -302,14 +308,11 @@ class RAGEngine:
                 # 转换为标准格式
                 history = []
                 for msg in reversed(messages):  # 反转为时间正序
-                    history.append({
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content", "")
-                    })
+                    history.append(
+                        {"role": msg.get("role", "user"), "content": msg.get("content", "")}
+                    )
 
-                logger.info(
-                    f"Fetched {len(history)} messages from conversation {conversation_id}"
-                )
+                logger.info(f"Fetched {len(history)} messages from conversation {conversation_id}")
                 return history
 
         except httpx.HTTPError as e:
@@ -364,12 +367,14 @@ class RAGEngine:
         """提取引用来源"""
         sources = []
         for doc in documents:
-            sources.append({
-                "document_id": doc.get("document_id"),
-                "chunk_id": doc.get("chunk_id"),
-                "content": doc.get("content", "")[:200],  # 截取前 200 字符
-                "score": doc.get("rerank_score") or doc.get("score"),
-            })
+            sources.append(
+                {
+                    "document_id": doc.get("document_id"),
+                    "chunk_id": doc.get("chunk_id"),
+                    "content": doc.get("content", "")[:200],  # 截取前 200 字符
+                    "score": doc.get("rerank_score") or doc.get("score"),
+                }
+            )
         return sources
 
     async def get_stats(self) -> dict:

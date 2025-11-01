@@ -4,12 +4,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from app.core.circuit_breaker import CircuitBreaker
-from tenacity import (
-    retry,
-    stop_after_attempt,
-    wait_exponential,
-    retry_if_exception_type,
-)
 
 
 class VectorStoreBackend(ABC):
@@ -147,6 +141,7 @@ class VectorStoreBackend(ABC):
             向量数量
         """
         pass
+
     @abstractmethod
     async def create_collection(
         self,

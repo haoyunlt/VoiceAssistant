@@ -95,13 +95,10 @@ class AdaptiveRetriever:
         }
 
         logger.info(
-            f"AdaptiveRetriever initialized (cache_enabled={enable_cache}, "
-            f"cache_ttl={cache_ttl}s)"
+            f"AdaptiveRetriever initialized (cache_enabled={enable_cache}, cache_ttl={cache_ttl}s)"
         )
 
-    async def retrieve(
-        self, query: str, context: dict | None = None
-    ) -> dict[str, Any]:
+    async def retrieve(self, query: str, context: dict | None = None) -> dict[str, Any]:
         """
         自适应检索
 
@@ -171,9 +168,7 @@ class AdaptiveRetriever:
         # 7. 更新统计
         self.stats["strategy_usage"][config.strategy.value] += 1
 
-        logger.info(
-            f"Retrieved {len(documents)} docs using {config.strategy.value} strategy"
-        )
+        logger.info(f"Retrieved {len(documents)} docs using {config.strategy.value} strategy")
 
         return {
             "documents": documents,
@@ -182,9 +177,7 @@ class AdaptiveRetriever:
             "from_cache": False,
         }
 
-    def _analyze_query_complexity(
-        self, query: str, context: dict | None
-    ) -> QueryComplexity:
+    def _analyze_query_complexity(self, query: str, _context: dict | None) -> QueryComplexity:
         """
         分析查询复杂度
 
@@ -217,7 +210,7 @@ class AdaptiveRetriever:
         return QueryComplexity.MODERATE
 
     def _select_strategy(
-        self, query: str, complexity: QueryComplexity, context: dict | None
+        self, _query: str, complexity: QueryComplexity, _context: dict | None
     ) -> RetrievalConfig:
         """
         选择检索策略和参数
@@ -249,9 +242,7 @@ class AdaptiveRetriever:
                 reasoning="Complex query, use hybrid retrieval with more candidates",
             )
 
-    async def _execute_retrieval(
-        self, query: str, config: RetrievalConfig
-    ) -> list[str]:
+    async def _execute_retrieval(self, query: str, config: RetrievalConfig) -> list[str]:
         """执行检索"""
         try:
             if config.strategy == RetrievalStrategy.DENSE:

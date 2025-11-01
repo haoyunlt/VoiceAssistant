@@ -2,7 +2,6 @@
 配置管理单元测试
 """
 
-
 import pytest
 from algo.common.config import (
     DatabaseConfig,
@@ -26,11 +25,7 @@ class TestServiceConfig:
 
     def test_custom_values(self):
         """测试自定义值"""
-        config = ServiceConfig(
-            service_name="custom-service",
-            service_port=9000,
-            log_level="DEBUG"
-        )
+        config = ServiceConfig(service_name="custom-service", service_port=9000, log_level="DEBUG")
         assert config.service_port == 9000
         assert config.log_level == "DEBUG"
 
@@ -119,7 +114,7 @@ class TestDatabaseConfig:
             db_password="testpass",
             db_host="testhost",
             db_port=5433,
-            db_database="testdb"
+            db_database="testdb",
         )
         url = config.get_database_url()
         assert url == "postgresql://testuser:testpass@testhost:5433/testdb"
@@ -147,21 +142,14 @@ class TestRedisConfig:
 
     def test_get_redis_url_without_password(self):
         """测试生成 Redis URL（无密码）"""
-        config = RedisConfig(
-            redis_host="testhost",
-            redis_port=6380,
-            redis_db=1
-        )
+        config = RedisConfig(redis_host="testhost", redis_port=6380, redis_db=1)
         url = config.get_redis_url()
         assert url == "redis://testhost:6380/1"
 
     def test_get_redis_url_with_password(self):
         """测试生成 Redis URL（有密码）"""
         config = RedisConfig(
-            redis_host="testhost",
-            redis_port=6380,
-            redis_password="testpass",
-            redis_db=1
+            redis_host="testhost", redis_port=6380, redis_password="testpass", redis_db=1
         )
         url = config.get_redis_url()
         assert url == "redis://:testpass@testhost:6380/1"
@@ -186,10 +174,7 @@ class TestConfigUtilities:
 
     def test_merge_configs(self):
         """测试合并配置"""
-        service_config = ServiceConfig(
-            service_name="test",
-            service_port=8000
-        )
+        service_config = ServiceConfig(service_name="test", service_port=8000)
         llm_config = LLMConfig(llm_model="gpt-4")
 
         merged = merge_configs(service_config, llm_config)

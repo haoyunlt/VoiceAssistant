@@ -139,7 +139,7 @@ async def build_hierarchical_index(request: BuildIndexRequest):
 
     except Exception as e:
         logger.error(f"Build index failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/query/global", response_model=GlobalQueryResponse)
@@ -168,7 +168,7 @@ async def query_global(request: GlobalQueryRequest):
 
     except Exception as e:
         logger.error(f"Global query failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/retrieve/hybrid", response_model=HybridRetrievalResponse)
@@ -210,7 +210,7 @@ async def hybrid_retrieval(request: HybridRetrievalRequest):
 
     except Exception as e:
         logger.error(f"Hybrid retrieval failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/update/incremental", response_model=IncrementalUpdateResponse)
@@ -264,7 +264,7 @@ async def incremental_update(request: IncrementalUpdateRequest):
 
     except Exception as e:
         logger.error(f"Incremental update failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/stats")
@@ -292,7 +292,7 @@ async def get_index_stats():
 
     except Exception as e:
         logger.error(f"Get stats failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/rebuild")
@@ -328,4 +328,4 @@ async def rebuild_index(
 
     except Exception as e:
         logger.error(f"Rebuild index failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

@@ -6,6 +6,7 @@
 - 变更检测
 - 版本历史管理
 """
+
 import hashlib
 import json
 import logging
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class DocumentVersion(BaseModel):
     """文档版本模型"""
+
     document_id: str
     version: int
     content_hash: str
@@ -33,6 +35,7 @@ class DocumentVersion(BaseModel):
 
 class VersionChange(BaseModel):
     """版本变更模型"""
+
     change_type: str  # "created", "updated", "deleted", "unchanged"
     old_version: int | None = None
     new_version: int | None = None
@@ -68,7 +71,7 @@ class VersionManager:
         Returns:
             SHA256哈希值
         """
-        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     def calculate_metadata_hash(self, metadata: dict) -> str:
         """
@@ -82,12 +85,10 @@ class VersionManager:
         """
         # 排序键以确保一致性
         sorted_metadata = json.dumps(metadata, sort_keys=True)
-        return hashlib.sha256(sorted_metadata.encode('utf-8')).hexdigest()
+        return hashlib.sha256(sorted_metadata.encode("utf-8")).hexdigest()
 
     async def get_current_version(
-        self,
-        document_id: str,
-        tenant_id: str | None = None
+        self, document_id: str, tenant_id: str | None = None
     ) -> DocumentVersion | None:
         """
         获取文档当前版本
@@ -124,7 +125,7 @@ class VersionManager:
         chunk_count: int,
         vector_count: int,
         tenant_id: str | None = None,
-        user_id: str | None = None
+        user_id: str | None = None,
     ) -> DocumentVersion:
         """
         保存文档版本
@@ -154,7 +155,7 @@ class VersionManager:
                 created_at=time.time(),
                 updated_at=time.time(),
                 tenant_id=tenant_id,
-                user_id=user_id
+                user_id=user_id,
             )
 
         try:
@@ -176,7 +177,7 @@ class VersionManager:
                 updated_at=time.time(),
                 tenant_id=tenant_id,
                 user_id=user_id,
-                status="active"
+                status="active",
             )
 
             # 保存到Redis
@@ -184,7 +185,7 @@ class VersionManager:
             await self.redis.setex(
                 key,
                 self.ttl_days * 86400,  # 转换为秒
-                json.dumps(new_version.dict())
+                json.dumps(new_version.dict()),
             )
 
             # 保存到历史记录
@@ -203,7 +204,7 @@ class VersionManager:
         document_id: str,
         new_content_hash: str,
         new_metadata_hash: str,
-        tenant_id: str | None = None
+        tenant_id: str | None = None,
     ) -> VersionChange:
         """
         检测文档变更
@@ -227,7 +228,7 @@ class VersionManager:
                 new_version=1,
                 content_changed=True,
                 metadata_changed=True,
-                needs_reindex=True
+                needs_reindex=True,
             )
 
         # 检查内容是否变化
@@ -242,7 +243,7 @@ class VersionManager:
                 new_version=current_version.version,
                 content_changed=False,
                 metadata_changed=False,
-                needs_reindex=False
+                needs_reindex=False,
             )
 
         # 有变更
@@ -252,14 +253,10 @@ class VersionManager:
             new_version=current_version.version + 1,
             content_changed=content_changed,
             metadata_changed=metadata_changed,
-            needs_reindex=content_changed  # 只有内容变化时才需要重新索引
+            needs_reindex=content_changed,  # 只有内容变化时才需要重新索引
         )
 
-    async def mark_deleted(
-        self,
-        document_id: str,
-        tenant_id: str | None = None
-    ) -> bool:
+    async def mark_deleted(self, document_id: str, tenant_id: str | None = None) -> bool:
         """
         标记文档为已删除
 
@@ -286,11 +283,7 @@ class VersionManager:
 
             # 保存更新
             key = self._get_version_key(document_id, tenant_id)
-            await self.redis.setex(
-                key,
-                self.ttl_days * 86400,
-                json.dumps(current_version.dict())
-            )
+            await self.redis.setex(key, self.ttl_days * 86400, json.dumps(current_version.dict()))
 
             logger.info(f"Marked document {document_id} as deleted")
             return True
@@ -300,10 +293,7 @@ class VersionManager:
             return False
 
     async def get_version_history(
-        self,
-        document_id: str,
-        tenant_id: str | None = None,
-        limit: int = 10
+        self, document_id: str, tenant_id: str | None = None, limit: int = 10
     ) -> list[DocumentVersion]:
         """
         获取文档版本历史
@@ -335,11 +325,7 @@ class VersionManager:
             logger.error(f"Failed to get version history for {document_id}: {e}")
             return []
 
-    async def _save_to_history(
-        self,
-        version: DocumentVersion,
-        tenant_id: str | None = None
-    ):
+    async def _save_to_history(self, version: DocumentVersion, tenant_id: str | None = None):
         """保存版本到历史记录"""
         try:
             history_key = self._get_history_key(version.document_id, tenant_id)
@@ -371,10 +357,7 @@ class VersionManager:
     async def get_stats(self) -> dict:
         """获取版本管理统计信息"""
         if not self.redis:
-            return {
-                "enabled": False,
-                "message": "Redis not available"
-            }
+            return {"enabled": False, "message": "Redis not available"}
 
         try:
             # 获取所有版本键的数量
@@ -383,15 +366,12 @@ class VersionManager:
             return {
                 "enabled": True,
                 "total_documents": len(version_keys),
-                "ttl_days": self.ttl_days
+                "ttl_days": self.ttl_days,
             }
 
         except Exception as e:
             logger.error(f"Failed to get stats: {e}")
-            return {
-                "enabled": True,
-                "error": str(e)
-            }
+            return {"enabled": True, "error": str(e)}
 
     async def cleanup_old_versions(self, days_threshold: int = 365):
         """
@@ -417,8 +397,10 @@ class VersionManager:
                     version = DocumentVersion(**json.loads(version_data))
 
                     # 如果更新时间超过阈值且状态为deleted或archived
-                    if (version.updated_at < threshold_time and
-                        version.status in ["deleted", "archived"]):
+                    if version.updated_at < threshold_time and version.status in [
+                        "deleted",
+                        "archived",
+                    ]:
                         await self.redis.delete(key)
                         cleaned_count += 1
 

@@ -1,4 +1,5 @@
 """语音克隆服务 - 基于用户语音样本的个性化TTS"""
+
 import hashlib
 import logging
 import os
@@ -9,13 +10,8 @@ logger = logging.getLogger(__name__)
 
 class VoiceProfile:
     """语音配置文件"""
-    def __init__(
-        self,
-        profile_id: str,
-        user_id: str,
-        name: str,
-        language: str = "zh-CN"
-    ):
+
+    def __init__(self, profile_id: str, user_id: str, name: str, language: str = "zh-CN"):
         self.profile_id = profile_id
         self.user_id = user_id
         self.name = name
@@ -59,10 +55,7 @@ class VoiceCloningService:
         self.recommended_sample_count = 50
 
     async def create_profile(
-        self,
-        user_id: str,
-        profile_name: str,
-        language: str = "zh-CN"
+        self, user_id: str, profile_name: str, language: str = "zh-CN"
     ) -> dict[str, Any]:
         """
         创建语音配置文件
@@ -80,20 +73,15 @@ class VoiceCloningService:
 
         # 检查是否已存在
         if profile_id in self.profiles:
-            return {
-                "success": False,
-                "error": "Profile already exists"
-            }
+            return {"success": False, "error": "Profile already exists"}
 
         # 创建配置文件
         profile = VoiceProfile(
-            profile_id=profile_id,
-            user_id=user_id,
-            name=profile_name,
-            language=language
+            profile_id=profile_id, user_id=user_id, name=profile_name, language=language
         )
 
         import datetime
+
         profile.created_at = datetime.datetime.now()
         profile.updated_at = datetime.datetime.now()
 
@@ -104,15 +92,11 @@ class VoiceCloningService:
         return {
             "success": True,
             "profile_id": profile_id,
-            "profile": self._profile_to_dict(profile)
+            "profile": self._profile_to_dict(profile),
         }
 
     async def add_sample(
-        self,
-        profile_id: str,
-        audio_data: bytes,
-        text: str,
-        sample_metadata: dict | None = None
+        self, profile_id: str, audio_data: bytes, text: str, _sample_metadata: dict | None = None
     ) -> dict[str, Any]:
         """
         添加语音样本
@@ -129,10 +113,7 @@ class VoiceCloningService:
         profile = self.profiles.get(profile_id)
 
         if not profile:
-            return {
-                "success": False,
-                "error": "Profile not found"
-            }
+            return {"success": False, "error": "Profile not found"}
 
         # 验证音频质量
         quality_check = await self._check_audio_quality(audio_data)
@@ -140,17 +121,12 @@ class VoiceCloningService:
         if not quality_check["passed"]:
             return {
                 "success": False,
-                "error": f"Audio quality check failed: {quality_check['reason']}"
+                "error": f"Audio quality check failed: {quality_check['reason']}",
             }
 
         # 保存样本
         sample_id = self._generate_sample_id(profile_id, profile.sample_count)
-        sample_path = os.path.join(
-            self.storage_path,
-            profile_id,
-            "samples",
-            f"{sample_id}.wav"
-        )
+        sample_path = os.path.join(self.storage_path, profile_id, "samples", f"{sample_id}.wav")
 
         os.makedirs(os.path.dirname(sample_path), exist_ok=True)
 
@@ -167,6 +143,7 @@ class VoiceCloningService:
         profile.sample_count += 1
 
         import datetime
+
         profile.updated_at = datetime.datetime.now()
 
         logger.info(f"Added sample to profile {profile_id}: {sample_id}")
@@ -179,13 +156,11 @@ class VoiceCloningService:
             "sample_id": sample_id,
             "sample_count": profile.sample_count,
             "can_train": can_train,
-            "recommended_samples": self.recommended_sample_count
+            "recommended_samples": self.recommended_sample_count,
         }
 
     async def train_profile(
-        self,
-        profile_id: str,
-        training_config: dict | None = None
+        self, profile_id: str, training_config: dict | None = None
     ) -> dict[str, Any]:
         """
         训练语音配置文件
@@ -200,28 +175,23 @@ class VoiceCloningService:
         profile = self.profiles.get(profile_id)
 
         if not profile:
-            return {
-                "success": False,
-                "error": "Profile not found"
-            }
+            return {"success": False, "error": "Profile not found"}
 
         if profile.sample_count < self.min_sample_count:
             return {
                 "success": False,
-                "error": f"Insufficient samples. Need at least {self.min_sample_count}, got {profile.sample_count}"
+                "error": f"Insufficient samples. Need at least {self.min_sample_count}, got {profile.sample_count}",
             }
 
         if profile.training_status == "training":
-            return {
-                "success": False,
-                "error": "Training already in progress"
-            }
+            return {"success": False, "error": "Training already in progress"}
 
         # 更新状态
         profile.training_status = "training"
 
         # 启动训练任务（异步）
         import asyncio
+
         asyncio.create_task(self._train_model_async(profile_id, training_config))
 
         logger.info(f"Started training for profile: {profile_id}")
@@ -230,14 +200,10 @@ class VoiceCloningService:
             "success": True,
             "profile_id": profile_id,
             "status": "training",
-            "message": "Training started. This may take several hours."
+            "message": "Training started. This may take several hours.",
         }
 
-    async def _train_model_async(
-        self,
-        profile_id: str,
-        training_config: dict | None
-    ):
+    async def _train_model_async(self, profile_id: str, _training_config: dict | None):
         """
         异步训练模型
 
@@ -259,14 +225,11 @@ class VoiceCloningService:
 
             # 模拟训练过程
             import asyncio
+
             await asyncio.sleep(5)  # 实际训练可能需要数小时
 
             # 保存模型路径
-            model_path = os.path.join(
-                self.storage_path,
-                profile_id,
-                "model.pth"
-            )
+            model_path = os.path.join(self.storage_path, profile_id, "model.pth")
             profile.model_path = model_path
             profile.training_status = "completed"
 
@@ -277,10 +240,7 @@ class VoiceCloningService:
             profile.training_status = "failed"
 
     async def synthesize(
-        self,
-        profile_id: str,
-        text: str,
-        output_format: str = "wav"
+        self, profile_id: str, text: str, output_format: str = "wav"
     ) -> dict[str, Any]:
         """
         使用训练好的声纹合成语音
@@ -296,15 +256,12 @@ class VoiceCloningService:
         profile = self.profiles.get(profile_id)
 
         if not profile:
-            return {
-                "success": False,
-                "error": "Profile not found"
-            }
+            return {"success": False, "error": "Profile not found"}
 
         if profile.training_status != "completed":
             return {
                 "success": False,
-                "error": f"Profile not ready. Status: {profile.training_status}"
+                "error": f"Profile not ready. Status: {profile.training_status}",
             }
 
         try:
@@ -324,15 +281,12 @@ class VoiceCloningService:
                 "audio_data": audio_data,
                 "format": output_format,
                 "text": text,
-                "profile_id": profile_id
+                "profile_id": profile_id,
             }
 
         except Exception as e:
             logger.error(f"Synthesis failed: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
     async def get_profile(self, profile_id: str) -> dict[str, Any] | None:
         """获取配置文件信息"""
@@ -356,15 +310,13 @@ class VoiceCloningService:
     async def delete_profile(self, profile_id: str) -> dict[str, Any]:
         """删除配置文件"""
         if profile_id not in self.profiles:
-            return {
-                "success": False,
-                "error": "Profile not found"
-            }
+            return {"success": False, "error": "Profile not found"}
 
         self.profiles[profile_id]
 
         # 删除文件
         import shutil
+
         profile_dir = os.path.join(self.storage_path, profile_id)
         if os.path.exists(profile_dir):
             shutil.rmtree(profile_dir)
@@ -374,10 +326,7 @@ class VoiceCloningService:
 
         logger.info(f"Deleted profile: {profile_id}")
 
-        return {
-            "success": True,
-            "profile_id": profile_id
-        }
+        return {"success": True, "profile_id": profile_id}
 
     async def _check_audio_quality(self, audio_data: bytes) -> dict[str, Any]:
         """
@@ -391,20 +340,12 @@ class VoiceCloningService:
         """
         # 简化实现
         if len(audio_data) < 1000:
-            return {
-                "passed": False,
-                "reason": "Audio too short"
-            }
+            return {"passed": False, "reason": "Audio too short"}
 
         if len(audio_data) > 1000000:  # 约10秒 at 16kHz
-            return {
-                "passed": False,
-                "reason": "Audio too long"
-            }
+            return {"passed": False, "reason": "Audio too long"}
 
-        return {
-            "passed": True
-        }
+        return {"passed": True}
 
     def _generate_profile_id(self, user_id: str, profile_name: str) -> str:
         """生成配置文件ID"""
@@ -427,18 +368,15 @@ class VoiceCloningService:
             "training_status": profile.training_status,
             "model_path": profile.model_path,
             "created_at": profile.created_at.isoformat() if profile.created_at else None,
-            "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
+            "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
         }
 
-    def _simulate_synthesis(self, text: str) -> bytes:
+    def _simulate_synthesis(self, _text: str) -> bytes:
         """模拟语音合成（返回空音频数据）"""
         # 实际实现需要使用真实的TTS模型
         return b"\x00" * 1000
 
-    async def get_training_suggestions(
-        self,
-        profile_id: str
-    ) -> dict[str, Any]:
+    async def get_training_suggestions(self, profile_id: str) -> dict[str, Any]:
         """
         获取训练建议
 
@@ -451,44 +389,45 @@ class VoiceCloningService:
         profile = self.profiles.get(profile_id)
 
         if not profile:
-            return {
-                "success": False,
-                "error": "Profile not found"
-            }
+            return {"success": False, "error": "Profile not found"}
 
         suggestions = []
 
         # 样本数量建议
         if profile.sample_count < self.min_sample_count:
-            suggestions.append({
-                "type": "sample_count",
-                "message": f"需要至少 {self.min_sample_count} 个样本，当前有 {profile.sample_count} 个",
-                "priority": "high"
-            })
+            suggestions.append(
+                {
+                    "type": "sample_count",
+                    "message": f"需要至少 {self.min_sample_count} 个样本，当前有 {profile.sample_count} 个",
+                    "priority": "high",
+                }
+            )
         elif profile.sample_count < self.recommended_sample_count:
-            suggestions.append({
-                "type": "sample_count",
-                "message": f"建议收集 {self.recommended_sample_count} 个样本以获得更好效果，当前有 {profile.sample_count} 个",
-                "priority": "medium"
-            })
+            suggestions.append(
+                {
+                    "type": "sample_count",
+                    "message": f"建议收集 {self.recommended_sample_count} 个样本以获得更好效果，当前有 {profile.sample_count} 个",
+                    "priority": "medium",
+                }
+            )
 
         # 样本多样性建议
-        suggestions.append({
-            "type": "diversity",
-            "message": "确保样本涵盖不同的情感、语速和音调",
-            "priority": "medium"
-        })
+        suggestions.append(
+            {
+                "type": "diversity",
+                "message": "确保样本涵盖不同的情感、语速和音调",
+                "priority": "medium",
+            }
+        )
 
         # 录音环境建议
-        suggestions.append({
-            "type": "environment",
-            "message": "在安静环境下录音，避免背景噪音",
-            "priority": "high"
-        })
+        suggestions.append(
+            {"type": "environment", "message": "在安静环境下录音，避免背景噪音", "priority": "high"}
+        )
 
         return {
             "success": True,
             "profile_id": profile_id,
             "can_train": profile.sample_count >= self.min_sample_count,
-            "suggestions": suggestions
+            "suggestions": suggestions,
         }

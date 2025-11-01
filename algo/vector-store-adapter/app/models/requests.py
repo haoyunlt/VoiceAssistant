@@ -62,4 +62,3 @@ class DeleteByDocumentRequest(BaseModel):
     """删除文档请求"""
 
     backend: str = Field(default="milvus", description="后端类型", pattern="^(milvus|pgvector)$")
-

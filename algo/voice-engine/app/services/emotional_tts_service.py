@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class Emotion(Enum):
     """Emotion types"""
+
     NEUTRAL = "neutral"
     HAPPY = "happy"
     SAD = "sad"
@@ -35,7 +36,7 @@ class EmotionalTTSService:
         text: str,
         emotion: Emotion | None = None,
         intensity: float = 0.5,
-        auto_detect: bool = True
+        auto_detect: bool = True,
     ) -> bytes:
         """Synthesize speech with emotion"""
         try:
@@ -64,7 +65,7 @@ class EmotionalTTSService:
         text: str,
         emotion: Emotion | None = None,
         intensity: float = 0.5,
-        auto_detect: bool = True
+        auto_detect: bool = True,
     ) -> AsyncIterator[bytes]:
         """Synthesize speech with emotion (streaming)"""
         try:
@@ -80,11 +81,7 @@ class EmotionalTTSService:
                 current_emotion = segment_emotion or emotion
 
                 # Generate SSML for segment
-                ssml = self._generate_emotional_ssml(
-                    segment_text,
-                    current_emotion,
-                    intensity
-                )
+                ssml = self._generate_emotional_ssml(segment_text, current_emotion, intensity)
 
                 # Synthesize segment
                 async for audio_chunk in self.tts_service.synthesize_streaming(ssml):
@@ -96,12 +93,7 @@ class EmotionalTTSService:
             async for chunk in self.tts_service.synthesize_streaming(text):
                 yield chunk
 
-    def _generate_emotional_ssml(
-        self,
-        text: str,
-        emotion: Emotion,
-        intensity: float
-    ) -> str:
+    def _generate_emotional_ssml(self, text: str, emotion: Emotion, intensity: float) -> str:
         """Generate SSML with emotional prosody"""
         # Get emotion parameters
         params = self._get_emotion_parameters(emotion, intensity)
@@ -120,11 +112,7 @@ class EmotionalTTSService:
 
         return ssml
 
-    def _get_emotion_parameters(
-        self,
-        emotion: Emotion,
-        intensity: float
-    ) -> dict[str, str]:
+    def _get_emotion_parameters(self, emotion: Emotion, intensity: float) -> dict[str, str]:
         """Get prosody parameters for emotion"""
         # Base parameters
         base_params = {
@@ -132,7 +120,7 @@ class EmotionalTTSService:
             "rate": "+0%",
             "pitch": "+0Hz",
             "volume": "+0%",
-            "style": "general"
+            "style": "general",
         }
 
         # Emotion-specific adjustments
@@ -141,38 +129,38 @@ class EmotionalTTSService:
                 "rate": f"+{int(10 * intensity)}%",
                 "pitch": f"+{int(5 * intensity)}Hz",
                 "volume": f"+{int(10 * intensity)}%",
-                "style": "cheerful"
+                "style": "cheerful",
             },
             Emotion.SAD: {
                 "rate": f"-{int(10 * intensity)}%",
                 "pitch": f"-{int(5 * intensity)}Hz",
                 "volume": f"-{int(5 * intensity)}%",
-                "style": "sad"
+                "style": "sad",
             },
             Emotion.ANGRY: {
                 "rate": f"+{int(5 * intensity)}%",
                 "pitch": f"+{int(10 * intensity)}Hz",
                 "volume": f"+{int(15 * intensity)}%",
-                "style": "angry"
+                "style": "angry",
             },
             Emotion.GENTLE: {
                 "rate": f"-{int(5 * intensity)}%",
                 "pitch": "+0Hz",
                 "volume": "+0%",
-                "style": "gentle"
+                "style": "gentle",
             },
             Emotion.EXCITED: {
                 "rate": f"+{int(15 * intensity)}%",
                 "pitch": f"+{int(8 * intensity)}Hz",
                 "volume": f"+{int(12 * intensity)}%",
-                "style": "excited"
+                "style": "excited",
             },
             Emotion.CALM: {
                 "rate": f"-{int(8 * intensity)}%",
                 "pitch": f"-{int(3 * intensity)}Hz",
                 "volume": "+0%",
-                "style": "calm"
-            }
+                "style": "calm",
+            },
         }
 
         # Merge with base parameters
@@ -212,10 +200,12 @@ Choose ONE from: HAPPY, SAD, ANGRY, SURPRISED, GENTLE, EXCITED, CALM, NEUTRAL
 
 Return only the emotion name:"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are an emotion analysis expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are an emotion analysis expert."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         emotion_text = response.get("content", "NEUTRAL").strip().upper()
 
@@ -238,7 +228,7 @@ Return only the emotion name:"""
             Emotion.SURPRISED: ["惊讶", "震惊", "没想到", "竟然", "surprised", "wow"],
             Emotion.EXCITED: ["激动", "兴奋", "期待", "太棒了", "excited", "great"],
             Emotion.GENTLE: ["温柔", "温暖", "柔和", "轻声", "gentle", "soft"],
-            Emotion.CALM: ["平静", "冷静", "淡定", "稳重", "calm", "peace"]
+            Emotion.CALM: ["平静", "冷静", "淡定", "稳重", "calm", "peace"],
         }
 
         # Count keyword matches
@@ -257,13 +247,13 @@ Return only the emotion name:"""
     def _split_by_emotion_context(self, text: str) -> list:
         """Split text by emotion context"""
         # Split by sentences
-        sentences = re.split(r'([。！？.!?]+)', text)
+        sentences = re.split(r"([。！？.!?]+)", text)
 
         # Combine sentences with their punctuation
         combined = []
         for i in range(0, len(sentences), 2):
             if i + 1 < len(sentences):
-                combined.append(sentences[i] + sentences[i+1])
+                combined.append(sentences[i] + sentences[i + 1])
             else:
                 combined.append(sentences[i])
 
@@ -286,18 +276,12 @@ Return only the emotion name:"""
         return text
 
     async def synthesize_with_emphasis(
-        self,
-        text: str,
-        emphasis_words: list,
-        emotion: Emotion | None = None
+        self, text: str, emphasis_words: list, emotion: Emotion | None = None
     ) -> bytes:
         """Synthesize with word emphasis"""
         # Build SSML with emphasis tags
         for word in emphasis_words:
-            text = text.replace(
-                word,
-                f'<emphasis level="strong">{word}</emphasis>'
-            )
+            text = text.replace(word, f'<emphasis level="strong">{word}</emphasis>')
 
         # Synthesize with emotion
         return await self.synthesize_with_emotion(text, emotion)
@@ -313,8 +297,4 @@ Return only the emotion name:"""
             emotion_name = emotion.value
             emotion_counts[emotion_name] = emotion_counts.get(emotion_name, 0) + 1
 
-        return {
-            "cache_size": len(self.emotion_cache),
-            "emotion_distribution": emotion_counts
-        }
-
+        return {"cache_size": len(self.emotion_cache), "emotion_distribution": emotion_counts}

@@ -141,9 +141,7 @@ class MultiModelCachedEmbedder:
         self.embedders = embedders
         self.multi_model_cache = multi_model_cache
 
-        logger.info(
-            f"MultiModelCachedEmbedder initialized with {len(embedders)} models"
-        )
+        logger.info(f"MultiModelCachedEmbedder initialized with {len(embedders)} models")
 
     async def embed(
         self,
@@ -243,9 +241,7 @@ class CacheConfig:
             enable_l2=os.getenv("CACHE_ENABLE_L2", "true").lower() == "true",
             l1_max_size=int(os.getenv("CACHE_L1_MAX_SIZE", "10000")),
             l2_ttl=int(os.getenv("CACHE_L2_TTL", "604800")),
-            l1_max_size_per_model=int(
-                os.getenv("CACHE_L1_MAX_SIZE_PER_MODEL", "10000")
-            ),
+            l1_max_size_per_model=int(os.getenv("CACHE_L1_MAX_SIZE_PER_MODEL", "10000")),
         )
 
     def to_dict(self) -> dict[str, Any]:

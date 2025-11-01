@@ -4,11 +4,10 @@ Database Models
 SQLAlchemy 数据库模型定义
 """
 
-import json
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any
 
-from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String, Text, Index, ForeignKey
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -41,12 +40,12 @@ class DocumentModel(Base):
 
     # Indexes
     __table_args__ = (
-        Index('idx_documents_tenant_kb', 'tenant_id', 'knowledge_base_id'),
-        Index('idx_documents_status', 'status'),
-        Index('idx_documents_created_at', 'created_at'),
+        Index("idx_documents_tenant_kb", "tenant_id", "knowledge_base_id"),
+        Index("idx_documents_status", "status"),
+        Index("idx_documents_created_at", "created_at"),
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -67,7 +66,7 @@ class DocumentModel(Base):
             "error_message": self.error_message,
             "processed_at": self.processed_at.isoformat() if self.processed_at else None,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "updated_at": self.updated_at.isoformat(),
         }
 
 
@@ -77,7 +76,9 @@ class ChunkModel(Base):
     __tablename__ = "chunks"
 
     id = Column(String(100), primary_key=True)
-    document_id = Column(String(100), ForeignKey('documents.id', ondelete='CASCADE'), nullable=False, index=True)
+    document_id = Column(
+        String(100), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     knowledge_base_id = Column(String(100), nullable=False, index=True)
     content = Column(Text, nullable=False)
     sequence = Column(Integer, nullable=False)
@@ -86,11 +87,11 @@ class ChunkModel(Base):
 
     # Indexes
     __table_args__ = (
-        Index('idx_chunks_document', 'document_id', 'sequence'),
-        Index('idx_chunks_kb', 'knowledge_base_id'),
+        Index("idx_chunks_document", "document_id", "sequence"),
+        Index("idx_chunks_kb", "knowledge_base_id"),
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -99,7 +100,7 @@ class ChunkModel(Base):
             "content": self.content,
             "sequence": self.sequence,
             "metadata": self.metadata or {},
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -119,11 +120,11 @@ class VersionModel(Base):
 
     # Unique constraint
     __table_args__ = (
-        Index('idx_versions_kb_version', 'knowledge_base_id', 'version', unique=True),
-        Index('idx_versions_tenant', 'tenant_id'),
+        Index("idx_versions_kb_version", "knowledge_base_id", "version", unique=True),
+        Index("idx_versions_tenant", "tenant_id"),
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -133,7 +134,7 @@ class VersionModel(Base):
             "description": self.description,
             "created_by": self.created_by,
             "tenant_id": self.tenant_id,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -151,11 +152,9 @@ class RoleModel(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Indexes
-    __table_args__ = (
-        Index('idx_roles_tenant_name', 'tenant_id', 'name', unique=True),
-    )
+    __table_args__ = (Index("idx_roles_tenant_name", "tenant_id", "name", unique=True),)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -164,7 +163,7 @@ class RoleModel(Base):
             "permissions": self.permissions,
             "tenant_id": self.tenant_id,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "updated_at": self.updated_at.isoformat(),
         }
 
 
@@ -175,7 +174,7 @@ class UserRoleModel(Base):
 
     id = Column(String(100), primary_key=True)
     user_id = Column(String(100), nullable=False, index=True)
-    role_id = Column(String(100), ForeignKey('roles.id', ondelete='CASCADE'), nullable=False)
+    role_id = Column(String(100), ForeignKey("roles.id", ondelete="CASCADE"), nullable=False)
     tenant_id = Column(String(100), nullable=False, index=True)
     resource = Column(String(200))  # 可选：限定资源范围
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
@@ -186,11 +185,11 @@ class UserRoleModel(Base):
 
     # Indexes
     __table_args__ = (
-        Index('idx_user_roles_user_tenant', 'user_id', 'tenant_id'),
-        Index('idx_user_roles_role', 'role_id'),
+        Index("idx_user_roles_user_tenant", "user_id", "tenant_id"),
+        Index("idx_user_roles_role", "role_id"),
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -199,7 +198,7 @@ class UserRoleModel(Base):
             "tenant_id": self.tenant_id,
             "resource": self.resource,
             "created_at": self.created_at.isoformat(),
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
         }
 
 
@@ -222,11 +221,11 @@ class AuditLogModel(Base):
 
     # Indexes
     __table_args__ = (
-        Index('idx_audit_logs_tenant_user_time', 'tenant_id', 'user_id', 'created_at'),
-        Index('idx_audit_logs_action_time', 'action', 'created_at'),
+        Index("idx_audit_logs_tenant_user_time", "tenant_id", "user_id", "created_at"),
+        Index("idx_audit_logs_action_time", "action", "created_at"),
     )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -239,5 +238,5 @@ class AuditLogModel(Base):
             "user_agent": self.user_agent,
             "status": self.status,
             "error": self.error,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }

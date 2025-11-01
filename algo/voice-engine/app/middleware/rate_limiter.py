@@ -57,9 +57,7 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         client_ip = request.client.host if request.client else "unknown"
 
         # 检查限流
-        rate_limit_result = await self._check_rate_limit(
-            tenant_id, user_id, client_ip
-        )
+        rate_limit_result = await self._check_rate_limit(tenant_id, user_id, client_ip)
 
         if not rate_limit_result["allowed"]:
             logger.warning(
@@ -88,16 +86,12 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
 
         # 添加限流信息到响应头
         response.headers["X-RateLimit-Limit"] = str(rate_limit_result["limit"])
-        response.headers["X-RateLimit-Remaining"] = str(
-            rate_limit_result["remaining"]
-        )
+        response.headers["X-RateLimit-Remaining"] = str(rate_limit_result["remaining"])
         response.headers["X-RateLimit-Reset"] = str(rate_limit_result["reset_at"])
 
         return response
 
-    async def _check_rate_limit(
-        self, tenant_id: str, user_id: str, client_ip: str
-    ) -> dict:
+    async def _check_rate_limit(self, tenant_id: str, user_id: str, client_ip: str) -> dict:
         """
         检查限流
 

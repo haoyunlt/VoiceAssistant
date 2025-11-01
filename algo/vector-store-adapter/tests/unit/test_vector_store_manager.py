@@ -1,10 +1,10 @@
 """Unit tests for VectorStoreManager"""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
-from app.core.vector_store_manager import VectorStoreManager
+import pytest
 from app.core.exceptions import BackendNotAvailableException
+from app.core.vector_store_manager import VectorStoreManager
 
 
 @pytest.mark.unit
@@ -22,10 +22,11 @@ class TestVectorStoreManager:
     @pytest.mark.asyncio
     async def test_initialize_backends(self, manager):
         """Test backend initialization"""
-        with patch("app.core.vector_store_manager.MilvusBackend") as mock_milvus, \
-             patch("app.core.vector_store_manager.PgVectorBackend") as mock_pgvector, \
-             patch("app.core.vector_store_manager.settings") as mock_settings:
-
+        with (
+            patch("app.core.vector_store_manager.MilvusBackend") as mock_milvus,
+            patch("app.core.vector_store_manager.PgVectorBackend") as mock_pgvector,
+            patch("app.core.vector_store_manager.settings") as mock_settings,
+        ):
             # Mock backend instances
             mock_milvus_instance = AsyncMock()
             mock_milvus_instance.initialize = AsyncMock()
@@ -45,9 +46,10 @@ class TestVectorStoreManager:
     @pytest.mark.asyncio
     async def test_initialize_backend_failure(self, manager):
         """Test backend initialization with failure"""
-        with patch("app.core.vector_store_manager.MilvusBackend") as mock_milvus, \
-             patch("app.core.vector_store_manager.settings") as mock_settings:
-
+        with (
+            patch("app.core.vector_store_manager.MilvusBackend") as mock_milvus,
+            patch("app.core.vector_store_manager.settings") as mock_settings,
+        ):
             mock_milvus.side_effect = Exception("Init failed")
             mock_settings.get_backend_config = Mock(return_value={})
 

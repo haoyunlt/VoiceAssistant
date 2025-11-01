@@ -1,9 +1,11 @@
 """自定义错误类型和错误处理"""
+
 from enum import Enum
 
 
 class ErrorType(Enum):
     """错误类型枚举"""
+
     # 可重试错误
     NETWORK_ERROR = "network_error"
     TIMEOUT_ERROR = "timeout_error"
@@ -59,89 +61,71 @@ class IndexingError(Exception):
 
 class NetworkError(IndexingError):
     """网络错误（可重试）"""
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.NETWORK_ERROR,
-            retryable=True,
-            **kwargs
+            message=message, error_type=ErrorType.NETWORK_ERROR, retryable=True, **kwargs
         )
 
 
 class TimeoutError(IndexingError):
     """超时错误（可重试）"""
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.TIMEOUT_ERROR,
-            retryable=True,
-            **kwargs
+            message=message, error_type=ErrorType.TIMEOUT_ERROR, retryable=True, **kwargs
         )
 
 
 class StorageError(IndexingError):
     """存储错误（可重试）"""
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.STORAGE_ERROR,
-            retryable=True,
-            **kwargs
+            message=message, error_type=ErrorType.STORAGE_ERROR, retryable=True, **kwargs
         )
 
 
 class InvalidInputError(IndexingError):
     """无效输入错误（不可重试）"""
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.INVALID_INPUT,
-            retryable=False,
-            **kwargs
+            message=message, error_type=ErrorType.INVALID_INPUT, retryable=False, **kwargs
         )
 
 
 class DocumentNotFoundError(IndexingError):
     """文档未找到错误（不可重试）"""
+
     def __init__(self, message: str, **kwargs):
-        super().__init__(
-            message=message,
-            error_type=ErrorType.NOT_FOUND,
-            retryable=False,
-            **kwargs
-        )
+        super().__init__(message=message, error_type=ErrorType.NOT_FOUND, retryable=False, **kwargs)
 
 
 class FileTooLargeError(IndexingError):
     """文件过大错误（不可重试）"""
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.FILE_TOO_LARGE,
-            retryable=False,
-            **kwargs
+            message=message, error_type=ErrorType.FILE_TOO_LARGE, retryable=False, **kwargs
         )
 
 
 class EmbeddingError(IndexingError):
     """向量化错误（部分可重试）"""
+
     def __init__(self, message: str, retryable: bool = True, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.EMBEDDING_ERROR,
-            retryable=retryable,
-            **kwargs
+            message=message, error_type=ErrorType.EMBEDDING_ERROR, retryable=retryable, **kwargs
         )
 
 
 class VectorStoreError(IndexingError):
     """向量存储错误（可重试）"""
+
     def __init__(self, message: str, **kwargs):
         super().__init__(
-            message=message,
-            error_type=ErrorType.VECTOR_STORE_ERROR,
-            retryable=True,
-            **kwargs
+            message=message, error_type=ErrorType.VECTOR_STORE_ERROR, retryable=True, **kwargs
         )
 
 

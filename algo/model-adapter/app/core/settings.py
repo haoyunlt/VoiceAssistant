@@ -1,6 +1,5 @@
 """配置管理."""
 
-
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -64,9 +63,7 @@ class Settings(BaseSettings):
 
     # 限流配置
     rate_limit_enabled: bool = Field(default=True, env="RATE_LIMIT_ENABLED")
-    rate_limit_requests_per_minute: int = Field(
-        default=60, env="RATE_LIMIT_REQUESTS_PER_MINUTE"
-    )
+    rate_limit_requests_per_minute: int = Field(default=60, env="RATE_LIMIT_REQUESTS_PER_MINUTE")
 
     # 缓存配置
     cache_enabled: bool = Field(default=False, env="CACHE_ENABLED")

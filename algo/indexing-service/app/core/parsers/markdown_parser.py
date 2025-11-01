@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class MarkdownParser(BaseParser):
     """Markdown 文档解析器"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析 Markdown 文档"""
         try:
             # Markdown 是纯文本，直接解码

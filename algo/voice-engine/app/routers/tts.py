@@ -39,7 +39,7 @@ async def synthesize_speech(request: TTSRequest):
         return response
     except Exception as e:
         logger.error(f"TTS synthesis failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {str(e)}") from e
 
 
 @router.post("/synthesize/stream")
@@ -71,7 +71,7 @@ async def synthesize_stream(request: TTSRequest):
 
     except Exception as e:
         logger.error(f"TTS stream synthesis failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"TTS stream synthesis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"TTS stream synthesis failed: {str(e)}") from e
 
 
 @router.get("/voices")
@@ -86,7 +86,7 @@ async def list_voices():
         return {"voices": voices}
     except Exception as e:
         logger.error(f"Failed to list voices: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list voices: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list voices: {str(e)}") from e
 
 
 @router.get("/cache/stats")
@@ -106,7 +106,7 @@ async def get_cache_stats():
         return stats
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get cache stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get cache stats: {str(e)}") from e
 
 
 @router.post("/cache/clear")
@@ -122,7 +122,7 @@ async def clear_cache():
         return {"message": "Cache cleared successfully"}
     except Exception as e:
         logger.error(f"Failed to clear cache: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}") from e
 
 
 @router.get("/cache/health")
@@ -137,7 +137,7 @@ async def check_cache_health():
         return health
     except Exception as e:
         logger.error(f"Cache health check failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}") from e
 
 
 # ===== Multi-Vendor Endpoints =====
@@ -145,6 +145,7 @@ async def check_cache_health():
 
 class MultiVendorTTSRequest(BaseModel):
     """多厂商 TTS 请求"""
+
     text: str
     voice: str | None = None
     rate: str = "0%"
@@ -203,7 +204,9 @@ async def synthesize_multi_vendor(request: MultiVendorTTSRequest):
                 use_cache=request.use_cache,
             )
 
-        logger.info(f"Multi-vendor TTS completed: vendor={vendor}, audio_size={len(audio_data)} bytes")
+        logger.info(
+            f"Multi-vendor TTS completed: vendor={vendor}, audio_size={len(audio_data)} bytes"
+        )
 
         # 返回音频流
         return StreamingResponse(
@@ -212,17 +215,17 @@ async def synthesize_multi_vendor(request: MultiVendorTTSRequest):
             headers={
                 "X-Vendor": vendor,
                 "X-Audio-Size": str(len(audio_data)),
-            }
+            },
         )
 
     except Exception as e:
         logger.error(f"Multi-vendor TTS failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Multi-vendor TTS failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Multi-vendor TTS failed: {str(e)}") from e
 
 
 @router.get("/voices/list", summary="列出所有可用语音")
 async def list_all_voices(
-    vendor: Literal["azure", "edge", "all"] = Query("all", description="厂商筛选")
+    vendor: Literal["azure", "edge", "all"] = Query("all", description="厂商筛选"),
 ):
     """
     列出所有可用的语音
@@ -245,7 +248,7 @@ async def list_all_voices(
 
     except Exception as e:
         logger.error(f"Failed to list voices: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/vendors/status", summary="获取所有 TTS 厂商状态")
@@ -266,9 +269,9 @@ async def get_vendors_status_tts():
             "services": {
                 "azure": status["services"].get("azure", {}),
                 "edge_tts": status["services"].get("edge_tts", {}),
-            }
+            },
         }
 
     except Exception as e:
         logger.error(f"Failed to get vendors status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

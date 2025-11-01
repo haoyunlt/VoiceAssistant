@@ -102,9 +102,7 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         if hasattr(request.state, "tenant_id"):
             data["tenant_id"] = request.state.tenant_id
 
-        signature = hashlib.sha256(
-            json.dumps(data, sort_keys=True).encode()
-        ).hexdigest()
+        signature = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
         return f"idempotency:{signature}"
 

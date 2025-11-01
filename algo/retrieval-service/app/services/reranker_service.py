@@ -86,7 +86,7 @@ class RerankerService:
             raise ImportError(
                 "sentence-transformers not installed. "
                 "Run: pip install sentence-transformers"
-            )
+            ) from None
 
     async def _init_llm(self):
         """初始化 LLM 客户端"""
@@ -105,7 +105,7 @@ class RerankerService:
             self.model = cohere.Client(self.api_key)
             logger.info("Cohere Rerank API initialized")
         except ImportError:
-            raise ImportError("cohere not installed. Run: pip install cohere")
+            raise ImportError("cohere not installed. Run: pip install cohere") from None
 
     async def rerank(
         self,

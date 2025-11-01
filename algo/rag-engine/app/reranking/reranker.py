@@ -10,6 +10,7 @@ from typing import Any
 
 try:
     from sentence_transformers import CrossEncoder
+
     CROSS_ENCODER_AVAILABLE = True
 except ImportError:
     CROSS_ENCODER_AVAILABLE = False
@@ -93,9 +94,7 @@ class ReRanker:
                     doc["original_score"] = doc[score_key]
 
             # 按重排序分数排序
-            reranked_docs = sorted(
-                documents, key=lambda x: x["rerank_score"], reverse=True
-            )
+            reranked_docs = sorted(documents, key=lambda x: x["rerank_score"], reverse=True)
 
             # 返回 top-k
             return reranked_docs[: self.top_k]
@@ -141,9 +140,7 @@ class ReRanker:
                 min_score, max_score = min(scores), max(scores)
                 for doc in docs:
                     score = doc.get(score_key, 0)
-                    doc[f"norm_{score_key}"] = (score - min_score) / (
-                        max_score - min_score
-                    )
+                    doc[f"norm_{score_key}"] = (score - min_score) / (max_score - min_score)
                 return docs
 
             # 归一化原始分数和重排序分数
@@ -154,14 +151,10 @@ class ReRanker:
             for doc in reranked_docs:
                 orig_score = doc.get("norm_original_score", 0.5)
                 rerank_score = doc.get("norm_rerank_score", 0.5)
-                doc["fusion_score"] = (
-                    original_weight * orig_score + rerank_weight * rerank_score
-                )
+                doc["fusion_score"] = original_weight * orig_score + rerank_weight * rerank_score
 
             # 按融合分数排序
-            reranked_docs = sorted(
-                reranked_docs, key=lambda x: x["fusion_score"], reverse=True
-            )
+            reranked_docs = sorted(reranked_docs, key=lambda x: x["fusion_score"], reverse=True)
 
             return reranked_docs[: self.top_k]
 
@@ -209,9 +202,7 @@ def get_reranker() -> ReRanker:
     global _reranker
 
     if _reranker is None:
-        model_name = os.getenv(
-            "RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2"
-        )
+        model_name = os.getenv("RERANK_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
         top_k = int(os.getenv("RERANK_TOP_K", "10"))
         device = os.getenv("RERANK_DEVICE", "cpu")
 

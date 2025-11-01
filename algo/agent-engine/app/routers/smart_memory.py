@@ -90,7 +90,7 @@ class MemoryStatsResponse(BaseModel):
 async def add_memory(
     request: AddMemoryRequest,
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> AddMemoryResponse:
     """添加记忆"""
@@ -118,7 +118,7 @@ async def add_memory(
             raise HTTPException(  # noqa: B904
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid tier: {request.tier}. Must be one of: working, short_term, long_term",
-            )
+            ) from None
 
         manager = agent_engine.smart_memory_manager
 
@@ -151,14 +151,14 @@ async def add_memory(
 
     except Exception as e:
         logger.error(f"Failed to add memory: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))  # noqa: B904
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e  # noqa: B904
 
 
 @router.post("/retrieve", response_model=RetrieveMemoryResponse)
 async def retrieve_memories(
     request: RetrieveMemoryRequest,
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> RetrieveMemoryResponse:
     """检索记忆"""
@@ -180,7 +180,7 @@ async def retrieve_memories(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid tier filter: {request.tier_filter}",
-                )
+                ) from None
 
         manager = agent_engine.smart_memory_manager
 
@@ -213,14 +213,14 @@ async def retrieve_memories(
 
     except Exception as e:
         logger.error(f"Failed to retrieve memories: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.post("/compress", response_model=CompressMemoriesResponse)
 async def compress_memories(
     tier: str = Query(default="short_term", description="要压缩的层级"),
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> CompressMemoriesResponse:
     """压缩指定层级的记忆"""
@@ -246,7 +246,7 @@ async def compress_memories(
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid tier: {tier}"
-            )
+            ) from None
 
         manager = agent_engine.smart_memory_manager
 
@@ -282,13 +282,13 @@ async def compress_memories(
 
     except Exception as e:
         logger.error(f"Failed to compress memories: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.post("/maintain")
 async def maintain_memories(
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> dict:
     """执行记忆维护（遗忘、提升、压缩）
@@ -316,13 +316,13 @@ async def maintain_memories(
 
     except Exception as e:
         logger.error(f"Failed to maintain memories: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.get("/stats", response_model=MemoryStatsResponse)
 async def get_memory_stats(
-    tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _tenant_id: str = Depends(get_tenant_id),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> MemoryStatsResponse:
     """获取记忆统计信息"""
@@ -348,4 +348,4 @@ async def get_memory_stats(
 
     except Exception as e:
         logger.error(f"Failed to get memory stats: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

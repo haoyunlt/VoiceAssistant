@@ -104,7 +104,9 @@ class BGE_M3_Embedder:
 class CachedEmbedder(BGE_M3_Embedder):
     """带缓存的 Embedder"""
 
-    def __init__(self, model_name: str = "BAAI/bge-m3", batch_size: int = 32, cache_size: int = 10000):
+    def __init__(
+        self, model_name: str = "BAAI/bge-m3", batch_size: int = 32, cache_size: int = 10000
+    ):
         super().__init__(model_name, batch_size)
 
         # 简单的 LRU 缓存

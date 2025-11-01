@@ -8,6 +8,7 @@ from app.core.logging import logger
 
 class RetrievedDocument(BaseModel):
     """检索到的文档"""
+
     chunk_id: str
     content: str
     score: float = 0.0
@@ -23,8 +24,7 @@ class RerankService:
         # 加载Cross-Encoder模型
         try:
             self.cross_encoder = CrossEncoder(
-                'cross-encoder/ms-marco-MiniLM-L-12-v2',
-                max_length=512
+                "cross-encoder/ms-marco-MiniLM-L-12-v2", max_length=512
             )
             logger.info("Cross-Encoder model loaded successfully")
         except Exception as e:
@@ -32,10 +32,7 @@ class RerankService:
             self.cross_encoder = None
 
     async def rerank(
-        self,
-        query: str,
-        documents: list[RetrievedDocument],
-        top_k: int = 10
+        self, query: str, documents: list[RetrievedDocument], top_k: int = 10
     ) -> list[RetrievedDocument]:
         """使用Cross-Encoder重排序
 
@@ -66,11 +63,7 @@ class RerankService:
                 doc.rerank_score = float(score)
 
             # 4. 按分数排序
-            documents_sorted = sorted(
-                documents,
-                key=lambda x: x.rerank_score,
-                reverse=True
-            )
+            documents_sorted = sorted(documents, key=lambda x: x.rerank_score, reverse=True)
 
             return documents_sorted[:top_k]
         except Exception as e:
@@ -78,11 +71,7 @@ class RerankService:
             return documents[:top_k]
 
     async def rerank_with_llm(
-        self,
-        query: str,
-        documents: list[RetrievedDocument],
-        llm_client,
-        top_k: int = 10
+        self, query: str, documents: list[RetrievedDocument], llm_client, top_k: int = 10
     ) -> list[RetrievedDocument]:
         """使用LLM重排序（更准确但更慢）
 
@@ -102,7 +91,7 @@ class RerankService:
             # 构建重排序提示词
             doc_texts = []
             for i, doc in enumerate(documents):
-                doc_texts.append(f"[{i+1}] {doc.content[:200]}...")
+                doc_texts.append(f"[{i + 1}] {doc.content[:200]}...")
 
             prompt = f"""Given a query and a list of passages, rank them by relevance to the query.
 Return only the passage numbers in order of relevance (most relevant first).
@@ -119,7 +108,7 @@ Ranking (comma-separated numbers):"""
                 messages=[{"role": "user", "content": prompt}],
                 model="gpt-3.5-turbo",
                 temperature=0.0,
-                max_tokens=50
+                max_tokens=50,
             )
 
             # 解析排序结果
@@ -137,7 +126,7 @@ Ranking (comma-separated numbers):"""
             # 添加未被排序的文档（如果top_k更大）
             if len(reranked_docs) < top_k:
                 remaining = [doc for i, doc in enumerate(documents) if i not in rankings]
-                reranked_docs.extend(remaining[:top_k - len(reranked_docs)])
+                reranked_docs.extend(remaining[: top_k - len(reranked_docs)])
 
             return reranked_docs
         except Exception as e:
@@ -151,7 +140,7 @@ Ranking (comma-separated numbers):"""
         llm_client=None,
         top_k: int = 10,
         cross_encoder_weight: float = 0.7,
-        llm_weight: float = 0.3
+        llm_weight: float = 0.3,
     ) -> list[RetrievedDocument]:
         """混合重排序（Cross-Encoder + LLM）
 
@@ -176,10 +165,7 @@ Ranking (comma-separated numbers):"""
         if llm_client:
             llm_candidates = ce_reranked[:20]
             llm_reranked = await self.rerank_with_llm(
-                query,
-                llm_candidates,
-                llm_client,
-                top_k=len(llm_candidates)
+                query, llm_candidates, llm_client, top_k=len(llm_candidates)
             )
 
             # 3. 合并分数
@@ -194,20 +180,17 @@ Ranking (comma-separated numbers):"""
 
                 # 归一化排名分数
                 ce_rank_score = 1.0 - (ce_rank / len(documents))
-                llm_rank_score = 1.0 - (llm_rank / len(documents)) if doc.chunk_id in llm_scores else 0
+                llm_rank_score = (
+                    1.0 - (llm_rank / len(documents)) if doc.chunk_id in llm_scores else 0
+                )
 
                 # 混合
                 doc.rerank_score = (
-                    cross_encoder_weight * ce_rank_score +
-                    llm_weight * llm_rank_score
+                    cross_encoder_weight * ce_rank_score + llm_weight * llm_rank_score
                 )
 
             # 排序
-            documents_sorted = sorted(
-                documents,
-                key=lambda x: x.rerank_score,
-                reverse=True
-            )
+            documents_sorted = sorted(documents, key=lambda x: x.rerank_score, reverse=True)
 
             return documents_sorted[:top_k]
         else:

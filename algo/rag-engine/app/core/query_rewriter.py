@@ -39,7 +39,7 @@ class QueryRewriter:
         if not self.llm_client:
             return [query]
 
-        prompt = f"""Given the following user query, generate {num_queries-1} alternative queries that capture different aspects or phrasings of the same information need.
+        prompt = f"""Given the following user query, generate {num_queries - 1} alternative queries that capture different aspects or phrasings of the same information need.
 
 User Query: {query}
 
@@ -48,13 +48,16 @@ Requirements:
 2. Cover different aspects or interpretations of the original query
 3. Keep queries concise and clear
 
-Generate {num_queries-1} alternative queries (one per line):"""
+Generate {num_queries - 1} alternative queries (one per line):"""
 
         try:
             response = await self.llm_client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that generates alternative search queries."},
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant that generates alternative search queries.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.7,
@@ -65,7 +68,7 @@ Generate {num_queries-1} alternative queries (one per line):"""
             alternative_queries = [q.strip() for q in content.split("\n") if q.strip()]
 
             # 包含原始查询
-            all_queries = [query] + alternative_queries[:num_queries - 1]
+            all_queries = [query] + alternative_queries[: num_queries - 1]
             return all_queries
 
         except Exception as e:
@@ -98,7 +101,10 @@ Write a hypothetical answer (2-3 paragraphs):"""
             response = await self.llm_client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a knowledgeable assistant writing informative answers."},
+                    {
+                        "role": "system",
+                        "content": "You are a knowledgeable assistant writing informative answers.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.7,
@@ -167,7 +173,10 @@ Sub-queries (one per line):"""
             response = await self.llm_client.chat.completions.create(
                 model=self.model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant that decomposes complex queries."},
+                    {
+                        "role": "system",
+                        "content": "You are a helpful assistant that decomposes complex queries.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.5,

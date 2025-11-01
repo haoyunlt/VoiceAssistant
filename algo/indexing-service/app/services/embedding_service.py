@@ -1,4 +1,5 @@
 """向量化服务"""
+
 import logging
 
 import httpx
@@ -24,6 +25,7 @@ class EmbeddingService:
             # 优先使用BGE-M3模型
             if "bge" in self.model.lower():
                 from sentence_transformers import SentenceTransformer
+
                 self._embedder = SentenceTransformer(self.model)
                 logger.info(f"Initialized BGE embedder: {self.model}")
             elif settings.OPENAI_API_KEY:

@@ -43,10 +43,7 @@ class ClaudeAdapter(BaseAdapter):
 
             system = system_messages[0].content if system_messages else None
 
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in user_messages
-            ]
+            messages = [{"role": msg.role, "content": msg.content} for msg in user_messages]
 
             # Call API
             response = await self.client.messages.create(
@@ -55,7 +52,7 @@ class ClaudeAdapter(BaseAdapter):
                 temperature=request.temperature,
                 top_p=request.top_p,
                 system=system,
-                messages=messages
+                messages=messages,
             )
 
             content = ""
@@ -65,14 +62,13 @@ class ClaudeAdapter(BaseAdapter):
                 if block.type == "text":
                     content += block.text
                 elif block.type == "tool_use":
-                    tool_calls.append({
-                        "id": block.id,
-                        "type": "function",
-                        "function": {
-                            "name": block.name,
-                            "arguments": str(block.input)
+                    tool_calls.append(
+                        {
+                            "id": block.id,
+                            "type": "function",
+                            "function": {"name": block.name, "arguments": str(block.input)},
                         }
-                    })
+                    )
 
             return CompletionResponse(
                 id=response.id,
@@ -84,8 +80,8 @@ class ClaudeAdapter(BaseAdapter):
                 usage={
                     "prompt_tokens": response.usage.input_tokens,
                     "completion_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens
-                }
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
+                },
             )
 
         except Exception as e:
@@ -100,10 +96,7 @@ class ClaudeAdapter(BaseAdapter):
 
             system = system_messages[0].content if system_messages else None
 
-            messages = [
-                {"role": msg.role, "content": msg.content}
-                for msg in user_messages
-            ]
+            messages = [{"role": msg.role, "content": msg.content} for msg in user_messages]
 
             async with self.client.messages.stream(
                 model=request.model,
@@ -111,7 +104,7 @@ class ClaudeAdapter(BaseAdapter):
                 temperature=request.temperature,
                 top_p=request.top_p,
                 system=system,
-                messages=messages
+                messages=messages,
             ) as stream:
                 async for text in stream.text_stream:
                     yield text
@@ -136,6 +129,5 @@ class ClaudeAdapter(BaseAdapter):
             "output_cost_per_1k": pricing["output"] / 1000,
             "max_tokens": 200000 if "claude-3" in model else 100000,
             "supports_tools": True,
-            "supports_vision": "claude-3" in model
+            "supports_vision": "claude-3" in model,
         }
-

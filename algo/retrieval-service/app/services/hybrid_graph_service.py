@@ -123,9 +123,7 @@ class HybridGraphService:
 
         # Step 3: Cross-Encoder重排（可选）
         enable_rerank = (
-            request.enable_rerank
-            if request.enable_rerank is not None
-            else settings.ENABLE_RERANK
+            request.enable_rerank if request.enable_rerank is not None else settings.ENABLE_RERANK
         )
 
         if enable_rerank and len(fused_results) > 0:
@@ -160,7 +158,7 @@ class HybridGraphService:
     async def _vector_retrieve(
         self,
         query_embedding: list[float],
-        query: str,
+        _query: str,
         top_k: int,
         tenant_id: str = None,
         filters: dict = None,
@@ -241,9 +239,7 @@ class HybridGraphService:
                 doc_scores[doc_key]["sources"].append(source)
 
         # 排序
-        sorted_docs = sorted(
-            doc_scores.values(), key=lambda x: x["score"], reverse=True
-        )
+        sorted_docs = sorted(doc_scores.values(), key=lambda x: x["score"], reverse=True)
 
         # 更新分数并标记来源
         fused_results = []

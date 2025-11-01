@@ -1,4 +1,5 @@
 """生成服务"""
+
 import json
 import logging
 from collections.abc import AsyncIterator
@@ -109,7 +110,7 @@ class GeneratorService:
             messages.append({"role": "user", "content": query})
 
             # 调用模型适配器（流式）
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:  # noqa: SIM117
                 async with client.stream(
                     "POST",
                     f"{self.model_adapter_url}/api/v1/chat/completions",
@@ -140,7 +141,7 @@ class GeneratorService:
 
                                 if content:
                                     yield f"data: {json.dumps({'type': 'content', 'data': content})}\n\n"
-                            except:
+                            except Exception:
                                 pass
 
         except Exception as e:

@@ -1,0 +1,47 @@
+配置验证报告
+生成时间: 2025-11-02 01:26:42
+项目路径: /Users/lintao/important/ai-customer/voicehelper
+
+=== 统计信息 ===
+✓ 成功: 10
+⚠ 警告: 0
+✗ 错误: 0
+
+=== 服务端口映射 ===
+Go Services (gRPC):
+  - identity-service: 50051
+  - conversation-service: 50052
+  - ai-orchestrator: 50054
+  - model-router: 50055
+  - analytics-service: 50056
+  - notification-service: 50057
+
+Python Services (HTTP):
+  - voice-engine: 8004
+  - model-adapter: 8005
+  - knowledge-service: 8006 (合并后统一)
+  - multimodal-engine: 8008
+  - vector-store-adapter: 8009
+  - agent-engine: 8010
+  - indexing-service: 8011
+  - retrieval-service: 8012
+
+=== 配置文件状态 ===
+  ✓ agent-engine.yaml
+  ✓ ai-orchestrator.yaml
+  ✓ algo-services.yaml
+  ✓ analytics-service.yaml
+  ✓ conversation-service-enhanced.yaml
+  ✓ conversation-service.yaml
+  ✓ identity-service.yaml
+  ✓ model-router.yaml
+  ✓ models.yaml
+  ✓ nacos.yaml
+  ✓ notification-service.yaml
+  ✓ observability.yaml
+  ✓ rag-engine.yaml
+  ✓ rag-enhanced.yaml
+  ✓ resilience.yaml
+  ✓ services-client.yaml
+  ✓ services-integration.yaml
+  ✓ services.yaml

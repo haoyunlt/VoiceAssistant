@@ -5,12 +5,12 @@ L2: Redis 缓存 (容量大但稍慢)
 """
 
 import hashlib
-import json
 import logging
 import pickle
 import time
 from collections import OrderedDict
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from prometheus_client import Counter, Gauge, Histogram
 
@@ -161,9 +161,7 @@ class VectorCache:
         self.l2_misses = 0
         self.total_computes = 0
 
-        logger.info(
-            f"VectorCache initialized: L1_size={l1_max_size}, L2_TTL={l2_ttl}s"
-        )
+        logger.info(f"VectorCache initialized: L1_size={l1_max_size}, L2_TTL={l2_ttl}s")
 
     async def get_or_compute(
         self,
@@ -194,9 +192,7 @@ class VectorCache:
         # 1. 查询 L1 缓存
         start_time = time.time()
         vector = self.l1_cache.get(cache_key)
-        CACHE_LATENCY.labels(operation="get", level="L1").observe(
-            time.time() - start_time
-        )
+        CACHE_LATENCY.labels(operation="get", level="L1").observe(time.time() - start_time)
 
         if vector is not None:
             CACHE_HITS.labels(level="L1", model=model).inc()
@@ -206,9 +202,7 @@ class VectorCache:
         # 2. 查询 L2 缓存
         start_time = time.time()
         vector = await self._get_from_redis(cache_key)
-        CACHE_LATENCY.labels(operation="get", level="L2").observe(
-            time.time() - start_time
-        )
+        CACHE_LATENCY.labels(operation="get", level="L2").observe(time.time() - start_time)
 
         if vector is not None:
             CACHE_HITS.labels(level="L2", model=model).inc()
@@ -217,9 +211,7 @@ class VectorCache:
             # 写回 L1 缓存
             start_time = time.time()
             self.l1_cache.set(cache_key, vector)
-            CACHE_LATENCY.labels(operation="set", level="L1").observe(
-                time.time() - start_time
-            )
+            CACHE_LATENCY.labels(operation="set", level="L1").observe(time.time() - start_time)
 
             logger.debug(f"L2 cache hit: {cache_key[:16]}...")
             return vector
@@ -297,9 +289,7 @@ class VectorCache:
 
         # 2. 批量计算未命中的向量
         if uncached_texts:
-            logger.debug(
-                f"Cache miss for {len(uncached_texts)}/{len(texts)} texts, computing..."
-            )
+            logger.debug(f"Cache miss for {len(uncached_texts)}/{len(texts)} texts, computing...")
 
             computed_vectors = await compute_fn(uncached_texts)
             self.total_computes += len(uncached_texts)
@@ -324,16 +314,12 @@ class VectorCache:
         # 写入 L1
         start_time = time.time()
         self.l1_cache.set(cache_key, vector)
-        CACHE_LATENCY.labels(operation="set", level="L1").observe(
-            time.time() - start_time
-        )
+        CACHE_LATENCY.labels(operation="set", level="L1").observe(time.time() - start_time)
 
         # 写入 L2
         start_time = time.time()
         await self._set_to_redis(cache_key, vector)
-        CACHE_LATENCY.labels(operation="set", level="L2").observe(
-            time.time() - start_time
-        )
+        CACHE_LATENCY.labels(operation="set", level="L2").observe(time.time() - start_time)
 
         # 更新缓存大小指标
         CACHE_SIZE.labels(level="L1", model=model).set(self.l1_cache.size())
@@ -427,19 +413,12 @@ class VectorCache:
         self.l1_cache.clear()
 
         # 清空 L2
-        if model:
-            # 清空特定模型的缓存
-            pattern = f"{self.key_prefix}:{model}:*"
-        else:
-            # 清空所有缓存
-            pattern = f"{self.key_prefix}:*"
+        pattern = f"{self.key_prefix}:{model}:*" if model else f"{self.key_prefix}:*"
 
         try:
             cursor = 0
             while True:
-                cursor, keys = await self.redis.scan(
-                    cursor, match=pattern, count=100
-                )
+                cursor, keys = await self.redis.scan(cursor, match=pattern, count=100)
 
                 if keys:
                     await self.redis.delete(*keys)

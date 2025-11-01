@@ -158,7 +158,7 @@ class BudgetController:
         logger.debug(f"[{tenant_id}] Recorded cost: ${cost_usd:.4f}")
 
     async def get_fallback_strategy(
-        self, tenant_id: str, current_cost: float = 0.0
+        self, tenant_id: str, _current_cost: float = 0.0
     ) -> FallbackStrategy:
         """
         获取降级策略

@@ -65,9 +65,7 @@ class GraphBuilder:
             logger.error("Entity extraction failed: %s", exc, exc_info=True)
             return []
 
-    async def _extract_relationships(
-        self, text: str, entities: list[dict]
-    ) -> list[dict]:
+    async def _extract_relationships(self, text: str, entities: list[dict]) -> list[dict]:
         """使用关系抽取器识别实体之间的关系"""
         if not entities:
             return []

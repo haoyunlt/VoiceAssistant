@@ -1,4 +1,5 @@
 """Kafka事件发布者"""
+
 import json
 import logging
 import os
@@ -21,26 +22,16 @@ class KafkaProducer:
     """
 
     def __init__(self):
-        self.bootstrap_servers = os.getenv(
-            "KAFKA_BOOTSTRAP_SERVERS", "localhost:9092"
-        )
+        self.bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
         self.producer: Producer | None = None
         self.admin_client: AdminClient | None = None
 
         # 主题配置
         self.topics = {
-            "document_indexed": os.getenv(
-                "KAFKA_TOPIC_DOCUMENT_INDEXED", "document.indexed"
-            ),
-            "document_failed": os.getenv(
-                "KAFKA_TOPIC_DOCUMENT_FAILED", "document.failed"
-            ),
-            "chunks_created": os.getenv(
-                "KAFKA_TOPIC_CHUNKS_CREATED", "document.chunks.created"
-            ),
-            "vectors_stored": os.getenv(
-                "KAFKA_TOPIC_VECTORS_STORED", "document.vectors.stored"
-            ),
+            "document_indexed": os.getenv("KAFKA_TOPIC_DOCUMENT_INDEXED", "document.indexed"),
+            "document_failed": os.getenv("KAFKA_TOPIC_DOCUMENT_FAILED", "document.failed"),
+            "chunks_created": os.getenv("KAFKA_TOPIC_CHUNKS_CREATED", "document.chunks.created"),
+            "vectors_stored": os.getenv("KAFKA_TOPIC_VECTORS_STORED", "document.vectors.stored"),
         }
 
         logger.info(f"Kafka Producer initialized with servers: {self.bootstrap_servers}")
@@ -259,9 +250,7 @@ class KafkaProducer:
         if err:
             logger.error(f"Message delivery failed: {err}")
         else:
-            logger.debug(
-                f"Message delivered to {msg.topic()} [{msg.partition()}] @ {msg.offset()}"
-            )
+            logger.debug(f"Message delivered to {msg.topic()} [{msg.partition()}] @ {msg.offset()}")
 
     async def flush(self, timeout: float = 10.0):
         """刷新所有待发送的消息"""
@@ -282,6 +271,7 @@ class KafkaProducer:
     def _get_timestamp(self) -> str:
         """获取当前时间戳"""
         from datetime import datetime
+
         return datetime.utcnow().isoformat()
 
 

@@ -165,7 +165,7 @@ class AgentEngine:
         max_steps: int = 10,
         tools: list[str] | None = None,
         conversation_id: str | None = None,
-        tenant_id: str | None = None,
+        _tenant_id: str | None = None,
     ) -> AsyncIterator[str]:
         """
         执行 Agent 任务（流式）

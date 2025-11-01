@@ -83,7 +83,7 @@ class MultiAgentStatsResponse(BaseModel):
 async def collaborate(
     request: CollaborateRequest,
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> CollaborateResponse:
     """
@@ -120,7 +120,7 @@ async def collaborate(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid mode: {request.mode}. Must be one of: sequential, parallel, debate, voting, hierarchical",
-            )
+            ) from None
 
         coordinator = agent_engine.multi_agent_coordinator
 
@@ -160,14 +160,14 @@ async def collaborate(
 
     except Exception as e:
         logger.error(f"Multi-agent collaboration failed: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.post("/agents/register", response_model=RegisterAgentResponse)
 async def register_agent(
     request: RegisterAgentRequest,
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> RegisterAgentResponse:
     """注册新的Agent"""
@@ -187,7 +187,7 @@ async def register_agent(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid role: {request.role}. Must be one of: coordinator, researcher, planner, executor, reviewer",
-            )
+            ) from None
 
         coordinator = agent_engine.multi_agent_coordinator
 
@@ -214,13 +214,13 @@ async def register_agent(
 
     except Exception as e:
         logger.error(f"Failed to register agent: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.get("/agents", response_model=ListAgentsResponse)
 async def list_agents(
-    tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _tenant_id: str = Depends(get_tenant_id),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> ListAgentsResponse:
     """列出所有已注册的Agents"""
@@ -247,14 +247,14 @@ async def list_agents(
 
     except Exception as e:
         logger.error(f"Failed to list agents: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.delete("/agents/{agent_id}")
 async def unregister_agent(
     agent_id: str,
     tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> dict:
     """注销Agent
@@ -279,13 +279,13 @@ async def unregister_agent(
 
     except Exception as e:
         logger.error(f"Failed to unregister agent: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e
 
 
 @router.get("/stats", response_model=MultiAgentStatsResponse)
 async def get_multi_agent_stats(
-    tenant_id: str = Depends(get_tenant_id),
-    token_data: dict = Depends(verify_token),
+    _tenant_id: str = Depends(get_tenant_id),
+    _token_data: dict = Depends(verify_token),
     agent_engine: Any = Depends(get_agent_engine),
 ) -> MultiAgentStatsResponse:
     """获取Multi-Agent统计信息"""
@@ -311,4 +311,4 @@ async def get_multi_agent_stats(
 
     except Exception as e:
         logger.error(f"Failed to get multi-agent stats: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)) from e

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ToolInfo:
     """Tool information"""
+
     id: str
     name: str
     version: str
@@ -34,7 +35,7 @@ class ToolInfo:
             "tags": self.tags,
             "registered_at": self.registered_at.isoformat(),
             "usage_count": self.usage_count,
-            "last_used": self.last_used.isoformat() if self.last_used else None
+            "last_used": self.last_used.isoformat() if self.last_used else None,
         }
 
 
@@ -67,10 +68,7 @@ class ToolRegistry:
         return list(self.tools.values())
 
     def search(
-        self,
-        query: str | None = None,
-        category: str | None = None,
-        tags: list[str] | None = None
+        self, query: str | None = None, category: str | None = None, tags: list[str] | None = None
     ) -> list[ToolInfo]:
         """Search tools"""
         results = []
@@ -113,6 +111,5 @@ class ToolRegistry:
             "total_tools": total,
             "total_usage": total_usage,
             "categories": categories,
-            "avg_usage": total_usage / total if total > 0 else 0
+            "avg_usage": total_usage / total if total > 0 else 0,
         }
-

@@ -16,8 +16,14 @@ import logging
 import os
 import signal
 import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
+from app.middleware.logging import StructuredLoggingMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.request_id import RequestIDMiddleware
+from app.routers import incremental
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -69,8 +75,6 @@ ERROR_COUNTER = Counter(
     ["error_type", "tenant_id"],
 )
 
-from collections.abc import AsyncGenerator
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -119,10 +123,6 @@ app = FastAPI(
 )
 
 # 添加中间件（顺序很重要！）
-from app.middleware.logging import StructuredLoggingMiddleware
-from app.middleware.rate_limit import RateLimitMiddleware
-from app.middleware.request_id import RequestIDMiddleware
-
 # 1. 速率限制（最外层）
 app.add_middleware(
     RateLimitMiddleware,
@@ -156,16 +156,12 @@ metrics_app = make_asgi_app()
 app.mount("/metrics", metrics_app)
 
 # 注册路由
-from app.routers import incremental
-
 app.include_router(incremental.router)
 
 
 # ========================================
 # 健康检查
 # ========================================
-
-from typing import Any
 
 
 @app.get("/health")
@@ -275,7 +271,7 @@ async def trigger_processing(document_id: str, request: Request) -> dict[str, st
         return {"status": "success", "document_id": document_id}
     except Exception as e:
         logger.error(f"Error processing document {document_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ========================================
@@ -283,7 +279,7 @@ async def trigger_processing(document_id: str, request: Request) -> dict[str, st
 # ========================================
 
 
-def handle_shutdown(signum, frame):
+def handle_shutdown(signum, _frame):
     """处理关闭信号"""
     logger.info(f"Received signal {signum}, shutting down...")
     sys.exit(0)

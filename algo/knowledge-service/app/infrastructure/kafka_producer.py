@@ -42,6 +42,7 @@ class KafkaProducer:
         # 延迟导入confluent_kafka
         try:
             from confluent_kafka import KafkaException, Producer
+
             self.Producer = Producer
             self.KafkaException = KafkaException
             self.producer = Producer(self.config)
@@ -145,9 +146,7 @@ class KafkaProducer:
 
     async def publish_entity_deleted(self, entity_id: str, tenant_id: str) -> None:
         """发布实体删除事件"""
-        await self.publish_event(
-            "entity.deleted", {"entity_id": entity_id, "tenant_id": tenant_id}
-        )
+        await self.publish_event("entity.deleted", {"entity_id": entity_id, "tenant_id": tenant_id})
 
     async def publish_relation_created(
         self,

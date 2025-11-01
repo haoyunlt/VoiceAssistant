@@ -58,9 +58,7 @@ def async_retry(
                         await asyncio.sleep(current_delay)
                         current_delay *= backoff
                     else:
-                        logger.error(
-                            f"All {max_retries} retries failed for {func.__name__}: {e}"
-                        )
+                        logger.error(f"All {max_retries} retries failed for {func.__name__}: {e}")
 
             # 所有重试都失败，抛出最后一个异常
             raise last_exception
@@ -106,12 +104,11 @@ def sync_retry(
                         )
 
                         import time
+
                         time.sleep(current_delay)
                         current_delay *= backoff
                     else:
-                        logger.error(
-                            f"All {max_retries} retries failed for {func.__name__}: {e}"
-                        )
+                        logger.error(f"All {max_retries} retries failed for {func.__name__}: {e}")
 
             raise last_exception
 
@@ -131,7 +128,11 @@ class RetryContext:
         self.last_exception = None
 
     async def execute(
-        self, func: Callable, *args, exceptions: tuple[type[Exception], ...] = (Exception,), **kwargs
+        self,
+        func: Callable,
+        *args,
+        exceptions: tuple[type[Exception], ...] = (Exception,),
+        **kwargs,
     ):
         """执行带重试的函数"""
         current_delay = self.delay

@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class CircuitState(Enum):
     """熔断器状态"""
+
     CLOSED = "closed"  # 关闭状态，正常工作
     OPEN = "open"  # 打开状态，快速失败
     HALF_OPEN = "half_open"  # 半开状态，尝试恢复
@@ -25,6 +26,7 @@ class CircuitState(Enum):
 @dataclass
 class CircuitBreakerStats:
     """熔断器统计信息"""
+
     total_requests: int = 0
     success_count: int = 0
     failure_count: int = 0
@@ -102,8 +104,7 @@ class CircuitBreaker:
             if self.state == CircuitState.HALF_OPEN:
                 if self._half_open_calls >= self.half_open_max_calls:
                     logger.debug(
-                        f"Circuit breaker '{self.name}' in HALF_OPEN, "
-                        "max concurrent calls reached"
+                        f"Circuit breaker '{self.name}' in HALF_OPEN, max concurrent calls reached"
                     )
                     raise Exception(f"Circuit breaker '{self.name}' is HALF_OPEN and at capacity")
 
@@ -143,9 +144,7 @@ class CircuitBreaker:
             if time.time() - self.stats.state_changed_at > self.recovery_timeout:
                 self._transition_to_half_open()
             else:
-                logger.warning(
-                    f"Circuit breaker '{self.name}' is OPEN, failing fast"
-                )
+                logger.warning(f"Circuit breaker '{self.name}' is OPEN, failing fast")
                 raise Exception(f"Circuit breaker '{self.name}' is OPEN")
 
         if self.state == CircuitState.HALF_OPEN:
@@ -265,6 +264,7 @@ def with_retry(
         async def call_external_api():
             ...
     """
+
     def decorator(func: Callable):
         @wraps(func)
         async def async_wrapper(*args, **kwargs):
@@ -332,6 +332,7 @@ def with_retry(
             raise last_exception
 
         import inspect
+
         return async_wrapper if inspect.iscoroutinefunction(func) else sync_wrapper
 
     return decorator

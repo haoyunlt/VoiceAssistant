@@ -105,23 +105,17 @@ class RBACManager:
         """Check if a role has a specific permission"""
         return permission in self.role_permissions.get(role, set())
 
-    def has_any_permission(
-        self, role: Role, permissions: list[Permission]
-    ) -> bool:
+    def has_any_permission(self, role: Role, permissions: list[Permission]) -> bool:
         """Check if a role has any of the specified permissions"""
         role_perms = self.role_permissions.get(role, set())
         return any(perm in role_perms for perm in permissions)
 
-    def has_all_permissions(
-        self, role: Role, permissions: list[Permission]
-    ) -> bool:
+    def has_all_permissions(self, role: Role, permissions: list[Permission]) -> bool:
         """Check if a role has all of the specified permissions"""
         role_perms = self.role_permissions.get(role, set())
         return all(perm in role_perms for perm in permissions)
 
-    def check_user_permission(
-        self, roles: list[str], permission: Permission
-    ) -> bool:
+    def check_user_permission(self, roles: list[str], permission: Permission) -> bool:
         """Check if a user (with multiple roles) has a permission"""
         for role_str in roles:
             try:
@@ -132,9 +126,7 @@ class RBACManager:
                 continue
         return False
 
-    def check_user_permissions(
-        self, roles: list[str], permissions: list[Permission]
-    ) -> bool:
+    def check_user_permissions(self, roles: list[str], permissions: list[Permission]) -> bool:
         """Check if a user has all specified permissions"""
         return all(self.check_user_permission(roles, permission) for permission in permissions)
 

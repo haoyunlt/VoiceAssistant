@@ -321,7 +321,7 @@ async def get_profile(profile_id: str):
         raise
     except Exception as e:
         logger.error(f"Get profile failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get profile: {str(e)}") from e
 
 
 @router.get("/users/{user_id}/profiles", response_model=ProfileListResponse)
@@ -378,7 +378,7 @@ async def delete_profile(profile_id: str):
         raise
     except Exception as e:
         logger.error(f"Delete profile failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete profile: {str(e)}") from e
 
 
 @router.get("/profiles/{profile_id}/suggestions", response_model=TrainingSuggestionsResponse)

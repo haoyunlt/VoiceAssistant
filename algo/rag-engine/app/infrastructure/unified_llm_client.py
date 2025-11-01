@@ -12,15 +12,13 @@ common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
 
-from llm_client import UnifiedLLMClient
+from llm_client import UnifiedLLMClient  # noqa: E402
 
 
 def get_rag_llm_client() -> UnifiedLLMClient:
     """获取RAG Engine的LLM客户端"""
     return UnifiedLLMClient(
-        model_adapter_url=os.getenv(
-            "MODEL_ADAPTER_URL", "http://model-adapter:8005"
-        ),
+        model_adapter_url=os.getenv("MODEL_ADAPTER_URL", "http://model-adapter:8005"),
         timeout=60,
         default_model=os.getenv("DEFAULT_LLM_MODEL", "gpt-3.5-turbo"),
     )

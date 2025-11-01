@@ -108,8 +108,7 @@ class HyDEService:
         )
 
         logger.info(
-            f"HyDE generated ({method}): {len(doc)} chars, "
-            f"{latency_ms:.1f}ms, {token_count} tokens"
+            f"HyDE generated ({method}): {len(doc)} chars, {latency_ms:.1f}ms, {token_count} tokens"
         )
 
         return result

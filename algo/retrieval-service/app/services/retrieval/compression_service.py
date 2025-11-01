@@ -167,6 +167,7 @@ class CompressionService:
         try:
             import sys
             from pathlib import Path
+
             import numpy as np
 
             # 添加 common 路径并导入 embedding 服务
@@ -181,7 +182,7 @@ class CompressionService:
             from sentence_transformers import SentenceTransformer
 
             # 加载轻量级模型（首次会下载）
-            model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+            model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
             # 分句
             sentences = self._split_sentences(content)
@@ -195,14 +196,11 @@ class CompressionService:
             # 计算余弦相似度
             from sklearn.metrics.pairwise import cosine_similarity
 
-            similarities = cosine_similarity(
-                [query_embedding],
-                sentence_embeddings
-            )[0]
+            similarities = cosine_similarity([query_embedding], sentence_embeddings)[0]
 
             # 过滤低相关度句子
             relevant_sentences = []
-            for sentence, similarity in zip(sentences, similarities):
+            for sentence, similarity in zip(sentences, similarities, strict=False):
                 if similarity >= self.min_relevance_score:
                     relevant_sentences.append(sentence)
 
@@ -221,6 +219,7 @@ class CompressionService:
         except Exception as e:
             # 降级到关键词方法
             import logging
+
             logger = logging.getLogger(__name__)
             logger.warning(f"Semantic compression failed, fallback to keywords: {e}")
             return self._compress_by_keywords(query, content)

@@ -14,7 +14,6 @@ Adaptive Rerank Service - 自适应重排序服务
 
 import asyncio
 import time
-from typing import List
 
 from app.models.retrieval import RetrievalDocument
 from app.observability.logging import logger
@@ -38,8 +37,8 @@ class AdaptiveRerankService:
         logger.info("Adaptive rerank service initialized")
 
     async def rerank(
-        self, query: str, documents: List[RetrievalDocument], final_top_k: int = 10
-    ) -> List[RetrievalDocument]:
+        self, query: str, documents: list[RetrievalDocument], final_top_k: int = 10
+    ) -> list[RetrievalDocument]:
         """
         自适应重排序
 
@@ -64,14 +63,10 @@ class AdaptiveRerankService:
         )
 
         # 2. Stage 1: 快速粗排
-        stage1_docs = await self._stage1_rerank(
-            query, documents, config["stage1_top_k"]
-        )
+        stage1_docs = await self._stage1_rerank(query, documents, config["stage1_top_k"])
 
         # 3. Stage 2: 精准精排
-        stage2_docs = await self._stage2_rerank(
-            query, stage1_docs, config["stage2_top_k"]
-        )
+        stage2_docs = await self._stage2_rerank(query, stage1_docs, config["stage2_top_k"])
 
         # 4. 最终截断
         final_docs = stage2_docs[:final_top_k]
@@ -91,16 +86,14 @@ class AdaptiveRerankService:
 
         if query_length < 10 and word_count <= 3:
             return QueryComplexity.SIMPLE
-        elif word_count > 15 or any(
-            kw in query for kw in ["比较", "对比", "区别", "优缺点"]
-        ):
+        elif word_count > 15 or any(kw in query for kw in ["比较", "对比", "区别", "优缺点"]):
             return QueryComplexity.COMPLEX
         else:
             return QueryComplexity.MEDIUM
 
     async def _stage1_rerank(
-        self, query: str, documents: List[RetrievalDocument], top_k: int
-    ) -> List[RetrievalDocument]:
+        self, _query: str, documents: list[RetrievalDocument], top_k: int
+    ) -> list[RetrievalDocument]:
         """Stage 1: 快速粗排"""
         # 简单基于关键词匹配
         await asyncio.sleep(0.005 * len(documents))  # 模拟延迟
@@ -110,8 +103,8 @@ class AdaptiveRerankService:
         return sorted_docs[:top_k]
 
     async def _stage2_rerank(
-        self, query: str, documents: List[RetrievalDocument], top_k: int
-    ) -> List[RetrievalDocument]:
+        self, _query: str, documents: list[RetrievalDocument], top_k: int
+    ) -> list[RetrievalDocument]:
         """Stage 2: 精准精排"""
         # 使用Cross-Encoder
         await asyncio.sleep(0.01 * len(documents))  # 模拟延迟

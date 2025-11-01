@@ -14,7 +14,6 @@ Tiered Rerank Service - 分层重排序服务
 
 import asyncio
 import time
-from typing import List
 
 from app.models.retrieval import RetrievalDocument
 from app.observability.logging import logger
@@ -45,16 +44,15 @@ class TieredRerankService:
         self.tier2_model = tier2_model
 
         logger.info(
-            f"Tiered rerank service initialized: "
-            f"tier1_size={tier1_size}, tier2_size={tier2_size}"
+            f"Tiered rerank service initialized: tier1_size={tier1_size}, tier2_size={tier2_size}"
         )
 
     async def rerank(
         self,
         query: str,
-        documents: List[RetrievalDocument],
+        documents: list[RetrievalDocument],
         final_top_k: int = 10,
-    ) -> List[RetrievalDocument]:
+    ) -> list[RetrievalDocument]:
         """
         分层重排序
 
@@ -99,15 +97,14 @@ class TieredRerankService:
 
         latency_ms = (time.time() - start_time) * 1000
         logger.info(
-            f"Tiered rerank completed: {len(documents)} -> {len(final_docs)} "
-            f"in {latency_ms:.1f}ms"
+            f"Tiered rerank completed: {len(documents)} -> {len(final_docs)} in {latency_ms:.1f}ms"
         )
 
         return final_docs
 
     async def _tier1_rerank(
-        self, query: str, documents: List[RetrievalDocument]
-    ) -> List[RetrievalDocument]:
+        self, _query: str, documents: list[RetrievalDocument]
+    ) -> list[RetrievalDocument]:
         """Tier 1: Cross-Encoder精排"""
         if not documents:
             return documents
@@ -124,8 +121,8 @@ class TieredRerankService:
         return documents
 
     async def _tier2_rerank(
-        self, query: str, documents: List[RetrievalDocument]
-    ) -> List[RetrievalDocument]:
+        self, _query: str, documents: list[RetrievalDocument]
+    ) -> list[RetrievalDocument]:
         """Tier 2: 快速rerank"""
         if not documents:
             return documents
@@ -155,9 +152,7 @@ class TieredRerankService:
         tier1_cost = tier1_count * 0.00001  # $0.01 per 1K documents
 
         # Tier 2成本（低）
-        tier2_count = min(
-            max(0, num_documents - self.tier1_size), self.tier2_size
-        )
+        tier2_count = min(max(0, num_documents - self.tier1_size), self.tier2_size)
         tier2_cost = tier2_count * 0.000002  # $0.002 per 1K documents
 
         # Tier 3成本（零）

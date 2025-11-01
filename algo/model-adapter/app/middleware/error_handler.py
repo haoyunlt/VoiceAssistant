@@ -14,9 +14,7 @@ logger = logging.getLogger(__name__)
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     """全局错误处理中间件."""
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """处理请求."""
         start_time = time.time()
         request_id = request.headers.get("X-Request-ID", "unknown")
@@ -53,9 +51,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """请求日志中间件."""
 
-    async def dispatch(
-        self, request: Request, call_next: Callable
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """记录请求和响应."""
         start_time = time.time()
         request_id = request.headers.get("X-Request-ID", "unknown")

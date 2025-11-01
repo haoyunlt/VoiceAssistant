@@ -5,7 +5,8 @@ LLM API - LLM 客户端 REST API
 """
 
 import logging
-from typing import Literal
+from collections.abc import AsyncGenerator
+from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -76,7 +77,7 @@ async def complete(request: CompletionRequest) -> dict:
                     yield "data: [DONE]\n\n"
                 except Exception as e:
                     logger.error(f"Streaming error: {e}")
-                    yield f"data: {{\"error\": \"{str(e)}\"}}\n\n"
+                    yield f'data: {{"error": "{str(e)}"}}\n\n'
 
             return StreamingResponse[dict[str, Any]](
                 event_generator(),
@@ -104,7 +105,7 @@ async def complete(request: CompletionRequest) -> dict:
 
     except Exception as e:
         logger.error(f"LLM completion failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"LLM completion failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"LLM completion failed: {str(e)}") from e
 
 
 @router.get("/providers/status", summary="获取所有 LLM 提供商状态")
@@ -122,7 +123,7 @@ async def get_providers_status():
 
     except Exception as e:
         logger.error(f"Failed to get LLM status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/models", summary="列出所有可用模型")
@@ -207,11 +208,9 @@ async def list_models():
         return {
             "models": models,
             "count": len(models),
-            "providers_available": [
-                p for p, v in status["providers"].items() if v["healthy"]
-            ],
+            "providers_available": [p for p, v in status["providers"].items() if v["healthy"]],
         }
 
     except Exception as e:
         logger.error(f"Failed to list models: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

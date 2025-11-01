@@ -9,7 +9,7 @@ from .circuit_breaker import (
     get_circuit_breaker,
 )
 from .fallback import FallbackStrategy, get_fallback_strategy
-from .rate_limiter import RateLimiter, RateLimitConfig, get_rate_limiter
+from .rate_limiter import RateLimitConfig, RateLimiter, get_rate_limiter
 
 __all__ = [
     "RateLimiter",
@@ -22,4 +22,3 @@ __all__ = [
     "FallbackStrategy",
     "get_fallback_strategy",
 ]
-

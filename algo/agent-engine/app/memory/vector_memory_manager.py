@@ -451,7 +451,7 @@ class VectorMemoryManager:
             logger.error(f"Failed to get embedding: {e}", exc_info=True)
             raise
 
-    async def _evaluate_importance(self, content: str, context: dict | None = None) -> float:
+    async def _evaluate_importance(self, content: str, _context: dict | None = None) -> float:
         """
         评估记忆重要性
 

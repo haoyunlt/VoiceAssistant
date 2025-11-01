@@ -14,17 +14,17 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from app.common.exceptions import IndexBuildError, LLMExtractionError
+from app.common.exceptions import IndexBuildError
 from app.common.fallback_handler import get_fallback_handler, get_llm_fallback_strategy
 from app.core.metrics import (
+    record_cache_access,
     record_entity_extraction,
     record_llm_call,
-    record_cache_access,
 )
 from app.core.token_counter import get_token_counter
-from app.services.llm_cache_service import get_llm_cache_service
-from app.services.entity_linking_service import get_entity_linking_service
 from app.services.community_detection_gds import get_community_detection_gds
+from app.services.entity_linking_service import get_entity_linking_service
+from app.services.llm_cache_service import get_llm_cache_service
 from app.services.temporal_graph_service import get_temporal_graph_service
 
 logger = logging.getLogger(__name__)
@@ -111,21 +111,19 @@ class EnhancedGraphRAGService:
             )
 
             # Step 1: 提取实体和关系（带缓存）
-            entities, relations = await self._extract_with_cache(
-                document_id, chunks, domain
-            )
+            entities, relations = await self._extract_with_cache(document_id, chunks, domain)
 
             # Step 2: 社区检测（使用GDS或降级到简单算法）
             if use_gds:
                 try:
-                    communities_result = await self.community_detection_gds.detect_communities_louvain(
-                        document_id
+                    communities_result = (
+                        await self.community_detection_gds.detect_communities_louvain(document_id)
                     )
                     communities = communities_result.get("communities", [])
                 except Exception as e:
                     logger.warning(f"GDS community detection failed, using fallback: {e}")
-                    communities_result = await self.community_detection_gds.detect_communities_fallback(
-                        document_id
+                    communities_result = (
+                        await self.community_detection_gds.detect_communities_fallback(document_id)
                     )
                     communities = communities_result.get("communities", [])
             else:
@@ -167,7 +165,7 @@ class EnhancedGraphRAGService:
 
         except Exception as e:
             logger.error(f"Enhanced index build failed: {e}", exc_info=True)
-            raise IndexBuildError(f"Failed to build enhanced index: {e}", document_id=document_id)
+            raise IndexBuildError(f"Failed to build enhanced index: {e}", document_id=document_id) from e
 
     async def _extract_with_cache(
         self, document_id: str, chunks: list[dict[str, Any]], domain: str
@@ -289,7 +287,7 @@ class EnhancedGraphRAGService:
 
         return result
 
-    async def _extract_with_rules(self, content: str, domain: str) -> dict[str, Any]:
+    async def _extract_with_rules(self, content: str, _domain: str) -> dict[str, Any]:
         """规则基础提取（降级方案）"""
         logger.warning("Using rule-based extraction (fallback)")
 
@@ -306,9 +304,7 @@ class EnhancedGraphRAGService:
         # 简化版prompt构建
         return f"Extract entities and relations from the following {domain} text:\n\n{content}"
 
-    async def _generate_summaries_with_cache(
-        self, communities: list[dict[str, Any]], domain: str
-    ):
+    async def _generate_summaries_with_cache(self, communities: list[dict[str, Any]], domain: str):
         """生成社区摘要（带缓存）"""
         for community in communities:
             community_id = community["id"]
@@ -331,13 +327,9 @@ class EnhancedGraphRAGService:
 
             # 保存到缓存
             if self.enable_cache and self.cache_service:
-                await self.cache_service.set_community_summary(
-                    community_id, domain, summary
-                )
+                await self.cache_service.set_community_summary(community_id, domain, summary)
 
-    async def _generate_summary(
-        self, community: dict[str, Any], domain: str
-    ) -> str:
+    async def _generate_summary(self, community: dict[str, Any], _domain: str) -> str:
         """生成社区摘要"""
         # 简化版摘要生成
         entities_text = ", ".join([e["text"] for e in community["entities"][:10]])
@@ -347,7 +339,7 @@ class EnhancedGraphRAGService:
         self,
         document_id: str,
         entities: list[dict[str, Any]],
-        relations: list[dict[str, Any]],
+        _relations: list[dict[str, Any]],
     ):
         """存储到Neo4j"""
         # 存储实体
@@ -383,9 +375,7 @@ class EnhancedGraphRAGService:
 
         # 时序图谱统计
         if self.enable_temporal and self.temporal_service:
-            stats["temporal"] = await self.temporal_service.get_temporal_statistics(
-                document_id
-            )
+            stats["temporal"] = await self.temporal_service.get_temporal_statistics(document_id)
 
         return stats
 

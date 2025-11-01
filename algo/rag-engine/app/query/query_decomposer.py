@@ -201,7 +201,7 @@ JSON:"""
         # 构建合并提示
         qa_pairs = "\n\n".join(
             [
-                f"问题{i+1}: {q}\n答案{i+1}: {a}"
+                f"问题{i + 1}: {q}\n答案{i + 1}: {a}"
                 for i, (q, a) in enumerate(zip(sub_queries, sub_answers, strict=False))
             ]
         )
@@ -222,5 +222,6 @@ JSON:"""
         except Exception as e:
             logger.error(f"Answer merging failed: {e}")
             # 回退：简单拼接
-            return "\n\n".join([f"{q}: {a}" for q, a in zip(sub_queries, sub_answers, strict=False)])
-
+            return "\n\n".join(
+                [f"{q}: {a}" for q, a in zip(sub_queries, sub_answers, strict=False)]
+            )

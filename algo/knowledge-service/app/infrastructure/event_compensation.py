@@ -50,9 +50,7 @@ class EventCompensationService:
             await self.redis.rpush(
                 self.failed_events_key, json.dumps(failed_event, ensure_ascii=False)
             )
-            logger.info(
-                f"Recorded failed event: {event_type} (id={failed_event['id']})"
-            )
+            logger.info(f"Recorded failed event: {event_type} (id={failed_event['id']})")
         except Exception as e:
             logger.error(f"Failed to record failed event: {e}")
 
@@ -91,9 +89,7 @@ class EventCompensationService:
 
                     # 检查重试次数
                     if event["retry_count"] >= self.max_retries:
-                        logger.warning(
-                            f"Event {event['id']} exceeded max retries, discarding"
-                        )
+                        logger.warning(f"Event {event['id']} exceeded max retries, discarding")
                         failed_count += 1
                         continue
 
@@ -167,14 +163,10 @@ class EventCompensationService:
             logger.error(f"Failed to get failed events count: {e}")
             return 0
 
-    async def get_failed_events(
-        self, start: int = 0, end: int = 99
-    ) -> list[dict]:
+    async def get_failed_events(self, start: int = 0, end: int = 99) -> list[dict]:
         """获取失败事件列表"""
         try:
-            events_data = await self.redis.lrange(
-                self.failed_events_key, start, end
-            )
+            events_data = await self.redis.lrange(self.failed_events_key, start, end)
             return [json.loads(data) for data in events_data]
         except Exception as e:
             logger.error(f"Failed to get failed events: {e}")

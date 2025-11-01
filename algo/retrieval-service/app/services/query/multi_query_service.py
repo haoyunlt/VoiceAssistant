@@ -64,9 +64,7 @@ class MultiQueryService:
             f"num_queries={num_queries}, temperature={temperature}"
         )
 
-    async def generate(
-        self, query: str, num_queries: int | None = None
-    ) -> MultiQueryResult:
+    async def generate(self, query: str, num_queries: int | None = None) -> MultiQueryResult:
         """
         生成多个查询变体
 
@@ -107,10 +105,7 @@ class MultiQueryService:
             latency_ms=latency_ms,
         )
 
-        logger.info(
-            f"Generated {len(all_queries)} queries in {latency_ms:.1f}ms "
-            f"(method={method})"
-        )
+        logger.info(f"Generated {len(all_queries)} queries in {latency_ms:.1f}ms (method={method})")
 
         return result
 
@@ -199,10 +194,10 @@ class MultiQueryService:
             line = re.sub(r"^\d+[.、)\s]+", "", line)
 
             # 移除引号
-            line = line.strip('"\'""''')
+            line = line.strip('"\'""')  # noqa: B005
 
             # 检查有效性
-            if line and len(line) > 3 and line != original_query:
+            if line and len(line) > 3 and line != original_query:  # noqa: SIM102
                 # 避免完全重复
                 if line not in queries:
                     queries.append(line)
@@ -300,7 +295,7 @@ class SimpleMultiQueryGenerator:
 
         for original, replacements in question_transforms.items():
             if query.startswith(original):
-                for replacement in replacements[:self.num_queries]:
+                for replacement in replacements[: self.num_queries]:
                     variant = query.replace(original, replacement, 1)
                     if variant not in variants:
                         variants.append(variant)
@@ -325,4 +320,3 @@ if __name__ == "__main__":
         print(f"延迟: {result.latency_ms}ms")
 
     asyncio.run(test())
-

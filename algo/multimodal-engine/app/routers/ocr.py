@@ -34,7 +34,7 @@ async def recognize_text(request: OCRRequest):
         return response
     except Exception as e:
         logger.error(f"OCR recognition failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"OCR recognition failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR recognition failed: {str(e)}") from e
 
 
 @router.post("/recognize/upload", response_model=OCRResponse)
@@ -72,4 +72,4 @@ async def recognize_upload(
 
     except Exception as e:
         logger.error(f"OCR recognition failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"OCR recognition failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"OCR recognition failed: {str(e)}") from e

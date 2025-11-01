@@ -12,7 +12,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +34,7 @@ class Action:
     """工具调用行动"""
 
     tool_name: str
-    params: Dict[str, Any]
+    params: dict[str, Any]
 
 
 @dataclass
@@ -43,9 +43,9 @@ class Thought:
 
     type: ThoughtType
     content: str
-    action: Optional[Action] = None
+    action: Action | None = None
     is_final: bool = False
-    answer: Optional[str] = None
+    answer: str | None = None
 
 
 @dataclass
@@ -54,8 +54,8 @@ class AgentStep:
 
     step_num: int
     thought: Thought
-    action: Optional[Action]
-    observation: Optional[str]
+    action: Action | None
+    observation: str | None
 
 
 @dataclass
@@ -63,10 +63,10 @@ class AgentResult:
     """Agent 执行结果"""
 
     answer: str
-    steps: List[AgentStep]
+    steps: list[AgentStep]
     total_iterations: int
     success: bool
-    error: Optional[str] = None
+    error: str | None = None
 
 
 # ==================== 工具协议 ====================
@@ -77,9 +77,9 @@ class Tool(Protocol):
 
     name: str
     description: str
-    parameters: Dict[str, Any]  # JSON Schema
+    parameters: dict[str, Any]  # JSON Schema
 
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         执行工具
 
@@ -110,7 +110,7 @@ class ReactAgent:
     def __init__(
         self,
         llm_client,
-        tools: List[Tool],
+        tools: list[Tool],
         max_iterations: int = 10,
         timeout_seconds: int = 30,
     ):
@@ -130,7 +130,7 @@ class ReactAgent:
 
         logger.info(f"ReAct Agent initialized with {len(tools)} tools: {list(self.tools.keys())}")
 
-    async def solve(self, query: str, context: Optional[Dict[str, Any]] = None) -> AgentResult:
+    async def solve(self, query: str, context: dict[str, Any] | None = None) -> AgentResult:
         """
         解决查询
 
@@ -143,7 +143,7 @@ class ReactAgent:
         """
         logger.info(f"ReAct Agent solving: {query[:100]}...")
 
-        history: List[AgentStep] = []
+        history: list[AgentStep] = []
         context = context or {}
 
         try:
@@ -152,7 +152,7 @@ class ReactAgent:
                 self._reasoning_loop(query, context, history),
                 timeout=self.timeout_seconds,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             logger.error(f"ReAct Agent timeout after {self.timeout_seconds}s")
             return AgentResult(
                 answer="抱歉，问题处理超时，请稍后再试。",
@@ -172,7 +172,7 @@ class ReactAgent:
             )
 
     async def _reasoning_loop(
-        self, query: str, context: Dict[str, Any], history: List[AgentStep]
+        self, query: str, context: dict[str, Any], history: list[AgentStep]
     ) -> AgentResult:
         """推理循环"""
 
@@ -223,7 +223,7 @@ class ReactAgent:
         )
 
     async def _reason(
-        self, query: str, context: Dict[str, Any], history: List[AgentStep]
+        self, query: str, context: dict[str, Any], history: list[AgentStep]
     ) -> Thought:
         """
         推理：分析当前状态，决定下一步行动
@@ -256,7 +256,7 @@ class ReactAgent:
         return thought
 
     def _build_reasoning_prompt(
-        self, query: str, context: Dict[str, Any], history: List[AgentStep]
+        self, query: str, _context: dict[str, Any], history: list[AgentStep]
     ) -> str:
         """构建推理提示词"""
 
@@ -406,18 +406,18 @@ class ToolRegistry:
     """工具注册表"""
 
     def __init__(self):
-        self._tools: Dict[str, Tool] = {}
+        self._tools: dict[str, Tool] = {}
 
     def register(self, tool: Tool):
         """注册工具"""
         self._tools[tool.name] = tool
         logger.info(f"Tool registered: {tool.name}")
 
-    def get(self, name: str) -> Optional[Tool]:
+    def get(self, name: str) -> Tool | None:
         """获取工具"""
         return self._tools.get(name)
 
-    def list_tools(self) -> List[Tool]:
+    def list_tools(self) -> list[Tool]:
         """列出所有工具"""
         return list(self._tools.values())
 

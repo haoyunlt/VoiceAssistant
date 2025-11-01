@@ -1,6 +1,6 @@
 """健康检查路由"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter  # type: ignore[import]
@@ -13,7 +13,7 @@ async def health_check() -> dict[str, Any]:
     """健康检查"""
     return {
         "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),   # type: ignore
+        "timestamp": datetime.now(UTC).isoformat(),  # type: ignore
         "service": "agent-engine",
     }
 

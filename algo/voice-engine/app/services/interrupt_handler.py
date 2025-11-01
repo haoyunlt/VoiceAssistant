@@ -192,9 +192,7 @@ class FullDuplexHandler:
         self.audio_buffer.extend(audio_data)
 
         # 转换为numpy数组
-        audio_array = np.frombuffer(bytes(self.audio_buffer), dtype=np.int16).astype(
-            np.float32
-        )
+        audio_array = np.frombuffer(bytes(self.audio_buffer), dtype=np.int16).astype(np.float32)
         audio_array = audio_array / 32768.0
 
         # VAD检测
@@ -214,7 +212,7 @@ class FullDuplexHandler:
             return result
 
         # 如果检测到语音结束，触发ASR
-        if self.interrupt_handler.state == InterruptState.LISTENING:
+        if self.interrupt_handler.state == InterruptState.LISTENING:  # noqa: SIM102
             if vad_prob < 0.3 and len(self.audio_buffer) > sample_rate:  # 至少1秒
                 # 触发ASR
                 text = await self.asr_service.transcribe(bytes(self.audio_buffer))
@@ -227,9 +225,7 @@ class FullDuplexHandler:
 
         return result
 
-    async def speak_with_interrupt_detection(
-        self, text: str, on_interrupt_callback=None
-    ):
+    async def speak_with_interrupt_detection(self, text: str, on_interrupt_callback=None):
         """
         播放TTS，支持打断检测
 

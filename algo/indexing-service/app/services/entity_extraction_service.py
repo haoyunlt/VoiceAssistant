@@ -1,4 +1,5 @@
 """实体和关系抽取服务"""
+
 import json
 import logging
 from typing import Any
@@ -8,14 +9,8 @@ logger = logging.getLogger(__name__)
 
 class Entity:
     """实体"""
-    def __init__(
-        self,
-        text: str,
-        entity_type: str,
-        start: int,
-        end: int,
-        confidence: float = 1.0
-    ):
+
+    def __init__(self, text: str, entity_type: str, start: int, end: int, confidence: float = 1.0):
         self.text = text
         self.entity_type = entity_type
         self.start = start
@@ -28,18 +23,15 @@ class Entity:
             "type": self.entity_type,
             "start": self.start,
             "end": self.end,
-            "confidence": self.confidence
+            "confidence": self.confidence,
         }
 
 
 class Relation:
     """关系"""
+
     def __init__(
-        self,
-        head_entity: str,
-        relation_type: str,
-        tail_entity: str,
-        confidence: float = 1.0
+        self, head_entity: str, relation_type: str, tail_entity: str, confidence: float = 1.0
     ):
         self.head_entity = head_entity
         self.relation_type = relation_type
@@ -51,7 +43,7 @@ class Relation:
             "head": self.head_entity,
             "relation": self.relation_type,
             "tail": self.tail_entity,
-            "confidence": self.confidence
+            "confidence": self.confidence,
         }
 
 
@@ -77,34 +69,32 @@ class EntityExtractionService:
 
         # 预定义实体类型
         self.entity_types = [
-            "PERSON",      # 人名
-            "ORGANIZATION", # 组织
-            "LOCATION",    # 地点
-            "DATE",        # 日期
-            "TIME",        # 时间
-            "MONEY",       # 货币
-            "PERCENT",     # 百分比
-            "PRODUCT",     # 产品
-            "EVENT",       # 事件
-            "CONCEPT"      # 概念
+            "PERSON",  # 人名
+            "ORGANIZATION",  # 组织
+            "LOCATION",  # 地点
+            "DATE",  # 日期
+            "TIME",  # 时间
+            "MONEY",  # 货币
+            "PERCENT",  # 百分比
+            "PRODUCT",  # 产品
+            "EVENT",  # 事件
+            "CONCEPT",  # 概念
         ]
 
         # 预定义关系类型
         self.relation_types = [
-            "WORKS_FOR",   # 工作于
+            "WORKS_FOR",  # 工作于
             "LOCATED_IN",  # 位于
             "FOUNDED_BY",  # 创立者
-            "CEO_OF",      # CEO
-            "PART_OF",     # 部分
-            "PRODUCES",    # 生产
-            "OWNS",        # 拥有
-            "RELATED_TO"   # 相关
+            "CEO_OF",  # CEO
+            "PART_OF",  # 部分
+            "PRODUCES",  # 生产
+            "OWNS",  # 拥有
+            "RELATED_TO",  # 相关
         ]
 
     async def extract_entities(
-        self,
-        text: str,
-        entity_types: list[str] | None = None
+        self, text: str, entity_types: list[str] | None = None
     ) -> list[Entity]:
         """
         抽取文本中的实体
@@ -129,9 +119,7 @@ class EntityExtractionService:
         return entities
 
     async def extract_relations(
-        self,
-        text: str,
-        entities: list[Entity] | None = None
+        self, text: str, entities: list[Entity] | None = None
     ) -> list[Relation]:
         """
         抽取文本中的关系
@@ -156,10 +144,7 @@ class EntityExtractionService:
 
         return relations
 
-    async def extract_knowledge_graph(
-        self,
-        text: str
-    ) -> dict[str, Any]:
+    async def extract_knowledge_graph(self, text: str) -> dict[str, Any]:
         """
         从文本构建知识图谱
 
@@ -184,26 +169,22 @@ class EntityExtractionService:
             "metadata": {
                 "text_length": len(text),
                 "entity_count": len(entities),
-                "relation_count": len(relations)
-            }
+                "relation_count": len(relations),
+            },
         }
 
         logger.info(f"Built knowledge graph: {len(entities)} nodes, {len(relations)} edges")
 
         return graph
 
-    async def _llm_extract_entities(
-        self,
-        text: str,
-        entity_types: list[str]
-    ) -> list[Entity]:
+    async def _llm_extract_entities(self, text: str, entity_types: list[str]) -> list[Entity]:
         """使用LLM抽取实体"""
 
         prompt = f"""Extract named entities from the following text.
 
 Text: {text}
 
-Entity Types to extract: {', '.join(entity_types)}
+Entity Types to extract: {", ".join(entity_types)}
 
 Provide the entities in JSON format:
 [
@@ -217,11 +198,7 @@ Provide the entities in JSON format:
 ]
 """
 
-        response = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.3,
-            max_tokens=800
-        )
+        response = await self.llm_client.generate(prompt=prompt, temperature=0.3, max_tokens=800)
 
         try:
             entities_data = json.loads(response)
@@ -233,7 +210,7 @@ Provide the entities in JSON format:
                     entity_type=ent_data["type"],
                     start=ent_data.get("start", 0),
                     end=ent_data.get("end", 0),
-                    confidence=ent_data.get("confidence", 0.9)
+                    confidence=ent_data.get("confidence", 0.9),
                 )
                 entities.append(entity)
 
@@ -243,18 +220,11 @@ Provide the entities in JSON format:
             logger.warning("Failed to parse entity extraction response")
             return []
 
-    async def _llm_extract_relations(
-        self,
-        text: str,
-        entities: list[Entity]
-    ) -> list[Relation]:
+    async def _llm_extract_relations(self, text: str, entities: list[Entity]) -> list[Relation]:
         """使用LLM抽取关系"""
 
         # 构建实体列表
-        entity_list = "\n".join([
-            f"- {e.text} ({e.entity_type})"
-            for e in entities
-        ])
+        entity_list = "\n".join([f"- {e.text} ({e.entity_type})" for e in entities])
 
         prompt = f"""Extract relations between entities in the following text.
 
@@ -263,7 +233,7 @@ Text: {text}
 Entities:
 {entity_list}
 
-Common relation types: {', '.join(self.relation_types)}
+Common relation types: {", ".join(self.relation_types)}
 
 Provide the relations in JSON format:
 [
@@ -276,11 +246,7 @@ Provide the relations in JSON format:
 ]
 """
 
-        response = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.3,
-            max_tokens=600
-        )
+        response = await self.llm_client.generate(prompt=prompt, temperature=0.3, max_tokens=600)
 
         try:
             relations_data = json.loads(response)
@@ -291,7 +257,7 @@ Provide the relations in JSON format:
                     head_entity=rel_data["head"],
                     relation_type=rel_data["relation"],
                     tail_entity=rel_data["tail"],
-                    confidence=rel_data.get("confidence", 0.8)
+                    confidence=rel_data.get("confidence", 0.8),
                 )
                 relations.append(relation)
 
@@ -301,10 +267,7 @@ Provide the relations in JSON format:
             logger.warning("Failed to parse relation extraction response")
             return []
 
-    async def batch_extract(
-        self,
-        texts: list[str]
-    ) -> list[dict[str, Any]]:
+    async def batch_extract(self, texts: list[str]) -> list[dict[str, Any]]:
         """
         批量抽取实体和关系
 
@@ -319,29 +282,18 @@ Provide the relations in JSON format:
         results = []
 
         for i, text in enumerate(texts):
-            logger.info(f"Processing text {i+1}/{len(texts)}")
+            logger.info(f"Processing text {i + 1}/{len(texts)}")
 
             try:
                 kg = await self.extract_knowledge_graph(text)
-                results.append({
-                    "text": text,
-                    "knowledge_graph": kg,
-                    "success": True
-                })
+                results.append({"text": text, "knowledge_graph": kg, "success": True})
             except Exception as e:
-                logger.error(f"Failed to extract from text {i+1}: {e}")
-                results.append({
-                    "text": text,
-                    "error": str(e),
-                    "success": False
-                })
+                logger.error(f"Failed to extract from text {i + 1}: {e}")
+                results.append({"text": text, "error": str(e), "success": False})
 
         return results
 
-    def merge_knowledge_graphs(
-        self,
-        graphs: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    def merge_knowledge_graphs(self, graphs: list[dict[str, Any]]) -> dict[str, Any]:
         """
         合并多个知识图谱
 
@@ -393,18 +345,15 @@ Provide the relations in JSON format:
             "metadata": {
                 "source_graph_count": len(graphs),
                 "total_nodes": len(unique_nodes),
-                "total_edges": len(unique_edges)
-            }
+                "total_edges": len(unique_edges),
+            },
         }
 
         logger.info(f"Merged graph: {len(unique_nodes)} nodes, {len(unique_edges)} edges")
 
         return merged_graph
 
-    def export_to_neo4j_cypher(
-        self,
-        graph: dict[str, Any]
-    ) -> list[str]:
+    def export_to_neo4j_cypher(self, graph: dict[str, Any]) -> list[str]:
         """
         导出为Neo4j Cypher语句
 
@@ -432,7 +381,7 @@ Provide the relations in JSON format:
 
             cypher = f"""
 MATCH (a {{name: '{head}'}}), (b {{name: '{tail}'}})
-CREATE (a)-[r:{relation} {{confidence: {edge.get('confidence', 1.0)}}}]->(b)
+CREATE (a)-[r:{relation} {{confidence: {edge.get("confidence", 1.0)}}}]->(b)
 """
             cypher_statements.append(cypher.strip())
 

@@ -26,11 +26,7 @@ class EntityExtractionService:
         # 3. 三元组构建
         triples = self._build_triples(entities, relations)
 
-        return {
-            "entities": entities,
-            "relations": relations,
-            "triples": triples
-        }
+        return {"entities": entities, "relations": relations, "triples": triples}
 
     async def _extract_entities(self, text: str) -> list[dict]:
         """命名实体识别"""
@@ -55,16 +51,19 @@ Return JSON array:
 
 Entity types: PERSON, ORG, LOC, DATE, PRODUCT, EVENT"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a named entity recognition expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a named entity recognition expert."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         import json
+
         try:
             entities = json.loads(response.get("content", "[]"))
             return entities
-        except:
+        except Exception:
             return []
 
     async def _ner_with_model(self, text: str) -> list[dict]:
@@ -72,11 +71,7 @@ Entity types: PERSON, ORG, LOC, DATE, PRODUCT, EVENT"""
         entities = await self.ner_model.predict(text)
         return entities
 
-    async def _extract_relations(
-        self,
-        text: str,
-        entities: list[dict]
-    ) -> list[dict]:
+    async def _extract_relations(self, text: str, entities: list[dict]) -> list[dict]:
         """关系抽取"""
         if len(entities) < 2:
             return []
@@ -86,7 +81,7 @@ Entity types: PERSON, ORG, LOC, DATE, PRODUCT, EVENT"""
         prompt = f"""Extract relationships between entities:
 
 Text: {text}
-Entities: {', '.join(entity_texts)}
+Entities: {", ".join(entity_texts)}
 
 Return JSON array:
 [
@@ -94,39 +89,33 @@ Return JSON array:
   {{"subject": "entity3", "predicate": "located_in", "object": "entity4"}}
 ]"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a relation extraction expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a relation extraction expert."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         import json
+
         try:
             relations = json.loads(response.get("content", "[]"))
             return relations
-        except:
+        except Exception:
             return []
 
     def _build_triples(
-        self,
-        entities: list[dict],
-        relations: list[dict]
+        self, _entities: list[dict], relations: list[dict]
     ) -> list[tuple[str, str, str]]:
         """构建三元组"""
         triples = []
         for rel in relations:
-            triple = (
-                rel.get("subject", ""),
-                rel.get("predicate", ""),
-                rel.get("object", "")
-            )
+            triple = (rel.get("subject", ""), rel.get("predicate", ""), rel.get("object", ""))
             if all(triple):
                 triples.append(triple)
         return triples
 
-    async def build_knowledge_graph(
-        self,
-        documents: list[str]
-    ) -> dict[str, Any]:
+    async def build_knowledge_graph(self, documents: list[str]) -> dict[str, Any]:
         """从文档构建知识图谱"""
         all_entities = []
         all_relations = []
@@ -149,8 +138,8 @@ Return JSON array:
             "stats": {
                 "entity_count": len(unique_entities),
                 "relation_count": len(unique_relations),
-                "triple_count": len(all_triples)
-            }
+                "triple_count": len(all_triples),
+            },
         }
 
     def _deduplicate_entities(self, entities: list[dict]) -> list[dict]:

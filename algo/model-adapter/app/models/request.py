@@ -5,12 +5,14 @@ from pydantic import BaseModel, Field
 
 class Message(BaseModel):
     """消息模型"""
+
     role: str = Field(..., description="角色：system/user/assistant")
     content: str = Field(..., description="消息内容")
 
 
 class ChatRequest(BaseModel):
     """聊天请求"""
+
     model: str = Field(..., description="模型名称")
     messages: list[Message] = Field(..., description="对话历史")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
@@ -24,6 +26,7 @@ class ChatRequest(BaseModel):
 
 class CompletionRequest(BaseModel):
     """补全请求"""
+
     model: str = Field(..., description="模型名称")
     prompt: str = Field(..., description="提示词")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="温度参数")
@@ -35,6 +38,7 @@ class CompletionRequest(BaseModel):
 
 class EmbeddingRequest(BaseModel):
     """向量化请求"""
+
     model: str = Field(..., description="模型名称")
     input: list[str] = Field(..., description="输入文本列表")
     provider: str | None = Field(default=None, description="指定提供商")

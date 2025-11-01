@@ -6,7 +6,6 @@
 import hashlib
 import logging
 import re
-from collections import Counter
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 # 尝试导入 Prometheus（可选依赖）
 try:
     from prometheus_client import Counter as PromCounter
-    from prometheus_client import Gauge, Histogram
+    from prometheus_client import Histogram
 
     PROMETHEUS_AVAILABLE = True
 
@@ -219,10 +218,7 @@ class TextDeduplicator:
 
         for text in texts:
             # 生成键（哈希或原文）
-            if self.use_hash:
-                key = self._hash_text(text)
-            else:
-                key = text
+            key = self._hash_text(text) if self.use_hash else text
 
             # 检查是否已存在
             if key in text_to_index:

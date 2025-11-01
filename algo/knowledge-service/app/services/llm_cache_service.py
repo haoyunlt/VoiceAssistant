@@ -153,9 +153,7 @@ class LLMCacheService:
             logger.warning(f"Failed to set query entities cache: {e}")
             return False
 
-    async def get_community_summary(
-        self, community_id: str, domain: str
-    ) -> str | None:
+    async def get_community_summary(self, community_id: str, domain: str) -> str | None:
         """
         获取社区摘要缓存
 
@@ -181,9 +179,7 @@ class LLMCacheService:
             logger.warning(f"Failed to get community summary cache: {e}")
             return None
 
-    async def set_community_summary(
-        self, community_id: str, domain: str, summary: str
-    ) -> bool:
+    async def set_community_summary(self, community_id: str, domain: str, summary: str) -> bool:
         """
         设置社区摘要缓存
 
@@ -222,9 +218,7 @@ class LLMCacheService:
             # 扫描匹配的键
             cursor = 0
             while True:
-                cursor, batch = await self.redis.scan(
-                    cursor, match=pattern, count=100
-                )
+                cursor, batch = await self.redis.scan(cursor, match=pattern, count=100)
                 keys.extend(batch)
                 if cursor == 0:
                     break
