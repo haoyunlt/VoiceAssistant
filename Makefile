@@ -67,10 +67,28 @@ analyze-unused: ## 生成详细未使用代码报告
 # ==================
 # Cleanup
 # ==================
-clean: ## 清理
+clean: ## 清理构建产物
 	@echo "🧹 清理..."
 	@rm -rf bin/
 	@docker-compose down -v
+
+clean-caches: ## 清理缓存文件（Python, Go, IDE等）
+	@echo "🧹 清理缓存文件..."
+	@./scripts/clean-caches.sh
+	@echo "💡 建议重启 Cursor/IDE 以获得最佳性能"
+
+clean-caches-dry: ## 预览将要清理的缓存文件
+	@echo "🔍 预览清理内容..."
+	@./scripts/clean-caches.sh --dry-run
+
+check-large-files: ## 检查大文件（>10MB）
+	@echo "🔍 检查大文件..."
+	@./scripts/clean-caches.sh --check-large-files
+
+cursor-optimize: clean-caches ## 优化 Cursor 性能（清理缓存）
+	@echo "✨ Cursor 性能优化完成"
+	@echo "📊 优化详情请查看: CURSOR_PERFORMANCE_OPTIMIZATION.md"
+	@echo "⚡ 请重启 Cursor 以使更改生效"
 
 deploy: verify build-docker ## 部署（验证+构建+启动）
 	@echo "📦 部署中..."

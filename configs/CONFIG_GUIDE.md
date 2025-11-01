@@ -11,22 +11,25 @@
 
 | 文件 | 用途 | 适用服务 |
 |------|------|----------|
-| `services.yaml` | 服务端点配置 | 所有服务 |
-| `algo-services.yaml` | 算法服务配置 | Go 后端服务 |
+| `services.yaml` | 服务端点统一配置（Go gRPC + Python HTTP） | 所有服务 |
+| `services-client.yaml` | gRPC 客户端配置（重试、熔断、连接池） | Go 后端服务 |
+| `services-integration.yaml` | 服务集成架构文档（调用关系、职责边界） | 架构参考 |
 | `models.yaml` | 模型配置 | model-router |
 | `observability.yaml` | 可观测性配置 | 所有服务 |
 | `resilience.yaml` | 弹性配置 | 所有服务 |
 
 ### 服务专用配置
 
-| 文件 | 服务 |
-|------|------|
-| `ai-orchestrator.yaml` | AI 编排服务 |
-| `agent-engine.yaml` | Agent 引擎 |
-| `conversation-service.yaml` | 对话服务 |
-| `identity-service.yaml` | 认证服务 |
-| `model-router.yaml` | 模型路由 |
-| `rag-engine.yaml` | RAG 引擎（已废弃） |
+| 文件 | 服务 | 说明 |
+|------|------|------|
+| `ai-orchestrator.yaml` | AI 编排服务 | |
+| `agent-engine.yaml` | Agent 引擎 | |
+| `conversation-service.yaml` | 对话服务 | 增强版（包含JWT、限流、幂等性等） |
+| `identity-service.yaml` | 认证服务 | |
+| `model-router.yaml` | 模型路由 | |
+| `analytics-service.yaml` | 分析服务 | |
+| `notification-service.yaml` | 通知服务 | |
+| `rag-engine.yaml` | RAG 引擎 | v2.0（支持多种检索策略） |
 
 ---
 
@@ -101,24 +104,27 @@ SERVICE_NAME_TIMEOUT=60s
 ### 配置示例
 
 ```yaml
-# configs/algo-services.yaml
-services:
-  http:
-    retrieval-service:
-      url: "http://localhost:8012"
-      timeout: 30s                    # 混合检索+重排
+# configs/services.yaml
+http_services:
+  retrieval-service:
+    url: "http://localhost:8012"
+    timeout: 30s                    # 混合检索+重排
+    description: "混合检索服务（Vector + BM25 + Rerank）"
 
-    agent-engine:
-      url: "http://localhost:8010"
-      timeout: 60s                    # Agent 执行
+  agent-engine:
+    url: "http://localhost:8010"
+    timeout: 60s                    # Agent 执行
+    description: "智能Agent执行引擎"
 
-    model-adapter:
-      url: "http://localhost:8005"
-      timeout: 60s                    # LLM 生成
+  model-adapter:
+    url: "http://localhost:8005"
+    timeout: 60s                    # LLM 生成
+    description: "统一LLM/Embedding调用入口"
 
-    indexing-service:
-      url: "http://localhost:8011"
-      timeout: 300s                   # 文档索引
+  indexing-service:
+    url: "http://localhost:8011"
+    timeout: 300s                   # 文档索引
+    description: "文档索引流水线"
 ```
 
 ---

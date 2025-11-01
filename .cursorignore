@@ -233,6 +233,10 @@ uploads/
 # 排除详细服务文档
 # docs/VoiceHelper-*.md
 
+# 排除示例文档
+docs/examples/
+docs/fixes/
+
 # Documentation build output
 docs/_build/
 docs/.doctrees/
@@ -294,3 +298,37 @@ algo/*/dist/
 # Flink job artifacts
 flink-jobs/*/checkpoints/
 flink-jobs/*/savepoints/
+
+# ============================================
+# Additional Performance Optimizations
+# ============================================
+# 排除 Protobuf 生成的代码（api/gen/ 目录）
+api/gen/go/
+# 保留 Python 生成的 proto（业务可能需要）
+# api/gen/python/
+
+# 排除 Grafana dashboard JSON（静态配置文件，无需索引）
+deployments/grafana/dashboards/*.json
+
+# 排除 Kubernetes 和 Helm 详细配置
+deployments/k8s/examples/
+deployments/k8s/monitoring/
+deployments/helm/charts/
+
+# 排除示例代码（examples 目录）
+*/examples/
+cmd/*/examples/
+algo/*/examples/
+
+# 排除数据库迁移脚本（SQL 文件）
+migrations/
+
+# 排除测试数据和模拟数据
+*/tests/data/
+*/test_data/
+data/
+
+# 排除前端构建配置
+platforms/*/next.config.js
+platforms/*/postcss.config.js
+platforms/*/tailwind.config.js

@@ -1,79 +1,226 @@
-# Conversation Service 配置文件
-
-# Nacos 配置中心连接配置（可选）
-# 当 CONFIG_MODE=nacos 时使用
-nacos:
-  server_addr: "localhost"
-  server_port: 8848
-  namespace: ""
-  group: "VoiceHelper"
-  data_id: "conversation-service.yaml"
-  username: ""
-  password: ""
-  log_dir: "/tmp/nacos/log"
-  cache_dir: "/tmp/nacos/cache"
-  log_level: "info"
-  timeout_ms: 5000
+# Conversation Service 增强配置文件
+# Phase 1: 核心可靠性与安全增强
 
 server:
   http:
-    addr: 0.0.0.0:8000
+    addr: "0.0.0.0:8000"
     timeout: 30s
+    max_connections: 10000
+    mode: release # debug, release, test
   grpc:
-    addr: 0.0.0.0:9000
+    addr: "0.0.0.0:9000"
     timeout: 30s
 
+# JWT 认证配置
+jwt:
+  enabled: true
+  secret_key: "${JWT_SECRET:your-secret-key-change-in-production}"
+  token_duration: 24h
+  skip_paths:
+    - /health
+    - /readiness
+    - /metrics
+
+# 限流配置
+ratelimit:
+  enabled: true
+  default_rpm: 200      # 普通用户：每分钟 200 请求
+  premium_rpm: 1000     # 高级用户：每分钟 1000 请求
+  burst: 100            # 突发容量
+  fallback_mode: allow  # Redis 故障时：allow/deny
+
+# 幂等性配置
+idempotency:
+  enabled: true
+  ttl: 120s             # 幂等键 TTL
+  protected_paths:
+    - /api/v1/conversations
+    - /api/v1/messages
+
+# 审计日志配置
+audit:
+  enabled: true
+  sensitive_paths:
+    - /api/v1/conversations
+    - /api/v1/messages
+  sensitive_fields:
+    - password
+    - token
+    - secret
+    - email
+    - phone
+    - id_card
+  skip_paths:
+    - /health
+    - /metrics
+
+# CORS 配置
+cors:
+  allowed_origins:
+    - http://localhost:3000
+    - http://localhost:3001
+    - https://app.voicehelper.com
+    - https://*.voicehelper.com  # 支持通配符
+  allowed_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - PATCH
+    - OPTIONS
+  allowed_headers:
+    - Content-Type
+    - Authorization
+    - X-Request-ID
+    - X-Idempotency-Key
+    - X-Tenant-ID
+    - X-User-ID
+  exposed_headers:
+    - X-RateLimit-Limit
+    - X-RateLimit-Remaining
+    - X-RateLimit-Reset
+    - X-Request-ID
+  allow_credentials: true
+  max_age: 3600
+
+# WebSocket 配置
+websocket:
+  enabled: true
+  max_connections_per_user: 5      # 单用户最大连接数
+  max_total_connections: 10000     # 服务器总连接数限制
+  heartbeat_interval: 30s
+  read_buffer_size: 4096
+  write_buffer_size: 4096
+  broadcast_buffer_size: 256
+
+# 数据库配置
 data:
   database:
     driver: postgres
-    source: postgresql://voicehelper:password@postgres:5432/voicehelper?sslmode=disable&search_path=conversation
+    source: "${DB_DSN:postgresql://voicehelper:password@localhost:5432/voicehelper?sslmode=disable&search_path=conversation}"
+    max_open_conns: 100
+    max_idle_conns: 10
+    conn_max_lifetime: 1h
+    slow_query_threshold: 500ms
+
+    # 索引优化（由 migration 自动创建）
+    indexes:
+      - idx_conversations_tenant_user_status
+      - idx_conversations_last_active
+      - idx_messages_conversation_created
+      - idx_messages_content_gin
+
   redis:
-    addr: redis:6379
-    password: ""
-    db: 1 # 使用 DB 1（Identity Service 使用 DB 0）
+    addr: "${REDIS_ADDR:localhost:6379}"
+    password: "${REDIS_PASSWORD:}"
+    db: 1
+    pool_size: 100
+    min_idle_conns: 10
     read_timeout: 1s
     write_timeout: 1s
     dial_timeout: 1s
-    pool_size: 10
 
 # Kafka 配置
 kafka:
   brokers:
-    - kafka:9092
+    - "${KAFKA_BROKER:kafka:9092}"
   topics:
     conversation_events: conversation.events
   producer:
     timeout: 10s
     retry_max: 3
 
-# 上下文配置
-context:
-  max_tokens: 4096 # 默认最大 Token 数
-  ttl: 24h # Redis 缓存过期时间
+# 可观测性配置
+observability:
+  # 分布式追踪
+  tracing:
+    enabled: true
+    endpoint: "${OTEL_ENDPOINT:otel-collector:4317}"
+    sampler: probabilistic
+    sample_rate: 0.1  # 采样 10%
 
+  # Prometheus 指标
+  metrics:
+    enabled: true
+    port: 9090
+    path: /metrics
+    # 业务指标（自动采集）
+    custom_metrics:
+      - conversation_operations_total
+      - conversation_create_duration_seconds
+      - message_send_duration_seconds
+      - websocket_connections
+      - cache_hits_total
+      - token_usage_total
+
+  # 日志配置
+  logging:
+    level: info        # debug, info, warn, error
+    format: json       # json, text
+    output: stdout     # stdout, file
+    file_path: /var/log/conversation-service.log
+
+# 健康检查配置
+health:
+  enabled: true
+  liveness_path: /health
+  readiness_path: /readiness
+  detailed_path: /health/detailed
+  timeout: 5s
+  check_dependencies:
+    - database
+    - redis
+
+# 缓存配置
+cache:
+  conversation:
+    ttl: 5m
+    max_size: 10000
+  context:
+    ttl: 5m
+    max_size: 5000
+  session:
+    ttl: 24h
+
+# 性能调优
+performance:
+  enable_pprof: false            # 启用性能分析（仅开发/测试环境）
+  pprof_port: 6060
+  enable_compression: true       # 启用 gzip 压缩
+  compression_level: 5           # 1-9
+  max_request_body_size: 10MB    # 最大请求体大小
+
+# 安全配置
+security:
+  enable_https: false
+  cert_file: /certs/server.crt
+  key_file: /certs/server.key
+  enable_tls: false              # gRPC TLS
+  ca_file: /certs/ca.crt
+
+  # 请求限制
+  max_header_size: 1MB
+  read_timeout: 10s
+  write_timeout: 10s
+  idle_timeout: 60s
+
+# 运维配置
+operations:
+  # 优雅关闭
+  graceful_shutdown:
+    enabled: true
+    timeout: 30s
+    wait_for_connections: true
+
+  # 自动清理
+  cleanup:
+    enabled: true
+    expired_sessions_interval: 1h
+    orphaned_connections_interval: 5m
+
+# 环境标识
 service:
   name: conversation-service
   version: v2.0.0
-  metadata:
-    environment: production
-    region: us-west-2
-
-# 可观测性配置
-observability:
-  tracing:
-    enabled: true
-    endpoint: otel-collector:4317
-    sampler: always_on
-  metrics:
-    enabled: true
-    endpoint: prometheus:9090
-  logging:
-    level: info
-    format: json
-    output: stdout
-
-# 限流配置
-ratelimit:
-  enabled: true
-  requests_per_minute: 200
-  burst: 100
+  environment: ${ENVIRONMENT:production}  # development, staging, production
+  region: ${REGION:us-west-2}

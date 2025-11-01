@@ -279,14 +279,22 @@ tracing:
 ```
 命名空间: public (或 dev/staging/prod)
 ├── Group: VoiceHelper (服务配置)
-│   ├── conversation-service.yaml
-│   ├── agent-engine.yaml
-│   ├── model-router.yaml
+│   ├── conversation-service.yaml    # 对话服务（增强版）
+│   ├── agent-engine.yaml            # Agent 引擎
+│   ├── model-router.yaml            # 模型路由
+│   ├── rag-engine.yaml              # RAG 引擎 v2.0
+│   ├── identity-service.yaml        # 认证服务
+│   ├── ai-orchestrator.yaml         # AI 编排
+│   ├── analytics-service.yaml       # 分析服务
+│   ├── notification-service.yaml    # 通知服务
 │   └── ...
 └── Group: VoiceHelper-Common (公共配置)
-    ├── resilience.yaml
-    ├── observability.yaml
-    └── services-integration.yaml
+    ├── services.yaml                # 服务端点统一配置
+    ├── services-client.yaml         # gRPC 客户端配置
+    ├── services-integration.yaml    # 服务集成架构文档
+    ├── resilience.yaml              # 弹性配置
+    ├── observability.yaml           # 可观测性配置
+    └── models.yaml                  # 模型配置
 ```
 
 ## Go 服务集成
