@@ -2,7 +2,6 @@
 
 import logging
 from contextvars import ContextVar
-from typing import Any, Optional
 
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -19,15 +18,15 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 # Context变量 (用于传递租户ID等)
-current_tenant_id: ContextVar[Optional[str]] = ContextVar("tenant_id", default=None)
-current_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+current_tenant_id: ContextVar[str | None] = ContextVar("tenant_id", default=None)
+current_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 def init_telemetry(
     service_name: str = "model-adapter",
     service_version: str = "1.0.0",
     environment: str = "development",
-    otlp_endpoint: Optional[str] = None,
+    otlp_endpoint: str | None = None,
     enabled: bool = True,
 ) -> TracerProvider:
     """
@@ -100,7 +99,7 @@ def add_span_attributes(**kwargs):
             span.set_attribute(key, value)
 
 
-def add_span_event(name: str, attributes: Optional[dict] = None):
+def add_span_event(name: str, attributes: dict | None = None):
     """
     向当前Span添加事件.
 
@@ -115,7 +114,7 @@ def add_span_event(name: str, attributes: Optional[dict] = None):
 
 def start_span(
     name: str,
-    attributes: Optional[dict] = None,
+    attributes: dict | None = None,
 ) -> trace.Span:
     """
     启动一个新的Span.
@@ -153,6 +152,7 @@ def trace_adapter_generate(provider: str, model: str):
         async def generate(...):
             ...
     """
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             with tracer.start_as_current_span(
@@ -194,13 +194,12 @@ def trace_adapter_generate(provider: str, model: str):
                     return result
 
                 except Exception as e:
-                    span.set_status(
-                        trace.Status(trace.StatusCode.ERROR, str(e))
-                    )
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                     span.record_exception(e)
                     raise
 
         return wrapper
+
     return decorator
 
 
@@ -216,6 +215,7 @@ def trace_cache_operation(operation: str):
         async def get_cached(...):
             ...
     """
+
     def decorator(func):
         async def wrapper(*args, **kwargs):
             with tracer.start_as_current_span(
@@ -234,13 +234,12 @@ def trace_cache_operation(operation: str):
                     return result
 
                 except Exception as e:
-                    span.set_status(
-                        trace.Status(trace.StatusCode.ERROR, str(e))
-                    )
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                     span.record_exception(e)
                     raise
 
         return wrapper
+
     return decorator
 
 
@@ -253,6 +252,7 @@ def trace_routing_decision():
         def route(...):
             ...
     """
+
     def decorator(func):
         def wrapper(*args, **kwargs):
             with tracer.start_as_current_span(
@@ -276,13 +276,12 @@ def trace_routing_decision():
                     return result
 
                 except Exception as e:
-                    span.set_status(
-                        trace.Status(trace.StatusCode.ERROR, str(e))
-                    )
+                    span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
                     span.record_exception(e)
                     raise
 
         return wrapper
+
     return decorator
 
 
@@ -326,7 +325,7 @@ def get_trace_id() -> str:
     span = trace.get_current_span()
     if span:
         trace_id = span.get_span_context().trace_id
-        return format(trace_id, '032x')  # 32位hex字符串
+        return format(trace_id, "032x")  # 32位hex字符串
     return ""
 
 
@@ -335,5 +334,5 @@ def get_span_id() -> str:
     span = trace.get_current_span()
     if span:
         span_id = span.get_span_context().span_id
-        return format(span_id, '016x')  # 16位hex字符串
+        return format(span_id, "016x")  # 16位hex字符串
     return ""

@@ -44,8 +44,7 @@ class ASRService:
                 return
 
             self.azure_service = AzureSpeechService(
-                subscription_key=subscription_key,
-                region=region
+                subscription_key=subscription_key, region=region
             )
 
             logger.info("Azure Speech Service initialized for ASR")
@@ -222,8 +221,7 @@ class ASRService:
 
             # 调用Azure Speech SDK
             result = await self.azure_service.recognize_from_bytes(
-                audio_data=audio_data,
-                language=lang
+                audio_data=audio_data, language=lang
             )
 
             if not result.get("success"):

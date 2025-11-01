@@ -8,7 +8,6 @@ import logging
 
 from app.core.langgraph_engine import CheckpointManager, LangGraphWorkflowEngine
 from app.core.multi_agent.coordinator import Agent, AgentRole
-from app.core.multi_agent.enhanced_conflict_resolver import ConflictType
 
 # 假设导入（实际使用时需要正确的导入路径）
 from app.core.multi_agent.enhanced_coordinator import EnhancedMultiAgentCoordinator
@@ -25,11 +24,11 @@ async def example_multi_agent_collaboration():
 
     # 模拟LLM和工具
     class MockLLMClient:
-        async def generate(self, prompt, **kwargs):
+        async def generate(self, prompt, **_kwargs):
             return f"模拟回答: {prompt[:50]}..."
 
     class MockToolRegistry:
-        async def execute_tool(self, name, **kwargs):
+        async def execute_tool(self, name, **_kwargs):
             return f"工具 {name} 执行成功"
 
     llm_client = MockLLMClient()
@@ -77,7 +76,7 @@ async def example_multi_agent_collaboration():
         timeout=30,
     )
 
-    print(f"\n任务结果:")
+    print("\n任务结果:")
     print(f"  成功: {result['success']}")
     print(f"  分配Agent: {result.get('agent', 'N/A')}")
     print(f"  执行时间: {result.get('execution_time', 0):.2f}s")
@@ -101,7 +100,7 @@ async def example_multi_agent_collaboration():
 
     # 6. 能力画像
     print("\n🎯 Agent能力画像:")
-    for agent_id in coordinator.agents.keys():
+    for agent_id in coordinator.agents:
         profile = coordinator.get_agent_capabilities(agent_id)
         if profile:
             print(f"  {agent_id}:")
@@ -119,11 +118,11 @@ async def example_langgraph_workflow():
     engine = LangGraphWorkflowEngine(checkpoint_manager)
 
     # 2. 定义工作流函数
-    async def analyze_task(context):
+    async def analyze_task(_context):
         logger.info("分析任务...")
         return {"analysis": "任务分析完成", "complexity": "high"}
 
-    async def retrieve_documents(context):
+    async def retrieve_documents(_context):
         logger.info("检索文档...")
         return {"documents": ["doc1.pdf", "doc2.pdf", "doc3.pdf"]}
 
@@ -133,11 +132,11 @@ async def example_langgraph_workflow():
         logger.info(f"决策: 文档数={doc_count}, 需要审查={doc_count > 2}")
         return doc_count > 2
 
-    async def review_result(context):
+    async def review_result(_context):
         logger.info("审查结果...")
         return {"review": "审查通过", "quality_score": 0.92}
 
-    async def finalize(context):
+    async def finalize(_context):
         logger.info("完成工作流...")
         return {"status": "completed", "final_report": "工作流执行成功"}
 
@@ -190,7 +189,7 @@ async def example_langgraph_workflow():
         save_checkpoints=True,
     )
 
-    print(f"\n执行结果:")
+    print("\n执行结果:")
     print(f"  状态: {result['status']}")
     print(f"  执行路径: {' → '.join(result['node_history'])}")
     print(f"  最终数据: {result['variables'].get('final_report', 'N/A')}")
@@ -203,7 +202,7 @@ async def example_langgraph_workflow():
 
     # 8. 统计信息
     stats = engine.get_stats()
-    print(f"📊 引擎统计:")
+    print("📊 引擎统计:")
     print(f"  总执行次数: {stats['total_executions']}")
     print(f"  成功次数: {stats['successful_executions']}")
     print(f"  成功率: {stats['success_rate']:.1%}")
@@ -219,15 +218,15 @@ async def example_workflow_recovery():
     # 定义会失败的函数
     call_count = 0
 
-    async def step1(context):
+    async def step1(_context):
         logger.info("步骤1: 初始化")
         return {"step1": "completed"}
 
-    async def step2(context):
+    async def step2(_context):
         logger.info("步骤2: 处理")
         return {"step2": "completed"}
 
-    async def step3_with_failure(context):
+    async def step3_with_failure(_context):
         nonlocal call_count
         call_count += 1
         logger.info(f"步骤3: 尝试执行 (第{call_count}次)")
@@ -240,7 +239,7 @@ async def example_workflow_recovery():
             logger.info("步骤3: 执行成功")
             return {"step3": "completed"}
 
-    async def step4(context):
+    async def step4(_context):
         logger.info("步骤4: 完成")
         return {"final": "all_done"}
 
@@ -277,7 +276,7 @@ async def example_workflow_recovery():
 
     # 查看checkpoint
     status = engine.get_workflow_status(workflow_id)
-    print(f"📌 Checkpoint状态:")
+    print("📌 Checkpoint状态:")
     print(f"  当前节点: {status['current_node']}")
     print(f"  已执行: {status['node_history']}")
     print(f"  状态: {status['status']}")
@@ -287,7 +286,7 @@ async def example_workflow_recovery():
     print("🔄 恢复执行...")
     result = await engine.resume(workflow_id)
 
-    print(f"\n恢复结果:")
+    print("\n恢复结果:")
     print(f"  状态: {result['status']}")
     print(f"  完整路径: {' → '.join(result['node_history'])}")
     print(f"  最终数据: {result['variables']}")

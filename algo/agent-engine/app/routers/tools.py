@@ -63,7 +63,7 @@ async def list_tools() -> ToolListResponse:
 
     except Exception as e:
         logger.error(f"Failed to list tools: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/names")
@@ -82,7 +82,7 @@ async def list_tool_names() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to list tool names: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/description")
@@ -101,7 +101,7 @@ async def get_tools_description() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to get tools description: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/definitions")
@@ -120,7 +120,7 @@ async def get_tool_definitions_for_llm() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to get tool definitions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/{tool_name}")
@@ -147,7 +147,7 @@ async def get_tool_info(tool_name: str) -> dict[str, Any]:
         raise
     except Exception as e:
         logger.error(f"Failed to get tool info: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/execute", response_model=ToolExecuteResponse)
@@ -182,7 +182,7 @@ async def execute_tool(request: ToolExecuteRequest) -> ToolExecuteResponse:
 
     except ValueError as e:
         # 工具不存在
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         execution_time = (time.time() - start_time) * 1000
 
@@ -216,4 +216,4 @@ async def reload_builtin_tools() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to reload builtin tools: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

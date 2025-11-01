@@ -385,8 +385,8 @@ class SemanticContextEnhancer(ContextEnhancer):
         Returns:
             相关chunks列表
         """
-        from sklearn.metrics.pairwise import cosine_similarity
         import numpy as np
+        from sklearn.metrics.pairwise import cosine_similarity
 
         # 计算与其他chunks的相似度
         current_emb = np.array([current_embedding])

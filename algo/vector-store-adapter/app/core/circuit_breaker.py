@@ -3,17 +3,18 @@
 import asyncio
 import logging
 import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Callable, Any
-
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class CircuitState(Enum):
     """Circuit breaker states"""
+
     CLOSED = "closed"  # Normal operation
-    OPEN = "open"      # Blocking requests
+    OPEN = "open"  # Blocking requests
     HALF_OPEN = "half_open"  # Testing if service recovered
 
 
@@ -99,7 +100,7 @@ class CircuitBreaker:
             result = await func(*args, **kwargs)
             await self._on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             await self._on_failure()
             raise
 
@@ -124,7 +125,9 @@ class CircuitBreaker:
             if self._state == CircuitState.HALF_OPEN:
                 # Failed during recovery, go back to OPEN
                 self._state = CircuitState.OPEN
-                logger.warning(f"[{self.name}] Circuit breaker failed during recovery, back to OPEN state")
+                logger.warning(
+                    f"[{self.name}] Circuit breaker failed during recovery, back to OPEN state"
+                )
             elif self._failure_count >= self.failure_threshold:
                 # Too many failures, open the circuit
                 self._state = CircuitState.OPEN

@@ -36,7 +36,9 @@ class TTSService:
         if self.provider == "azure":
             self._initialize_azure()
 
-        logger.info(f"TTSService initialized with provider={self.provider}, cache={self.cache.health_check()['backend']}")
+        logger.info(
+            f"TTSService initialized with provider={self.provider}, cache={self.cache.health_check()['backend']}"
+        )
 
     def _initialize_azure(self):
         """初始化Azure Speech Service"""
@@ -51,8 +53,7 @@ class TTSService:
                 return
 
             self.azure_service = AzureSpeechService(
-                subscription_key=subscription_key,
-                region=region
+                subscription_key=subscription_key, region=region
             )
 
             logger.info("Azure Speech Service initialized for TTS")
@@ -151,7 +152,9 @@ class TTSService:
             rate = request.rate or settings.TTS_RATE
             pitch = request.pitch or settings.TTS_PITCH
 
-            communicate = edge_tts.Communicate(text=request.text, voice=voice, rate=rate, pitch=pitch)
+            communicate = edge_tts.Communicate(
+                text=request.text, voice=voice, rate=rate, pitch=pitch
+            )
 
             # 收集所有音频数据
             audio_data = b""
@@ -172,7 +175,9 @@ class TTSService:
             rate = request.rate or settings.TTS_RATE
             pitch = request.pitch or settings.TTS_PITCH
 
-            communicate = edge_tts.Communicate(text=request.text, voice=voice, rate=rate, pitch=pitch)
+            communicate = edge_tts.Communicate(
+                text=request.text, voice=voice, rate=rate, pitch=pitch
+            )
 
             async for chunk in communicate.stream():
                 if chunk["type"] == "audio":
@@ -198,10 +203,7 @@ class TTSService:
 
             # 调用Azure Speech SDK
             audio_data = await self.azure_service.synthesize_to_bytes(
-                text=request.text,
-                voice_name=voice,
-                rate=rate,
-                pitch=pitch
+                text=request.text, voice_name=voice, rate=rate, pitch=pitch
             )
 
             return audio_data

@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Optional
 
 from app.core.token_counter import CostCalculator, TokenCounter
 
@@ -44,18 +43,15 @@ MODEL_TO_PROVIDER = {
     "gpt-4o": "openai",
     "gpt-4o-mini": "openai",
     "gpt-4-32k": "openai",
-
     # Claude
     "claude-3-haiku-20240307": "claude",
     "claude-3-sonnet-20240229": "claude",
     "claude-3-opus-20240229": "claude",
     "claude-3-5-sonnet-20240620": "claude",
-
     # 智谱AI
     "glm-3-turbo": "zhipu",
     "glm-4": "zhipu",
     "glm-4-plus": "zhipu",
-
     # 通义千问
     "qwen-turbo": "qwen",
     "qwen-plus": "qwen",
@@ -79,7 +75,7 @@ class SmartRouter:
 
     def __init__(
         self,
-        model_tiers: Optional[dict[str, list[str]]] = None,
+        model_tiers: dict[str, list[str]] | None = None,
         cost_weight: float = 0.7,  # 成本权重 (0-1)
         quality_weight: float = 0.3,  # 质量权重 (0-1)
     ):
@@ -96,8 +92,7 @@ class SmartRouter:
         self.quality_weight = quality_weight
 
         logger.info(
-            f"SmartRouter initialized: cost_weight={cost_weight}, "
-            f"quality_weight={quality_weight}"
+            f"SmartRouter initialized: cost_weight={cost_weight}, quality_weight={quality_weight}"
         )
 
     def route(
@@ -105,7 +100,7 @@ class SmartRouter:
         quality_level: str,
         messages: list[dict[str, str]],
         max_tokens: int = 1000,
-        available_providers: Optional[list[str]] = None,
+        available_providers: list[str] | None = None,
     ) -> RouteResult:
         """
         路由到最优模型.
@@ -134,7 +129,8 @@ class SmartRouter:
         # 过滤可用提供商的模型
         if available_providers:
             candidate_models = [
-                model for model in candidate_models
+                model
+                for model in candidate_models
                 if MODEL_TO_PROVIDER.get(model) in available_providers
             ]
 
@@ -180,7 +176,7 @@ class SmartRouter:
         messages: list[dict[str, str]],
         budget_usd: float,
         max_tokens: int = 1000,
-        available_providers: Optional[list[str]] = None,
+        available_providers: list[str] | None = None,
     ) -> RouteResult:
         """
         在预算限制下路由到最高质量的模型.
@@ -207,7 +203,8 @@ class SmartRouter:
             # 过滤可用提供商的模型
             if available_providers:
                 candidate_models = [
-                    model for model in candidate_models
+                    model
+                    for model in candidate_models
                     if MODEL_TO_PROVIDER.get(model) in available_providers
                 ]
 
@@ -238,8 +235,7 @@ class SmartRouter:
 
         # 预算不足
         raise ValueError(
-            f"Budget ${budget_usd} insufficient for any model "
-            f"(min input tokens: {input_tokens})"
+            f"Budget ${budget_usd} insufficient for any model (min input tokens: {input_tokens})"
         )
 
     def compare_alternatives(
@@ -312,7 +308,7 @@ class SmartRouter:
 
 
 # Prometheus指标
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter  # noqa: E402
 
 # 路由次数
 route_total = Counter(

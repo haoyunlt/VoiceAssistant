@@ -27,12 +27,7 @@ class ConnectionManager:
         self.total_connections = 0
         self.total_messages = 0
 
-    async def connect(
-        self,
-        websocket: WebSocket,
-        connection_id: str,
-        metadata: dict | None = None
-    ):
+    async def connect(self, websocket: WebSocket, connection_id: str, metadata: dict | None = None):
         """
         接受新连接
 
@@ -52,10 +47,7 @@ class ConnectionManager:
 
         self.total_connections += 1
 
-        logger.info(
-            f"WebSocket connected: {connection_id}, "
-            f"active={len(self.active_connections)}"
-        )
+        logger.info(f"WebSocket connected: {connection_id}, active={len(self.active_connections)}")
 
     def disconnect(self, connection_id: str):
         """
@@ -71,8 +63,7 @@ class ConnectionManager:
             del self.connection_metadata[connection_id]
 
         logger.info(
-            f"WebSocket disconnected: {connection_id}, "
-            f"active={len(self.active_connections)}"
+            f"WebSocket disconnected: {connection_id}, active={len(self.active_connections)}"
         )
 
     async def send_message(self, connection_id: str, message: dict):

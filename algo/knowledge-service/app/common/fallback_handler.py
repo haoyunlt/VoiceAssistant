@@ -6,10 +6,10 @@ Fallback Handler - 降级处理器
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, Callable
+from typing import Any
 
-from app.common.exceptions import LLMError, GraphRetrievalError
 from app.core.metrics import record_fallback, service_degraded
 
 logger = logging.getLogger(__name__)
@@ -159,9 +159,7 @@ class FallbackHandler:
             if component not in self.degraded_components:
                 self.degraded_components[component] = datetime.now()
                 service_degraded.labels(component=component).set(1)
-                logger.warning(
-                    f"Component {component} degraded due to high error rate"
-                )
+                logger.warning(f"Component {component} degraded due to high error rate")
 
     def _recover_component(self, component: str):
         """恢复组件"""
@@ -180,9 +178,7 @@ class FallbackHandler:
                 }
                 for comp, since in self.degraded_components.items()
             },
-            "error_history": {
-                comp: len(errors) for comp, errors in self.error_history.items()
-            },
+            "error_history": {comp: len(errors) for comp, errors in self.error_history.items()},
         }
 
 

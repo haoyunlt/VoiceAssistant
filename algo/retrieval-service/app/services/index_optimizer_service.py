@@ -1,4 +1,5 @@
 """向量索引优化服务"""
+
 import logging
 from typing import Any
 
@@ -30,33 +31,33 @@ class IndexOptimizerService:
                 "M": 16,
                 "efConstruction": 200,
                 "ef": 64,
-                "description": "平衡性能和召回率"
+                "description": "平衡性能和召回率",
             },
             "high_performance": {
                 "M": 8,
                 "efConstruction": 100,
                 "ef": 32,
-                "description": "优化查询性能，稍微牺牲召回率"
+                "description": "优化查询性能，稍微牺牲召回率",
             },
             "high_recall": {
                 "M": 32,
                 "efConstruction": 400,
                 "ef": 128,
-                "description": "优化召回率，稍微牺牲性能"
+                "description": "优化召回率，稍微牺牲性能",
             },
             "large_scale": {
                 "M": 12,
                 "efConstruction": 150,
                 "ef": 48,
-                "description": "适合大规模数据集"
-            }
+                "description": "适合大规模数据集",
+            },
         }
 
     async def optimize_collection(
         self,
         collection_name: str,
         profile: str = "balanced",
-        custom_params: dict[str, int] | None = None
+        custom_params: dict[str, int] | None = None,
     ) -> dict[str, Any]:
         """
         优化集合的索引参数
@@ -85,10 +86,7 @@ class IndexOptimizerService:
             # 1. 检查集合是否存在
             collection_exists = await self._check_collection_exists(collection_name)
             if not collection_exists:
-                return {
-                    "success": False,
-                    "error": f"Collection '{collection_name}' does not exist"
-                }
+                return {"success": False, "error": f"Collection '{collection_name}' does not exist"}
 
             # 2. 获取当前索引信息
             current_index = await self._get_current_index(collection_name)
@@ -109,22 +107,15 @@ class IndexOptimizerService:
                 "profile": profile,
                 "old_params": current_index.get("params", {}) if current_index else {},
                 "new_params": params,
-                "new_index": new_index
+                "new_index": new_index,
             }
 
         except Exception as e:
             logger.error(f"Failed to optimize collection: {e}")
-            return {
-                "success": False,
-                "collection": collection_name,
-                "error": str(e)
-            }
+            return {"success": False, "collection": collection_name, "error": str(e)}
 
     async def benchmark_configurations(
-        self,
-        collection_name: str,
-        test_queries: list[str],
-        profiles: list[str] | None = None
+        self, collection_name: str, test_queries: list[str], profiles: list[str] | None = None
     ) -> dict[str, Any]:
         """
         基准测试不同配置
@@ -151,10 +142,7 @@ class IndexOptimizerService:
             opt_result = await self.optimize_collection(collection_name, profile)
 
             if not opt_result["success"]:
-                results.append({
-                    "profile": profile,
-                    "error": opt_result["error"]
-                })
+                results.append({"profile": profile, "error": opt_result["error"]})
                 continue
 
             # 运行测试查询
@@ -163,6 +151,7 @@ class IndexOptimizerService:
 
             for query in test_queries:
                 import time
+
                 start_time = time.time()
 
                 # 执行搜索
@@ -172,30 +161,30 @@ class IndexOptimizerService:
                 query_time = (end_time - start_time) * 1000  # 转换为毫秒
                 total_time += query_time
 
-                query_results.append({
-                    "query": query,
-                    "time_ms": query_time,
-                    "results_count": len(search_results)
-                })
+                query_results.append(
+                    {"query": query, "time_ms": query_time, "results_count": len(search_results)}
+                )
 
             avg_time = total_time / len(test_queries) if test_queries else 0
 
-            results.append({
-                "profile": profile,
-                "params": opt_result["new_params"],
-                "avg_query_time_ms": avg_time,
-                "query_results": query_results
-            })
+            results.append(
+                {
+                    "profile": profile,
+                    "params": opt_result["new_params"],
+                    "avg_query_time_ms": avg_time,
+                    "query_results": query_results,
+                }
+            )
 
         # 找出最优配置
-        best_profile = min(results, key=lambda x: x.get("avg_query_time_ms", float('inf')))
+        best_profile = min(results, key=lambda x: x.get("avg_query_time_ms", float("inf")))
 
         return {
             "collection": collection_name,
             "profiles_tested": profiles,
             "results": results,
             "best_profile": best_profile["profile"],
-            "best_avg_time_ms": best_profile.get("avg_query_time_ms", 0)
+            "best_avg_time_ms": best_profile.get("avg_query_time_ms", 0),
         }
 
     async def _check_collection_exists(self, collection_name: str) -> bool:
@@ -235,24 +224,18 @@ class IndexOptimizerService:
             index_params = {
                 "metric_type": "L2",  # 或 "IP" (内积)
                 "index_type": "HNSW",
-                "params": {
-                    "M": params["M"],
-                    "efConstruction": params["efConstruction"]
-                }
+                "params": {"M": params["M"], "efConstruction": params["efConstruction"]},
             }
 
             # 创建索引
             await self.milvus_client.create_index(
                 collection_name=collection_name,
                 field_name="embedding",  # 向量字段名
-                index_params=index_params
+                index_params=index_params,
             )
 
             # 设置搜索参数
-            {
-                "metric_type": "L2",
-                "params": {"ef": params["ef"]}
-            }
+            {"metric_type": "L2", "params": {"ef": params["ef"]}}
 
             logger.info(f"Created optimized index for collection '{collection_name}'")
 
@@ -260,7 +243,7 @@ class IndexOptimizerService:
             logger.error(f"Error creating index: {e}")
             raise
 
-    async def _execute_search(self, collection_name: str, query: str) -> list[dict[str, Any]]:
+    async def _execute_search(self, _collection_name: str, _query: str) -> list[dict[str, Any]]:
         """执行搜索（用于基准测试）"""
         try:
             # 这里需要先将query向量化
@@ -300,7 +283,9 @@ class IndexOptimizerService:
         else:
             return "balanced"
 
-    def calculate_memory_requirements(self, data_size: int, vector_dim: int, M: int) -> dict[str, float]:
+    def calculate_memory_requirements(
+        self, data_size: int, vector_dim: int, M: int
+    ) -> dict[str, float]:
         """
         估算内存需求
 
@@ -323,5 +308,5 @@ class IndexOptimizerService:
             "vector_memory_mb": round(vector_memory_mb, 2),
             "graph_memory_mb": round(graph_memory_mb, 2),
             "total_memory_mb": round(total_memory_mb, 2),
-            "total_memory_gb": round(total_memory_mb / 1024, 2)
+            "total_memory_gb": round(total_memory_mb / 1024, 2),
         }

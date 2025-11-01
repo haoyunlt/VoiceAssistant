@@ -1,4 +1,5 @@
 """幂等性管理 - 防止重复处理"""
+
 import hashlib
 import logging
 import time
@@ -165,8 +166,7 @@ class IdempotencyManager:
         """清理过期的缓存"""
         now = time.time()
         expired_keys = [
-            key for key, value in self.cache.items()
-            if now - value["timestamp"] > self.ttl_seconds
+            key for key, value in self.cache.items() if now - value["timestamp"] > self.ttl_seconds
         ]
 
         for key in expired_keys:

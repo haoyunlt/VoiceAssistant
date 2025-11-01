@@ -96,10 +96,10 @@ class ZhipuAdapter(BaseAdapter):
 
         except httpx.HTTPError as e:
             logger.error(f"Zhipu API HTTP error: {e}")
-            raise RuntimeError(f"Zhipu API HTTP error: {e}")
+            raise RuntimeError(f"Zhipu API HTTP error: {e}") from e
         except Exception as e:
             logger.error(f"Zhipu API error: {e}")
-            raise RuntimeError(f"Zhipu API error: {e}")
+            raise RuntimeError(f"Zhipu API error: {e}") from e
 
     async def generate_stream(
         self,
@@ -153,6 +153,7 @@ class ZhipuAdapter(BaseAdapter):
 
                         try:
                             import json
+
                             data = json.loads(line_data)
 
                             if "choices" in data and data["choices"]:
@@ -174,10 +175,10 @@ class ZhipuAdapter(BaseAdapter):
 
         except httpx.HTTPError as e:
             logger.error(f"Zhipu streaming HTTP error: {e}")
-            raise RuntimeError(f"Zhipu streaming HTTP error: {e}")
+            raise RuntimeError(f"Zhipu streaming HTTP error: {e}") from e
         except Exception as e:
             logger.error(f"Zhipu streaming error: {e}")
-            raise RuntimeError(f"Zhipu streaming error: {e}")
+            raise RuntimeError(f"Zhipu streaming error: {e}") from e
 
     async def generate_with_functions(
         self,
@@ -243,10 +244,10 @@ class ZhipuAdapter(BaseAdapter):
 
         except httpx.HTTPError as e:
             logger.error(f"Zhipu function calling HTTP error: {e}")
-            raise RuntimeError(f"Zhipu function calling HTTP error: {e}")
+            raise RuntimeError(f"Zhipu function calling HTTP error: {e}") from e
         except Exception as e:
             logger.error(f"Zhipu function calling error: {e}")
-            raise RuntimeError(f"Zhipu function calling error: {e}")
+            raise RuntimeError(f"Zhipu function calling error: {e}") from e
 
     async def create_embedding(
         self,
@@ -290,10 +291,10 @@ class ZhipuAdapter(BaseAdapter):
 
         except httpx.HTTPError as e:
             logger.error(f"Zhipu embedding HTTP error: {e}")
-            raise RuntimeError(f"Zhipu embedding HTTP error: {e}")
+            raise RuntimeError(f"Zhipu embedding HTTP error: {e}") from e
         except Exception as e:
             logger.error(f"Zhipu embedding error: {e}")
-            raise RuntimeError(f"Zhipu embedding error: {e}")
+            raise RuntimeError(f"Zhipu embedding error: {e}") from e
 
     async def health_check(self) -> bool:
         """

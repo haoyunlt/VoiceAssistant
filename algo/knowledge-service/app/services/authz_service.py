@@ -6,9 +6,9 @@ Authorization Service
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 class ResourceType(str, Enum):
     """资源类型"""
+
     KNOWLEDGE_BASE = "kb"
     DOCUMENT = "doc"
     CHUNK = "chunk"
@@ -24,6 +25,7 @@ class ResourceType(str, Enum):
 
 class Action(str, Enum):
     """操作类型"""
+
     READ = "read"
     WRITE = "write"
     DELETE = "delete"
@@ -32,6 +34,7 @@ class Action(str, Enum):
 
 class Effect(str, Enum):
     """效果"""
+
     ALLOW = "allow"
     DENY = "deny"
 
@@ -44,20 +47,20 @@ class Permission:
         resource: str,
         action: str,
         effect: str = "allow",
-        conditions: Optional[Dict[str, Any]] = None
+        conditions: dict[str, Any] | None = None,
     ):
         self.resource = resource  # kb:123, doc:456, *
-        self.action = action      # read, write, delete, admin
-        self.effect = effect      # allow, deny
+        self.action = action  # read, write, delete, admin
+        self.effect = effect  # allow, deny
         self.conditions = conditions or {}
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "resource": self.resource,
             "action": self.action,
             "effect": self.effect,
-            "conditions": self.conditions
+            "conditions": self.conditions,
         }
 
 
@@ -69,10 +72,10 @@ class Role:
         id: str,
         name: str,
         description: str,
-        permissions: List[Permission],
+        permissions: list[Permission],
         tenant_id: str,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
     ):
         self.id = id
         self.name = name
@@ -89,10 +92,8 @@ class Role:
             id=f"role_{uuid4()}",
             name="Administrator",
             description="Full access to all resources",
-            permissions=[
-                Permission(resource="*", action="admin", effect="allow")
-            ],
-            tenant_id=tenant_id
+            permissions=[Permission(resource="*", action="admin", effect="allow")],
+            tenant_id=tenant_id,
         )
 
     @classmethod
@@ -104,9 +105,9 @@ class Role:
             description="Can read and write knowledge bases and documents",
             permissions=[
                 Permission(resource="kb:*", action="write", effect="allow"),
-                Permission(resource="doc:*", action="write", effect="allow")
+                Permission(resource="doc:*", action="write", effect="allow"),
             ],
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
         )
 
     @classmethod
@@ -118,12 +119,12 @@ class Role:
             description="Can only read knowledge bases and documents",
             permissions=[
                 Permission(resource="kb:*", action="read", effect="allow"),
-                Permission(resource="doc:*", action="read", effect="allow")
+                Permission(resource="doc:*", action="read", effect="allow"),
             ],
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -132,7 +133,7 @@ class Role:
             "permissions": [p.to_dict() for p in self.permissions],
             "tenant_id": self.tenant_id,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "updated_at": self.updated_at.isoformat(),
         }
 
 
@@ -145,9 +146,9 @@ class UserRole:
         user_id: str,
         role_id: str,
         tenant_id: str,
-        resource: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-        expires_at: Optional[datetime] = None
+        resource: str | None = None,
+        created_at: datetime | None = None,
+        expires_at: datetime | None = None,
     ):
         self.id = id
         self.user_id = user_id
@@ -173,7 +174,7 @@ class AuditLog:
         user_agent: str,
         status: str,
         error: str = "",
-        created_at: Optional[datetime] = None
+        created_at: datetime | None = None,
     ):
         self.id = id
         self.tenant_id = tenant_id
@@ -194,11 +195,11 @@ class AuditLog:
         user_id: str,
         action: str,
         resource: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
         ip: str,
         user_agent: str,
         status: str = "success",
-        error: str = ""
+        error: str = "",
     ) -> "AuditLog":
         """创建审计日志"""
         return cls(
@@ -211,10 +212,10 @@ class AuditLog:
             ip=ip,
             user_agent=user_agent,
             status=status,
-            error=error
+            error=error,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -227,23 +228,23 @@ class AuditLog:
             "user_agent": self.user_agent,
             "status": self.status,
             "error": self.error,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
 class AuthzService:
     """授权服务"""
 
-    def __init__(self, redis_client: Optional[Any] = None):
+    def __init__(self, redis_client: Any | None = None):
         """初始化授权服务
 
         Args:
             redis_client: Redis 客户端（用于权限缓存）
         """
         self.redis = redis_client
-        self._roles_cache: Dict[str, Role] = {}
-        self._user_roles_cache: Dict[str, List[str]] = {}  # user_id -> [role_id]
-        self._audit_logs: List[AuditLog] = []
+        self._roles_cache: dict[str, Role] = {}
+        self._user_roles_cache: dict[str, list[str]] = {}  # user_id -> [role_id]
+        self._audit_logs: list[AuditLog] = []
 
         # 初始化内置角色
         self._init_builtin_roles()
@@ -257,11 +258,7 @@ class AuthzService:
         self._roles_cache["viewer"] = Role.create_viewer(default_tenant)
 
     async def check_permission(
-        self,
-        user_id: str,
-        tenant_id: str,
-        resource: str,
-        action: str
+        self, user_id: str, tenant_id: str, resource: str, action: str
     ) -> bool:
         """检查权限
 
@@ -300,11 +297,7 @@ class AuthzService:
         return allowed
 
     async def grant_role(
-        self,
-        user_id: str,
-        role_id: str,
-        tenant_id: str,
-        resource: Optional[str] = None
+        self, user_id: str, role_id: str, _tenant_id: str, _resource: str | None = None
     ) -> bool:
         """授予角色
 
@@ -337,11 +330,10 @@ class AuthzService:
         Returns:
             是否成功
         """
-        if user_id in self._user_roles_cache:
-            if role_id in self._user_roles_cache[user_id]:
-                self._user_roles_cache[user_id].remove(role_id)
-                logger.info(f"Revoked role {role_id} from user {user_id}")
-                return True
+        if user_id in self._user_roles_cache and role_id in self._user_roles_cache[user_id]:
+            self._user_roles_cache[user_id].remove(role_id)
+            logger.info(f"Revoked role {role_id} from user {user_id}")
+            return True
 
         return False
 
@@ -351,11 +343,11 @@ class AuthzService:
         user_id: str,
         action: str,
         resource: str,
-        details: Dict[str, Any],
+        details: dict[str, Any],
         ip: str,
         user_agent: str,
         status: str = "success",
-        error: str = ""
+        error: str = "",
     ) -> None:
         """记录审计日志
 
@@ -379,7 +371,7 @@ class AuthzService:
             ip=ip,
             user_agent=user_agent,
             status=status,
-            error=error
+            error=error,
         )
 
         self._audit_logs.append(audit_log)
@@ -390,8 +382,8 @@ class AuthzService:
         tenant_id: str,
         offset: int = 0,
         limit: int = 100,
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[AuditLog]:
+        filters: dict[str, Any] | None = None,
+    ) -> list[AuditLog]:
         """获取审计日志
 
         Args:
@@ -415,9 +407,9 @@ class AuthzService:
         # 按时间倒序
         logs.sort(key=lambda log: log.created_at, reverse=True)
 
-        return logs[offset:offset+limit]
+        return logs[offset : offset + limit]
 
-    async def _get_user_roles(self, user_id: str, tenant_id: str) -> List[Role]:
+    async def _get_user_roles(self, user_id: str, tenant_id: str) -> list[Role]:
         """获取用户角色"""
         role_ids = self._user_roles_cache.get(user_id, [])
         roles = []
@@ -427,28 +419,27 @@ class AuthzService:
                 roles.append(role)
         return roles
 
-    def _evaluate_permissions(
-        self,
-        roles: List[Role],
-        resource: str,
-        action: str
-    ) -> bool:
+    def _evaluate_permissions(self, roles: list[Role], resource: str, action: str) -> bool:
         """评估权限（Deny 优先）"""
         # 1. 检查 Deny
         for role in roles:
             for perm in role.permissions:
-                if self._match_resource(perm.resource, resource) and \
-                   self._match_action(perm.action, action):
-                    if perm.effect == "deny":
-                        return False
+                if (
+                    self._match_resource(perm.resource, resource)
+                    and self._match_action(perm.action, action)
+                    and perm.effect == "deny"
+                ):
+                    return False
 
         # 2. 检查 Allow
         for role in roles:
             for perm in role.permissions:
-                if self._match_resource(perm.resource, resource) and \
-                   self._match_action(perm.action, action):
-                    if perm.effect == "allow":
-                        return True
+                if (
+                    self._match_resource(perm.resource, resource)
+                    and self._match_action(perm.action, action)
+                    and perm.effect == "allow"
+                ):
+                    return True
 
         return False
 
@@ -469,10 +460,10 @@ class AuthzService:
 
 
 # 全局单例
-_authz_service: Optional[AuthzService] = None
+_authz_service: AuthzService | None = None
 
 
-def get_authz_service(redis_client: Optional[Any] = None) -> AuthzService:
+def get_authz_service(redis_client: Any | None = None) -> AuthzService:
     """获取授权服务单例
 
     Args:

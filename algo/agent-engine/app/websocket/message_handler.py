@@ -24,9 +24,7 @@ class MessageHandler:
         self.llm_adapter = get_multi_llm_adapter()
         self.tool_registry = get_tool_registry()
 
-    async def handle_message(
-        self, connection_id: str, message: dict[str, Any]
-    ) -> None:
+    async def handle_message(self, connection_id: str, message: dict[str, Any]) -> None:
         """
         处理收到的消息
 
@@ -55,15 +53,13 @@ class MessageHandler:
                 await self._handle_cancel(connection_id, message)
 
             else:
-                await self._send_error(
-                    connection_id, f"Unknown message type: {message_type}"
-                )
+                await self._send_error(connection_id, f"Unknown message type: {message_type}")
 
         except Exception as e:
             logger.error(f"Error handling message: {e}", exc_info=True)
             await self._send_error(connection_id, str(e))
 
-    async def _handle_ping(self, connection_id: str, message: dict) -> None:
+    async def _handle_ping(self, connection_id: str, _message: dict) -> None:
         """
         处理 ping 消息
 
@@ -122,9 +118,7 @@ class MessageHandler:
             logger.error(f"Agent query failed: {e}")
             await self._send_error(connection_id, f"Query failed: {str(e)}")
 
-    async def _handle_streaming_query(
-        self, connection_id: str, message: dict
-    ) -> None:
+    async def _handle_streaming_query(self, connection_id: str, message: dict) -> None:
         """
         处理流式查询
 
@@ -196,9 +190,7 @@ class MessageHandler:
             # 获取工具
             tool = self.tool_registry.get_tool(tool_name)
             if not tool:
-                await self._send_error(
-                    connection_id, f"Tool not found: {tool_name}"
-                )
+                await self._send_error(connection_id, f"Tool not found: {tool_name}")
                 return
 
             # 执行工具
@@ -219,7 +211,7 @@ class MessageHandler:
             logger.error(f"Tool call failed: {e}")
             await self._send_error(connection_id, f"Tool call failed: {str(e)}")
 
-    async def _handle_cancel(self, connection_id: str, message: dict) -> None:
+    async def _handle_cancel(self, connection_id: str, _message: dict) -> None:
         """
         处理取消请求
 

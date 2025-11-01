@@ -35,7 +35,7 @@ async def understand_image(request: VisionRequest):
         return response
     except Exception as e:
         logger.error(f"Vision understanding failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Vision understanding failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vision understanding failed: {str(e)}") from e
 
 
 @router.post("/understand/upload", response_model=VisionResponse)
@@ -72,4 +72,4 @@ async def understand_upload(
 
     except Exception as e:
         logger.error(f"Vision understanding failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Vision understanding failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vision understanding failed: {str(e)}") from e

@@ -18,7 +18,6 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
 
 import httpx
 
@@ -30,7 +29,7 @@ class RewriteResult:
     """重写结果"""
 
     original_query: str
-    rewritten_queries: List[str]
+    rewritten_queries: list[str]
     method: str  # template, llm, hybrid
     confidence: float
     latency_ms: float
@@ -42,7 +41,7 @@ class QueryRewritingService:
     def __init__(
         self,
         templates_path: str = "data/rewrite_templates.json",
-        llm_endpoint: Optional[str] = None,
+        llm_endpoint: str | None = None,
         llm_model: str = "qwen-1.8b-chat",
         enable_llm: bool = False,
         llm_timeout: float = 3.0,
@@ -71,12 +70,12 @@ class QueryRewritingService:
             f"templates={len(self.templates)}, llm_enabled={enable_llm}"
         )
 
-    def _load_templates(self) -> List[dict]:
+    def _load_templates(self) -> list[dict]:
         """加载重写模板"""
         try:
             templates_file = Path(self.templates_path)
             if templates_file.exists():
-                with open(templates_file, "r", encoding="utf-8") as f:
+                with open(templates_file, encoding="utf-8") as f:
                     data = json.load(f)
                     return data.get("patterns", [])
             else:
@@ -87,7 +86,7 @@ class QueryRewritingService:
             logger.warning(f"Failed to load templates: {e}, using defaults")
             return self._default_templates()
 
-    def _default_templates(self) -> List[dict]:
+    def _default_templates(self) -> list[dict]:
         """默认重写模板"""
         return [
             {
@@ -127,9 +126,7 @@ class QueryRewritingService:
             },
         ]
 
-    async def rewrite(
-        self, query: str, max_candidates: int = 3
-    ) -> RewriteResult:
+    async def rewrite(self, query: str, max_candidates: int = 3) -> RewriteResult:
         """
         重写查询
 
@@ -201,7 +198,7 @@ class QueryRewritingService:
                 latency_ms=(time.time() - start_time) * 1000,
             )
 
-    def _template_rewrite(self, query: str) -> List[str]:
+    def _template_rewrite(self, query: str) -> list[str]:
         """
         使用模板重写
 
@@ -228,15 +225,14 @@ class QueryRewritingService:
                     rewritten = template_str.replace("{matched}", groups[0])
                     candidates.append(rewritten)
                 elif len(groups) == 2:
-                    rewritten = (
-                        template_str.replace("{matched1}", groups[0])
-                        .replace("{matched2}", groups[1])
+                    rewritten = template_str.replace("{matched1}", groups[0]).replace(
+                        "{matched2}", groups[1]
                     )
                     candidates.append(rewritten)
 
         return candidates
 
-    async def _llm_rewrite(self, query: str) -> Optional[str]:
+    async def _llm_rewrite(self, query: str) -> str | None:
         """
         使用LLM重写
 
@@ -289,8 +285,8 @@ class QueryRewritingService:
         return prompt
 
     async def batch_rewrite(
-        self, queries: List[str], max_candidates: int = 3
-    ) -> List[RewriteResult]:
+        self, queries: list[str], max_candidates: int = 3
+    ) -> list[RewriteResult]:
         """
         批量重写
 

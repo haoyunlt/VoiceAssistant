@@ -1,8 +1,8 @@
 """Unit tests for pgvector backend"""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from app.backends.pgvector_backend import PgVectorBackend
 from app.core.exceptions import VectorStoreException
 
@@ -17,11 +17,12 @@ class TestPgVectorBackend:
         return PgVectorBackend(pgvector_config)
 
     @pytest.mark.asyncio
-    async def test_initialize_success(self, backend, pgvector_config):
+    async def test_initialize_success(self, backend, _pgvector_config):
         """Test successful initialization"""
-        with patch("app.backends.pgvector_backend.asyncpg.create_pool") as mock_create_pool, \
-             patch("app.backends.pgvector_backend.register_vector") as mock_register:
-
+        with (
+            patch("app.backends.pgvector_backend.asyncpg.create_pool") as mock_create_pool,
+            patch("app.backends.pgvector_backend.register_vector") as mock_register,
+        ):
             mock_pool = AsyncMock()
             mock_conn = AsyncMock()
 

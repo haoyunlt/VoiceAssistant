@@ -17,7 +17,7 @@ class PgVectorBackend(VectorStoreBackend):
     """PostgreSQL pgvector 向量数据库后端"""
 
     # 允许的表名字符（防止 SQL 注入）
-    VALID_TABLE_NAME_PATTERN = re.compile(r'^[a-zA-Z][a-zA-Z0-9_]{0,62}$')
+    VALID_TABLE_NAME_PATTERN = re.compile(r"^[a-zA-Z][a-zA-Z0-9_]{0,62}$")
 
     def __init__(self, config: dict[str, Any]):
         super().__init__(config, backend_name="pgvector")
@@ -76,7 +76,9 @@ class PgVectorBackend(VectorStoreBackend):
             logger.error(f"PostgreSQL health check failed: {e}")
             return False
 
-    async def _ensure_table_exists(self, conn: asyncpg.Connection, collection_name: str, dimension: int):
+    async def _ensure_table_exists(
+        self, conn: asyncpg.Connection, collection_name: str, dimension: int
+    ):
         """确保表存在"""
         # 验证表名（防止 SQL 注入）
         safe_table_name = self._validate_table_name(collection_name)
@@ -86,7 +88,8 @@ class PgVectorBackend(VectorStoreBackend):
 
         # 使用参数化查询创建表（使用 quote_ident 保证表名安全）
         # 注意：asyncpg 不支持表名参数化，需要手动验证和转义
-        await conn.execute(f"""
+        await conn.execute(
+            f"""
             CREATE TABLE IF NOT EXISTS {safe_table_name} (
                 id BIGSERIAL PRIMARY KEY,
                 chunk_id VARCHAR(128) NOT NULL,
@@ -97,7 +100,9 @@ class PgVectorBackend(VectorStoreBackend):
                 created_at BIGINT NOT NULL,
                 metadata JSONB
             )
-        """, dimension)
+        """,
+            dimension,
+        )
 
         # 创建索引
         await conn.execute(f"""
@@ -139,6 +144,7 @@ class PgVectorBackend(VectorStoreBackend):
 
             # 批量插入
             import time
+
             created_at = int(time.time() * 1000)
 
             await conn.executemany(
@@ -171,8 +177,8 @@ class PgVectorBackend(VectorStoreBackend):
         query_vector: list[float],
         top_k: int = 10,
         tenant_id: str | None = None,
-        filters: str | None = None,
-        search_params: dict | None = None,
+        _filters: str | None = None,
+        _search_params: dict | None = None,
     ) -> list[dict]:
         """向量检索"""
         # 验证表名
@@ -210,14 +216,16 @@ class PgVectorBackend(VectorStoreBackend):
             # 转换结果
             output = []
             for row in rows:
-                output.append({
-                    "chunk_id": row["chunk_id"],
-                    "document_id": row["document_id"],
-                    "content": row["content"],
-                    "tenant_id": row["tenant_id"],
-                    "score": float(row["score"]),
-                    "backend": "pgvector",
-                })
+                output.append(
+                    {
+                        "chunk_id": row["chunk_id"],
+                        "document_id": row["document_id"],
+                        "content": row["content"],
+                        "tenant_id": row["tenant_id"],
+                        "score": float(row["score"]),
+                        "backend": "pgvector",
+                    }
+                )
 
             logger.info(f"pgvector search returned {len(output)} results")
 
@@ -277,7 +285,7 @@ class PgVectorBackend(VectorStoreBackend):
         self,
         collection_name: str,
         dimension: int,
-        **kwargs,
+        **_kwargs,
     ):
         """创建集合"""
         # 验证表名

@@ -105,9 +105,7 @@ class RetrievalCritic:
         else:
             return self._assess_with_rules(query, documents)
 
-    async def _assess_with_llm(
-        self, query: str, documents: list[str]
-    ) -> RetrievalAssessment:
+    async def _assess_with_llm(self, query: str, documents: list[str]) -> RetrievalAssessment:
         """使用 LLM 评估检索质量"""
         # 限制文档数量以节省成本
         docs_sample = documents[: min(5, len(documents))]
@@ -182,9 +180,7 @@ need_rewrite: 如果检索质量低,是否建议重写查询以获得更好结�
                 relevant_docs += 1
                 total_relevance_score += relevance_score
 
-        avg_relevance = (
-            total_relevance_score / len(documents) if documents else 0.0
-        )
+        avg_relevance = total_relevance_score / len(documents) if documents else 0.0
 
         # 判断相关性等级
         if avg_relevance >= 0.7:

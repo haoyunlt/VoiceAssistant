@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class Usage(BaseModel):
     """Token使用统计"""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -12,6 +13,7 @@ class Usage(BaseModel):
 
 class ChatChoice(BaseModel):
     """聊天选项"""
+
     index: int
     message: dict[str, str]
     finish_reason: str | None = None
@@ -19,6 +21,7 @@ class ChatChoice(BaseModel):
 
 class ChatResponse(BaseModel):
     """聊天响应"""
+
     id: str
     model: str
     provider: str
@@ -29,6 +32,7 @@ class ChatResponse(BaseModel):
 
 class CompletionChoice(BaseModel):
     """补全选项"""
+
     index: int
     text: str
     finish_reason: str | None = None
@@ -36,6 +40,7 @@ class CompletionChoice(BaseModel):
 
 class CompletionResponse(BaseModel):
     """补全响应"""
+
     id: str
     model: str
     provider: str
@@ -46,6 +51,7 @@ class CompletionResponse(BaseModel):
 
 class EmbeddingData(BaseModel):
     """嵌入数据"""
+
     index: int
     embedding: list[float]
     object: str = "embedding"
@@ -53,6 +59,7 @@ class EmbeddingData(BaseModel):
 
 class EmbeddingResponse(BaseModel):
     """向量化响应"""
+
     model: str
     provider: str
     data: list[EmbeddingData]

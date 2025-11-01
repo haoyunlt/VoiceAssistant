@@ -1,4 +1,5 @@
 """目标检测服务"""
+
 import io
 
 import cv2
@@ -12,6 +13,7 @@ from app.core.logging import logger
 
 class DetectedObject(BaseModel):
     """检测到的对象"""
+
     class_name: str
     confidence: float
     bbox: list[int]  # [x, y, width, height]
@@ -20,6 +22,7 @@ class DetectedObject(BaseModel):
 
 class DetectionResult(BaseModel):
     """检测结果"""
+
     objects: list[DetectedObject]
     num_objects: int
     image_size: list[int]  # [width, height]
@@ -79,23 +82,93 @@ class ObjectDetectionService:
     def _load_coco_names(self) -> list[str]:
         """加载COCO数据集类别名称"""
         return [
-            "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
-            "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-            "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-            "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball",
-            "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket",
-            "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-            "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair",
-            "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
-            "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
-            "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
+            "person",
+            "bicycle",
+            "car",
+            "motorcycle",
+            "airplane",
+            "bus",
+            "train",
+            "truck",
+            "boat",
+            "traffic light",
+            "fire hydrant",
+            "stop sign",
+            "parking meter",
+            "bench",
+            "bird",
+            "cat",
+            "dog",
+            "horse",
+            "sheep",
+            "cow",
+            "elephant",
+            "bear",
+            "zebra",
+            "giraffe",
+            "backpack",
+            "umbrella",
+            "handbag",
+            "tie",
+            "suitcase",
+            "frisbee",
+            "skis",
+            "snowboard",
+            "sports ball",
+            "kite",
+            "baseball bat",
+            "baseball glove",
+            "skateboard",
+            "surfboard",
+            "tennis racket",
+            "bottle",
+            "wine glass",
+            "cup",
+            "fork",
+            "knife",
+            "spoon",
+            "bowl",
+            "banana",
+            "apple",
+            "sandwich",
+            "orange",
+            "broccoli",
+            "carrot",
+            "hot dog",
+            "pizza",
+            "donut",
+            "cake",
+            "chair",
+            "couch",
+            "potted plant",
+            "bed",
+            "dining table",
+            "toilet",
+            "tv",
+            "laptop",
+            "mouse",
+            "remote",
+            "keyboard",
+            "cell phone",
+            "microwave",
+            "oven",
+            "toaster",
+            "sink",
+            "refrigerator",
+            "book",
+            "clock",
+            "vase",
+            "scissors",
+            "teddy bear",
+            "hair drier",
+            "toothbrush",
         ]
 
     async def detect_objects(
         self,
         image_data: bytes,
         confidence_threshold: float | None = None,
-        nms_threshold: float | None = None
+        nms_threshold: float | None = None,
     ) -> DetectionResult:
         """检测图像中的对象
 
@@ -116,20 +189,18 @@ class ObjectDetectionService:
             nms_threshold = self.nms_threshold
 
         import time
+
         start_time = time.time()
 
         try:
             # 加载图像
             image = Image.open(io.BytesIO(image_data))
-            image_np = np.array(image.convert('RGB'))
+            image_np = np.array(image.convert("RGB"))
 
             # 使用ultralytics YOLO
-            if hasattr(self.model, 'predict'):
+            if hasattr(self.model, "predict"):
                 results = self.model.predict(
-                    image_np,
-                    conf=confidence_threshold,
-                    iou=nms_threshold,
-                    verbose=False
+                    image_np, conf=confidence_threshold, iou=nms_threshold, verbose=False
                 )[0]
 
                 objects = []
@@ -143,12 +214,14 @@ class ObjectDetectionService:
                     center_x = int(x1 + width / 2)
                     center_y = int(y1 + height / 2)
 
-                    objects.append(DetectedObject(
-                        class_name=self.class_names[class_id],
-                        confidence=confidence,
-                        bbox=[int(x1), int(y1), width, height],
-                        center=[center_x, center_y]
-                    ))
+                    objects.append(
+                        DetectedObject(
+                            class_name=self.class_names[class_id],
+                            confidence=confidence,
+                            bbox=[int(x1), int(y1), width, height],
+                            center=[center_x, center_y],
+                        )
+                    )
             else:
                 # 使用OpenCV DNN
                 objects = await self._detect_with_opencv(
@@ -161,26 +234,20 @@ class ObjectDetectionService:
                 objects=objects,
                 num_objects=len(objects),
                 image_size=[image.width, image.height],
-                processing_time_ms=processing_time
+                processing_time_ms=processing_time,
             )
         except Exception as e:
             logger.error(f"Object detection error: {e}")
             raise
 
     async def _detect_with_opencv(
-        self,
-        image: np.ndarray,
-        confidence_threshold: float,
-        nms_threshold: float
+        self, image: np.ndarray, confidence_threshold: float, nms_threshold: float
     ) -> list[DetectedObject]:
         """使用OpenCV DNN检测"""
         height, width = image.shape[:2]
 
         # 创建blob
-        blob = cv2.dnn.blobFromImage(
-            image, 1/255.0, (416, 416),
-            swapRB=True, crop=False
-        )
+        blob = cv2.dnn.blobFromImage(image, 1 / 255.0, (416, 416), swapRB=True, crop=False)
 
         # 前向传播
         self.model.setInput(blob)
@@ -212,27 +279,25 @@ class ObjectDetectionService:
                     class_ids.append(class_id)
 
         # 非极大值抑制
-        indices = cv2.dnn.NMSBoxes(
-            boxes, confidences, confidence_threshold, nms_threshold
-        )
+        indices = cv2.dnn.NMSBoxes(boxes, confidences, confidence_threshold, nms_threshold)
 
         objects = []
         if len(indices) > 0:
             for i in indices.flatten():
                 x, y, w, h = boxes[i]
-                objects.append(DetectedObject(
-                    class_name=self.class_names[class_ids[i]],
-                    confidence=confidences[i],
-                    bbox=[x, y, w, h],
-                    center=[x + w // 2, y + h // 2]
-                ))
+                objects.append(
+                    DetectedObject(
+                        class_name=self.class_names[class_ids[i]],
+                        confidence=confidences[i],
+                        bbox=[x, y, w, h],
+                        center=[x + w // 2, y + h // 2],
+                    )
+                )
 
         return objects
 
     async def detect_and_annotate(
-        self,
-        image_data: bytes,
-        confidence_threshold: float | None = None
+        self, image_data: bytes, confidence_threshold: float | None = None
     ) -> tuple[DetectionResult, bytes]:
         """检测并标注图像
 
@@ -248,41 +313,28 @@ class ObjectDetectionService:
 
         # 加载图像
         image = Image.open(io.BytesIO(image_data))
-        image_np = np.array(image.convert('RGB'))
+        image_np = np.array(image.convert("RGB"))
 
         # 绘制边界框
         for obj in result.objects:
             x, y, w, h = obj.bbox
 
             # 绘制矩形
-            cv2.rectangle(
-                image_np,
-                (x, y), (x + w, y + h),
-                (0, 255, 0), 2
-            )
+            cv2.rectangle(image_np, (x, y), (x + w, y + h), (0, 255, 0), 2)
 
             # 绘制标签
             label = f"{obj.class_name}: {obj.confidence:.2f}"
-            cv2.putText(
-                image_np,
-                label,
-                (x, y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5, (0, 255, 0), 2
-            )
+            cv2.putText(image_np, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         # 转换回bytes
         annotated_image = Image.fromarray(image_np)
         output_buffer = io.BytesIO()
-        annotated_image.save(output_buffer, format='JPEG')
+        annotated_image.save(output_buffer, format="JPEG")
         output_buffer.seek(0)
 
         return result, output_buffer.read()
 
-    async def count_objects_by_class(
-        self,
-        detection_result: DetectionResult
-    ) -> dict[str, int]:
+    async def count_objects_by_class(self, detection_result: DetectionResult) -> dict[str, int]:
         """统计各类对象数量
 
         Args:

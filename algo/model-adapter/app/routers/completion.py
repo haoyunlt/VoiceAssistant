@@ -1,4 +1,5 @@
 """补全接口路由"""
+
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -38,4 +39,4 @@ async def create_completion(request: CompletionRequest):
 
     except Exception as e:
         logger.error(f"Completion failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

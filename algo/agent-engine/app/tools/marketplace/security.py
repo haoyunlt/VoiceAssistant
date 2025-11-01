@@ -14,31 +14,27 @@ class SecurityChecker:
     """Security checker for tool functions"""
 
     DANGEROUS_FUNCTIONS = {
-        'eval', 'exec', 'compile', '__import__',
-        'system', 'popen', 'spawn', 'fork',
-        'rmdir', 'remove', 'unlink', 'rmtree'
+        "eval",
+        "exec",
+        "compile",
+        "__import__",
+        "system",
+        "popen",
+        "spawn",
+        "fork",
+        "rmdir",
+        "remove",
+        "unlink",
+        "rmtree",
     }
 
-    DANGEROUS_MODULES = {
-        'os', 'sys', 'subprocess', 'shutil',
-        'pickle', 'shelve', 'marshal'
-    }
+    DANGEROUS_MODULES = {"os", "sys", "subprocess", "shutil", "pickle", "shelve", "marshal"}
 
-    FILE_OPERATIONS = {
-        'open', 'read', 'write', 'remove',
-        'mkdir', 'rmdir', 'listdir'
-    }
+    FILE_OPERATIONS = {"open", "read", "write", "remove", "mkdir", "rmdir", "listdir"}
 
-    NETWORK_MODULES = {
-        'requests', 'urllib', 'http', 'socket',
-        'ftplib', 'smtplib', 'telnetlib'
-    }
+    NETWORK_MODULES = {"requests", "urllib", "http", "socket", "ftplib", "smtplib", "telnetlib"}
 
-    def check_function(
-        self,
-        func: Callable,
-        permissions
-    ) -> bool:
+    def check_function(self, func: Callable, permissions) -> bool:
         """Check if function is safe to execute"""
         try:
             # Get function source code
@@ -70,11 +66,7 @@ class SecurityChecker:
             logger.error(f"Security check failed: {e}")
             return False
 
-    def _check_function_calls(
-        self,
-        tree: ast.AST,
-        permissions
-    ) -> list[str]:
+    def _check_function_calls(self, tree: ast.AST, permissions) -> list[str]:
         """Check for dangerous function calls"""
         issues = []
 
@@ -87,19 +79,13 @@ class SecurityChecker:
                     issues.append(f"Dangerous function: {func_name}")
 
                 # Check file operations
-                if func_name in self.FILE_OPERATIONS:
+                if func_name in self.FILE_OPERATIONS:  # noqa: SIM102
                     if not permissions.file_system_access:
-                        issues.append(
-                            f"File operation without permission: {func_name}"
-                        )
+                        issues.append(f"File operation without permission: {func_name}")
 
         return issues
 
-    def _check_imports(
-        self,
-        tree: ast.AST,
-        permissions
-    ) -> list[str]:
+    def _check_imports(self, tree: ast.AST, permissions) -> list[str]:
         """Check for dangerous imports"""
         issues = []
 
@@ -113,11 +99,9 @@ class SecurityChecker:
                         issues.append(f"Dangerous module: {module}")
 
                     # Check network modules
-                    if module in self.NETWORK_MODULES:
+                    if module in self.NETWORK_MODULES:  # noqa: SIM102
                         if not permissions.network_access:
-                            issues.append(
-                                f"Network module without permission: {module}"
-                            )
+                            issues.append(f"Network module without permission: {module}")
 
             elif isinstance(node, ast.ImportFrom):
                 module = node.module
@@ -127,19 +111,13 @@ class SecurityChecker:
                         issues.append(f"Dangerous module: {module}")
 
                     # Check network modules
-                    if module in self.NETWORK_MODULES:
+                    if module in self.NETWORK_MODULES:  # noqa: SIM102
                         if not permissions.network_access:
-                            issues.append(
-                                f"Network module without permission: {module}"
-                            )
+                            issues.append(f"Network module without permission: {module}")
 
         return issues
 
-    def _check_attributes(
-        self,
-        tree: ast.AST,
-        permissions
-    ) -> list[str]:
+    def _check_attributes(self, tree: ast.AST, _permissions) -> list[str]:
         """Check for dangerous attribute access"""
         issues = []
 
@@ -148,7 +126,7 @@ class SecurityChecker:
                 attr_name = node.attr
 
                 # Check dangerous attributes
-                if attr_name.startswith('__') and attr_name.endswith('__'):
+                if attr_name.startswith("__") and attr_name.endswith("__"):
                     issues.append(f"Accessing dunder attribute: {attr_name}")
 
         return issues
@@ -172,16 +150,10 @@ class SecurityChecker:
             node_count = sum(1 for _ in ast.walk(tree))
 
             # Count loops
-            loop_count = sum(
-                1 for node in ast.walk(tree)
-                if isinstance(node, (ast.For, ast.While))
-            )
+            loop_count = sum(1 for node in ast.walk(tree) if isinstance(node, (ast.For, ast.While)))
 
             # Count conditionals
-            conditional_count = sum(
-                1 for node in ast.walk(tree)
-                if isinstance(node, ast.If)
-            )
+            conditional_count = sum(1 for node in ast.walk(tree) if isinstance(node, ast.If))
 
             # Calculate cyclomatic complexity (simplified)
             complexity = 1 + loop_count + conditional_count
@@ -191,10 +163,9 @@ class SecurityChecker:
                 "loop_count": loop_count,
                 "conditional_count": conditional_count,
                 "complexity": complexity,
-                "is_simple": complexity < 10
+                "is_simple": complexity < 10,
             }
 
         except Exception as e:
             logger.error(f"Complexity check failed: {e}")
             return {"complexity": 999, "is_simple": False}
-

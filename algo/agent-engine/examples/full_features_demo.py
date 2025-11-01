@@ -41,9 +41,7 @@ async def demo_1_observability():
     tracer.record_action(task_id, "Use calculator", "calculator", {"expression": "(10 + 20) * 3"})
 
     # 模拟工具调用
-    tracer.record_tool_call(
-        task_id, "calculator", {"expression": "(10 + 20) * 3"}, 45, True, "90"
-    )
+    tracer.record_tool_call(task_id, "calculator", {"expression": "(10 + 20) * 3"}, 45, True, "90")
 
     # 模拟 LLM 调用
     tracer.record_llm_call(task_id, "gpt-4", 100, 50, 800, 0.005)
@@ -230,7 +228,9 @@ async def demo_4_all_together():
     print("\n4️⃣  执行任务...")
     tracer.record_thought(task_id, "I will analyze the code using static analysis tools")
     tracer.record_action(task_id, "Run linter", "code_analyzer", {"path": "/src"})
-    tracer.record_tool_call(task_id, "code_analyzer", {"path": "/src"}, 1200, True, "Analysis complete")
+    tracer.record_tool_call(
+        task_id, "code_analyzer", {"path": "/src"}, 1200, True, "Analysis complete"
+    )
     print("  ✅ 任务执行中...")
 
     # 5. 记录成本

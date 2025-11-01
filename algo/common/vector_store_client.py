@@ -184,4 +184,3 @@ class VectorStoreClient:
         """关闭连接"""
         await self.client.aclose()
         logger.info("VectorStoreClient connection closed")
-

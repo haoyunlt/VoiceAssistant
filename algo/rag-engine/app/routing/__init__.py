@@ -8,4 +8,3 @@ __all__ = [
     "ModelSelector",
     "get_model_selector",
 ]
-

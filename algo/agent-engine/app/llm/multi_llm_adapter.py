@@ -57,9 +57,7 @@ class MultiLLMAdapter:
             try:
                 from app.llm.openai_client import OpenAIClient
 
-                self.openai_client = OpenAIClient(
-                    model=openai_model, api_key=openai_api_key
-                )
+                self.openai_client = OpenAIClient(model=openai_model, api_key=openai_api_key)
                 logger.info("OpenAI client initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize OpenAI: {e}")
@@ -69,9 +67,7 @@ class MultiLLMAdapter:
             try:
                 from app.llm.claude_client import ClaudeClient
 
-                self.claude_client = ClaudeClient(
-                    model=claude_model, api_key=claude_api_key
-                )
+                self.claude_client = ClaudeClient(model=claude_model, api_key=claude_api_key)
                 logger.info("Claude client initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize Claude: {e}")
@@ -80,9 +76,7 @@ class MultiLLMAdapter:
         try:
             from app.llm.ollama_client import OllamaClient
 
-            self.ollama_client = OllamaClient(
-                model=ollama_model, base_url=ollama_base_url
-            )
+            self.ollama_client = OllamaClient(model=ollama_model, base_url=ollama_base_url)
             logger.info("Ollama client initialized")
         except Exception as e:
             logger.warning(f"Failed to initialize Ollama: {e}")
@@ -152,9 +146,7 @@ class MultiLLMAdapter:
                 continue
 
         # 所有提供商都失败
-        raise Exception(
-            f"All LLM providers failed. Last error: {last_error}"
-        )
+        raise Exception(f"All LLM providers failed. Last error: {last_error}")
 
     async def complete_stream(
         self,
@@ -214,9 +206,7 @@ class MultiLLMAdapter:
                 continue
 
         # 所有提供商都失败
-        raise Exception(
-            f"All LLM providers failed for streaming. Last error: {last_error}"
-        )
+        raise Exception(f"All LLM providers failed for streaming. Last error: {last_error}")
 
     def _get_client(self, provider: str) -> LLMClient | None:
         """
@@ -228,14 +218,12 @@ class MultiLLMAdapter:
         Returns:
             LLM 客户端或 None
         """
-        if provider == "openai":
-            return self.openai_client
-        elif provider == "claude":
-            return self.claude_client
-        elif provider == "ollama":
-            return self.ollama_client
-        else:
-            return None
+        clients = {
+            "openai": self.openai_client,
+            "claude": self.claude_client,
+            "ollama": self.ollama_client,
+        }
+        return clients.get(provider)
 
     def get_status(self) -> dict[str, Any]:
         """

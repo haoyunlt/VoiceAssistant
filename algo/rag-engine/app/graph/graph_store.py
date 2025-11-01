@@ -247,9 +247,7 @@ class GraphStore:
 
         try:
             paths = []
-            for path in nx.all_simple_paths(
-                self.graph, source_id, target_id, cutoff=max_hops
-            ):
+            for path in nx.all_simple_paths(self.graph, source_id, target_id, cutoff=max_hops):
                 path_nodes = []
                 for i, node_id in enumerate(path):
                     node_data = dict(self.graph.nodes[node_id])
@@ -395,4 +393,3 @@ def get_graph_store(
         )
 
     return _graph_store
-

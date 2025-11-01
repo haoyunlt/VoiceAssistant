@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 class ToolMetadata(BaseModel):
     """Tool metadata"""
+
     name: str = Field(..., description="Tool name")
     version: str = Field(..., description="Semantic version")
     author: str = Field(..., description="Author email/name")
@@ -35,6 +36,7 @@ class ToolMetadata(BaseModel):
 
 class ToolPermissions(BaseModel):
     """Tool execution permissions"""
+
     network_access: bool = Field(default=False, description="Network access allowed")
     file_system_access: bool = Field(default=False, description="File system access allowed")
     database_access: bool = Field(default=False, description="Database access allowed")
@@ -75,17 +77,14 @@ class ToolMarketplace:
         """Save tool registry to disk"""
         registry_file = f"{self.registry_path}/registry.json"
         try:
-            with open(registry_file, 'w') as f:
+            with open(registry_file, "w") as f:
                 json.dump(self.tools, f, indent=2, default=str)
             logger.info(f"Saved {len(self.tools)} tools to registry")
         except Exception as e:
             logger.error(f"Failed to save registry: {e}")
 
     def register_tool(
-        self,
-        tool_func: Callable,
-        metadata: ToolMetadata,
-        permissions: ToolPermissions
+        self, tool_func: Callable, metadata: ToolMetadata, permissions: ToolPermissions
     ) -> str:
         """Register a new tool"""
         try:
@@ -112,7 +111,7 @@ class ToolMarketplace:
                 "checksum": checksum,
                 "registered_at": datetime.utcnow().isoformat(),
                 "usage_count": 0,
-                "last_used": None
+                "last_used": None,
             }
 
             self.tools[tool_id] = tool_info
@@ -126,10 +125,7 @@ class ToolMarketplace:
             raise
 
     async def execute_tool(
-        self,
-        tool_id: str,
-        inputs: dict[str, Any],
-        user_id: str | None = None
+        self, tool_id: str, inputs: dict[str, Any], user_id: str | None = None
     ) -> Any:
         """Execute a tool"""
         try:
@@ -170,10 +166,7 @@ class ToolMarketplace:
             raise
 
     def search_tools(
-        self,
-        query: str | None = None,
-        category: str | None = None,
-        tags: list[str] | None = None
+        self, query: str | None = None, category: str | None = None, tags: list[str] | None = None
     ) -> list[dict]:
         """Search for tools"""
         results = []
@@ -196,15 +189,17 @@ class ToolMarketplace:
                     continue
 
             # Add to results
-            results.append({
-                "id": tool_id,
-                "name": metadata["name"],
-                "description": metadata["description"],
-                "category": metadata["category"],
-                "author": metadata["author"],
-                "version": metadata["version"],
-                "usage_count": tool_info.get("usage_count", 0)
-            })
+            results.append(
+                {
+                    "id": tool_id,
+                    "name": metadata["name"],
+                    "description": metadata["description"],
+                    "category": metadata["category"],
+                    "author": metadata["author"],
+                    "version": metadata["version"],
+                    "usage_count": tool_info.get("usage_count", 0),
+                }
+            )
 
         # Sort by usage count
         results.sort(key=lambda x: x["usage_count"], reverse=True)
@@ -224,19 +219,13 @@ class ToolMarketplace:
             return True
         return False
 
-    def _validate_signature(
-        self,
-        sig: inspect.Signature,
-        params: dict[str, Any]
-    ):
+    def _validate_signature(self, sig: inspect.Signature, params: dict[str, Any]):
         """Validate function signature matches parameter definition"""
         sig_params = set(sig.parameters.keys())
         declared_params = set(params.keys())
 
         if sig_params != declared_params:
-            raise ValueError(
-                f"Parameter mismatch: {sig_params} vs {declared_params}"
-            )
+            raise ValueError(f"Parameter mismatch: {sig_params} vs {declared_params}")
 
     def _generate_tool_id(self, metadata: ToolMetadata) -> str:
         """Generate unique tool ID"""
@@ -254,7 +243,7 @@ class ToolMarketplace:
 
     def _load_tool_function(self, function_path: str) -> Callable:
         """Dynamically load tool function"""
-        module_path, func_name = function_path.rsplit('.', 1)
+        module_path, func_name = function_path.rsplit(".", 1)
         module = importlib.import_module(module_path)
         return getattr(module, func_name)
 
@@ -272,21 +261,23 @@ class ToolMarketplace:
             "total_tools": total_tools,
             "total_usage": total_usage,
             "categories": categories,
-            "avg_usage_per_tool": total_usage / total_tools if total_tools > 0 else 0
+            "avg_usage_per_tool": total_usage / total_tools if total_tools > 0 else 0,
         }
 
 
 class ToolNotFoundError(Exception):
     """Tool not found error"""
+
     pass
 
 
 class AuthenticationError(Exception):
     """Authentication error"""
+
     pass
 
 
 class SecurityError(Exception):
     """Security error"""
-    pass
 
+    pass

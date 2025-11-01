@@ -14,9 +14,7 @@ Embedding Cache - Embedding缓存
 
 import asyncio
 import hashlib
-import json
 import time
-from typing import List, Optional
 
 import numpy as np
 from redis.asyncio import Redis
@@ -54,11 +52,9 @@ class EmbeddingCache:
         self.ttl = ttl
         self.max_cache_size = max_cache_size
 
-        self.redis: Optional[Redis] = None
+        self.redis: Redis | None = None
 
-        logger.info(
-            f"Embedding cache initialized: ttl={ttl}s, max_size={max_cache_size}"
-        )
+        logger.info(f"Embedding cache initialized: ttl={ttl}s, max_size={max_cache_size}")
 
     async def connect(self):
         """连接Redis"""
@@ -72,7 +68,7 @@ class EmbeddingCache:
             )
             logger.info("Embedding cache connected to Redis")
 
-    async def get(self, text: str, model: str = "default") -> Optional[np.ndarray]:
+    async def get(self, text: str, model: str = "default") -> np.ndarray | None:
         """
         获取缓存的embedding
 
@@ -103,9 +99,7 @@ class EmbeddingCache:
             logger.error(f"Embedding cache get error: {e}", exc_info=True)
             return None
 
-    async def set(
-        self, text: str, embedding: np.ndarray, model: str = "default"
-    ):
+    async def set(self, text: str, embedding: np.ndarray, model: str = "default"):
         """
         设置缓存
 
@@ -127,9 +121,7 @@ class EmbeddingCache:
             await self.redis.setex(cache_key, self.ttl, embedding_bytes)
 
             # 添加到LRU
-            await self.redis.zadd(
-                "embedding_cache:lru", {cache_key: time.time()}, nx=True
-            )
+            await self.redis.zadd("embedding_cache:lru", {cache_key: time.time()}, nx=True)
 
             # 检查缓存大小
             await self._evict_if_needed()
@@ -139,9 +131,7 @@ class EmbeddingCache:
         except Exception as e:
             logger.error(f"Embedding cache set error: {e}", exc_info=True)
 
-    async def get_batch(
-        self, texts: List[str], model: str = "default"
-    ) -> List[Optional[np.ndarray]]:
+    async def get_batch(self, texts: list[str], model: str = "default") -> list[np.ndarray | None]:
         """
         批量获取缓存
 
@@ -156,7 +146,7 @@ class EmbeddingCache:
         return await asyncio.gather(*tasks)
 
     async def set_batch(
-        self, texts: List[str], embeddings: List[np.ndarray], model: str = "default"
+        self, texts: list[str], embeddings: list[np.ndarray], model: str = "default"
     ):
         """
         批量设置缓存
@@ -166,9 +156,7 @@ class EmbeddingCache:
             embeddings: Embedding列表
             model: 模型名称
         """
-        tasks = [
-            self.set(text, emb, model) for text, emb in zip(texts, embeddings)
-        ]
+        tasks = [self.set(text, emb, model) for text, emb in zip(texts, embeddings, strict=False)]
         await asyncio.gather(*tasks)
 
     def _make_key(self, text: str, model: str) -> str:

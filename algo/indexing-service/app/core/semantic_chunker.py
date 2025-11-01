@@ -133,13 +133,13 @@ class SemanticChunker:
             句子列表
         """
         # 中文句子结束符
-        chinese_pattern = r'[。！？；]+'
+        chinese_pattern = r"[。！？；]+"
 
         # 英文句子结束符
-        english_pattern = r'[.!?;]+\s+'
+        english_pattern = r"[.!?;]+\s+"
 
         # 组合模式
-        pattern = f'({chinese_pattern}|{english_pattern})'
+        pattern = f"({chinese_pattern}|{english_pattern})"
 
         # 分割
         segments = re.split(pattern, text)
@@ -148,7 +148,7 @@ class SemanticChunker:
         sentences = []
         current_sentence = ""
 
-        for i, segment in enumerate(segments):
+        for _i, segment in enumerate(segments):
             if segment.strip():
                 if re.match(pattern, segment):
                     # 分隔符，加到当前句子
@@ -230,7 +230,9 @@ class SemanticChunker:
         split_indices = [0]  # 起始点
         current_chunk_size = 0
 
-        for i, (sentence, similarity) in enumerate(zip(sentences, similarities + [0.0], strict=False)):
+        for i, (sentence, similarity) in enumerate(
+            zip(sentences, similarities + [0.0], strict=False)
+        ):
             current_chunk_size += len(sentence)
 
             # 判断是否需要切分

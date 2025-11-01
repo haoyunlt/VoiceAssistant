@@ -9,24 +9,19 @@ from datetime import datetime
 
 # 设置日志
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
 
 async def demo_self_rag():
     """演示 Self-RAG 功能"""
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("1. Self-RAG 演示")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     # 模拟导入（实际使用时需要真实的依赖）
     try:
-        from app.core.self_rag.self_rag_service import SelfRAGService
-        from app.core.self_rag.adaptive_retriever import AdaptiveRetriever
-        from app.core.self_rag.critique import RetrievalCritic
-        from app.core.self_rag.hallucination_detector import HallucinationDetector
 
         logger.info("✓ Self-RAG 模块导入成功")
 
@@ -52,7 +47,7 @@ async def demo_self_rag():
             # 模拟结果
             result = {
                 "query": query,
-                "answer": f"这是一个高质量的回答，包含了从知识库检索到的准确信息...",
+                "answer": "这是一个高质量的回答，包含了从知识库检索到的准确信息...",
                 "confidence": 0.92,
                 "retrieval_strategy": "hybrid",
                 "refinement_count": 1,
@@ -61,7 +56,7 @@ async def demo_self_rag():
                 "citations": [
                     {"source": "doc_001", "text": "..."},
                     {"source": "doc_042", "text": "..."},
-                ]
+                ],
             }
 
             logger.info(f"  答案: {result['answer'][:60]}...")
@@ -82,13 +77,11 @@ async def demo_self_rag():
 
 async def demo_smart_memory():
     """演示智能记忆管理功能"""
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("2. 智能记忆管理演示")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     try:
-        from app.core.memory.smart_memory_manager import SmartMemoryManager, MemoryTier
-
         logger.info("✓ 智能记忆模块导入成功")
 
         # 模拟添加记忆
@@ -110,8 +103,8 @@ async def demo_smart_memory():
         logger.info("-" * 40)
         query = "用户对RAG感兴趣吗？"
         logger.info(f"  查询: {query}")
-        logger.info(f"  → 混合检索（语义 + 时间 + 重要性）...")
-        logger.info(f"  ✓ 找到 2 条相关记忆")
+        logger.info("  → 混合检索（语义 + 时间 + 重要性）...")
+        logger.info("  ✓ 找到 2 条相关记忆")
 
         # 模拟压缩
         logger.info("\n记忆压缩:")
@@ -158,14 +151,11 @@ async def demo_smart_memory():
 
 async def demo_multi_agent():
     """演示 Multi-Agent 协作功能"""
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("3. Multi-Agent 协作演示")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     try:
-        from app.core.multi_agent.enhanced_coordinator import EnhancedMultiAgentCoordinator
-        from app.core.multi_agent.coordinator import Agent, AgentRole
-
         logger.info("✓ Multi-Agent 模块导入成功")
 
         # 模拟注册 Agents
@@ -188,60 +178,60 @@ async def demo_multi_agent():
         logger.info("-" * 40)
         task = "分析人工智能在医疗领域的应用现状和未来趋势"
         logger.info(f"  任务: {task}")
-        logger.info(f"  模式: parallel")
-        logger.info(f"  → Coordinator 分解任务...")
-        logger.info(f"    - Researcher: 收集最新AI医疗应用案例")
-        logger.info(f"    - Planner: 制定趋势分析框架")
-        logger.info(f"    - Executor: 执行数据分析")
-        logger.info(f"  → 所有 Agents 并行执行...")
-        logger.info(f"  → Coordinator 合并结果...")
-        logger.info(f"  → Reviewer 质量检查...")
-        logger.info(f"  ✓ 完成！质量评分: 0.88")
+        logger.info("  模式: parallel")
+        logger.info("  → Coordinator 分解任务...")
+        logger.info("    - Researcher: 收集最新AI医疗应用案例")
+        logger.info("    - Planner: 制定趋势分析框架")
+        logger.info("    - Executor: 执行数据分析")
+        logger.info("  → 所有 Agents 并行执行...")
+        logger.info("  → Coordinator 合并结果...")
+        logger.info("  → Reviewer 质量检查...")
+        logger.info("  ✓ 完成！质量评分: 0.88")
 
         # 模拟辩论模式
         logger.info("\n协作场景 2: 辩论模式")
         logger.info("-" * 40)
         task = "AI是否应该替代人类医生进行诊断？"
         logger.info(f"  任务: {task}")
-        logger.info(f"  模式: debate")
-        logger.info(f"  → 第1轮辩论...")
-        logger.info(f"    - Researcher: 支持方论点")
-        logger.info(f"    - Planner: 反对方论点")
-        logger.info(f"  → 第2轮辩论...")
-        logger.info(f"    - Researcher: 反驳")
-        logger.info(f"    - Planner: 反驳")
-        logger.info(f"  → 第3轮：寻找共识...")
-        logger.info(f"  ✓ 达成共识: AI应辅助而非替代人类医生")
+        logger.info("  模式: debate")
+        logger.info("  → 第1轮辩论...")
+        logger.info("    - Researcher: 支持方论点")
+        logger.info("    - Planner: 反对方论点")
+        logger.info("  → 第2轮辩论...")
+        logger.info("    - Researcher: 反驳")
+        logger.info("    - Planner: 反驳")
+        logger.info("  → 第3轮：寻找共识...")
+        logger.info("  ✓ 达成共识: AI应辅助而非替代人类医生")
 
         # 模拟投票模式
         logger.info("\n协作场景 3: 投票模式")
         logger.info("-" * 40)
         task = "选择最佳的AI模型部署方案"
         logger.info(f"  任务: {task}")
-        logger.info(f"  模式: voting")
-        logger.info(f"  候选方案: [云端部署, 边缘部署, 混合部署]")
-        logger.info(f"  → 所有 Agents 独立分析...")
-        logger.info(f"  → 投票结果:")
-        logger.info(f"    - 云端部署: 1 票")
-        logger.info(f"    - 边缘部署: 1 票")
-        logger.info(f"    - 混合部署: 3 票 ★")
-        logger.info(f"  ✓ 最终决策: 混合部署")
+        logger.info("  模式: voting")
+        logger.info("  候选方案: [云端部署, 边缘部署, 混合部署]")
+        logger.info("  → 所有 Agents 独立分析...")
+        logger.info("  → 投票结果:")
+        logger.info("    - 云端部署: 1 票")
+        logger.info("    - 边缘部署: 1 票")
+        logger.info("    - 混合部署: 3 票 ★")
+        logger.info("  ✓ 最终决策: 混合部署")
 
         # 模拟分层模式
         logger.info("\n协作场景 4: 分层模式")
         logger.info("-" * 40)
         task = "构建完整的AI客服系统"
         logger.info(f"  任务: {task}")
-        logger.info(f"  模式: hierarchical")
-        logger.info(f"  → Coordinator 规划整体架构...")
-        logger.info(f"  → 分配给 Workers:")
-        logger.info(f"    - Researcher: 调研现有解决方案")
-        logger.info(f"    - Planner: 设计系统架构")
-        logger.info(f"    - Executor: 实现核心功能")
-        logger.info(f"  → Workers 向 Coordinator 汇报进度...")
-        logger.info(f"  → Coordinator 协调和决策...")
-        logger.info(f"  → Reviewer 最终审查...")
-        logger.info(f"  ✓ 完成！系统已上线")
+        logger.info("  模式: hierarchical")
+        logger.info("  → Coordinator 规划整体架构...")
+        logger.info("  → 分配给 Workers:")
+        logger.info("    - Researcher: 调研现有解决方案")
+        logger.info("    - Planner: 设计系统架构")
+        logger.info("    - Executor: 实现核心功能")
+        logger.info("  → Workers 向 Coordinator 汇报进度...")
+        logger.info("  → Coordinator 协调和决策...")
+        logger.info("  → Reviewer 最终审查...")
+        logger.info("  ✓ 完成！系统已上线")
 
         # 统计信息
         logger.info("\n协作统计:")
@@ -274,9 +264,9 @@ async def demo_multi_agent():
 
 async def demo_integrated_scenario():
     """演示三个功能集成使用的完整场景"""
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("4. 集成场景演示：智能客服问答")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     scenario = """
     场景: 用户询问复杂的技术问题
@@ -334,36 +324,36 @@ async def demo_integrated_scenario():
     logger.info("    - 性能优化建议")
 
     logger.info("\n✓ 集成场景演示完成")
-    logger.info(f"  总耗时: 2.3s")
-    logger.info(f"  质量评分: 0.93")
-    logger.info(f"  用户满意度: ⭐⭐⭐⭐⭐")
+    logger.info("  总耗时: 2.3s")
+    logger.info("  质量评分: 0.93")
+    logger.info("  用户满意度: ⭐⭐⭐⭐⭐")
 
 
 async def main():
     """主函数"""
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info("Agent Engine Iteration 2 - 功能集成演示")
     logger.info(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     # 运行各个演示
     results = {}
 
-    results['self_rag'] = await demo_self_rag()
+    results["self_rag"] = await demo_self_rag()
     await asyncio.sleep(1)
 
-    results['smart_memory'] = await demo_smart_memory()
+    results["smart_memory"] = await demo_smart_memory()
     await asyncio.sleep(1)
 
-    results['multi_agent'] = await demo_multi_agent()
+    results["multi_agent"] = await demo_multi_agent()
     await asyncio.sleep(1)
 
     await demo_integrated_scenario()
 
     # 总结
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("演示总结")
-    logger.info("="*60)
+    logger.info("=" * 60)
 
     for feature, success in results.items():
         status = "✓ 成功" if success else "✗ 跳过（模块未安装）"

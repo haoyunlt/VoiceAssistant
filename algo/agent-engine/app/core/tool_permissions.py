@@ -45,9 +45,7 @@ class ToolPermissionManager:
 
         logger.info("ToolPermissionManager initialized")
 
-    def register_tool_permission(
-        self, tool_name: str, permission_level: ToolPermissionLevel
-    ):
+    def register_tool_permission(self, tool_name: str, permission_level: ToolPermissionLevel):
         """
         注册工具权限
 
@@ -58,9 +56,7 @@ class ToolPermissionManager:
         self.tool_permissions[tool_name] = permission_level
         logger.info(f"Registered tool '{tool_name}' with permission '{permission_level}'")
 
-    def get_tool_permission(
-        self, tool_name: str
-    ) -> ToolPermissionLevel | None:
+    def get_tool_permission(self, tool_name: str) -> ToolPermissionLevel | None:
         """
         获取工具权限级别
 
@@ -185,15 +181,15 @@ class ToolPermissionManager:
 
                 audit_key = f"{self.audit_key_prefix}{task_id}:{tool_name}"
                 await self.redis.setex(
-                    audit_key, 604800, json.dumps(audit_log)  # 7天TTL
+                    audit_key,
+                    604800,
+                    json.dumps(audit_log),  # 7天TTL
                 )
 
         except Exception as e:
             logger.error(f"Failed to log tool usage: {e}")
 
-    def get_tools_by_permission(
-        self, permission_level: ToolPermissionLevel
-    ) -> list[str]:
+    def get_tools_by_permission(self, permission_level: ToolPermissionLevel) -> list[str]:
         """
         获取指定权限级别的所有工具
 
@@ -203,11 +199,7 @@ class ToolPermissionManager:
         Returns:
             工具名称列表
         """
-        return [
-            name
-            for name, level in self.tool_permissions.items()
-            if level == permission_level
-        ]
+        return [name for name, level in self.tool_permissions.items() if level == permission_level]
 
     def get_permission_summary(self) -> dict:
         """
@@ -270,16 +262,12 @@ def create_default_permission_manager(
     Returns:
         配置好的权限管理器
     """
-    manager = ToolPermissionManager(
-        redis_client=redis_client, audit_enabled=audit_enabled
-    )
+    manager = ToolPermissionManager(redis_client=redis_client, audit_enabled=audit_enabled)
 
     # 注册默认工具权限
     for tool_name, permission_level in DEFAULT_TOOL_PERMISSIONS.items():
         manager.register_tool_permission(tool_name, permission_level)
 
-    logger.info(
-        f"Created default permission manager with {len(DEFAULT_TOOL_PERMISSIONS)} tools"
-    )
+    logger.info(f"Created default permission manager with {len(DEFAULT_TOOL_PERMISSIONS)} tools")
 
     return manager

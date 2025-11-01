@@ -9,6 +9,7 @@ from typing import Any
 
 try:
     import spacy
+
     SPACY_AVAILABLE = True
 except ImportError:
     SPACY_AVAILABLE = False
@@ -67,13 +68,15 @@ class EntityExtractor:
 
             entities = []
             for ent in doc.ents:
-                entities.append({
-                    "text": ent.text,
-                    "label": ent.label_,
-                    "start": ent.start_char,
-                    "end": ent.end_char,
-                    "confidence": 1.0,  # SpaCy doesn't provide confidence scores by default
-                })
+                entities.append(
+                    {
+                        "text": ent.text,
+                        "label": ent.label_,
+                        "start": ent.start_char,
+                        "end": ent.end_char,
+                        "confidence": 1.0,  # SpaCy doesn't provide confidence scores by default
+                    }
+                )
 
             logger.info(f"Extracted {len(entities)} entities from text")
             return entities
@@ -95,23 +98,23 @@ class EntityExtractor:
         entities = []
 
         # 提取大写开头的词组（可能是人名或地名）
-        capitalized_pattern = r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b'
+        capitalized_pattern = r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b"
         matches = re.finditer(capitalized_pattern, text)
 
         for match in matches:
-            entities.append({
-                "text": match.group(),
-                "label": "UNKNOWN",
-                "start": match.start(),
-                "end": match.end(),
-                "confidence": 0.5,
-            })
+            entities.append(
+                {
+                    "text": match.group(),
+                    "label": "UNKNOWN",
+                    "start": match.start(),
+                    "end": match.end(),
+                    "confidence": 0.5,
+                }
+            )
 
         return entities
 
-    def extract_with_context(
-        self, text: str, context_window: int = 50
-    ) -> list[dict[str, Any]]:
+    def extract_with_context(self, text: str, context_window: int = 50) -> list[dict[str, Any]]:
         """
         提取实体并包含上下文
 
@@ -131,9 +134,7 @@ class EntityExtractor:
 
         return entities
 
-    def group_by_label(
-        self, entities: list[dict[str, Any]]
-    ) -> dict[str, list[dict[str, Any]]]:
+    def group_by_label(self, entities: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         """
         按标签分组实体
 

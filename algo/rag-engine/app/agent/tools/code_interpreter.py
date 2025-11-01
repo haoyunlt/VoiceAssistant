@@ -7,9 +7,8 @@
 import ast
 import io
 import logging
-import sys
 from contextlib import redirect_stdout
-from typing import Any, Dict
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +55,7 @@ class CodeInterpreterTool:
             "pandas",
         }
 
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         执行 Python 代码
 
@@ -93,10 +92,7 @@ class CodeInterpreterTool:
             output, result, error = await self._execute_code(code)
 
             # Step 3: 格式化结果
-            if error:
-                text = f"代码执行出错：{error}"
-            else:
-                text = self._format_result(code, output, result)
+            text = f"代码执行出错：{error}" if error else self._format_result(code, output, result)
 
             return {
                 "text": text,
@@ -154,7 +150,7 @@ class CodeInterpreterTool:
                             logger.warning(f"Module not allowed: {alias.name}")
                             return False
 
-                if isinstance(node, ast.ImportFrom):
+                if isinstance(node, ast.ImportFrom):  # noqa: SIM102
                     if node.module and node.module not in self.allowed_modules:
                         logger.warning(f"Module not allowed: {node.module}")
                         return False

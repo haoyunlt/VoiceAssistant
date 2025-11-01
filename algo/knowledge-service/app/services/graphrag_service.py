@@ -89,12 +89,8 @@ class GraphRAGService:
             logger.info(f"Level 0: {len(chunks)} text chunks")
 
             # Level 1: 提取实体和关系
-            entities, relations = await self._extract_knowledge_graph(
-                document_id, chunks, domain
-            )
-            logger.info(
-                f"Level 1: Extracted {len(entities)} entities, {len(relations)} relations"
-            )
+            entities, relations = await self._extract_knowledge_graph(document_id, chunks, domain)
+            logger.info(f"Level 1: Extracted {len(entities)} entities, {len(relations)} relations")
 
             # Level 2: 社区检测
             communities = await self._detect_communities(document_id, entities, relations)
@@ -105,9 +101,7 @@ class GraphRAGService:
             logger.info(f"Level 3: Generated summaries for {len(communities)} communities")
 
             # Level 4: 生成全局摘要
-            global_summary = await self._generate_global_summary(
-                document_id, communities, domain
-            )
+            global_summary = await self._generate_global_summary(document_id, communities, domain)
             logger.info("Level 4: Generated global summary")
 
             # 存储索引元数据
@@ -125,9 +119,7 @@ class GraphRAGService:
             )
 
             elapsed = (datetime.now() - start_time).total_seconds()
-            logger.info(
-                f"Hierarchical index built for {document_id} in {elapsed:.2f}s"
-            )
+            logger.info(f"Hierarchical index built for {document_id} in {elapsed:.2f}s")
 
             return {
                 "success": True,
@@ -163,9 +155,7 @@ class GraphRAGService:
             # 并行提取
             results = await asyncio.gather(
                 *[
-                    self.extractor.extract_entities_with_relations(
-                        chunk["content"], domain
-                    )
+                    self.extractor.extract_entities_with_relations(chunk["content"], domain)
                     for chunk in batch
                 ],
                 return_exceptions=True,
@@ -197,9 +187,7 @@ class GraphRAGService:
 
         return all_entities, all_relations
 
-    async def _store_to_neo4j(
-        self, document_id: str, entities: list[dict], relations: list[dict]
-    ):
+    async def _store_to_neo4j(self, document_id: str, entities: list[dict], relations: list[dict]):
         """存储实体和关系到Neo4j"""
         entity_id_map = {}
 
@@ -233,7 +221,7 @@ class GraphRAGService:
                 )
 
     async def _detect_communities(
-        self, document_id: str, entities: list[dict], relations: list[dict]
+        self, document_id: str, _entities: list[dict], _relations: list[dict]
     ) -> list[Community]:
         """社区检测（Louvain算法）"""
         try:
@@ -296,14 +284,10 @@ class GraphRAGService:
                 dfs(node_id, component)
 
                 # 创建社区对象
-                community_entities = [
-                    entities_map[nid] for nid in component if nid in entities_map
-                ]
+                community_entities = [entities_map[nid] for nid in component if nid in entities_map]
 
                 if len(community_entities) >= 2:  # 至少2个实体才算社区
-                    community_id = hashlib.md5(
-                        str(sorted(component)).encode()
-                    ).hexdigest()[:16]
+                    community_id = hashlib.md5(str(sorted(component)).encode()).hexdigest()[:16]
 
                     communities.append(
                         Community(
@@ -316,15 +300,10 @@ class GraphRAGService:
 
         return communities
 
-    async def _generate_community_summaries(
-        self, communities: list[Community], domain: str
-    ):
+    async def _generate_community_summaries(self, communities: list[Community], domain: str):
         """为每个社区生成摘要"""
         # 并行生成摘要
-        tasks = [
-            self._generate_community_summary(community, domain)
-            for community in communities
-        ]
+        tasks = [self._generate_community_summary(community, domain) for community in communities]
 
         summaries = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -340,43 +319,35 @@ class GraphRAGService:
         await self._store_community_summaries(communities)
 
     async def generate_community_summary(
-        self,
-        community_id: str,
-        entities: list[str],
-        relations: list[dict],
-        domain: str = "general"
+        self, community_id: str, entities: list[str], relations: list[dict], domain: str = "general"
     ) -> str:
         """
         生成社区摘要（公开方法供外部调用）
-        
+
         Args:
             community_id: 社区 ID
             entities: 实体文本列表
             relations: 关系列表
             domain: 领域
-            
+
         Returns:
             社区摘要文本
         """
         # 构建 Community 对象
         entity_dicts = [{"text": e, "label": "Entity"} for e in entities]
-        community = Community(
-            id=community_id,
-            entities=entity_dicts,
-            relations=relations,
-            level=2
-        )
-        
+        community = Community(id=community_id, entities=entity_dicts, relations=relations, level=2)
+
         # 调用内部方法生成摘要
         return await self._generate_community_summary(community, domain)
 
-    async def _generate_community_summary(
-        self, community: Community, domain: str
-    ) -> str:
+    async def _generate_community_summary(self, community: Community, domain: str) -> str:
         """生成单个社区的摘要（内部方法）"""
         # 准备实体和关系描述
         entities_desc = "\n".join(
-            [f"- {e.get('text', 'Unknown')} ({e.get('label', 'UNKNOWN')})" for e in community.entities[:20]]  # 限制20个
+            [
+                f"- {e.get('text', 'Unknown')} ({e.get('label', 'UNKNOWN')})"
+                for e in community.entities[:20]
+            ]  # 限制20个
         )
 
         prompt = f"""Summarize the following knowledge community in {domain} domain.
@@ -399,13 +370,13 @@ Summary:"""
             return f"A community of {community.size} entities related to {domain}"
 
     async def _generate_global_summary(
-        self, document_id: str, communities: list[Community], domain: str
+        self, _document_id: str, communities: list[Community], domain: str
     ) -> str:
         """生成全局摘要"""
         # 汇总所有社区摘要
         community_summaries = "\n\n".join(
             [
-                f"Community {i+1} ({comm.size} entities): {comm.summary}"
+                f"Community {i + 1} ({comm.size} entities): {comm.summary}"
                 for i, comm in enumerate(communities[:10])  # 最多10个社区
             ]
         )
@@ -432,9 +403,7 @@ Global summary:"""
             logger.error(f"Failed to generate global summary: {e}")
             return f"A knowledge graph with {len(communities)} communities in {domain} domain"
 
-    async def _call_llm(
-        self, prompt: str, temperature: float = 0.3, max_tokens: int = 200
-    ) -> str:
+    async def _call_llm(self, prompt: str, temperature: float = 0.3, max_tokens: int = 200) -> str:
         """调用LLM生成文本"""
         try:
             response = await self.client.post(
@@ -465,7 +434,7 @@ Global summary:"""
         # 移除标点符号，转小写，分词
         import re
 
-        words = re.findall(r'\b\w+\b', text.lower())
+        words = re.findall(r"\b\w+\b", text.lower())
 
         # 移除停用词
         stopwords = {
@@ -607,9 +576,7 @@ Global summary:"""
 _graphrag_service: GraphRAGService | None = None
 
 
-def get_graphrag_service(
-    neo4j_client, llm_entity_extractor
-) -> GraphRAGService:
+def get_graphrag_service(neo4j_client, llm_entity_extractor) -> GraphRAGService:
     """获取GraphRAG服务实例（单例）"""
     global _graphrag_service
 

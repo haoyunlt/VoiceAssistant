@@ -43,6 +43,7 @@ func main() {
 		"trace.id", tracing.TraceID(),
 		"span.id", tracing.SpanID(),
 	)
+	helper := log.NewHelper(logger)
 
 	// 加载配置
 	c := config.New(
@@ -53,26 +54,27 @@ func main() {
 	defer c.Close()
 
 	if err := c.Load(); err != nil {
-		panic(err)
+		helper.Fatalf("Failed to load config from %s: %v", flagconf, err)
 	}
 
 	var bc Config
 	if err := c.Scan(&bc); err != nil {
-		panic(err)
+		helper.Fatalf("Failed to scan config: %v", err)
 	}
 
-	log.NewHelper(logger).Infof("config loaded: %+v", bc)
+	helper.Infof("config loaded: %+v", bc)
 
 	// 使用Wire构建应用
 	app, cleanup, err := wireApp(&bc, logger)
 	if err != nil {
-		panic(err)
+		helper.Fatalf("Failed to initialize application: %v", err)
 	}
 	defer cleanup()
 
 	// 启动应用
+	helper.Infof("Starting %s %s", Name, Version)
 	if err := app.Run(); err != nil {
-		panic(err)
+		helper.Fatalf("Failed to run application: %v", err)
 	}
 }
 

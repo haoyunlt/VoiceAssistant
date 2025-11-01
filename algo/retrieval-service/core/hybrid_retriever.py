@@ -15,7 +15,9 @@ class HybridRetriever:
         self.neo4j = neo4j_client
         self.embedder = embedder
 
-    def retrieve(self, query: str, tenant_id: str, top_k: int = 20, mode: str = "hybrid") -> list[dict]:
+    def retrieve(
+        self, query: str, tenant_id: str, top_k: int = 20, mode: str = "hybrid"
+    ) -> list[dict]:
         """Retrieve documents using hybrid approach"""
 
         if mode == "vector":
@@ -36,22 +38,22 @@ class HybridRetriever:
 
         # Search in Milvus
         results = self.milvus.search(
-            query_vectors=[query_embedding.tolist()],
-            tenant_id=tenant_id,
-            top_k=top_k
+            query_vectors=[query_embedding.tolist()], tenant_id=tenant_id, top_k=top_k
         )
 
         # Format results
         retrieved = []
         for hits in results:
             for hit in hits:
-                retrieved.append({
-                    'chunk_id': hit.entity.get('chunk_id'),
-                    'document_id': hit.entity.get('document_id'),
-                    'content': hit.entity.get('content'),
-                    'score': hit.score,
-                    'method': 'vector'
-                })
+                retrieved.append(
+                    {
+                        "chunk_id": hit.entity.get("chunk_id"),
+                        "document_id": hit.entity.get("document_id"),
+                        "content": hit.entity.get("content"),
+                        "score": hit.score,
+                        "method": "vector",
+                    }
+                )
 
         return retrieved
 
@@ -89,22 +91,15 @@ class HybridRetriever:
 
         for results in result_lists:
             for rank, result in enumerate(results, start=1):
-                chunk_id = result['chunk_id']
+                chunk_id = result["chunk_id"]
                 if chunk_id not in scores:
-                    scores[chunk_id] = {
-                        'result': result,
-                        'score': 0
-                    }
-                scores[chunk_id]['score'] += 1 / (k + rank)
+                    scores[chunk_id] = {"result": result, "score": 0}
+                scores[chunk_id]["score"] += 1 / (k + rank)
 
         # Sort by RRF score
-        sorted_results = sorted(
-            scores.values(),
-            key=lambda x: x['score'],
-            reverse=True
-        )
+        sorted_results = sorted(scores.values(), key=lambda x: x["score"], reverse=True)
 
-        return [item['result'] for item in sorted_results]
+        return [item["result"] for item in sorted_results]
 
     def _extract_entities(self, query: str) -> list[str]:
         """Extract entities from query (simplified)"""
@@ -120,6 +115,7 @@ class Reranker:
 
     def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
         from sentence_transformers import CrossEncoder
+
         self.model = CrossEncoder(model_name)
 
     def rerank(self, query: str, documents: list[dict], top_k: int = 10) -> list[dict]:
@@ -128,17 +124,16 @@ class Reranker:
             return []
 
         # Prepare pairs
-        pairs = [[query, doc['content']] for doc in documents]
+        pairs = [[query, doc["content"]] for doc in documents]
 
         # Get scores
         scores = self.model.predict(pairs)
 
         # Add scores and sort
         for doc, score in zip(documents, scores, strict=False):
-            doc['rerank_score'] = float(score)
+            doc["rerank_score"] = float(score)
 
         # Sort by rerank score
-        reranked = sorted(documents, key=lambda x: x['rerank_score'], reverse=True)
+        reranked = sorted(documents, key=lambda x: x["rerank_score"], reverse=True)
 
         return reranked[:top_k]
-

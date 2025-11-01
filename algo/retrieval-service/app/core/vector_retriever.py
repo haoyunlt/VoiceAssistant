@@ -11,7 +11,7 @@ common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
 
-from vector_store_client import VectorStoreClient
+from vector_store_client import VectorStoreClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

@@ -63,6 +63,15 @@ from app.models.responses import (
     StatsResponse,
     UnregisterToolResponse,
 )
+from app.routers import executor as executor_router
+from app.routers import llm as llm_router
+from app.routers import memory as memory_router
+from app.routers import multi_agent as multi_agent_router
+from app.routers import permissions as permissions_router
+from app.routers import self_rag as self_rag_router
+from app.routers import smart_memory as smart_memory_router
+from app.routers import tools as tools_router
+from app.routers import websocket as websocket_router
 from cors_config import get_cors_config
 from cost_tracking import cost_tracking_middleware
 from structured_logging import logging_middleware, setup_logging
@@ -84,20 +93,12 @@ except ImportError:
 
 # Prometheus 指标
 task_counter = Counter(
-    "agent_tasks_total",
-    "Total number of agent tasks",
-    ["mode", "status", "tenant_id"]
+    "agent_tasks_total", "Total number of agent tasks", ["mode", "status", "tenant_id"]
 )
 task_duration = Histogram(
-    "agent_task_duration_seconds",
-    "Task execution duration",
-    ["mode", "tenant_id"]
+    "agent_task_duration_seconds", "Task execution duration", ["mode", "tenant_id"]
 )
-tool_calls_counter = Counter(
-    "agent_tool_calls_total",
-    "Total tool calls",
-    ["tool_name", "status"]
-)
+tool_calls_counter = Counter("agent_tool_calls_total", "Total tool calls", ["tool_name", "status"])
 
 
 @asynccontextmanager
@@ -129,9 +130,7 @@ async def lifespan(app: FastAPI):
             app.state.config_manager = get_nacos_manager()
 
             logger.info(f"Config mode: {app.state.config_manager.get_mode()}")
-            logger.info(
-                f"Service name: {config_data.get('service', {}).get('name', service_name)}"
-            )
+            logger.info(f"Service name: {config_data.get('service', {}).get('name', service_name)}")
         else:
             logger.info("Using environment variables for configuration")
             app.state.config_manager = None
@@ -145,9 +144,7 @@ async def lifespan(app: FastAPI):
         from app.tools.dynamic_registry import get_tool_registry
 
         tool_registry = get_tool_registry()
-        logger.info(
-            f"Tool registry initialized with {len(tool_registry.get_tool_names())} tools"
-        )
+        logger.info(f"Tool registry initialized with {len(tool_registry.get_tool_names())} tools")
 
         # 3. 初始化记忆管理器
         from app.memory.unified_memory_manager import UnifiedMemoryManager
@@ -246,8 +243,7 @@ app.add_middleware(RateLimitMiddleware, **rate_limit_config)
 
 # 幂等性中间件
 app.add_middleware(
-    IdempotencyMiddleware,
-    ttl_seconds=int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "300"))
+    IdempotencyMiddleware, ttl_seconds=int(os.getenv("IDEMPOTENCY_TTL_SECONDS", "300"))
 )
 
 # 日志中间件
@@ -263,18 +259,6 @@ app.add_middleware(MetricsMiddleware)
 register_exception_handlers(app)
 
 # 注册路由
-from app.routers import executor as executor_router
-from app.routers import llm as llm_router
-from app.routers import memory as memory_router
-from app.routers import permissions as permissions_router
-from app.routers import tools as tools_router
-from app.routers import websocket as websocket_router
-
-# Iteration 2 新增路由
-from app.routers import self_rag as self_rag_router
-from app.routers import smart_memory as smart_memory_router
-from app.routers import multi_agent as multi_agent_router
-
 app.include_router(memory_router.router)
 app.include_router(tools_router.router)
 app.include_router(executor_router.router)
@@ -298,26 +282,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # ==================== 健康检查 ====================
 
 
-@app.get(
-    "/health",
-    response_model=HealthResponse,
-    tags=["Health"],
-    summary="健康检查"
-)
+@app.get("/health", response_model=HealthResponse, tags=["Health"], summary="健康检查")
 async def health_check():
     """基础健康检查"""
     return HealthResponse(status="healthy", service="agent-engine")
 
 
-@app.get(
-    "/ready",
-    response_model=ReadinessResponse,
-    tags=["Health"],
-    summary="就绪检查"
-)
-async def readiness_check(
-    agent_engine=Depends(get_agent_engine)
-):
+@app.get("/ready", response_model=ReadinessResponse, tags=["Health"], summary="就绪检查")
+async def readiness_check(agent_engine=Depends(get_agent_engine)):
     """详细就绪检查"""
     checks = ReadinessCheck(
         engine=agent_engine is not None,
@@ -332,14 +304,9 @@ async def readiness_check(
 
 
 @app.get(
-    "/config/info",
-    response_model=ConfigInfoResponse,
-    tags=["Configuration"],
-    summary="配置信息"
+    "/config/info", response_model=ConfigInfoResponse, tags=["Configuration"], summary="配置信息"
 )
-async def config_info(
-    config_manager=Depends(get_config_manager)
-):
+async def config_info(config_manager=Depends(get_config_manager)):
     """获取配置信息（用于调试）"""
     if config_manager:
         return ConfigInfoResponse(
@@ -374,14 +341,14 @@ async def config_info(
 
     **认证**: 需要有效的 Bearer Token
     **权限**: 需要 `agent:execute` 权限
-    """
+    """,
 )
 async def execute_task(
     request: ExecuteTaskRequest,
     agent_engine=Depends(get_agent_engine),
     user: dict = Depends(verify_token),
     _: None = Depends(check_permissions(["agent:execute"])),
-    request_id: str = Depends(get_request_id),
+    _request_id: str = Depends(get_request_id),
     tenant_id: str | None = Depends(get_tenant_id),
 ):
     """执行 Agent 任务（非流式）"""
@@ -404,22 +371,17 @@ async def execute_task(
 
         # 更新指标
         task_counter.labels(
-            mode=request.mode,
-            status="success",
-            tenant_id=effective_tenant_id or "unknown"
+            mode=request.mode, status="success", tenant_id=effective_tenant_id or "unknown"
         ).inc()
-        task_duration.labels(
-            mode=request.mode,
-            tenant_id=effective_tenant_id or "unknown"
-        ).observe(time.time() - start_time)
+        task_duration.labels(mode=request.mode, tenant_id=effective_tenant_id or "unknown").observe(
+            time.time() - start_time
+        )
 
         return ExecuteTaskResponse(**result)
 
     except Exception as e:
         task_counter.labels(
-            mode=request.mode,
-            status="error",
-            tenant_id=request.tenant_id or "unknown"
+            mode=request.mode, status="error", tenant_id=request.tenant_id or "unknown"
         ).inc()
         logger.error(f"Error executing task: {e}", exc_info=True)
         raise
@@ -429,7 +391,7 @@ async def execute_task(
     "/execute/stream",
     tags=["Agent Execution"],
     summary="执行 Agent 任务（流式）",
-    description="流式执行 Agent 任务，实时返回执行进度"
+    description="流式执行 Agent 任务，实时返回执行进度",
 )
 async def execute_task_stream(
     request: ExecuteTaskStreamRequest,
@@ -467,12 +429,7 @@ async def execute_task_stream(
 # ==================== 工具管理 ====================
 
 
-@app.get(
-    "/tools",
-    response_model=ListToolsResponse,
-    tags=["Tools"],
-    summary="列出所有可用工具"
-)
+@app.get("/tools", response_model=ListToolsResponse, tags=["Tools"], summary="列出所有可用工具")
 async def list_tools(
     tool_registry=Depends(get_tool_registry),
     category: str | None = Query(None, description="按分类过滤"),
@@ -499,7 +456,7 @@ async def list_tools(
     - 只能注册白名单模块中的工具
     - 需要 `tool:register` 权限
     - 工具名称必须唯一
-    """
+    """,
 )
 async def register_tool(
     request: RegisterToolRequest,
@@ -539,7 +496,7 @@ async def register_tool(
             module = importlib.import_module(module_path)
             target = getattr(module, attr_name)
         except (ImportError, AttributeError) as e:
-            raise ToolRegistrationError(f"Failed to import '{path}': {e}")
+            raise ToolRegistrationError(f"Failed to import '{path}': {e}") from e
 
         if inspect.isclass(target):
             return target
@@ -557,7 +514,7 @@ async def register_tool(
     try:
         target = resolve_callable(request.function.strip())
     except Exception as exc:
-        raise ToolRegistrationError(f"Invalid function reference: {exc}")
+        raise ToolRegistrationError(f"Invalid function reference: {exc}") from exc
 
     # 创建工具实例
     class APIDynamicTool:
@@ -604,10 +561,12 @@ async def register_tool(
     try:
         tool_registry.register(tool_instance)
     except Exception as exc:
-        raise ToolRegistrationError(f"Failed to register tool: {exc}")
+        raise ToolRegistrationError(f"Failed to register tool: {exc}") from exc
 
     definition = tool_instance.get_definition()
-    logger.info(f"Successfully registered tool '{definition['name']}' by user {user.get('user_id')}")
+    logger.info(
+        f"Successfully registered tool '{definition['name']}' by user {user.get('user_id')}"
+    )
 
     return RegisterToolResponse(
         status="registered",
@@ -617,14 +576,11 @@ async def register_tool(
 
 
 @app.delete(
-    "/tools/{tool_name}",
-    response_model=UnregisterToolResponse,
-    tags=["Tools"],
-    summary="注销工具"
+    "/tools/{tool_name}", response_model=UnregisterToolResponse, tags=["Tools"], summary="注销工具"
 )
 async def unregister_tool(
     tool_name: str,
-    tool_registry=Depends(get_tool_registry),
+    _tool_registry=Depends(get_tool_registry),
     user: dict = Depends(verify_token),
     _: None = Depends(check_permissions(["tool:unregister"])),
 ):
@@ -648,15 +604,10 @@ async def unregister_tool(
 # ==================== 统计信息 ====================
 
 
-@app.get(
-    "/stats",
-    response_model=StatsResponse,
-    tags=["Statistics"],
-    summary="获取统计信息"
-)
+@app.get("/stats", response_model=StatsResponse, tags=["Statistics"], summary="获取统计信息")
 async def get_stats(
     agent_engine=Depends(get_agent_engine),
-    user: dict | None = Depends(optional_verify_token),
+    _user: dict | None = Depends(optional_verify_token),
 ):
     """获取统计信息"""
     stats = await agent_engine.get_stats()

@@ -104,8 +104,7 @@ class CircuitBreaker:
             from app.core.exceptions import CircuitBreakerOpenError
 
             raise CircuitBreakerOpenError(
-                f"Circuit breaker [{self.name}] is OPEN, "
-                f"will retry after {self.recovery_timeout}s"
+                f"Circuit breaker [{self.name}] is OPEN, will retry after {self.recovery_timeout}s"
             )
 
         try:

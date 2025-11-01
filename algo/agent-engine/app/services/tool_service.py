@@ -6,16 +6,16 @@ import logging
 import operator
 import os
 import sys
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
+import httpx  # type: ignore
 
 # 添加common目录到Python路径
 common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
-
-import duckduckgo_search  # type: ignore
-import httpx  # type: ignore
 
 logger = logging.getLogger(__name__)
 

@@ -26,9 +26,7 @@ class DynamicToolRegistry:
         self.tools: dict[str, Any] = {}
         self._init_builtin_tools()
 
-        logger.info(
-            f"DynamicToolRegistry initialized with {len(self.tools)} tools"
-        )
+        logger.info(f"DynamicToolRegistry initialized with {len(self.tools)} tools")
 
     def _init_builtin_tools(self):
         """初始化内置工具"""
@@ -79,9 +77,7 @@ class DynamicToolRegistry:
         else:
             logger.warning(f"Tool '{tool_name}' not found, cannot unregister")
 
-    async def execute_tool(
-        self, tool_name: str, parameters: dict[str, Any]
-    ) -> str:
+    async def execute_tool(self, tool_name: str, parameters: dict[str, Any]) -> str:
         """
         执行工具
 
@@ -142,8 +138,7 @@ class DynamicToolRegistry:
             ]
         """
         return [
-            {"type": "function", "function": tool["definition"]}
-            for tool in self.tools.values()
+            {"type": "function", "function": tool["definition"]} for tool in self.tools.values()
         ]
 
     def get_tool_names(self) -> list[str]:

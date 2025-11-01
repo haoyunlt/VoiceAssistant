@@ -72,7 +72,7 @@ class KnowledgeGraphService:
                                     "name": entity["text"],
                                     "type": entity["label"],
                                     "description": "",
-                                }
+                                },
                             )
                         except Exception as e:
                             logger.warning(f"Failed to publish entity created event: {e}")
@@ -123,7 +123,7 @@ class KnowledgeGraphService:
                         tenant_id="default",
                         entity_count=len(entity_ids),
                         relation_count=stored_relations,
-                        metadata={"source": source or "unknown"}
+                        metadata={"source": source or "unknown"},
                     )
                 except Exception as e:
                     logger.warning(f"Failed to publish graph built event: {e}")
@@ -207,10 +207,12 @@ class KnowledgeGraphService:
 
             paths = []
             for record in result:
-                paths.append({
-                    "nodes": record["nodes"],
-                    "relations": record["relations"],
-                })
+                paths.append(
+                    {
+                        "nodes": record["nodes"],
+                        "relations": record["relations"],
+                    }
+                )
 
             return paths
 
@@ -246,12 +248,14 @@ class KnowledgeGraphService:
 
             neighbors = []
             for record in result:
-                neighbors.append({
-                    "id": record["id"],
-                    "labels": record["labels"],
-                    "properties": dict(record["neighbor"]),
-                    "relation_type": record["relation_type"],
-                })
+                neighbors.append(
+                    {
+                        "id": record["id"],
+                        "labels": record["labels"],
+                        "properties": dict(record["neighbor"]),
+                        "relation_type": record["relation_type"],
+                    }
+                )
 
             return neighbors
 
@@ -292,8 +296,7 @@ class KnowledgeGraphService:
                 "total_nodes": node_count,
                 "total_relationships": rel_count,
                 "label_statistics": [
-                    {"label": stat["label"], "count": stat["count"]}
-                    for stat in label_stats
+                    {"label": stat["label"], "count": stat["count"]} for stat in label_stats
                 ],
             }
 

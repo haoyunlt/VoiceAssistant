@@ -8,6 +8,7 @@ import redis.asyncio as redis  # type: ignore
 
 from app.core.config import settings
 from app.models.agent import AgentResult, AgentStatus
+from app.services.agent_stream_service import StepType
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +225,7 @@ class TaskManager:
             results = []
             for task_id in task_ids:
                 result = await self.get_task(task_id)
-                if result:
+                if result:  # noqa: SIM102
                     # 如果指定了状态过滤
                     if status is None or result.status == status:
                         results.append(result)

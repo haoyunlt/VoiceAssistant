@@ -96,10 +96,7 @@ class MultimodalEngine:
             self.stats_tracker.record_failure()
             self.ocr_stats.record_failure()
             logger.error(f"Unexpected error in OCR: {e}", exc_info=True)
-            raise OCRException(
-                "OCR processing failed",
-                details={"error_type": type(e).__name__}
-            )
+            raise OCRException("OCR processing failed", details={"error_type": type(e).__name__}) from e
 
     async def vision_understand(
         self,
@@ -156,9 +153,8 @@ class MultimodalEngine:
             self.vision_stats.record_failure()
             logger.error(f"Unexpected error in vision understanding: {e}", exc_info=True)
             raise VisionException(
-                "Vision understanding failed",
-                details={"error_type": type(e).__name__}
-            )
+                "Vision understanding failed", details={"error_type": type(e).__name__}
+            ) from e
 
     async def vision_detect(
         self,
@@ -214,9 +210,8 @@ class MultimodalEngine:
             self.vision_stats.record_failure()
             logger.error(f"Unexpected error in vision detection: {e}", exc_info=True)
             raise VisionException(
-                "Vision detection failed",
-                details={"error_type": type(e).__name__}
-            )
+                "Vision detection failed", details={"error_type": type(e).__name__}
+            ) from e
 
     async def video_analyze(
         self,
@@ -271,10 +266,7 @@ class MultimodalEngine:
             self.stats_tracker.record_failure()
             self.video_stats.record_failure()
             logger.error(f"Unexpected error in video analysis: {e}", exc_info=True)
-            raise VideoException(
-                "Video analysis failed",
-                details={"error_type": type(e).__name__}
-            )
+            raise VideoException("Video analysis failed", details={"error_type": type(e).__name__}) from e
 
     async def get_stats(self) -> dict[str, Any]:
         """获取统计信息"""

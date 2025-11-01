@@ -31,12 +31,7 @@ class ReflexionExecutor:
         self.max_trials = 3
         self.satisfaction_threshold = 0.7
 
-    async def execute(
-        self,
-        task: str,
-        context: dict = None,
-        max_trials: int = None
-    ) -> AgentResult:
+    async def execute(self, task: str, context: dict = None, max_trials: int = None) -> AgentResult:
         """
         带反思的执行
 
@@ -87,25 +82,22 @@ class ReflexionExecutor:
                     metadata={
                         "trials": trial + 1,
                         "final_score": evaluation.score,
-                        "reflections": history
-                    }
+                        "reflections": history,
+                    },
                 )
 
             # Step 4: 反思并记录
             if trial < max_trials - 1:  # 不是最后一次尝试
-                reflection = await self._reflect(
-                    task, attempt_result, evaluation, context
-                )
+                reflection = await self._reflect(task, attempt_result, evaluation, context)
 
-                history.append({
-                    "trial": trial + 1,
-                    "result": attempt_result,
-                    "evaluation": {
-                        "score": evaluation.score,
-                        "issues": evaluation.issues
-                    },
-                    "reflection": reflection
-                })
+                history.append(
+                    {
+                        "trial": trial + 1,
+                        "result": attempt_result,
+                        "evaluation": {"score": evaluation.score, "issues": evaluation.issues},
+                        "reflection": reflection,
+                    }
+                )
 
                 logger.info(f"Reflection: {reflection.insight}")
 
@@ -119,20 +111,11 @@ class ReflexionExecutor:
             step_results=[],
             success=False,
             duration=duration,
-            metadata={
-                "trials": max_trials,
-                "best_score": best_score,
-                "reflections": history
-            },
-            error="未达到满意度阈值"
+            metadata={"trials": max_trials, "best_score": best_score, "reflections": history},
+            error="未达到满意度阈值",
         )
 
-    async def _attempt_task(
-        self,
-        task: str,
-        history: list[dict],
-        context: dict = None
-    ) -> str:
+    async def _attempt_task(self, task: str, history: list[dict], context: dict = None) -> str:
         """
         尝试执行任务
 
@@ -154,7 +137,9 @@ class ReflexionExecutor:
                 history_str += f"问题: {', '.join(h['evaluation']['issues'])}\n"
                 history_str += f"改进建议: {h['reflection'].suggestions}\n"
 
-        context_str = f"\n\n上下文信息:\n{json.dumps(context, ensure_ascii=False)}" if context else ""
+        context_str = (
+            f"\n\n上下文信息:\n{json.dumps(context, ensure_ascii=False)}" if context else ""
+        )
 
         prompt = f"""请完成以下任务:
 
@@ -162,7 +147,7 @@ class ReflexionExecutor:
 {context_str}
 {history_str}
 
-{'请根据以上历史尝试和反思，避免之前的错误，生成更好的答案。' if history else '请给出最佳答案。'}
+{"请根据以上历史尝试和反思，避免之前的错误，生成更好的答案。" if history else "请给出最佳答案。"}
 """
 
         try:
@@ -172,12 +157,15 @@ class ReflexionExecutor:
                     json={
                         "model": "gpt-4-turbo-preview",
                         "messages": [
-                            {"role": "system", "content": "你是一个善于学习和改进的助手。请仔细分析任务要求和历史反思，给出高质量的答案。"},
-                            {"role": "user", "content": prompt}
+                            {
+                                "role": "system",
+                                "content": "你是一个善于学习和改进的助手。请仔细分析任务要求和历史反思，给出高质量的答案。",
+                            },
+                            {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.7,
-                        "max_tokens": 2000
-                    }
+                        "max_tokens": 2000,
+                    },
                 )
                 response.raise_for_status()
 
@@ -188,12 +176,7 @@ class ReflexionExecutor:
             logger.error(f"Task attempt failed: {e}")
             return f"执行失败: {str(e)}"
 
-    async def _evaluate_result(
-        self,
-        task: str,
-        result: str,
-        context: dict = None
-    ) -> Evaluation:
+    async def _evaluate_result(self, task: str, result: str, context: dict = None) -> Evaluation:
         """
         评估结果质量
 
@@ -234,11 +217,11 @@ class ReflexionExecutor:
                         "model": "gpt-4-turbo-preview",
                         "messages": [
                             {"role": "system", "content": "你是一个严格的质量评估专家。"},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.2,
-                        "max_tokens": 500
-                    }
+                        "max_tokens": 500,
+                    },
                 )
                 response.raise_for_status()
 
@@ -258,28 +241,20 @@ class ReflexionExecutor:
                 eval_data = json.loads(content)
 
                 return Evaluation(
-                    is_satisfactory=eval_data.get("is_satisfactory", False) or eval_data.get("score", 0.0) >= self.satisfaction_threshold,
+                    is_satisfactory=eval_data.get("is_satisfactory", False)
+                    or eval_data.get("score", 0.0) >= self.satisfaction_threshold,
                     score=eval_data.get("score", 0.0),
                     issues=eval_data.get("issues", []),
-                    strengths=eval_data.get("strengths", [])
+                    strengths=eval_data.get("strengths", []),
                 )
 
         except Exception as e:
             logger.error(f"Evaluation failed: {e}")
             # 降级：简单评估
-            return Evaluation(
-                is_satisfactory=False,
-                score=0.5,
-                issues=["评估失败"],
-                strengths=[]
-            )
+            return Evaluation(is_satisfactory=False, score=0.5, issues=["评估失败"], strengths=[])
 
     async def _reflect(
-        self,
-        task: str,
-        result: str,
-        evaluation: Evaluation,
-        context: dict = None
+        self, task: str, result: str, evaluation: Evaluation, context: dict = None
     ) -> Reflection:
         """
         生成反思
@@ -299,8 +274,8 @@ class ReflexionExecutor:
 
 评估结果:
 - 得分: {evaluation.score:.2f}
-- 存在问题: {', '.join(evaluation.issues)}
-- 优点: {', '.join(evaluation.strengths)}
+- 存在问题: {", ".join(evaluation.issues)}
+- 优点: {", ".join(evaluation.strengths)}
 
 请深入分析:
 1. 为什么这个答案不够好？
@@ -322,12 +297,15 @@ class ReflexionExecutor:
                     json={
                         "model": "gpt-4-turbo-preview",
                         "messages": [
-                            {"role": "system", "content": "你是一个善于反思和分析的专家，能够深入分析失败原因并提出有建设性的改进建议。"},
-                            {"role": "user", "content": prompt}
+                            {
+                                "role": "system",
+                                "content": "你是一个善于反思和分析的专家，能够深入分析失败原因并提出有建设性的改进建议。",
+                            },
+                            {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.5,
-                        "max_tokens": 800
-                    }
+                        "max_tokens": 800,
+                    },
                 )
                 response.raise_for_status()
 
@@ -349,14 +327,12 @@ class ReflexionExecutor:
                 return Reflection(
                     root_causes=reflect_data.get("root_causes", []),
                     suggestions=reflect_data.get("suggestions", []),
-                    insight=reflect_data.get("insight", "")
+                    insight=reflect_data.get("insight", ""),
                 )
 
         except Exception as e:
             logger.error(f"Reflection failed: {e}")
             # 降级
             return Reflection(
-                root_causes=["反思失败"],
-                suggestions=["请重新尝试"],
-                insight="无法生成详细反思"
+                root_causes=["反思失败"], suggestions=["请重新尝试"], insight="无法生成详细反思"
             )

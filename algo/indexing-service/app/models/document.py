@@ -1,4 +1,5 @@
 """文档相关数据模型"""
+
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -8,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class DocumentStatus(str, Enum):
     """文档状态"""
+
     PENDING = "pending"
     PROCESSING = "processing"
     INDEXED = "indexed"
@@ -16,6 +18,7 @@ class DocumentStatus(str, Enum):
 
 class DocumentFormat(str, Enum):
     """文档格式"""
+
     PDF = "pdf"
     DOCX = "docx"
     TXT = "txt"
@@ -26,6 +29,7 @@ class DocumentFormat(str, Enum):
 
 class Document(BaseModel):
     """文档模型"""
+
     id: str
     name: str
     format: DocumentFormat
@@ -44,6 +48,7 @@ class Document(BaseModel):
 
 class Chunk(BaseModel):
     """文本块模型"""
+
     id: str
     document_id: str
     content: str
@@ -56,6 +61,7 @@ class Chunk(BaseModel):
 
 class IndexingJob(BaseModel):
     """索引任务模型"""
+
     job_id: str
     document_id: str
     status: DocumentStatus
@@ -70,6 +76,7 @@ class IndexingJob(BaseModel):
 
 class IndexingResult(BaseModel):
     """索引结果"""
+
     document_id: str
     status: DocumentStatus
     chunks: list[dict[str, Any]] = Field(default_factory=list)

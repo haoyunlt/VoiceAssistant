@@ -6,12 +6,13 @@ Document Domain Models
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any
 from uuid import uuid4
 
 
 class DocumentType(str, Enum):
     """文档类型"""
+
     TEXT = "text"
     PDF = "pdf"
     WORD = "word"
@@ -22,13 +23,14 @@ class DocumentType(str, Enum):
 
 class DocumentStatus(str, Enum):
     """文档状态"""
-    UPLOADED = "uploaded"      # 已上传
-    PENDING = "pending"         # 待处理
-    PROCESSING = "processing"   # 处理中
-    COMPLETED = "completed"     # 已完成
-    FAILED = "failed"           # 失败
-    INFECTED = "infected"       # 发现病毒
-    DELETED = "deleted"         # 已删除
+
+    UPLOADED = "uploaded"  # 已上传
+    PENDING = "pending"  # 待处理
+    PROCESSING = "processing"  # 处理中
+    COMPLETED = "completed"  # 已完成
+    FAILED = "failed"  # 失败
+    INFECTED = "infected"  # 发现病毒
+    DELETED = "deleted"  # 已删除
 
 
 class Document:
@@ -50,11 +52,11 @@ class Document:
         summary: str = "",
         status: DocumentStatus = DocumentStatus.PENDING,
         chunk_count: int = 0,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
         error_message: str = "",
-        processed_at: Optional[datetime] = None,
-        created_at: Optional[datetime] = None,
-        updated_at: Optional[datetime] = None
+        processed_at: datetime | None = None,
+        created_at: datetime | None = None,
+        updated_at: datetime | None = None,
     ):
         self.id = id
         self.knowledge_base_id = knowledge_base_id
@@ -86,7 +88,7 @@ class Document:
         file_size: int,
         file_path: str,
         tenant_id: str,
-        uploaded_by: str
+        uploaded_by: str,
     ) -> "Document":
         """创建新文档"""
         doc_id = f"doc_{uuid4()}"
@@ -99,7 +101,7 @@ class Document:
             file_size=file_size,
             file_path=file_path,
             tenant_id=tenant_id,
-            uploaded_by=uploaded_by
+            uploaded_by=uploaded_by,
         )
 
     def set_content(self, content: str) -> None:
@@ -146,7 +148,7 @@ class Document:
         self.status = DocumentStatus.DELETED
         self.updated_at = datetime.utcnow()
 
-    def update(self, name: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+    def update(self, name: str | None = None, metadata: dict[str, Any] | None = None) -> None:
         """更新文档信息"""
         if name:
             self.name = name
@@ -170,7 +172,7 @@ class Document:
         """检查是否可以处理"""
         return self.status in [DocumentStatus.PENDING, DocumentStatus.FAILED]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -191,7 +193,7 @@ class Document:
             "error_message": self.error_message,
             "processed_at": self.processed_at.isoformat() if self.processed_at else None,
             "created_at": self.created_at.isoformat(),
-            "updated_at": self.updated_at.isoformat()
+            "updated_at": self.updated_at.isoformat(),
         }
 
 
@@ -205,8 +207,8 @@ class Chunk:
         knowledge_base_id: str,
         content: str,
         sequence: int,
-        metadata: Optional[Dict[str, Any]] = None,
-        created_at: Optional[datetime] = None
+        metadata: dict[str, Any] | None = None,
+        created_at: datetime | None = None,
     ):
         self.id = id
         self.document_id = document_id
@@ -223,7 +225,7 @@ class Chunk:
         knowledge_base_id: str,
         content: str,
         sequence: int,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None,
     ) -> "Chunk":
         """创建新块"""
         chunk_id = f"chunk_{uuid4()}"
@@ -233,10 +235,10 @@ class Chunk:
             knowledge_base_id=knowledge_base_id,
             content=content,
             sequence=sequence,
-            metadata=metadata
+            metadata=metadata,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -245,5 +247,5 @@ class Chunk:
             "content": self.content,
             "sequence": self.sequence,
             "metadata": self.metadata,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }

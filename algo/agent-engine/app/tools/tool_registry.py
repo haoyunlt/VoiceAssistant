@@ -20,7 +20,7 @@ class Tool:
         function: Callable,
         parameters: dict[str, Any],
         requires_auth: bool = False,
-        timeout: int = 30
+        timeout: int = 30,
     ):
         """
         初始化工具
@@ -66,7 +66,7 @@ class Tool:
             "description": self.description,
             "parameters": self.parameters,
             "requires_auth": self.requires_auth,
-            "timeout": self.timeout
+            "timeout": self.timeout,
         }
 
 
@@ -87,12 +87,8 @@ class ToolRegistry:
             description="Search for information on the internet",
             function=self._search_tool,
             parameters={
-                "query": {
-                    "type": "string",
-                    "description": "Search query",
-                    "required": True
-                }
-            }
+                "query": {"type": "string", "description": "Search query", "required": True}
+            },
         )
 
         # 2. 计算器工具
@@ -104,9 +100,9 @@ class ToolRegistry:
                 "expression": {
                     "type": "string",
                     "description": "Mathematical expression",
-                    "required": True
+                    "required": True,
                 }
-            }
+            },
         )
 
         # 3. 知识库查询工具
@@ -115,17 +111,9 @@ class ToolRegistry:
             description="Search in the knowledge base",
             function=self._knowledge_search_tool,
             parameters={
-                "query": {
-                    "type": "string",
-                    "description": "Search query",
-                    "required": True
-                },
-                "tenant_id": {
-                    "type": "string",
-                    "description": "Tenant ID",
-                    "required": True
-                }
-            }
+                "query": {"type": "string", "description": "Search query", "required": True},
+                "tenant_id": {"type": "string", "description": "Tenant ID", "required": True},
+            },
         )
 
         # 4. 天气查询工具
@@ -134,12 +122,8 @@ class ToolRegistry:
             description="Get weather information for a location",
             function=self._weather_tool,
             parameters={
-                "location": {
-                    "type": "string",
-                    "description": "Location name",
-                    "required": True
-                }
-            }
+                "location": {"type": "string", "description": "Location name", "required": True}
+            },
         )
 
         # 5. 时间工具
@@ -147,7 +131,7 @@ class ToolRegistry:
             name="current_time",
             description="Get current date and time",
             function=self._current_time_tool,
-            parameters={}
+            parameters={},
         )
 
     def register_tool(
@@ -157,7 +141,7 @@ class ToolRegistry:
         function: Callable,
         parameters: dict[str, Any],
         requires_auth: bool = False,
-        timeout: int = 30
+        timeout: int = 30,
     ):
         """
         注册工具
@@ -176,7 +160,7 @@ class ToolRegistry:
             function=function,
             parameters=parameters,
             requires_auth=requires_auth,
-            timeout=timeout
+            timeout=timeout,
         )
 
         self.tools[name] = tool
@@ -202,10 +186,9 @@ class ToolRegistry:
         for tool in self.tools.values():
             desc = f"- {tool.name}: {tool.description}"
             if tool.parameters:
-                params = ", ".join([
-                    f"{k} ({v.get('type', 'string')})"
-                    for k, v in tool.parameters.items()
-                ])
+                params = ", ".join(
+                    [f"{k} ({v.get('type', 'string')})" for k, v in tool.parameters.items()]
+                )
                 desc += f"\n  Parameters: {params}"
             descriptions.append(desc)
 
@@ -236,7 +219,9 @@ class ToolRegistry:
         """验证参数"""
         for param_name, param_def in tool.parameters.items():
             if param_def.get("required", False) and param_name not in args:
-                raise ValueError(f"Required parameter '{param_name}' missing for tool '{tool.name}'")
+                raise ValueError(
+                    f"Required parameter '{param_name}' missing for tool '{tool.name}'"
+                )
 
     # 工具实现
 
@@ -244,18 +229,12 @@ class ToolRegistry:
         """搜索工具（集成DuckDuckGo）"""
         logger.info(f"Searching for: {query}")
         try:
-            import json
 
             import httpx
 
             # 使用 DuckDuckGo Instant Answer API
             url = "https://api.duckduckgo.com/"
-            params = {
-                "q": query,
-                "format": "json",
-                "no_html": 1,
-                "skip_disambig": 1
-            }
+            params = {"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
 
             with httpx.Client(timeout=10) as client:
                 response = client.get(url, params=params)
@@ -313,11 +292,7 @@ class ToolRegistry:
             with httpx.Client(timeout=30) as client:
                 response = client.post(
                     f"{rag_service_url}/retrieve",
-                    json={
-                        "query": query,
-                        "tenant_id": tenant_id,
-                        "top_k": 5
-                    }
+                    json={"query": query, "tenant_id": tenant_id, "top_k": 5},
                 )
 
                 if response.status_code == 200:
@@ -386,6 +361,7 @@ class ToolRegistry:
     def _current_time_tool(self) -> str:
         """当前时间工具"""
         from datetime import datetime
+
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def to_openai_functions(self) -> list[dict[str, Any]]:
@@ -403,11 +379,8 @@ class ToolRegistry:
                 "parameters": {
                     "type": "object",
                     "properties": tool.parameters,
-                    "required": [
-                        k for k, v in tool.parameters.items()
-                        if v.get("required", False)
-                    ]
-                }
+                    "required": [k for k, v in tool.parameters.items() if v.get("required", False)],
+                },
             }
             functions.append(func_def)
 

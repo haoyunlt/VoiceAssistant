@@ -1,4 +1,5 @@
 """Agent执行路由"""
+
 import asyncio
 import json
 import logging
@@ -23,6 +24,7 @@ langgraph_service = None
 
 class ExecuteAgentRequest(BaseModel):
     """Agent执行请求"""
+
     task: str = Field(..., description="任务描述")
     context: dict[str, Any] | None = Field(default=None, description="上下文信息")
     tools: list[str] | None = Field(default=None, description="可用工具列表")
@@ -32,6 +34,7 @@ class ExecuteAgentRequest(BaseModel):
 
 class ExecuteAgentResponse(BaseModel):
     """Agent执行响应"""
+
     task_id: str
     result: str
     steps: list[dict[str, Any]]
@@ -76,7 +79,7 @@ async def execute_agent(request: ExecuteAgentRequest):
 
     except Exception as e:
         logger.error(f"Failed to execute agent: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/execute-async")
@@ -120,7 +123,9 @@ async def get_task_status(task_id: str):
 
     return result
 
+
 # 任务管理相关的新端点
+
 
 @router.get("/tasks/{task_id}", response_model=AgentResult, summary="获取任务结果")
 async def get_task_result(task_id: str):
@@ -143,11 +148,7 @@ async def get_task_result(task_id: str):
 
 
 @router.get("/tasks", summary="列出任务")
-async def list_tasks(
-    limit: int = 100,
-    offset: int = 0,
-    status: str | None = None
-):
+async def list_tasks(limit: int = 100, offset: int = 0, status: str | None = None):
     """
     列出任务（按创建时间倒序）
 
@@ -167,20 +168,11 @@ async def list_tasks(
         try:
             status_filter = AgentStatus(status)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
 
-    results = await task_manager.list_tasks(
-        limit=limit,
-        offset=offset,
-        status=status_filter
-    )
+    results = await task_manager.list_tasks(limit=limit, offset=offset, status=status_filter)
 
-    return {
-        "total": len(results),
-        "limit": limit,
-        "offset": offset,
-        "tasks": results
-    }
+    return {"total": len(results), "limit": limit, "offset": offset, "tasks": results}
 
 
 @router.get("/tasks/stats/summary", summary="获取任务统计")
@@ -235,7 +227,7 @@ async def cleanup_old_tasks(days: int = 7):
     return {
         "success": True,
         "deleted_count": deleted_count,
-        "message": f"Cleaned up {deleted_count} tasks older than {days} days"
+        "message": f"Cleaned up {deleted_count} tasks older than {days} days",
     }
 
 
@@ -353,7 +345,7 @@ async def execute_agent_stream(request: ExecuteAgentRequest):
 
     except Exception as e:
         logger.error(f"Failed to start streaming execution: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/execute-langgraph", response_model=LangGraphExecuteResponse)
@@ -413,4 +405,4 @@ async def execute_with_langgraph(request: LangGraphExecuteRequest):
 
     except Exception as e:
         logger.error(f"LangGraph execution failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

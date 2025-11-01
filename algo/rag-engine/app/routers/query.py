@@ -1,4 +1,5 @@
 """查询理解路由"""
+
 import logging
 
 from fastapi import APIRouter, HTTPException
@@ -15,6 +16,7 @@ query_service = QueryService()
 
 class QueryExpansionRequest(BaseModel):
     """查询扩展请求"""
+
     query: str = Field(..., description="原始查询")
     num_expansions: int = Field(default=3, description="扩展查询数量")
 
@@ -36,7 +38,7 @@ async def expand_query(request: QueryExpansionRequest):
 
     except Exception as e:
         logger.error(f"Query expansion failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/extract-keywords")
@@ -56,4 +58,4 @@ async def extract_keywords(query: str):
 
     except Exception as e:
         logger.error(f"Keyword extraction failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

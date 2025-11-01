@@ -20,7 +20,7 @@ def test_get_agent_engine_not_initialized():
     async def test_route(request: Request):
         return get_agent_engine(request)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         response = client.get("/test")
         assert response.status_code == 503
 
@@ -57,6 +57,6 @@ def test_get_memory_manager_not_initialized():
     async def test_route(request: Request):
         return get_memory_manager(request)
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         response = client.get("/test")
         assert response.status_code == 503

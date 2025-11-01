@@ -110,10 +110,10 @@ async def build_enhanced_index(request: EnhancedIndexBuildRequest, req: Request)
     - 时序图谱支持（可选）
     """
     try:
-        from app.services.enhanced_graphrag_service import get_enhanced_graphrag_service
-        from app.graph.neo4j_client import get_neo4j_client
         from app.graph.llm_entity_extractor import get_llm_entity_extractor
+        from app.graph.neo4j_client import get_neo4j_client
         from app.services.embedding_service import get_embedding_service
+        from app.services.enhanced_graphrag_service import get_enhanced_graphrag_service
 
         # 获取Redis客户端
         redis_client = getattr(req.app.state, "redis_client", None)
@@ -147,11 +147,11 @@ async def build_enhanced_index(request: EnhancedIndexBuildRequest, req: Request)
 
     except Exception as e:
         logger.error(f"Enhanced index build failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/entity-linking", response_model=EntityLinkingResponse)
-async def link_entities(request: EntityLinkingRequest, req: Request):
+async def link_entities(request: EntityLinkingRequest, _req: Request):
     """
     执行实体链接
 
@@ -159,9 +159,10 @@ async def link_entities(request: EntityLinkingRequest, req: Request):
     """
     try:
         from datetime import datetime
-        from app.services.entity_linking_service import get_entity_linking_service
+
         from app.graph.neo4j_client import get_neo4j_client
         from app.services.embedding_service import get_embedding_service
+        from app.services.entity_linking_service import get_entity_linking_service
 
         start_time = datetime.now()
 
@@ -181,7 +182,7 @@ async def link_entities(request: EntityLinkingRequest, req: Request):
 
     except Exception as e:
         logger.error(f"Entity linking failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/temporal/query", response_model=TemporalQueryResponse)
@@ -192,8 +193,8 @@ async def query_temporal(request: TemporalQueryRequest):
     查询指定时间点的实体及其关系
     """
     try:
-        from app.services.temporal_graph_service import get_temporal_graph_service
         from app.graph.neo4j_client import get_neo4j_client
+        from app.services.temporal_graph_service import get_temporal_graph_service
 
         neo4j = get_neo4j_client()
         service = get_temporal_graph_service(neo4j)
@@ -208,7 +209,7 @@ async def query_temporal(request: TemporalQueryRequest):
 
     except Exception as e:
         logger.error(f"Temporal query failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/cache/stats", response_model=CacheStatsResponse)
@@ -232,7 +233,7 @@ async def get_cache_stats(req: Request):
 
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/cache/invalidate/{document_id}")
@@ -256,7 +257,7 @@ async def invalidate_cache(document_id: str, req: Request):
 
     except Exception as e:
         logger.error(f"Failed to invalidate cache: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/stats", response_model=ServiceStatsResponse)
@@ -267,10 +268,10 @@ async def get_service_stats(req: Request, document_id: str | None = None):
     包括缓存、降级、LLM模型等信息
     """
     try:
-        from app.services.enhanced_graphrag_service import get_enhanced_graphrag_service
-        from app.graph.neo4j_client import get_neo4j_client
         from app.graph.llm_entity_extractor import get_llm_entity_extractor
+        from app.graph.neo4j_client import get_neo4j_client
         from app.services.embedding_service import get_embedding_service
+        from app.services.enhanced_graphrag_service import get_enhanced_graphrag_service
 
         redis_client = getattr(req.app.state, "redis_client", None)
         if not redis_client:
@@ -293,7 +294,7 @@ async def get_service_stats(req: Request, document_id: str | None = None):
 
     except Exception as e:
         logger.error(f"Failed to get service stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/model/info")
@@ -311,7 +312,7 @@ async def get_model_info():
 
     except Exception as e:
         logger.error(f"Failed to get model info: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/model/downgrade")
@@ -334,7 +335,7 @@ async def downgrade_model():
 
     except Exception as e:
         logger.error(f"Failed to downgrade model: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/model/upgrade")
@@ -357,4 +358,4 @@ async def upgrade_model():
 
     except Exception as e:
         logger.error(f"Failed to upgrade model: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

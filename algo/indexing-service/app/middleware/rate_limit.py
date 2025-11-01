@@ -1,4 +1,5 @@
 """速率限制中间件"""
+
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -31,7 +32,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """处理请求"""
         # 获取租户ID（从header或query）
-        tenant_id = request.headers.get("X-Tenant-ID") or request.query_params.get("tenant_id", "default")
+        tenant_id = request.headers.get("X-Tenant-ID") or request.query_params.get(
+            "tenant_id", "default"
+        )
 
         # 获取客户端IP
         client_ip = request.client.host if request.client else "unknown"
@@ -58,7 +61,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     "X-RateLimit-Limit-Minute": str(self.requests_per_minute),
                     "X-RateLimit-Limit-Hour": str(self.requests_per_hour),
                     "Retry-After": "60",
-                }
+                },
             )
 
         # 记录请求
@@ -83,22 +86,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """清理过期的请求记录"""
         # 清理1分钟前的记录
         self.request_counts[rate_key]["minute"] = [
-            ts for ts in self.request_counts[rate_key]["minute"]
-            if now - ts < 60
+            ts for ts in self.request_counts[rate_key]["minute"] if now - ts < 60
         ]
 
         # 清理1小时前的记录
         self.request_counts[rate_key]["hour"] = [
-            ts for ts in self.request_counts[rate_key]["hour"]
-            if now - ts < 3600
+            ts for ts in self.request_counts[rate_key]["hour"] if now - ts < 3600
         ]
 
-    def _is_rate_limited(self, rate_key: str, now: float) -> bool:
+    def _is_rate_limited(self, rate_key: str, _now: float) -> bool:
         """检查是否超过速率限制"""
         minute_count = len(self.request_counts[rate_key]["minute"])
         hour_count = len(self.request_counts[rate_key]["hour"])
 
-        return (
-            minute_count >= self.requests_per_minute or
-            hour_count >= self.requests_per_hour
-        )
+        return minute_count >= self.requests_per_minute or hour_count >= self.requests_per_hour

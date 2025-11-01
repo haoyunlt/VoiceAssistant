@@ -29,7 +29,7 @@ adapter_manager: AdapterManager = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """应用生命周期管理."""
     global adapter_manager
 
@@ -40,9 +40,7 @@ async def lifespan(app: FastAPI):
     adapter_manager = AdapterManager(settings)
     await adapter_manager.initialize()
 
-    logger.info(
-        f"{settings.app_name} started with {adapter_manager.adapter_count} providers"
-    )
+    logger.info(f"{settings.app_name} started with {adapter_manager.adapter_count} providers")
 
     yield
 
@@ -90,7 +88,7 @@ def get_adapter_manager() -> AdapterManager:
 
 # 全局异常处理器
 @app.exception_handler(ModelAdapterError)
-async def model_adapter_error_handler(request: Request, exc: ModelAdapterError):
+async def model_adapter_error_handler(_request: Request, exc: ModelAdapterError):
     """处理模型适配器异常."""
     status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
 
@@ -109,7 +107,7 @@ async def model_adapter_error_handler(request: Request, exc: ModelAdapterError):
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
+async def general_exception_handler(_request: Request, exc: Exception):
     """处理通用异常."""
     logger.error(f"Unexpected error: {exc}", exc_info=True)
 
@@ -127,9 +125,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 
 @app.get("/health")
-async def health_check(
-    manager: Annotated[AdapterManager, Depends(get_adapter_manager)]
-):
+async def health_check(manager: Annotated[AdapterManager, Depends(get_adapter_manager)]):
     """健康检查."""
     return {
         "status": "healthy",
@@ -142,9 +138,7 @@ async def health_check(
 
 
 @app.get("/api/v1/providers")
-async def list_providers(
-    manager: Annotated[AdapterManager, Depends(get_adapter_manager)]
-):
+async def list_providers(manager: Annotated[AdapterManager, Depends(get_adapter_manager)]):
     """列出可用的提供商及其健康状态."""
     provider_status = await manager.get_all_provider_status()
 
@@ -201,7 +195,7 @@ async def generate(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Generation failed: {str(e)}",
-        )
+        ) from e
 
 
 @app.post("/api/v1/generate/stream")
@@ -307,25 +301,29 @@ async def create_embeddings(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Embedding failed: {str(e)}",
-        )
+        ) from e
 
 
-from typing import Any
+from typing import Any  # noqa: E402
 
-from pydantic import BaseModel
+from pydantic import BaseModel  # noqa: E402
 
 
 class ProtocolConvertRequest(BaseModel):
     """协议转换请求模型"""
+
     target_provider: str
     messages: list[dict[str, Any]]
     parameters: dict[str, Any] = {}
 
+
 class CostCalculateRequest(BaseModel):
     """成本计算请求模型"""
+
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
+
 
 @app.post("/api/v1/convert")
 async def convert_protocol(request: ProtocolConvertRequest):
@@ -364,11 +362,7 @@ async def calculate_cost(request: CostCalculateRequest):
     """
     from app.core.cost_calculator import CostCalculator
 
-    cost = CostCalculator.calculate_cost(
-        request.model,
-        request.input_tokens,
-        request.output_tokens
-    )
+    cost = CostCalculator.calculate_cost(request.model, request.input_tokens, request.output_tokens)
 
     return cost
 

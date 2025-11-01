@@ -5,7 +5,6 @@ Version Management API
 """
 
 import logging
-from typing import List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
@@ -16,22 +15,22 @@ from app.db.repositories.version_repository import VersionRepository
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(
-    prefix="/api/v1/versions",
-    tags=["versions"]
-)
+router = APIRouter(prefix="/api/v1/versions", tags=["versions"])
 
 
 # Request/Response Models
 
+
 class CreateVersionRequest(BaseModel):
     """创建版本请求"""
+
     knowledge_base_id: str = Field(..., description="知识库 ID")
-    description: Optional[str] = Field("", description="版本描述")
+    description: str | None = Field("", description="版本描述")
 
 
 class VersionSnapshotResponse(BaseModel):
     """版本快照响应"""
+
     document_count: int
     chunk_count: int
     entity_count: int
@@ -43,6 +42,7 @@ class VersionSnapshotResponse(BaseModel):
 
 class VersionResponse(BaseModel):
     """版本响应"""
+
     id: str
     knowledge_base_id: str
     version: int
@@ -55,23 +55,26 @@ class VersionResponse(BaseModel):
 
 class ListVersionsResponse(BaseModel):
     """列出版本响应"""
-    versions: List[VersionResponse]
+
+    versions: list[VersionResponse]
     total: int
 
 
 class RollbackRequest(BaseModel):
     """回滚请求"""
+
     version_id: str = Field(..., description="目标版本 ID")
 
 
 # API Endpoints
+
 
 @router.post("/", response_model=VersionResponse)
 async def create_version(
     request: CreateVersionRequest,
     x_tenant_id: str = Header("default", alias="X-Tenant-ID"),
     x_user_id: str = Header("anonymous", alias="X-User-ID"),
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
     """
     创建版本快照
@@ -92,7 +95,7 @@ async def create_version(
             knowledge_base_id=request.knowledge_base_id,
             created_by=x_user_id,
             tenant_id=x_tenant_id,
-            description=request.description
+            description=request.description,
         )
 
         # 保存到数据库
@@ -107,15 +110,15 @@ async def create_version(
             description=version.description,
             created_by=version.created_by,
             tenant_id=version.tenant_id,
-            created_at=version.created_at.isoformat()
+            created_at=version.created_at.isoformat(),
         )
 
     except Exception as e:
         logger.error(f"Failed to create version: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create version: {str(e)}"
-        )
+            detail=f"Failed to create version: {str(e)}",
+        ) from e
 
 
 @router.get("/", response_model=ListVersionsResponse)
@@ -123,7 +126,7 @@ async def list_versions(
     knowledge_base_id: str,
     offset: int = 0,
     limit: int = 10,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
     """
     列出知识库的版本历史
@@ -136,9 +139,7 @@ async def list_versions(
         # 从数据库获取版本列表
         repo = VersionRepository(session)
         versions, total = await repo.list_by_knowledge_base(
-            knowledge_base_id=knowledge_base_id,
-            offset=offset,
-            limit=limit
+            knowledge_base_id=knowledge_base_id, offset=offset, limit=limit
         )
 
         return ListVersionsResponse(
@@ -151,26 +152,23 @@ async def list_versions(
                     description=v.description,
                     created_by=v.created_by,
                     tenant_id=v.tenant_id,
-                    created_at=v.created_at.isoformat()
+                    created_at=v.created_at.isoformat(),
                 )
                 for v in versions
             ],
-            total=total
+            total=total,
         )
 
     except Exception as e:
         logger.error(f"Failed to list versions: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list versions: {str(e)}"
-        )
+            detail=f"Failed to list versions: {str(e)}",
+        ) from e
 
 
 @router.get("/{version_id}", response_model=VersionResponse)
-async def get_version(
-    version_id: str,
-    session: AsyncSession = Depends(get_session)
-):
+async def get_version(version_id: str, session: AsyncSession = Depends(get_session)):
     """
     获取版本详情
 
@@ -182,10 +180,7 @@ async def get_version(
         version = await repo.get_by_id(version_id)
 
         if not version:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Version not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
 
         return VersionResponse(
             id=version.id,
@@ -195,7 +190,7 @@ async def get_version(
             description=version.description,
             created_by=version.created_by,
             tenant_id=version.tenant_id,
-            created_at=version.created_at.isoformat()
+            created_at=version.created_at.isoformat(),
         )
 
     except HTTPException:
@@ -204,14 +199,13 @@ async def get_version(
         logger.error(f"Failed to get version: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to get version: {str(e)}"
-        )
+            detail=f"Failed to get version: {str(e)}",
+        ) from e
 
 
 @router.post("/rollback")
 async def rollback_version(
-    request: RollbackRequest,
-    x_user_id: str = Header("anonymous", alias="X-User-ID")
+    request: RollbackRequest, x_user_id: str = Header("anonymous", alias="X-User-ID")
 ):
     """
     回滚到指定版本
@@ -228,20 +222,15 @@ async def rollback_version(
 
         # 执行回滚
         success = await version_mgr.rollback_to_version(
-            version_id=request.version_id,
-            initiated_by=x_user_id
+            version_id=request.version_id, initiated_by=x_user_id
         )
 
         if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Rollback failed"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Rollback failed"
             )
 
-        return {
-            "message": "Rollback completed successfully",
-            "version_id": request.version_id
-        }
+        return {"message": "Rollback completed successfully", "version_id": request.version_id}
 
     except HTTPException:
         raise
@@ -249,15 +238,12 @@ async def rollback_version(
         logger.error(f"Failed to rollback: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to rollback: {str(e)}"
-        )
+            detail=f"Failed to rollback: {str(e)}",
+        ) from e
 
 
 @router.delete("/{version_id}")
-async def delete_version(
-    version_id: str,
-    session: AsyncSession = Depends(get_session)
-):
+async def delete_version(version_id: str, session: AsyncSession = Depends(get_session)):
     """
     删除版本
 
@@ -269,10 +255,7 @@ async def delete_version(
         success = await repo.delete(version_id)
 
         if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Version not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version not found")
 
         return {"message": "Version deleted successfully"}
 
@@ -282,5 +265,5 @@ async def delete_version(
         logger.error(f"Failed to delete version: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to delete version: {str(e)}"
-        )
+            detail=f"Failed to delete version: {str(e)}",
+        ) from e

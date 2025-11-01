@@ -27,7 +27,7 @@ async def demo_basic_cache():
     vector_cache = VectorCache(
         redis_client=redis_client,
         l1_max_size=100,  # 小容量用于演示
-        l2_ttl=3600,      # 1小时
+        l2_ttl=3600,  # 1小时
     )
 
     # 2. 测试文本
@@ -129,7 +129,7 @@ async def demo_batch_cache():
 
     # 统计
     stats = vector_cache.get_stats()
-    logger.info(f"\n📊 Final Stats:")
+    logger.info("\n📊 Final Stats:")
     logger.info(f"  Total Requests: {stats['overall']['total_requests']}")
     logger.info(f"  Total Hits: {stats['overall']['total_hits']}")
     logger.info(f"  Compute Count: {stats['overall']['compute_count']}")
@@ -143,9 +143,9 @@ async def demo_cached_embedder():
     logger.info("=== Demo 3: CachedEmbedder Wrapper ===\n")
 
     import redis.asyncio as redis
+    from app.core.cached_embedder import CachedEmbedder
     from app.core.embedder import BGE_M3_Embedder
     from app.infrastructure.vector_cache import VectorCache
-    from app.core.cached_embedder import CachedEmbedder
 
     # 初始化
     redis_client = await redis.from_url("redis://localhost:6379/0")
@@ -188,7 +188,7 @@ async def demo_cached_embedder():
 
     # 查看统计
     stats = cached_embedder.get_cache_stats()
-    logger.info(f"\n📊 Cache Stats:")
+    logger.info("\n📊 Cache Stats:")
     logger.info(f"  Hit Rate: {stats['overall']['hit_rate']:.2%}")
     logger.info(f"  Compute Count: {stats['overall']['compute_count']} (expected: 5)")
     logger.info(f"  Cache Efficiency: {stats['overall']['cache_efficiency']:.2%}\n")
@@ -201,9 +201,9 @@ async def demo_cache_warmup():
     logger.info("=== Demo 4: Cache Warmup ===\n")
 
     import redis.asyncio as redis
+    from app.core.cached_embedder import CachedEmbedder
     from app.core.embedder import BGE_M3_Embedder
     from app.infrastructure.vector_cache import VectorCache
-    from app.core.cached_embedder import CachedEmbedder
 
     # 初始化
     redis_client = await redis.from_url("redis://localhost:6379/0")
@@ -249,7 +249,7 @@ async def demo_cache_warmup():
     logger.info("Querying warmed-up texts...")
     start_time = time.time()
 
-    vectors = await cached_embedder.embed_batch(common_texts)
+    await cached_embedder.embed_batch(common_texts)
 
     query_duration = time.time() - start_time
     logger.info(f"⏱️  Query duration: {query_duration:.3f}s")
@@ -257,7 +257,7 @@ async def demo_cache_warmup():
 
     # 统计
     stats = cached_embedder.get_cache_stats()
-    logger.info(f"📊 Cache Stats:")
+    logger.info("📊 Cache Stats:")
     logger.info(f"  Hit Rate: {stats['overall']['hit_rate']:.2%}")
     logger.info(f"  Total Hits: {stats['overall']['total_hits']}\n")
 
@@ -269,9 +269,9 @@ async def demo_multi_model_cache():
     logger.info("=== Demo 5: Multi-Model Cache ===\n")
 
     import redis.asyncio as redis
+    from app.core.cached_embedder import MultiModelCachedEmbedder
     from app.core.embedder import BGE_M3_Embedder
     from app.infrastructure.vector_cache import MultiModelVectorCache
-    from app.core.cached_embedder import MultiModelCachedEmbedder
 
     # 初始化
     redis_client = await redis.from_url("redis://localhost:6379/0")
@@ -310,13 +310,13 @@ async def demo_multi_model_cache():
     # 再次使用 bge-m3（应该命中缓存）
     logger.info("\nProcessing with bge-m3 again (cache hit)...")
     start_time = time.time()
-    vectors_m3_again = await multi_cached_embedder.embed_batch(texts, model="bge-m3")
+    await multi_cached_embedder.embed_batch(texts, model="bge-m3")
     duration = time.time() - start_time
     logger.info(f"⏱️  Duration: {duration:.3f}s (fast!)")
 
     # 查看所有模型的统计
     all_stats = multi_cached_embedder.get_all_stats()
-    logger.info(f"\n📊 Multi-Model Cache Stats:")
+    logger.info("\n📊 Multi-Model Cache Stats:")
 
     for model, stats in all_stats.items():
         logger.info(f"\n  {model}:")
@@ -332,9 +332,9 @@ async def demo_performance_comparison():
     logger.info("=== Demo 6: Performance Comparison ===\n")
 
     import redis.asyncio as redis
+    from app.core.cached_embedder import CachedEmbedder
     from app.core.embedder import BGE_M3_Embedder
     from app.infrastructure.vector_cache import VectorCache
-    from app.core.cached_embedder import CachedEmbedder
 
     # 初始化
     redis_client = await redis.from_url("redis://localhost:6379/0")
@@ -390,15 +390,17 @@ async def demo_performance_comparison():
 
     # 最终统计
     stats = cached_embedder.get_cache_stats()
-    logger.info(f"\n📊 Final Cache Stats:")
+    logger.info("\n📊 Final Cache Stats:")
     logger.info(f"  Total Requests: {stats['overall']['total_requests']}")
     logger.info(f"  Total Hits: {stats['overall']['total_hits']}")
     logger.info(f"  Hit Rate: {stats['overall']['hit_rate']:.2%}")
     logger.info(f"  Cache Efficiency: {stats['overall']['cache_efficiency']:.2%}")
 
     # 成本节省估算
-    cost_saved = (stats['overall']['total_requests'] - stats['overall']['compute_count']) / stats['overall']['total_requests']
-    logger.info(f"\n💰 Cost Savings:")
+    cost_saved = (stats["overall"]["total_requests"] - stats["overall"]["compute_count"]) / stats[
+        "overall"
+    ]["total_requests"]
+    logger.info("\n💰 Cost Savings:")
     logger.info(f"  Compute Reduction: {cost_saved:.2%}")
     logger.info(f"  Estimated Token Savings: {int(cost_saved * 100)}%\n")
 

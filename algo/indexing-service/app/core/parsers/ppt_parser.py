@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class PowerPointParser(BaseParser):
     """PowerPoint 文档解析器"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析 PowerPoint 文档"""
         try:
             prs = Presentation(io.BytesIO(file_data))

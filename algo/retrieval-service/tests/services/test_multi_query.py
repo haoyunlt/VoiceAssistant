@@ -2,7 +2,6 @@
 Multi-Query Service 单元测试
 """
 
-
 import pytest
 from app.services.query.multi_query_service import (
     MultiQueryResult,
@@ -193,4 +192,3 @@ class TestEdgeCases:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
-

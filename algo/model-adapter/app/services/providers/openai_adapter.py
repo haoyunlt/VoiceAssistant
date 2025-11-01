@@ -1,4 +1,5 @@
 """OpenAI适配器"""
+
 import logging
 import time
 import uuid
@@ -81,21 +82,24 @@ class OpenAIAdapter(BaseAdapter):
     async def chat_stream(self, request: ChatRequest) -> AsyncIterator[str]:
         """流式聊天接口"""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client, client.stream(
-                "POST",
-                f"{self.api_base}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": request.model,
-                    "messages": [m.dict() for m in request.messages],
-                    "temperature": request.temperature,
-                    "max_tokens": request.max_tokens,
-                    "stream": True,
-                },
-            ) as response:
+            async with (
+                httpx.AsyncClient(timeout=self.timeout) as client,
+                client.stream(
+                    "POST",
+                    f"{self.api_base}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": request.model,
+                        "messages": [m.dict() for m in request.messages],
+                        "temperature": request.temperature,
+                        "max_tokens": request.max_tokens,
+                        "stream": True,
+                    },
+                ) as response,
+            ):
                 response.raise_for_status()
 
                 async for line in response.aiter_lines():

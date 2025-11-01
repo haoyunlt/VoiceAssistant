@@ -131,9 +131,7 @@ class RetrievalEvaluator:
 
         print(f"✅ 创建示例数据: {len(self.eval_data)}条")
 
-    def calculate_metrics(
-        self, results: list[RetrievalResult]
-    ) -> EvalMetrics:
+    def calculate_metrics(self, results: list[RetrievalResult]) -> EvalMetrics:
         """
         计算评测指标
 
@@ -164,31 +162,19 @@ class RetrievalEvaluator:
             relevant = set(data_point.relevant_doc_ids)
 
             # Recall@K
-            recall_5_list.append(
-                self._recall_at_k(result.retrieved_doc_ids, relevant, 5)
-            )
-            recall_10_list.append(
-                self._recall_at_k(result.retrieved_doc_ids, relevant, 10)
-            )
-            recall_20_list.append(
-                self._recall_at_k(result.retrieved_doc_ids, relevant, 20)
-            )
+            recall_5_list.append(self._recall_at_k(result.retrieved_doc_ids, relevant, 5))
+            recall_10_list.append(self._recall_at_k(result.retrieved_doc_ids, relevant, 10))
+            recall_20_list.append(self._recall_at_k(result.retrieved_doc_ids, relevant, 20))
 
             # Precision@K
-            precision_5_list.append(
-                self._precision_at_k(result.retrieved_doc_ids, relevant, 5)
-            )
-            precision_10_list.append(
-                self._precision_at_k(result.retrieved_doc_ids, relevant, 10)
-            )
+            precision_5_list.append(self._precision_at_k(result.retrieved_doc_ids, relevant, 5))
+            precision_10_list.append(self._precision_at_k(result.retrieved_doc_ids, relevant, 10))
 
             # MRR
             mrr_list.append(self._mrr(result.retrieved_doc_ids, relevant))
 
             # NDCG@10
-            ndcg_10_list.append(
-                self._ndcg_at_k(result.retrieved_doc_ids, relevant, 10)
-            )
+            ndcg_10_list.append(self._ndcg_at_k(result.retrieved_doc_ids, relevant, 10))
 
             # Latency
             latencies.append(result.latency_ms)
@@ -199,7 +185,9 @@ class RetrievalEvaluator:
             recall_at_10=sum(recall_10_list) / len(recall_10_list) if recall_10_list else 0,
             recall_at_20=sum(recall_20_list) / len(recall_20_list) if recall_20_list else 0,
             precision_at_5=sum(precision_5_list) / len(precision_5_list) if precision_5_list else 0,
-            precision_at_10=sum(precision_10_list) / len(precision_10_list) if precision_10_list else 0,
+            precision_at_10=sum(precision_10_list) / len(precision_10_list)
+            if precision_10_list
+            else 0,
             mrr=sum(mrr_list) / len(mrr_list) if mrr_list else 0,
             ndcg_at_10=sum(ndcg_10_list) / len(ndcg_10_list) if ndcg_10_list else 0,
             avg_latency_ms=sum(latencies) / len(latencies) if latencies else 0,
@@ -209,9 +197,7 @@ class RetrievalEvaluator:
 
         return metrics
 
-    def _recall_at_k(
-        self, retrieved: list[str], relevant: set, k: int
-    ) -> float:
+    def _recall_at_k(self, retrieved: list[str], relevant: set, k: int) -> float:
         """计算Recall@K"""
         if not relevant:
             return 0.0
@@ -220,9 +206,7 @@ class RetrievalEvaluator:
         hits = len(retrieved_at_k & relevant)
         return hits / len(relevant)
 
-    def _precision_at_k(
-        self, retrieved: list[str], relevant: set, k: int
-    ) -> float:
+    def _precision_at_k(self, retrieved: list[str], relevant: set, k: int) -> float:
         """计算Precision@K"""
         retrieved_at_k = retrieved[:k]
         if not retrieved_at_k:
@@ -238,9 +222,7 @@ class RetrievalEvaluator:
                 return 1.0 / i
         return 0.0
 
-    def _ndcg_at_k(
-        self, retrieved: list[str], relevant: set, k: int
-    ) -> float:
+    def _ndcg_at_k(self, retrieved: list[str], relevant: set, k: int) -> float:
         """计算NDCG@K"""
         # 简化的NDCG计算：假设相关文档权重为1，不相关为0
         dcg = 0.0
@@ -256,7 +238,7 @@ class RetrievalEvaluator:
         return dcg / idcg if idcg > 0 else 0.0
 
 
-async def run_evaluation(strategy: str, config_path: str | None = None):
+async def run_evaluation(strategy: str, _config_path: str | None = None):
     """
     运行评测
 
@@ -342,4 +324,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

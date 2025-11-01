@@ -127,18 +127,19 @@ class FullDuplexEngine:
 
                 # ASR 识别
                 result = await self.asr_service.recognize(
-                    audio_data=audio_bytes,
-                    language=self.language
+                    audio_data=audio_bytes, language=self.language
                 )
 
                 # 发送识别结果
                 if result.get("text"):
-                    await websocket.send_json({
-                        "type": "asr_result",
-                        "text": result["text"],
-                        "confidence": result.get("confidence", 0.0),
-                        "is_final": True
-                    })
+                    await websocket.send_json(
+                        {
+                            "type": "asr_result",
+                            "text": result["text"],
+                            "confidence": result.get("confidence", 0.0),
+                            "is_final": True,
+                        }
+                    )
 
             # 清空缓冲区
             self.audio_buffer = bytearray()
@@ -146,7 +147,7 @@ class FullDuplexEngine:
         except Exception as e:
             logger.error(f"Audio processing error: {e}")
 
-    async def _tts_loop(self, websocket: WebSocket):
+    async def _tts_loop(self, _websocket: WebSocket):
         """TTS 循环 - 等待 TTS 请求并播放"""
         logger.info("TTS loop started")
 
@@ -169,22 +170,15 @@ class FullDuplexEngine:
         try:
             # 合成语音
             audio_data = await self.tts_service.synthesize(
-                text=text,
-                voice=self.voice,
-                language=self.language
+                text=text, voice=self.voice, language=self.language
             )
 
             # 流式播放
-            self.playback_task = asyncio.create_task(
-                self._stream_audio(websocket, audio_data)
-            )
+            self.playback_task = asyncio.create_task(self._stream_audio(websocket, audio_data))
 
         except Exception as e:
             logger.error(f"TTS request failed: {e}")
-            await websocket.send_json({
-                "type": "error",
-                "message": f"TTS 失败: {str(e)}"
-            })
+            await websocket.send_json({"type": "error", "message": f"TTS 失败: {str(e)}"})
 
     async def _stream_audio(self, websocket: WebSocket, audio: bytes):
         """
@@ -206,16 +200,18 @@ class FullDuplexEngine:
                 if asyncio.current_task().cancelled():
                     break
 
-                chunk = audio[i:i+chunk_size]
+                chunk = audio[i : i + chunk_size]
                 chunk_num = i // chunk_size + 1
 
-                await websocket.send_json({
-                    "type": "audio_chunk",
-                    "audio": base64.b64encode(chunk).decode(),
-                    "chunk_num": chunk_num,
-                    "total_chunks": total_chunks,
-                    "is_last": i + chunk_size >= len(audio)
-                })
+                await websocket.send_json(
+                    {
+                        "type": "audio_chunk",
+                        "audio": base64.b64encode(chunk).decode(),
+                        "chunk_num": chunk_num,
+                        "total_chunks": total_chunks,
+                        "is_last": i + chunk_size >= len(audio),
+                    }
+                )
 
                 # 小延迟，避免过快
                 await asyncio.sleep(0.01)
@@ -248,14 +244,11 @@ class FullDuplexEngine:
 
         # 发送停止通知
         with contextlib.suppress(builtins.BaseException):
-            await websocket.send_json({
-                "type": "playback_stopped",
-                "reason": "interrupted_by_user"
-            })
+            await websocket.send_json({"type": "playback_stopped", "reason": "interrupted_by_user"})
 
         logger.info("Playback stopped")
 
-    async def _vad_loop(self, websocket: WebSocket):
+    async def _vad_loop(self, _websocket: WebSocket):
         """VAD 监控循环 - 用于打断检测"""
         logger.info("VAD loop started")
 

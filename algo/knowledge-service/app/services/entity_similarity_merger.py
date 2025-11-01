@@ -7,6 +7,7 @@
 - 合并规则配置
 - 合并审计日志
 """
+
 import logging
 import time
 
@@ -24,7 +25,7 @@ class EntitySimilarityMerger:
         embedding_service,
         similarity_threshold: float = 0.90,
         min_confidence: float = 0.85,
-        require_type_match: bool = True
+        require_type_match: bool = True,
     ):
         """
         初始化实体相似度合并器
@@ -50,10 +51,7 @@ class EntitySimilarityMerger:
         )
 
     async def find_duplicate_candidates(
-        self,
-        entity_type: str | None = None,
-        batch_size: int = 100,
-        max_candidates: int = 1000
+        self, entity_type: str | None = None, _batch_size: int = 100, max_candidates: int = 1000
     ) -> list[dict]:
         """
         查找重复实体候选
@@ -110,7 +108,7 @@ class EntitySimilarityMerger:
                 entity_info[entity_id] = {
                     "name": name,
                     "type": entity_type_val,
-                    "description": desc
+                    "description": desc,
                 }
 
             # 3. 批量向量化
@@ -144,20 +142,22 @@ class EntitySimilarityMerger:
                             if type1 != type2:
                                 continue
 
-                        candidates.append({
-                            "entity1_id": entity_ids[i],
-                            "entity1_name": entity_info[entity_ids[i]]["name"],
-                            "entity1_type": entity_info[entity_ids[i]]["type"],
-                            "entity2_id": entity_ids[j],
-                            "entity2_name": entity_info[entity_ids[j]]["name"],
-                            "entity2_type": entity_info[entity_ids[j]]["type"],
-                            "similarity": similarity,
-                            "confidence": self._calculate_confidence(
-                                entity_info[entity_ids[i]],
-                                entity_info[entity_ids[j]],
-                                similarity
-                            )
-                        })
+                        candidates.append(
+                            {
+                                "entity1_id": entity_ids[i],
+                                "entity1_name": entity_info[entity_ids[i]]["name"],
+                                "entity1_type": entity_info[entity_ids[i]]["type"],
+                                "entity2_id": entity_ids[j],
+                                "entity2_name": entity_info[entity_ids[j]]["name"],
+                                "entity2_type": entity_info[entity_ids[j]]["type"],
+                                "similarity": similarity,
+                                "confidence": self._calculate_confidence(
+                                    entity_info[entity_ids[i]],
+                                    entity_info[entity_ids[j]],
+                                    similarity,
+                                ),
+                            }
+                        )
 
                         processed.add(entity_ids[j])
 
@@ -173,10 +173,7 @@ class EntitySimilarityMerger:
             return []
 
     def _calculate_confidence(
-        self,
-        entity1: dict,
-        entity2: dict,
-        vector_similarity: float
+        self, entity1: dict, entity2: dict, vector_similarity: float
     ) -> float:
         """
         计算合并置信度
@@ -235,7 +232,7 @@ class EntitySimilarityMerger:
         entity_type: str | None = None,
         min_confidence: float | None = None,
         dry_run: bool = True,
-        max_merges: int = 100
+        max_merges: int = 100,
     ) -> dict:
         """
         自动合并重复实体
@@ -256,14 +253,11 @@ class EntitySimilarityMerger:
 
             # 1. 查找候选
             candidates = await self.find_duplicate_candidates(
-                entity_type=entity_type,
-                max_candidates=1000
+                entity_type=entity_type, max_candidates=1000
             )
 
             # 2. 过滤低置信度候选
-            high_confidence_candidates = [
-                c for c in candidates if c["confidence"] >= min_conf
-            ]
+            high_confidence_candidates = [c for c in candidates if c["confidence"] >= min_conf]
 
             logger.info(
                 f"Found {len(high_confidence_candidates)} high-confidence duplicates "
@@ -282,16 +276,12 @@ class EntitySimilarityMerger:
                 for candidate in to_merge:
                     try:
                         result = await self._merge_entity_pair(
-                            candidate["entity1_id"],
-                            candidate["entity2_id"]
+                            candidate["entity1_id"], candidate["entity2_id"]
                         )
 
                         if result["success"]:
                             merged_count += 1
-                            merge_results.append({
-                                **candidate,
-                                "merge_result": result
-                            })
+                            merge_results.append({**candidate, "merge_result": result})
                         else:
                             failed_count += 1
 
@@ -309,21 +299,14 @@ class EntitySimilarityMerger:
                 "merges_performed": merged_count,
                 "merges_failed": failed_count,
                 "elapsed_time": elapsed,
-                "merge_details": merge_results if not dry_run else to_merge
+                "merge_details": merge_results if not dry_run else to_merge,
             }
 
         except Exception as e:
             logger.error(f"Auto merge failed: {e}", exc_info=True)
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
-    async def _merge_entity_pair(
-        self,
-        source_id: str,
-        target_id: str
-    ) -> dict:
+    async def _merge_entity_pair(self, source_id: str, target_id: str) -> dict:
         """
         合并一对实体
 
@@ -371,8 +354,7 @@ class EntitySimilarityMerger:
             """
 
             result = await self.neo4j.query(
-                cypher_merge,
-                {"source_id": source_id, "target_id": target_id}
+                cypher_merge, {"source_id": source_id, "target_id": target_id}
             )
 
             if result:
@@ -388,26 +370,16 @@ class EntitySimilarityMerger:
                     "success": True,
                     "source_id": source_id,
                     "target_id": target_id,
-                    "relationships_transferred": out_count + in_count
+                    "relationships_transferred": out_count + in_count,
                 }
             else:
-                return {
-                    "success": False,
-                    "error": "No result returned from merge query"
-                }
+                return {"success": False, "error": "No result returned from merge query"}
 
         except Exception as e:
             logger.error(f"Failed to merge entity pair: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
-    async def preview_merge(
-        self,
-        source_id: str,
-        target_id: str
-    ) -> dict:
+    async def preview_merge(self, source_id: str, target_id: str) -> dict:
         """
         预览合并效果（不实际执行）
 
@@ -429,15 +401,11 @@ class EntitySimilarityMerger:
             """
 
             result = await self.neo4j.query(
-                cypher_info,
-                {"source_id": source_id, "target_id": target_id}
+                cypher_info, {"source_id": source_id, "target_id": target_id}
             )
 
             if not result:
-                return {
-                    "success": False,
-                    "error": "One or both entities not found"
-                }
+                return {"success": False, "error": "One or both entities not found"}
 
             row = result[0]
             source_entity = row["s"]
@@ -450,14 +418,14 @@ class EntitySimilarityMerger:
                 {
                     "name": source_entity.get("name"),
                     "type": source_entity.get("type"),
-                    "description": source_entity.get("description", "")
+                    "description": source_entity.get("description", ""),
                 },
                 {
                     "name": target_entity.get("name"),
                     "type": target_entity.get("type"),
-                    "description": target_entity.get("description", "")
+                    "description": target_entity.get("description", ""),
                 },
-                0.9  # 假设向量相似度
+                0.9,  # 假设向量相似度
             )
 
             return {
@@ -466,23 +434,20 @@ class EntitySimilarityMerger:
                     "id": source_id,
                     "name": source_entity.get("name"),
                     "type": source_entity.get("type"),
-                    "relationships": out_rels + in_rels
+                    "relationships": out_rels + in_rels,
                 },
                 "target_entity": {
                     "id": target_id,
                     "name": target_entity.get("name"),
-                    "type": target_entity.get("type")
+                    "type": target_entity.get("type"),
                 },
                 "confidence": confidence,
                 "impact": {
                     "relationships_to_transfer": out_rels + in_rels,
-                    "source_will_be_deleted": True
-                }
+                    "source_will_be_deleted": True,
+                },
             }
 
         except Exception as e:
             logger.error(f"Failed to preview merge: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}

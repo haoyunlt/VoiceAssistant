@@ -1,4 +1,5 @@
 """请求缓存服务"""
+
 import hashlib
 import json
 
@@ -20,7 +21,7 @@ class RequestCacheService:
             host=settings.REDIS_HOST,
             port=settings.REDIS_PORT,
             db=settings.REDIS_DB,
-            decode_responses=True
+            decode_responses=True,
         )
 
         # 缓存键前缀
@@ -59,10 +60,7 @@ class RequestCacheService:
 
         return f"{self.key_prefix}:{hash_value}"
 
-    async def get_cached_response(
-        self,
-        request: ChatRequest
-    ) -> ChatResponse | None:
+    async def get_cached_response(self, request: ChatRequest) -> ChatResponse | None:
         """获取缓存的响应
 
         Args:
@@ -102,10 +100,7 @@ class RequestCacheService:
             return None
 
     async def set_cached_response(
-        self,
-        request: ChatRequest,
-        response: ChatResponse,
-        ttl: int | None = None
+        self, request: ChatRequest, response: ChatResponse, ttl: int | None = None
     ):
         """设置缓存响应
 
@@ -149,9 +144,7 @@ class RequestCacheService:
 
             while True:
                 cursor, partial_keys = self.redis_client.scan(
-                    cursor,
-                    match=f"{self.key_prefix}:{pattern}",
-                    count=100
+                    cursor, match=f"{self.key_prefix}:{pattern}", count=100
                 )
                 keys.extend(partial_keys)
 
@@ -178,9 +171,7 @@ class RequestCacheService:
 
             while True:
                 cursor, partial_keys = self.redis_client.scan(
-                    cursor,
-                    match=f"{self.key_prefix}:*",
-                    count=100
+                    cursor, match=f"{self.key_prefix}:*", count=100
                 )
                 keys.extend(partial_keys)
 
@@ -188,12 +179,7 @@ class RequestCacheService:
                     break
 
             # 统计TTL分布
-            ttl_distribution = {
-                "< 1h": 0,
-                "1h - 6h": 0,
-                "6h - 24h": 0,
-                "> 24h": 0
-            }
+            ttl_distribution = {"< 1h": 0, "1h - 6h": 0, "6h - 24h": 0, "> 24h": 0}
 
             for key in keys:
                 ttl = self.redis_client.ttl(key)
@@ -212,7 +198,7 @@ class RequestCacheService:
             return {
                 "total_entries": len(keys),
                 "ttl_distribution": ttl_distribution,
-                "default_ttl_seconds": self.default_ttl
+                "default_ttl_seconds": self.default_ttl,
             }
         except Exception as e:
             logger.error(f"Error getting cache stats: {e}")

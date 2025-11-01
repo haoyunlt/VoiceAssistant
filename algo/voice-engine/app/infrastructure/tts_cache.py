@@ -49,9 +49,7 @@ class TTSRedisCache:
         self.ttl = timedelta(days=ttl_days)
         self.max_cache_size = max_cache_size_mb * 1024 * 1024  # 转为字节
 
-    def _generate_key(
-        self, text: str, voice: str, rate: str, pitch: str, format: str
-    ) -> str:
+    def _generate_key(self, text: str, voice: str, rate: str, pitch: str, format: str) -> str:
         """
         生成缓存键
 
@@ -243,12 +241,7 @@ class TTSRedisCache:
                 # 获取大小
                 stats_key = f"{key}:stats"
                 size = self.redis.hget(stats_key, "audio_size")
-
-                if size:
-                    size = int(size)
-                else:
-                    # 如果 stats 不存在，估算大小
-                    size = self.redis.memory_usage(key) or 0
+                size = int(size) if size else self.redis.memory_usage(key) or 0
 
                 # 删除缓存
                 self.redis.delete(key)
@@ -302,9 +295,7 @@ class TTSRedisCache:
                 }
 
             # 计算总大小
-            total_size = sum(
-                self.redis.memory_usage(k) or 0 for k in cache_keys
-            )
+            total_size = sum(self.redis.memory_usage(k) or 0 for k in cache_keys)
 
             # 计算总命中数
             total_hits = 0
@@ -331,9 +322,7 @@ class TTSRedisCache:
                 "total_hits": total_hits,
                 "hit_rate": f"{hit_rate:.2f}",
                 "avg_audio_size_kb": (
-                    total_audio_size / total_entries / 1024
-                    if total_entries > 0
-                    else 0
+                    total_audio_size / total_entries / 1024 if total_entries > 0 else 0
                 ),
                 "max_cache_size_mb": self.max_cache_size / 1024 / 1024,
                 "ttl_days": self.ttl.days,

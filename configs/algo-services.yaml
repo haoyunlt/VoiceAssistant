@@ -9,16 +9,16 @@ services:
       timeout: 60s
       description: "Agent执行、工具调用、记忆管理、Multi-Agent、Self-RAG"
 
-    # RAG Engine - 检索增强生成引擎
-    rag-engine:
-      url: "http://localhost:8006"
-      timeout: 30s
-      description: "RAG问答、查询改写、上下文构建"
+    # RAG Engine - 已合并到 Knowledge Service
+    # rag-engine:
+    #   url: "http://localhost:8006"
+    #   timeout: 30s
+    #   description: "RAG问答、查询改写、上下文构建（已合并到knowledge-service）"
 
     # Retrieval Service - 检索服务
     retrieval-service:
       url: "http://localhost:8012"
-      timeout: 10s
+      timeout: 30s
       description: "向量检索、混合检索、重排序"
 
     # Voice Engine - 语音处理引擎
@@ -29,8 +29,8 @@ services:
 
     # Multimodal Engine - 多模态引擎
     multimodal-engine:
-      url: "http://localhost:8007"
-      timeout: 20s
+      url: "http://localhost:8008"
+      timeout: 30s
       description: "OCR、视觉理解、图像分析"
 
     # Model Adapter - 模型适配器
@@ -41,15 +41,21 @@ services:
 
     # Indexing Service - 文档索引服务
     indexing-service:
-      url: "http://localhost:8000"
+      url: "http://localhost:8011"
       timeout: 300s
       description: "文档索引、向量化、知识图谱构建"
 
     # Vector Store Adapter - 向量库适配器
     vector-store-adapter:
       url: "http://localhost:8009"
-      timeout: 10s
+      timeout: 30s
       description: "向量库适配（Milvus/pgvector）"
+
+    # Knowledge Service - 知识服务（合并后的统一版本）
+    knowledge-service:
+      url: "http://localhost:8006"
+      timeout: 30s
+      description: "知识图谱管理 + 文档管理 + GraphRAG"
 # Docker Compose 环境配置
 # 当服务运行在Docker Compose中时，使用服务名作为主机名
 # docker-compose:
@@ -64,7 +70,7 @@ services:
 #       voice-engine:
 #         url: "http://voice-engine:8004"
 #       multimodal-engine:
-#         url: "http://multimodal-engine:8007"
+#         url: "http://multimodal-engine:8008"
 #       model-adapter:
 #         url: "http://model-adapter:8005"
 #       indexing-service:
@@ -85,7 +91,7 @@ services:
 #       voice-engine:
 #         url: "http://voice-engine.voicehelper.svc.cluster.local:8004"
 #       multimodal-engine:
-#         url: "http://multimodal-engine.voicehelper.svc.cluster.local:8007"
+#         url: "http://multimodal-engine.voicehelper.svc.cluster.local:8008"
 #       model-adapter:
 #         url: "http://model-adapter.voicehelper.svc.cluster.local:8005"
 #       indexing-service:

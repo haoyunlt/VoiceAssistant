@@ -68,9 +68,7 @@ def setup_tracing(
         # 自动instrument HTTPX（用于HTTP客户端调用）
         HTTPXClientInstrumentor().instrument()
 
-        logger.info(
-            f"OpenTelemetry tracing enabled: service={service_name}, endpoint={endpoint}"
-        )
+        logger.info(f"OpenTelemetry tracing enabled: service={service_name}, endpoint={endpoint}")
 
     except Exception as e:
         logger.error(f"Failed to setup OpenTelemetry tracing: {e}")

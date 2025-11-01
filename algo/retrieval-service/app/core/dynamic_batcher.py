@@ -12,9 +12,11 @@ Dynamic Batcher - 动态批处理器
 """
 
 import asyncio
+import contextlib
 import time
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any, Callable, Coroutine, Generic, List, TypeVar
+from typing import Any, Generic, TypeVar
 
 from app.observability.logging import logger
 
@@ -36,7 +38,7 @@ class DynamicBatcher(Generic[T, R]):
 
     def __init__(
         self,
-        batch_func: Callable[[List[T]], Coroutine[Any, Any, List[R]]],
+        batch_func: Callable[[list[T]], Coroutine[Any, Any, list[R]]],
         max_batch_size: int = 32,
         max_wait_ms: float = 50.0,
         name: str = "batcher",
@@ -85,10 +87,8 @@ class DynamicBatcher(Generic[T, R]):
             self._running = False
             if self._worker_task:
                 self._worker_task.cancel()
-                try:
+                with contextlib.suppress(asyncio.CancelledError):
                     await self._worker_task
-                except asyncio.CancelledError:
-                    pass
             logger.info(f"Batcher '{self.name}' stopped")
 
     async def process(self, data: T) -> R:
@@ -135,23 +135,21 @@ class DynamicBatcher(Generic[T, R]):
 
         logger.info(f"Batch worker '{self.name}' stopped")
 
-    async def _collect_batch(self) -> List[BatchRequest]:
+    async def _collect_batch(self) -> list[BatchRequest]:
         """
         收集批次
 
         Returns:
             批请求列表
         """
-        batch: List[BatchRequest] = []
+        batch: list[BatchRequest] = []
         deadline = time.time() + self.max_wait_ms / 1000.0
 
         # 等待第一个请求
         try:
-            first_req = await asyncio.wait_for(
-                self.queue.get(), timeout=self.max_wait_ms / 1000.0
-            )
+            first_req = await asyncio.wait_for(self.queue.get(), timeout=self.max_wait_ms / 1000.0)
             batch.append(first_req)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return batch
 
         # 收集更多请求直到达到batch_size或超时
@@ -164,12 +162,12 @@ class DynamicBatcher(Generic[T, R]):
             try:
                 req = await asyncio.wait_for(self.queue.get(), timeout=remaining_time)
                 batch.append(req)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 break
 
         return batch
 
-    async def _process_batch(self, batch: List[BatchRequest]):
+    async def _process_batch(self, batch: list[BatchRequest]):
         """
         处理批次
 
@@ -186,7 +184,7 @@ class DynamicBatcher(Generic[T, R]):
             results = await self.batch_func(batch_data)
 
             # 设置结果
-            for req, result in zip(batch, results):
+            for req, result in zip(batch, results, strict=False):
                 if not req.future.done():
                     req.future.set_result(result)
 
@@ -231,7 +229,7 @@ class DynamicBatcher(Generic[T, R]):
 # 使用示例
 if __name__ == "__main__":
 
-    async def batch_embedding_func(queries: List[str]) -> List[List[float]]:
+    async def batch_embedding_func(queries: list[str]) -> list[list[float]]:
         """模拟批量embedding"""
         await asyncio.sleep(0.05)  # 模拟批处理延迟
         return [[1.0] * 384 for _ in queries]

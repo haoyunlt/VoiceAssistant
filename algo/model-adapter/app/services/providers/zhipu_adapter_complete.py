@@ -42,7 +42,7 @@ class ZhipuAdapterComplete:
                 temperature=request.get("temperature", 0.95),
                 top_p=request.get("top_p", 0.7),
                 max_tokens=request.get("max_tokens", 2048),
-                stream=False
+                stream=False,
             )
 
             # 转换为标准格式
@@ -54,21 +54,21 @@ class ZhipuAdapterComplete:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": response.choices[0].message.content
+                            "content": response.choices[0].message.content,
                         },
-                        "finish_reason": response.choices[0].finish_reason
+                        "finish_reason": response.choices[0].finish_reason,
                     }
                 ],
                 "usage": {
                     "prompt_tokens": response.usage.prompt_tokens,
                     "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
+                    "total_tokens": response.usage.total_tokens,
+                },
             }
 
         except Exception as e:
             logger.error(f"Zhipu chat error: {e}")
-            raise Exception(f"Zhipu API call failed: {str(e)}")
+            raise Exception(f"Zhipu API call failed: {str(e)}") from e
 
     async def chat_stream(self, request: dict) -> AsyncIterator[str]:
         """
@@ -81,13 +81,14 @@ class ZhipuAdapterComplete:
                 messages=request.get("messages", []),
                 temperature=request.get("temperature", 0.95),
                 max_tokens=request.get("max_tokens", 2048),
-                stream=True
+                stream=True,
             )
 
             # 流式返回
             for chunk in response:
                 if chunk.choices and chunk.choices[0].delta.content:
                     import json
+
                     chunk_data = {
                         "id": chunk.id,
                         "object": "chat.completion.chunk",
@@ -95,15 +96,15 @@ class ZhipuAdapterComplete:
                             {
                                 "index": 0,
                                 "delta": {"content": chunk.choices[0].delta.content},
-                                "finish_reason": chunk.choices[0].finish_reason
+                                "finish_reason": chunk.choices[0].finish_reason,
                             }
-                        ]
+                        ],
                     }
                     yield f"data: {json.dumps(chunk_data)}\n\n"
 
         except Exception as e:
             logger.error(f"Zhipu stream error: {e}")
-            raise Exception(f"Zhipu stream failed: {str(e)}")
+            raise Exception(f"Zhipu stream failed: {str(e)}") from e
 
     async def embedding(self, request: dict) -> dict:
         """
@@ -121,27 +122,20 @@ class ZhipuAdapterComplete:
                 input_data = [input_data]
 
             # 调用智谱 Embedding API
-            response = self.client.embeddings.create(
-                model="embedding-2",
-                input=input_data
-            )
+            response = self.client.embeddings.create(model="embedding-2", input=input_data)
 
             return {
                 "model": "embedding-2",
                 "data": [
-                    {
-                        "embedding": item.embedding,
-                        "index": item.index,
-                        "object": "embedding"
-                    }
+                    {"embedding": item.embedding, "index": item.index, "object": "embedding"}
                     for item in response.data
                 ],
                 "usage": {
                     "prompt_tokens": response.usage.prompt_tokens,
-                    "total_tokens": response.usage.total_tokens
-                }
+                    "total_tokens": response.usage.total_tokens,
+                },
             }
 
         except Exception as e:
             logger.error(f"Zhipu embedding error: {e}")
-            raise Exception(f"Zhipu embedding failed: {str(e)}")
+            raise Exception(f"Zhipu embedding failed: {str(e)}") from e

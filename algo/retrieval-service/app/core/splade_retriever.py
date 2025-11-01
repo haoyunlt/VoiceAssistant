@@ -5,7 +5,6 @@ SPLADE Retriever - 底层检索器实现
 """
 
 import asyncio
-from typing import Dict, List, Optional
 
 import httpx
 
@@ -34,17 +33,16 @@ class SPLADERetriever:
         self.timeout = timeout
 
         logger.info(
-            f"SPLADE retriever initialized: endpoint={elasticsearch_endpoint}, "
-            f"index={index_name}"
+            f"SPLADE retriever initialized: endpoint={elasticsearch_endpoint}, index={index_name}"
         )
 
     async def search(
         self,
-        query_sparse: Dict[str, float],
+        query_sparse: dict[str, float],
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[dict] = None,
-    ) -> List[dict]:
+        tenant_id: str | None = None,
+        filters: dict | None = None,
+    ) -> list[dict]:
         """
         执行SPLADE检索
 
@@ -95,9 +93,9 @@ class SPLADERetriever:
 
     def _build_sparse_query(
         self,
-        query_sparse: Dict[str, float],
-        tenant_id: Optional[str],
-        filters: Optional[dict],
+        query_sparse: dict[str, float],
+        tenant_id: str | None,
+        filters: dict | None,
     ) -> dict:
         """
         构建ES稀疏向量查询
@@ -142,7 +140,7 @@ class SPLADERetriever:
 
     async def index_documents(
         self,
-        documents: List[dict],
+        documents: list[dict],
         batch_size: int = 100,
     ) -> bool:
         """

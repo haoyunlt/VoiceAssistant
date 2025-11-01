@@ -51,6 +51,7 @@ class DiarizationService:
                 # 设置设备
                 if self.device == "cuda":
                     import torch
+
                     if torch.cuda.is_available():
                         self.pipeline = self.pipeline.to(torch.device("cuda"))
                     else:
@@ -141,9 +142,7 @@ class DiarizationService:
                 "duration": duration,
             }
 
-            logger.info(
-                f"说话人分离完成: {len(segments)}个片段, {len(speakers)}位说话人"
-            )
+            logger.info(f"说话人分离完成: {len(segments)}个片段, {len(speakers)}位说话人")
 
             return result
 
@@ -201,12 +200,14 @@ class DiarizationService:
             # 交替分配说话人
             speaker = f"SPEAKER_{i % 2}"
 
-            segments.append({
-                "start": start,
-                "end": end,
-                "duration": end - start,
-                "speaker": speaker,
-            })
+            segments.append(
+                {
+                    "start": start,
+                    "end": end,
+                    "duration": end - start,
+                    "speaker": speaker,
+                }
+            )
 
         speakers = list({seg["speaker"] for seg in segments})
 
@@ -317,10 +318,9 @@ class DiarizationService:
             statistics["speakers"][speaker] = {
                 "speaking_time": duration,
                 "percentage": round(percentage, 2),
-                "segment_count": len([
-                    s for s in diarization_result.get("segments", [])
-                    if s["speaker"] == speaker
-                ]),
+                "segment_count": len(
+                    [s for s in diarization_result.get("segments", []) if s["speaker"] == speaker]
+                ),
             }
 
         return statistics

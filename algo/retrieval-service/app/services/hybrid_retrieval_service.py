@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RetrievalResult:
     """检索结果"""
+
     document_id: str
     chunk_id: str
     content: str
@@ -220,7 +221,9 @@ class HybridRetrievalService:
             logger.warning(f"Unknown fusion method: {self.fusion_method}, using RRF")
             return self._fuse_rrf(all_results, top_k)
 
-    def _fuse_rrf(self, all_results: dict[str, list[dict]], top_k: int, k: int = 60) -> list[RetrievalResult]:
+    def _fuse_rrf(
+        self, all_results: dict[str, list[dict]], top_k: int, k: int = 60
+    ) -> list[RetrievalResult]:
         """
         RRF (Reciprocal Rank Fusion) 融合
 

@@ -116,6 +116,7 @@ class StreamingDocumentProcessor:
                     )
                     # 触发垃圾回收
                     import gc
+
                     gc.collect()
 
             elapsed_time = time.time() - start_time
@@ -277,8 +278,9 @@ class StreamingDocumentProcessor:
     def _get_memory_usage_mb(self) -> float:
         """获取当前内存使用量（MB）"""
         try:
-            import psutil
             import os
+
+            import psutil
 
             process = psutil.Process(os.getpid())
             memory_info = process.memory_info()
@@ -363,17 +365,13 @@ class StreamingBatchProcessor:
 
         logger.info(f"Starting streaming batch processing: {len(document_ids)} documents")
 
-        tasks = [
-            self._process_with_semaphore(doc_id, tenant_id)
-            for doc_id in document_ids
-        ]
+        tasks = [self._process_with_semaphore(doc_id, tenant_id) for doc_id in document_ids]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # 统计结果
         success_count = sum(
-            1 for r in results
-            if not isinstance(r, Exception) and r.get("status") == "success"
+            1 for r in results if not isinstance(r, Exception) and r.get("status") == "success"
         )
         failed_count = len(document_ids) - success_count
 

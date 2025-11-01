@@ -7,7 +7,7 @@ from typing import Any
 from openai import AsyncOpenAI, OpenAIError
 
 from app.core.base_adapter import AdapterResponse, AdapterStreamChunk, BaseAdapter
-from app.core.resilience import with_resilience, StreamErrorHandler
+from app.core.resilience import StreamErrorHandler, with_resilience
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ class OpenAIAdapter(BaseAdapter):
 
         except OpenAIError as e:
             logger.error(f"OpenAI API error: {e}")
-            raise RuntimeError(f"OpenAI API error: {e}")
+            raise RuntimeError(f"OpenAI API error: {e}") from e
 
     async def generate_stream(
         self,
@@ -131,6 +131,7 @@ class OpenAIAdapter(BaseAdapter):
         Yields:
             流式chunk或错误事件
         """
+
         async def _internal_stream():
             """内部流式生成器."""
             stream = await self.client.chat.completions.create(
@@ -227,7 +228,7 @@ class OpenAIAdapter(BaseAdapter):
 
         except OpenAIError as e:
             logger.error(f"OpenAI function calling error: {e}")
-            raise RuntimeError(f"OpenAI function calling error: {e}")
+            raise RuntimeError(f"OpenAI function calling error: {e}") from e
 
     async def create_embedding(
         self,
@@ -266,7 +267,7 @@ class OpenAIAdapter(BaseAdapter):
 
         except OpenAIError as e:
             logger.error(f"OpenAI embedding error: {e}")
-            raise RuntimeError(f"OpenAI embedding error: {e}")
+            raise RuntimeError(f"OpenAI embedding error: {e}") from e
 
     async def health_check(self) -> bool:
         """

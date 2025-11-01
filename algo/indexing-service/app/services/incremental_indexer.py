@@ -6,6 +6,7 @@
 - 避免重复索引
 - 原子性操作
 """
+
 import logging
 import time
 
@@ -17,11 +18,7 @@ logger = logging.getLogger(__name__)
 class IncrementalIndexer:
     """增量索引器"""
 
-    def __init__(
-        self,
-        version_manager: VersionManager,
-        document_processor
-    ):
+    def __init__(self, version_manager: VersionManager, document_processor):
         """
         初始化增量索引器
 
@@ -38,7 +35,7 @@ class IncrementalIndexer:
             "unchanged_skipped": 0,
             "full_reindex": 0,
             "incremental_update": 0,
-            "errors": 0
+            "errors": 0,
         }
 
         logger.info("Incremental Indexer initialized")
@@ -50,7 +47,7 @@ class IncrementalIndexer:
         metadata: dict,
         tenant_id: str | None = None,
         user_id: str | None = None,
-        force_reindex: bool = False
+        force_reindex: bool = False,
     ) -> dict:
         """
         带版本检查的文档处理
@@ -80,7 +77,7 @@ class IncrementalIndexer:
                     document_id=document_id,
                     new_content_hash=content_hash,
                     new_metadata_hash=metadata_hash,
-                    tenant_id=tenant_id
+                    tenant_id=tenant_id,
                 )
 
                 logger.info(
@@ -95,7 +92,7 @@ class IncrementalIndexer:
                     change_type="updated",
                     content_changed=True,
                     metadata_changed=True,
-                    needs_reindex=True
+                    needs_reindex=True,
                 )
 
             # 3. 根据变更类型处理
@@ -108,7 +105,7 @@ class IncrementalIndexer:
                     "reason": "no_changes",
                     "document_id": document_id,
                     "version": change.old_version,
-                    "elapsed_time": time.time() - start_time
+                    "elapsed_time": time.time() - start_time,
                 }
 
             elif change.change_type in ["created", "updated"] or force_reindex:
@@ -121,7 +118,7 @@ class IncrementalIndexer:
                         content_hash=content_hash,
                         metadata_hash=metadata_hash,
                         tenant_id=tenant_id,
-                        user_id=user_id
+                        user_id=user_id,
                     )
                     self.stats["full_reindex"] += 1
                 else:
@@ -131,7 +128,7 @@ class IncrementalIndexer:
                         metadata=metadata,
                         metadata_hash=metadata_hash,
                         content_hash=content_hash,
-                        tenant_id=tenant_id
+                        tenant_id=tenant_id,
                     )
                     self.stats["incremental_update"] += 1
 
@@ -143,7 +140,7 @@ class IncrementalIndexer:
                 return {
                     "status": "error",
                     "error": f"Unknown change type: {change.change_type}",
-                    "document_id": document_id
+                    "document_id": document_id,
                 }
 
         except Exception as e:
@@ -153,18 +150,18 @@ class IncrementalIndexer:
                 "status": "error",
                 "error": str(e),
                 "document_id": document_id,
-                "elapsed_time": time.time() - start_time
+                "elapsed_time": time.time() - start_time,
             }
 
     async def _full_reindex(
         self,
         document_id: str,
-        content: str,
-        metadata: dict,
+        _content: str,
+        _metadata: dict,
         content_hash: str,
         metadata_hash: str,
         tenant_id: str | None = None,
-        user_id: str | None = None
+        user_id: str | None = None,
     ) -> dict:
         """
         完全重新索引
@@ -188,7 +185,7 @@ class IncrementalIndexer:
                 document_id=document_id,
                 tenant_id=tenant_id,
                 user_id=user_id,
-                file_path=None  # 假设内容已经在content中
+                file_path=None,  # 假设内容已经在content中
             )
 
             # 保存新版本
@@ -202,7 +199,7 @@ class IncrementalIndexer:
                 chunk_count=chunk_count,
                 vector_count=vector_count,
                 tenant_id=tenant_id,
-                user_id=user_id
+                user_id=user_id,
             )
 
             return {
@@ -211,7 +208,7 @@ class IncrementalIndexer:
                 "version": new_version.version,
                 "chunk_count": chunk_count,
                 "vector_count": vector_count,
-                "operation": "full_reindex"
+                "operation": "full_reindex",
             }
 
         except Exception as e:
@@ -221,10 +218,10 @@ class IncrementalIndexer:
     async def _update_metadata_only(
         self,
         document_id: str,
-        metadata: dict,
+        _metadata: dict,
         metadata_hash: str,
         content_hash: str,
-        tenant_id: str | None = None
+        tenant_id: str | None = None,
     ) -> dict:
         """
         只更新元数据（内容未变化）
@@ -238,9 +235,7 @@ class IncrementalIndexer:
 
         try:
             # 获取当前版本信息
-            current_version = await self.version_manager.get_current_version(
-                document_id, tenant_id
-            )
+            current_version = await self.version_manager.get_current_version(document_id, tenant_id)
 
             # 注意：向量存储和图谱通常不支持单独更新元数据
             # 当前策略：仅更新版本管理中的元数据哈希
@@ -259,7 +254,7 @@ class IncrementalIndexer:
                 metadata_hash=metadata_hash,
                 chunk_count=current_version.chunk_count if current_version else 0,
                 vector_count=current_version.vector_count if current_version else 0,
-                tenant_id=tenant_id
+                tenant_id=tenant_id,
             )
 
             return {
@@ -267,18 +262,14 @@ class IncrementalIndexer:
                 "document_id": document_id,
                 "version": new_version.version,
                 "operation": "metadata_only",
-                "note": "metadata hash tracked; actual storage unchanged until content reindex"
+                "note": "metadata hash tracked; actual storage unchanged until content reindex",
             }
 
         except Exception as e:
             logger.error(f"Metadata update failed for {document_id}: {e}")
             raise
 
-    async def _delete_old_data(
-        self,
-        document_id: str,
-        tenant_id: str | None = None
-    ):
+    async def _delete_old_data(self, document_id: str, _tenant_id: str | None = None):
         """
         删除旧的索引数据
 
@@ -293,8 +284,8 @@ class IncrementalIndexer:
 
         # 1. 删除向量数据（通过统一客户端）
         try:
-            from pathlib import Path
             import sys
+            from pathlib import Path
 
             # 添加 common 路径
             common_path = Path(__file__).parent.parent.parent.parent / "common"
@@ -312,8 +303,9 @@ class IncrementalIndexer:
 
         # 2. 删除图谱节点
         try:
-            from app.infrastructure.neo4j_client import Neo4jClient
             import os
+
+            from app.infrastructure.neo4j_client import Neo4jClient
 
             neo4j_client = Neo4jClient(
                 uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
@@ -323,11 +315,10 @@ class IncrementalIndexer:
 
             # 同步方法，使用线程池
             import asyncio
+
             loop = asyncio.get_running_loop()
             deleted_count = await loop.run_in_executor(
-                None,
-                neo4j_client.delete_document_nodes,
-                document_id
+                None, neo4j_client.delete_document_nodes, document_id
             )
 
             neo4j_client.close()
@@ -337,16 +328,14 @@ class IncrementalIndexer:
             logger.warning(f"Failed to delete graph nodes for {document_id}: {e}")
 
         if errors:
-            logger.warning(
-                f"Partial deletion for {document_id}, errors: {'; '.join(errors)}"
-            )
+            logger.warning(f"Partial deletion for {document_id}, errors: {'; '.join(errors)}")
         else:
             logger.info(f"Old data deleted for document {document_id}")
 
     async def batch_check_updates(
         self,
         documents: list[tuple[str, str, dict]],  # [(doc_id, content, metadata), ...]
-        tenant_id: str | None = None
+        tenant_id: str | None = None,
     ) -> dict:
         """
         批量检查文档更新
@@ -360,12 +349,7 @@ class IncrementalIndexer:
         """
         logger.info(f"Batch checking {len(documents)} documents")
 
-        results = {
-            "unchanged": [],
-            "to_reindex": [],
-            "to_update_metadata": [],
-            "new": []
-        }
+        results = {"unchanged": [], "to_reindex": [], "to_update_metadata": [], "new": []}
 
         for doc_id, content, metadata in documents:
             try:
@@ -376,7 +360,7 @@ class IncrementalIndexer:
                     document_id=doc_id,
                     new_content_hash=content_hash,
                     new_metadata_hash=metadata_hash,
-                    tenant_id=tenant_id
+                    tenant_id=tenant_id,
                 )
 
                 if change.change_type == "unchanged":
@@ -401,11 +385,7 @@ class IncrementalIndexer:
 
         return results
 
-    async def delete_document(
-        self,
-        document_id: str,
-        tenant_id: str | None = None
-    ) -> dict:
+    async def delete_document(self, document_id: str, tenant_id: str | None = None) -> dict:
         """
         删除文档
 
@@ -424,24 +404,17 @@ class IncrementalIndexer:
             success = await self.version_manager.mark_deleted(document_id, tenant_id)
 
             if success:
-                return {
-                    "status": "deleted",
-                    "document_id": document_id
-                }
+                return {"status": "deleted", "document_id": document_id}
             else:
                 return {
                     "status": "error",
                     "error": "Failed to mark as deleted",
-                    "document_id": document_id
+                    "document_id": document_id,
                 }
 
         except Exception as e:
             logger.error(f"Failed to delete document {document_id}: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "document_id": document_id
-            }
+            return {"status": "error", "error": str(e), "document_id": document_id}
 
     def get_stats(self) -> dict:
         """获取统计信息"""
@@ -449,12 +422,14 @@ class IncrementalIndexer:
             **self.stats,
             "skip_rate": (
                 self.stats["unchanged_skipped"] / self.stats["total_checks"]
-                if self.stats["total_checks"] > 0 else 0
+                if self.stats["total_checks"] > 0
+                else 0
             ),
             "reindex_rate": (
                 self.stats["full_reindex"] / self.stats["total_checks"]
-                if self.stats["total_checks"] > 0 else 0
-            )
+                if self.stats["total_checks"] > 0
+                else 0
+            ),
         }
 
     def reset_stats(self):
@@ -464,5 +439,5 @@ class IncrementalIndexer:
             "unchanged_skipped": 0,
             "full_reindex": 0,
             "incremental_update": 0,
-            "errors": 0
+            "errors": 0,
         }

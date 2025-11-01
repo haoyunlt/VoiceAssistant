@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ExcelParser(BaseParser):
     """Excel 文档解析器"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析 Excel 文档"""
         try:
             workbook = openpyxl.load_workbook(io.BytesIO(file_data), read_only=True)

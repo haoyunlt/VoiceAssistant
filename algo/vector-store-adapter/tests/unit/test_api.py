@@ -1,7 +1,8 @@
 """Unit tests for API endpoints"""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -39,23 +40,26 @@ class TestVectorOperations:
         monkeypatch.setenv("RATE_LIMIT_ENABLED", "false")
         monkeypatch.setenv("IDEMPOTENCY_ENABLED", "false")
 
-        from main import app, vector_store_manager
+        from main import app
 
         # Mock the manager
         mock_manager = MagicMock()
         mock_manager.insert_vectors = AsyncMock(return_value={"inserted": 10})
-        mock_manager.search_vectors = AsyncMock(return_value=[{
-            "chunk_id": "chunk_1",
-            "document_id": "doc_1",
-            "content": "test",
-            "score": 0.95,
-        }])
+        mock_manager.search_vectors = AsyncMock(
+            return_value=[
+                {
+                    "chunk_id": "chunk_1",
+                    "document_id": "doc_1",
+                    "content": "test",
+                    "score": 0.95,
+                }
+            ]
+        )
         mock_manager.delete_by_document = AsyncMock(return_value={"deleted": 5})
         mock_manager.get_count = AsyncMock(return_value=100)
 
-        with patch("main.vector_store_manager", mock_manager):
-            with TestClient(app) as client:
-                yield client, mock_manager
+        with patch("main.vector_store_manager", mock_manager), TestClient(app) as client:
+            yield client, mock_manager
 
     def test_insert_vectors(self, app_with_manager):
         """Test POST /collections/{name}/insert"""
@@ -71,8 +75,8 @@ class TestVectorOperations:
                     "content": "test content",
                     "embedding": [0.1] * 1024,
                     "tenant_id": "tenant_1",
-                }
-            }
+                },
+            },
         )
 
         assert response.status_code == 200
@@ -89,8 +93,8 @@ class TestVectorOperations:
                 "data": {
                     "chunk_id": "chunk_1",
                     # Missing required fields
-                }
-            }
+                },
+            },
         )
 
         assert response.status_code == 422  # Validation error
@@ -105,7 +109,7 @@ class TestVectorOperations:
                 "backend": "milvus",
                 "query_vector": [0.1] * 1024,
                 "top_k": 10,
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -124,7 +128,7 @@ class TestVectorOperations:
                 "query_vector": [0.1] * 1024,
                 "top_k": 10,
                 "tenant_id": "tenant_test",
-            }
+            },
         )
 
         assert response.status_code == 200
@@ -134,8 +138,7 @@ class TestVectorOperations:
         client, mock_manager = app_with_manager
 
         response = client.delete(
-            "/collections/test_collection/documents/doc_123",
-            params={"backend": "milvus"}
+            "/collections/test_collection/documents/doc_123", params={"backend": "milvus"}
         )
 
         assert response.status_code == 200
@@ -146,10 +149,7 @@ class TestVectorOperations:
         """Test GET /collections/{name}/count"""
         client, mock_manager = app_with_manager
 
-        response = client.get(
-            "/collections/test_collection/count",
-            params={"backend": "milvus"}
-        )
+        response = client.get("/collections/test_collection/count", params={"backend": "milvus"})
 
         assert response.status_code == 200
         data = response.json()
@@ -179,8 +179,13 @@ class TestErrorHandling:
                 "/collections/test/insert",
                 json={
                     "backend": "milvus",
-                    "data": {"chunk_id": "1", "document_id": "1", "content": "test", "embedding": [0.1]},
-                }
+                    "data": {
+                        "chunk_id": "1",
+                        "document_id": "1",
+                        "content": "test",
+                        "embedding": [0.1],
+                    },
+                },
             )
             # Should handle gracefully
             assert response.status_code in [500, 503]
@@ -193,8 +198,13 @@ class TestErrorHandling:
             "/collections/test/insert",
             json={
                 "backend": "invalid_backend",  # Not matching pattern
-                "data": {"chunk_id": "1", "document_id": "1", "content": "test", "embedding": [0.1]},
-            }
+                "data": {
+                    "chunk_id": "1",
+                    "document_id": "1",
+                    "content": "test",
+                    "embedding": [0.1],
+                },
+            },
         )
 
         assert response.status_code == 422  # Validation error

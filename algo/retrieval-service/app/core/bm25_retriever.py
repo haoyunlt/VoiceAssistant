@@ -109,8 +109,8 @@ class BM25Retriever:
         self,
         query: str,
         top_k: int = 10,
-        tenant_id: str = None,
-        filters: dict = None,
+        _tenant_id: str = None,
+        _filters: dict = None,
     ) -> list[dict]:
         """
         BM25 检索
@@ -143,12 +143,14 @@ class BM25Retriever:
         results = []
         for idx in top_indices:
             if scores[idx] > 0:  # 只返回相关的结果
-                results.append({
-                    "chunk_id": self.corpus_ids[idx],
-                    "content": self.corpus[idx],
-                    "score": float(scores[idx]),
-                    "method": "bm25",
-                })
+                results.append(
+                    {
+                        "chunk_id": self.corpus_ids[idx],
+                        "content": self.corpus[idx],
+                        "score": float(scores[idx]),
+                        "method": "bm25",
+                    }
+                )
 
         logger.info(f"BM25 retrieval: found {len(results)} results")
 

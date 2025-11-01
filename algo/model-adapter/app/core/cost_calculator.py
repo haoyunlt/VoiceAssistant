@@ -15,12 +15,10 @@ MODEL_PRICING = {
     "gpt-4-turbo": {"input": 0.01, "output": 0.03},
     "gpt-4-vision-preview": {"input": 0.01, "output": 0.03},
     "text-embedding-ada-002": {"input": 0.0001, "output": 0},
-
     # Claude
     "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
     "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
     "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
-
     # 智谱AI
     "glm-4": {"input": 0.001, "output": 0.001},
     "glm-3-turbo": {"input": 0.0005, "output": 0.0005},
@@ -89,7 +87,7 @@ class TokenCounter:
             预估token数
         """
         # 统计中文和英文字符
-        chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
         other_chars = len(text) - chinese_chars
 
         # 中文: ~1.5 chars per token
@@ -190,9 +188,7 @@ class CostCalculator:
         comparison = {}
 
         for model in models:
-            comparison[model] = CostCalculator.calculate_cost(
-                model, input_tokens, output_tokens
-            )
+            comparison[model] = CostCalculator.calculate_cost(model, input_tokens, output_tokens)
 
         return comparison
 
@@ -213,9 +209,7 @@ class CostCalculator:
         Returns:
             (模型名称, 成本详情)
         """
-        comparison = CostCalculator.compare_model_costs(
-            models, input_tokens, output_tokens
-        )
+        comparison = CostCalculator.compare_model_costs(models, input_tokens, output_tokens)
 
         if not comparison:
             return "", {}
@@ -244,16 +238,16 @@ class CostCalculator:
         Returns:
             节省详情
         """
-        current_cost = CostCalculator.calculate_cost(
-            current_model, input_tokens, output_tokens
-        )
+        current_cost = CostCalculator.calculate_cost(current_model, input_tokens, output_tokens)
 
         alternative_cost = CostCalculator.calculate_cost(
             alternative_model, input_tokens, output_tokens
         )
 
         savings = current_cost["total_cost"] - alternative_cost["total_cost"]
-        savings_percent = (savings / current_cost["total_cost"]) * 100 if current_cost["total_cost"] > 0 else 0
+        savings_percent = (
+            (savings / current_cost["total_cost"]) * 100 if current_cost["total_cost"] > 0 else 0
+        )
 
         return {
             "current_cost": current_cost["total_cost"],
@@ -324,9 +318,9 @@ class UsageTracker:
             "total_tokens": self.total_input_tokens + self.total_output_tokens,
             "total_cost": round(self.total_cost, 6),
             "currency": "USD",
-            "average_cost_per_request": round(
-                self.total_cost / len(self.usage_history), 6
-            ) if self.usage_history else 0,
+            "average_cost_per_request": round(self.total_cost / len(self.usage_history), 6)
+            if self.usage_history
+            else 0,
         }
 
     def get_cost_by_model(self) -> dict[str, float]:

@@ -84,10 +84,9 @@ async def test_process_stream_session_lifecycle():
     service = StreamingASRService(model_size="base", vad_enabled=False)
 
     # Mock Whisper 模型
-    with patch.object(service, '_init_whisper_model'), patch.object(service, '_init_vad'):
-        with patch.object(service, '_recognize_partial', return_value="测试文本"):
-            with patch.object(service, '_recognize_final', return_value=("最终文本", 0.95)):
-
+    with patch.object(service, "_init_whisper_model"), patch.object(service, "_init_vad"):  # noqa: SIM117
+        with patch.object(service, "_recognize_partial", return_value="测试文本"):
+            with patch.object(service, "_recognize_final", return_value=("最终文本", 0.95)):
                 # 创建音频流
                 async def audio_stream():
                     # 发送一些音频数据
@@ -163,14 +162,13 @@ async def test_silence_detection_triggers_final_recognition():
     service = StreamingASRService(
         model_size="base",
         vad_enabled=False,  # 禁用 VAD 简化测试
-        max_silence_duration_ms=900  # 3 个 300ms 块
+        max_silence_duration_ms=900,  # 3 个 300ms 块
     )
 
     # Mock 方法
-    with patch.object(service, '_init_whisper_model'), patch.object(service, '_init_vad'):
-        with patch.object(service, '_detect_speech') as mock_vad:
-            with patch.object(service, '_recognize_final', return_value=("完整句子", 0.95)):
-
+    with patch.object(service, "_init_whisper_model"), patch.object(service, "_init_vad"):  # noqa: SIM117
+        with patch.object(service, "_detect_speech") as mock_vad:
+            with patch.object(service, "_recognize_final", return_value=("完整句子", 0.95)):
                 # 模拟语音 → 静音 → 静音 → 静音 的模式
                 mock_vad.side_effect = [True, False, False, False]
 
@@ -196,10 +194,9 @@ async def test_error_handling_in_stream():
     service = StreamingASRService(model_size="base")
 
     # Mock 初始化方法
-    with patch.object(service, '_init_whisper_model'), patch.object(service, '_init_vad'):
+    with patch.object(service, "_init_whisper_model"), patch.object(service, "_init_vad"):  # noqa: SIM117
         # Mock 识别方法抛出异常
-        with patch.object(service, '_recognize_partial', side_effect=Exception("测试异常")):
-
+        with patch.object(service, "_recognize_partial", side_effect=Exception("测试异常")):
             # 创建音频流
             async def audio_stream():
                 for _ in range(2):

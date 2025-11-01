@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class TextParser(BaseParser):
     """纯文本解析器"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析纯文本文档"""
         try:
             # 尝试 UTF-8

@@ -79,7 +79,11 @@ func NewCacheManager(
 		l1Config.HardMaxCacheSize = config.L1Size
 		l1Config.Verbose = false
 
-		l1Cache, err := bigcache.New(context.Background(), l1Config)
+		// 使用带超时的上下文初始化缓存
+		initCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		l1Cache, err := bigcache.New(initCtx, l1Config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create L1 cache: %w", err)
 		}
@@ -291,4 +295,3 @@ func (m *CacheManager) Close() error {
 	}
 	return nil
 }
-

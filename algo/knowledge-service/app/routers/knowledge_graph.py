@@ -55,20 +55,16 @@ async def extract_and_store(request: ExtractRequest):
     """
     try:
         kg_service = get_kg_service()
-        result = await kg_service.extract_and_store(
-            text=request.text, source=request.source
-        )
+        result = await kg_service.extract_and_store(text=request.text, source=request.source)
 
         if not result.get("success"):
-            raise HTTPException(
-                status_code=500, detail=result.get("error", "Extraction failed")
-            )
+            raise HTTPException(status_code=500, detail=result.get("error", "Extraction failed"))
 
         return result
 
     except Exception as e:
         logger.error(f"Extract and store failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/query/entity", summary="查询实体")
@@ -95,7 +91,7 @@ async def query_entity(request: QueryEntityRequest):
         raise
     except Exception as e:
         logger.error(f"Query entity failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/query/path", summary="查询实体路径")
@@ -123,7 +119,7 @@ async def query_path(request: QueryPathRequest):
 
     except Exception as e:
         logger.error(f"Query path failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/query/neighbors", summary="获取实体邻居")
@@ -148,7 +144,7 @@ async def get_neighbors(request: GetNeighborsRequest):
 
     except Exception as e:
         logger.error(f"Get neighbors failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/statistics", summary="获取图谱统计信息")
@@ -166,7 +162,7 @@ async def get_statistics():
 
     except Exception as e:
         logger.error(f"Get statistics failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/health", summary="知识图谱健康检查")
@@ -184,5 +180,4 @@ async def health_check():
 
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
+        raise HTTPException(status_code=500, detail=str(e)) from e

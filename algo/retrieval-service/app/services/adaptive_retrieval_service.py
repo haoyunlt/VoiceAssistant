@@ -65,7 +65,7 @@ class AdaptiveRetrievalService:
         logger.info("Adaptive retrieval service initialized")
 
     async def select_strategy(
-        self, query: str, request: HybridRequest | None = None
+        self, query: str, _request: HybridRequest | None = None
     ) -> AdaptiveStrategy:
         """
         选择自适应策略
@@ -131,7 +131,7 @@ class AdaptiveRetrievalService:
         return QueryComplexity.MEDIUM
 
     def _select_strategy_for_complexity(
-        self, complexity: QueryComplexity, intent: QueryIntent
+        self, complexity: QueryComplexity, _intent: QueryIntent
     ) -> AdaptiveStrategy:
         """
         根据复杂度选择策略

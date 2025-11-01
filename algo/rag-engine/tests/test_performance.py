@@ -8,7 +8,7 @@
 - 成本降低 20%+
 """
 
-import asyncio
+import contextlib
 import time
 
 import pytest
@@ -23,8 +23,9 @@ class TestStreamingOptimization:
 
     async def test_concurrent_retrieve_faster_than_serial(self):
         """测试并发检索比串行更快"""
-        from app.services.streaming_rag_service import StreamingRAGService
         from unittest.mock import AsyncMock
+
+        from app.services.streaming_rag_service import StreamingRAGService
 
         # Mock 客户端
         retrieval_client = AsyncMock()
@@ -37,7 +38,7 @@ class TestStreamingOptimization:
 
         # 测试并发检索
         start = time.time()
-        result = await service.concurrent_retrieve("test query", "tenant1")
+        await service.concurrent_retrieve("test query", "tenant1")
         elapsed = time.time() - start
 
         # 验证：并发执行应该快于串行
@@ -46,13 +47,14 @@ class TestStreamingOptimization:
 
     async def test_streaming_rerank_early_termination(self):
         """测试流式重排提前终止"""
+        from unittest.mock import MagicMock
+
         from app.services.streaming_rag_service import StreamingRAGService
-        from unittest.mock import AsyncMock, MagicMock
 
         # Mock 重排器
         reranker = MagicMock()
 
-        async def mock_rerank(query, texts):
+        async def mock_rerank(_query, _texts):
             return [0.9, 0.85, 0.8]  # 返回高分
 
         reranker.rerank = mock_rerank
@@ -134,7 +136,7 @@ class TestRateLimiter:
 
         # 配置：10 QPS
         success_count = 0
-        for i in range(15):
+        for _i in range(15):
             allowed, info = limiter.check_rate_limit("tenant:test", tier="free")
             if allowed:
                 success_count += 1
@@ -145,12 +147,13 @@ class TestRateLimiter:
     def test_token_bucket_refill(self):
         """测试令牌桶补充"""
         import time
+
         from app.resilience.rate_limiter import RateLimiter
 
         limiter = RateLimiter()
 
         # 消耗所有令牌
-        for i in range(10):
+        for _i in range(10):
             limiter.check_rate_limit("tenant:test2", tier="free")
 
         # 等待 2 秒（应该补充一些令牌）
@@ -176,11 +179,9 @@ class TestCircuitBreaker:
             raise Exception("Service unavailable")
 
         # 连续失败 5 次
-        for i in range(5):
-            try:
+        for _i in range(5):
+            with contextlib.suppress(Exception):
                 cb.call(failing_func)
-            except Exception:
-                pass
 
         # 第 6 次应该直接熔断
         with pytest.raises(CircuitBreakerOpenError):
@@ -189,6 +190,7 @@ class TestCircuitBreaker:
     def test_circuit_breaker_recovers_after_timeout(self):
         """测试超时后恢复"""
         import time
+
         from app.resilience.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 
         # 配置：1 秒超时
@@ -202,11 +204,9 @@ class TestCircuitBreaker:
             return "OK"
 
         # 触发熔断
-        for i in range(3):
-            try:
+        for _i in range(3):
+            with contextlib.suppress(Exception):
                 cb.call(failing_func)
-            except Exception:
-                pass
 
         # 等待超时
         time.sleep(1.1)

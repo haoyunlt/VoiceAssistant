@@ -1,13 +1,13 @@
 """改进的Token计数与成本计算 - 使用tiktoken提升精度."""
 
 import logging
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # 尝试导入tiktoken
 try:
     import tiktoken
+
     TIKTOKEN_AVAILABLE = True
 except ImportError:
     logger.warning("tiktoken not installed, using fallback estimation")
@@ -25,34 +25,28 @@ MODEL_PRICING = {
     "gpt-4-vision-preview": {"input": 0.01, "output": 0.03},
     "gpt-4o": {"input": 0.005, "output": 0.015},  # GPT-4o (2024)
     "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},  # GPT-4o-mini (2024)
-
     # OpenAI GPT-3.5 Series
     "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
     "gpt-3.5-turbo-16k": {"input": 0.003, "output": 0.004},
     "gpt-3.5-turbo-1106": {"input": 0.001, "output": 0.002},
-
     # OpenAI Embedding
     "text-embedding-ada-002": {"input": 0.0001, "output": 0},
     "text-embedding-3-small": {"input": 0.00002, "output": 0},
     "text-embedding-3-large": {"input": 0.00013, "output": 0},
-
     # Claude 3 Series
     "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
     "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
     "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
     "claude-3-5-sonnet-20240620": {"input": 0.003, "output": 0.015},  # Claude 3.5
-
     # 智谱AI
     "glm-4": {"input": 0.001, "output": 0.001},
     "glm-4-plus": {"input": 0.0015, "output": 0.0015},
     "glm-3-turbo": {"input": 0.0005, "output": 0.0005},
     "embedding-2": {"input": 0.0001, "output": 0},
-
     # 通义千问
     "qwen-max": {"input": 0.002, "output": 0.002},
     "qwen-plus": {"input": 0.001, "output": 0.001},
     "qwen-turbo": {"input": 0.0003, "output": 0.0003},
-
     # 百度文心
     "ERNIE-Bot-4": {"input": 0.0012, "output": 0.0012},
     "ERNIE-Bot-turbo": {"input": 0.0008, "output": 0.0008},
@@ -154,7 +148,7 @@ class TokenCounter:
             预估token数
         """
         # 统计中文和英文字符
-        chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
         other_chars = len(text) - chinese_chars
 
         # 中文: ~1.5 chars per token
@@ -199,9 +193,7 @@ class TokenCounter:
                 for item in content:
                     if isinstance(item, dict):
                         if item.get("type") == "text":
-                            total_tokens += TokenCounter._estimate_tokens(
-                                item.get("text", "")
-                            )
+                            total_tokens += TokenCounter._estimate_tokens(item.get("text", ""))
                         elif item.get("type") == "image_url":
                             # 图片token估算
                             total_tokens += 85
@@ -302,9 +294,7 @@ class CostCalculator:
         comparison = {}
 
         for model in models:
-            comparison[model] = CostCalculator.calculate_cost(
-                model, input_tokens, output_tokens
-            )
+            comparison[model] = CostCalculator.calculate_cost(model, input_tokens, output_tokens)
 
         return comparison
 
@@ -325,9 +315,7 @@ class CostCalculator:
         Returns:
             (模型名称, 成本详情)
         """
-        comparison = CostCalculator.compare_model_costs(
-            models, input_tokens, output_tokens
-        )
+        comparison = CostCalculator.compare_model_costs(models, input_tokens, output_tokens)
 
         if not comparison:
             return "", {}
@@ -349,7 +337,7 @@ class CostCalculator:
 
 
 # Prometheus指标
-from prometheus_client import Counter, Histogram
+from prometheus_client import Counter, Histogram  # noqa: E402
 
 # Token使用量
 tokens_used_total = Counter(

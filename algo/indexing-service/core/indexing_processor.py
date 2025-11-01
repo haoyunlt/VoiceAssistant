@@ -23,7 +23,7 @@ class IndexingProcessor:
         embedder: Embedder,
         minio_endpoint: str,
         minio_access_key: str,
-        minio_secret_key: str
+        minio_secret_key: str,
     ):
         self.milvus = milvus_client
         self.neo4j = neo4j_client
@@ -41,10 +41,10 @@ class IndexingProcessor:
             start_time = time.time()
 
             # Extract event data
-            document_id = event.get('document_id')
-            storage_path = event.get('storage_path')
-            content_type = event.get('content_type')
-            tenant_id = event.get('tenant_id')
+            document_id = event.get("document_id")
+            storage_path = event.get("storage_path")
+            content_type = event.get("content_type")
+            tenant_id = event.get("tenant_id")
 
             # 1. Download file from MinIO
             logger.info(f"Downloading file from: {storage_path}")
@@ -62,7 +62,7 @@ class IndexingProcessor:
 
             # 4. Generate embeddings
             logger.info("Generating embeddings...")
-            texts = [chunk['content'] for chunk in chunks]
+            texts = [chunk["content"] for chunk in chunks]
             embeddings = self.embedder.encode(texts)
             logger.info(f"Generated {len(embeddings)} embeddings")
 
@@ -70,14 +70,16 @@ class IndexingProcessor:
             logger.info("Storing vectors in Milvus...")
             milvus_data = []
             for i, chunk in enumerate(chunks):
-                milvus_data.append({
-                    'chunk_id': f"{document_id}_chunk_{i}",
-                    'document_id': document_id,
-                    'content': chunk['content'],
-                    'embedding': embeddings[i].tolist(),
-                    'tenant_id': tenant_id,
-                    'created_at': int(time.time())
-                })
+                milvus_data.append(
+                    {
+                        "chunk_id": f"{document_id}_chunk_{i}",
+                        "document_id": document_id,
+                        "content": chunk["content"],
+                        "embedding": embeddings[i].tolist(),
+                        "tenant_id": tenant_id,
+                        "created_at": int(time.time()),
+                    }
+                )
 
             self.milvus.insert(milvus_data)
             logger.info(f"Stored {len(milvus_data)} vectors in Milvus")
@@ -86,9 +88,9 @@ class IndexingProcessor:
             logger.info("Building knowledge graph in Neo4j...")
             graph_chunks = [
                 {
-                    'chunk_id': d['chunk_id'],
-                    'content': d['content'],
-                    'token_count': chunks[i].get('token_count', 0)
+                    "chunk_id": d["chunk_id"],
+                    "content": d["content"],
+                    "token_count": chunks[i].get("token_count", 0),
                 }
                 for i, d in enumerate(milvus_data)
             ]
@@ -101,21 +103,17 @@ class IndexingProcessor:
 
             # Return success metrics
             return {
-                'success': True,
-                'document_id': document_id,
-                'chunk_count': len(chunks),
-                'vector_count': len(embeddings),
-                'graph_node_count': len(chunks) * 2,  # Chunks + Document
-                'duration_seconds': duration
+                "success": True,
+                "document_id": document_id,
+                "chunk_count": len(chunks),
+                "vector_count": len(embeddings),
+                "graph_node_count": len(chunks) * 2,  # Chunks + Document
+                "duration_seconds": duration,
             }
 
         except Exception as e:
             logger.error(f"Error processing document: {e}", exc_info=True)
-            return {
-                'success': False,
-                'document_id': event.get('document_id'),
-                'error': str(e)
-            }
+            return {"success": False, "document_id": event.get("document_id"), "error": str(e)}
 
     async def _download_file(self, storage_path: str) -> bytes:
         """Download file from MinIO"""
@@ -146,5 +144,3 @@ class IndexingProcessor:
         except Exception as e:
             logger.error(f"Error deleting document: {e}", exc_info=True)
             return False
-
-

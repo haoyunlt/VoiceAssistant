@@ -45,7 +45,7 @@ async def vector_search(request: VectorRequest):
         return response
     except Exception as e:
         logger.error(f"Vector search failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Vector search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vector search failed: {str(e)}") from e
 
 
 @router.post("/bm25", response_model=BM25Response)
@@ -65,7 +65,7 @@ async def bm25_search(request: BM25Request):
         return response
     except Exception as e:
         logger.error(f"BM25 search failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"BM25 search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"BM25 search failed: {str(e)}") from e
 
 
 @router.post("/hybrid", response_model=HybridResponse)
@@ -94,7 +94,7 @@ async def hybrid_search(request: HybridRequest):
         return response
     except Exception as e:
         logger.error(f"Hybrid search failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Hybrid search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Hybrid search failed: {str(e)}") from e
 
 
 @router.post("/graph", response_model=GraphResponse)
@@ -117,7 +117,7 @@ async def graph_search(request: GraphRequest):
         return response
     except Exception as e:
         logger.error(f"Graph search failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Graph search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Graph search failed: {str(e)}") from e
 
 
 @router.post("/hybrid-graph", response_model=HybridGraphResponse)
@@ -168,6 +168,4 @@ async def hybrid_graph_search(request: HybridGraphRequest):
         return response
     except Exception as e:
         logger.error(f"Hybrid-graph search failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Hybrid-graph search failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Hybrid-graph search failed: {str(e)}") from e

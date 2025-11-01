@@ -5,7 +5,7 @@
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,9 @@ class GraphQueryTool:
         """
         self.graph_store = graph_store
         self.name = "graph_query"
-        self.description = "在知识图谱中查询实体关系，支持多跳推理。适用于'A认识B，B认识C'类型的关系查询"
+        self.description = (
+            "在知识图谱中查询实体关系，支持多跳推理。适用于'A认识B，B认识C'类型的关系查询"
+        )
         self.parameters = {
             "type": "object",
             "properties": {
@@ -44,7 +46,7 @@ class GraphQueryTool:
             "required": ["query"],
         }
 
-    async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, params: dict[str, Any]) -> dict[str, Any]:
         """
         执行图谱查询
 
@@ -88,9 +90,7 @@ class GraphQueryTool:
                 extracted_entities = await extractor.extract(query)
 
                 if extracted_entities:
-                    relationships = await self._query_relationships(
-                        extracted_entities, max_hops
-                    )
+                    relationships = await self._query_relationships(extracted_entities, max_hops)
                 else:
                     return {
                         "text": "未能从查询中识别出实体",
@@ -99,10 +99,7 @@ class GraphQueryTool:
                     }
 
             # 构建文本描述
-            if relationships:
-                text = self._format_relationships(relationships)
-            else:
-                text = "未找到相关关系"
+            text = self._format_relationships(relationships) if relationships else "未找到相关关系"
 
             return {
                 "text": text,
@@ -120,9 +117,7 @@ class GraphQueryTool:
                 "error": str(e),
             }
 
-    async def _query_relationships(
-        self, entities: list, max_hops: int
-    ) -> list[Dict[str, Any]]:
+    async def _query_relationships(self, entities: list, max_hops: int) -> list[dict[str, Any]]:
         """
         查询实体间的关系
 

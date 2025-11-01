@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
 class CleanupResponse(BaseModel):
     """清理响应"""
+
     success: bool
     results: dict[str, int]
     message: str
@@ -25,12 +26,14 @@ class CleanupResponse(BaseModel):
 
 class CompensationResponse(BaseModel):
     """事件补偿响应"""
+
     success: bool
     message: str
 
 
 class FailedEventsResponse(BaseModel):
     """失败事件列表响应"""
+
     count: int
     events: list[dict]
 
@@ -39,19 +42,19 @@ class FailedEventsResponse(BaseModel):
 async def get_compensation_service() -> EventCompensationService:
     """获取事件补偿服务"""
     from main import compensation_service
+
     return compensation_service
 
 
 async def get_cleanup_service() -> CleanupService:
     """获取清理服务"""
     from main import cleanup_service
+
     return cleanup_service
 
 
 @router.post("/cleanup/run", response_model=CleanupResponse)
-async def run_cleanup(
-    service: CleanupService = Depends(get_cleanup_service)
-):
+async def run_cleanup(service: CleanupService = Depends(get_cleanup_service)):
     """
     手动触发清理任务
 
@@ -65,20 +68,15 @@ async def run_cleanup(
         results = await service.run_cleanup()
 
         return CleanupResponse(
-            success=True,
-            results=results,
-            message="Cleanup completed successfully"
+            success=True, results=results, message="Cleanup completed successfully"
         )
     except Exception as e:
         logger.error(f"Cleanup failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/cleanup/tenant/{tenant_id}", response_model=CleanupResponse)
-async def cleanup_tenant(
-    tenant_id: str,
-    service: CleanupService = Depends(get_cleanup_service)
-):
+async def cleanup_tenant(tenant_id: str, service: CleanupService = Depends(get_cleanup_service)):
     """
     清理指定租户的所有数据
 
@@ -90,16 +88,16 @@ async def cleanup_tenant(
         return CleanupResponse(
             success=True,
             results=results,
-            message=f"Tenant {tenant_id} data cleaned up successfully"
+            message=f"Tenant {tenant_id} data cleaned up successfully",
         )
     except Exception as e:
         logger.error(f"Tenant cleanup failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/compensation/retry", response_model=CompensationResponse)
 async def retry_failed_events(
-    service: EventCompensationService = Depends(get_compensation_service)
+    service: EventCompensationService = Depends(get_compensation_service),
 ):
     """
     手动触发事件补偿（重试失败的事件）
@@ -109,20 +107,17 @@ async def retry_failed_events(
     try:
         await service.retry_failed_events()
 
-        return CompensationResponse(
-            success=True,
-            message="Event compensation completed"
-        )
+        return CompensationResponse(success=True, message="Event compensation completed")
     except Exception as e:
         logger.error(f"Event compensation failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/compensation/failed-events", response_model=FailedEventsResponse)
 async def get_failed_events(
     start: int = 0,
     limit: int = 100,
-    service: EventCompensationService = Depends(get_compensation_service)
+    service: EventCompensationService = Depends(get_compensation_service),
 ):
     """
     获取失败事件列表
@@ -139,13 +134,10 @@ async def get_failed_events(
         events = await service.get_failed_events(start, end)
         count = await service.get_failed_events_count()
 
-        return FailedEventsResponse(
-            count=count,
-            events=events
-        )
+        return FailedEventsResponse(count=count, events=events)
     except Exception as e:
         logger.error(f"Failed to get failed events: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/health")
@@ -153,8 +145,5 @@ async def admin_health():
     """管理端健康检查"""
     return {
         "status": "healthy",
-        "services": {
-            "event_compensation": "enabled",
-            "cleanup": "enabled"
-        }
+        "services": {"event_compensation": "enabled", "cleanup": "enabled"},
     }

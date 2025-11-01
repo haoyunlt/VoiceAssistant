@@ -8,7 +8,6 @@
 - 自定义验证器
 """
 
-
 from pydantic import Field, HttpUrl, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -55,14 +54,10 @@ class ServiceConfig(BaseSettings):
     # === 认证配置 ===
     auth_enabled: bool = Field(default=False, description="是否启用认证")
     auth_fail_open: bool = Field(default=False, description="认证服务不可用时降级")
-    identity_service_url: HttpUrl | None = Field(
-        default=None, description="身份认证服务URL"
-    )
+    identity_service_url: HttpUrl | None = Field(default=None, description="身份认证服务URL")
 
     # === 成本配置 ===
-    daily_cost_limit_usd: float = Field(
-        default=1000.0, ge=0, description="日成本上限（美元）"
-    )
+    daily_cost_limit_usd: float = Field(default=1000.0, ge=0, description="日成本上限（美元）")
 
     @field_validator("log_level")
     @classmethod
@@ -145,7 +140,9 @@ class DatabaseConfig(BaseSettings):
     @property
     def url(self) -> str:
         """生成数据库URL"""
-        return f"postgresql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return (
+            f"postgresql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        )
 
 
 class RedisConfig(BaseSettings):
@@ -213,9 +210,7 @@ class LLMConfig(BaseSettings):
         valid_providers = ["openai", "anthropic", "azure", "zhipu", "qwen"]
         v_lower = v.lower()
         if v_lower not in valid_providers:
-            raise ValueError(
-                f"Invalid LLM provider: {v}. Must be one of {valid_providers}"
-            )
+            raise ValueError(f"Invalid LLM provider: {v}. Must be one of {valid_providers}")
         return v_lower
 
 
@@ -275,6 +270,7 @@ def load_service_config(config_class: type = ServiceConfig) -> BaseSettings:
     except Exception as e:
         # 打印详细错误信息
         import sys
+
         print(f"❌ Configuration validation failed: {e}", file=sys.stderr)
         raise
 

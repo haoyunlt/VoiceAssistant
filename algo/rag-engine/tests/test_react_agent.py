@@ -5,10 +5,10 @@ ReAct Agent 测试用例
 """
 
 import asyncio
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from app.agent.react_agent import ReactAgent, Action, Thought, ThoughtType
+import pytest
+from app.agent.react_agent import ReactAgent
 from app.agent.tools.calculator import CalculatorTool
 from app.agent.tools.vector_search import VectorSearchTool
 
@@ -120,9 +120,11 @@ class TestReactAgent:
         # 模拟多轮对话
         call_count = 0
 
-        async def mock_create(*args, **kwargs):
+        async def mock_create(*_args, **_kwargs):
             nonlocal call_count
-            response = llm_responses[call_count] if call_count < len(llm_responses) else llm_responses[-1]
+            response = (
+                llm_responses[call_count] if call_count < len(llm_responses) else llm_responses[-1]
+            )
             call_count += 1
 
             mock_response = MagicMock()
@@ -205,7 +207,7 @@ class TestReactAgent:
     async def test_agent_timeout(self, calculator_tool):
         """测试 Agent 超时"""
 
-        async def slow_execute(params):
+        async def slow_execute(_params):
             await asyncio.sleep(2)  # 模拟慢速工具
             return {"text": "结果", "result": 1}
 

@@ -20,11 +20,9 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture
 async def agent_service():
     """初始化 Agentic RAG 服务"""
-    from openai import AsyncOpenAI
-
-    from app.agent.tools import CalculatorTool, VectorSearchTool, WebSearchTool
     from app.infrastructure.retrieval_client import RetrievalClient
     from app.services.ultimate_rag_service import UltimateRAGService
+    from openai import AsyncOpenAI
 
     llm_client = AsyncOpenAI(
         api_key=os.getenv("OPENAI_API_KEY"), base_url=os.getenv("OPENAI_API_BASE")
@@ -82,7 +80,7 @@ class TestAgenticRAGScenarios:
         answer = result["answer"].lower()
         assert any(keyword in answer for keyword in ["30", "三十", "percent", "%"])
 
-        print(f"\n✅ 场景 1 通过")
+        print("\n✅ 场景 1 通过")
         print(f"答案: {result['answer']}")
         print(f"迭代次数: {result['agent_info']['iterations']}")
         print(f"使用的工具: {tools_used}")
@@ -110,7 +108,7 @@ class TestAgenticRAGScenarios:
         answer = result["answer"].lower()
         assert "北京" in answer or "beijing" in answer
 
-        print(f"\n✅ 场景 2 通过")
+        print("\n✅ 场景 2 通过")
         print(f"答案: {result['answer'][:200]}...")
         print(f"迭代次数: {result['agent_info']['iterations']}")
         print(f"使用的工具: {tools_used}")
@@ -136,7 +134,7 @@ class TestAgenticRAGScenarios:
         # 可能使用 sql_query + calculator，或 vector_search + calculator
         assert len(tools_used) >= 2
 
-        print(f"\n✅ 场景 3 通过")
+        print("\n✅ 场景 3 通过")
         print(f"答案: {result['answer']}")
         print(f"迭代次数: {result['agent_info']['iterations']}")
         print(f"使用的工具: {tools_used}")
@@ -166,7 +164,7 @@ class TestAgenticRAGScenarios:
         assert "rag" in answer or "检索" in answer
         assert "100000" in answer or "十万" in answer  # 100 * 1000 = 100000
 
-        print(f"\n✅ 场景 4 通过")
+        print("\n✅ 场景 4 通过")
         print(f"答案: {result['answer'][:300]}...")
         print(f"迭代次数: {result['agent_info']['iterations']}")
         print(f"使用的工具: {tools_used}")
@@ -190,7 +188,7 @@ class TestAgenticRAGScenarios:
         strategy = result.get("strategy")
         assert strategy in ["agentic_rag", "hybrid_retrieval", "base"]
 
-        print(f"\n✅ 场景 5 通过")
+        print("\n✅ 场景 5 通过")
         print(f"策略: {strategy}")
         print(f"答案: {result['answer'][:200]}...")
 
@@ -227,7 +225,7 @@ class TestAgenticRAGPerformance:
         avg_iterations = total_iterations / len(queries)
         assert avg_iterations < 5
 
-        print(f"\n✅ 性能测试通过")
+        print("\n✅ 性能测试通过")
         print(f"收敛率: {convergence_rate:.2%}")
         print(f"平均迭代次数: {avg_iterations:.2f}")
 

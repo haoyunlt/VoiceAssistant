@@ -14,9 +14,6 @@ SPLADE Learned Sparse Retrieval Service
 
 import asyncio
 import time
-from typing import Dict, List, Optional
-
-import numpy as np
 
 from app.models.retrieval import RetrievalDocument
 from app.observability.logging import logger
@@ -80,7 +77,7 @@ class SPLADEService:
             logger.error(f"Failed to load SPLADE model: {e}", exc_info=True)
             self.model = None
 
-    async def encode(self, text: str) -> Dict[str, float]:
+    async def encode(self, text: str) -> dict[str, float]:
         """
         编码文本为稀疏表示
 
@@ -105,7 +102,7 @@ class SPLADEService:
             logger.error(f"SPLADE encoding failed: {e}", exc_info=True)
             raise
 
-    def _mock_encode(self, text: str) -> Dict[str, float]:
+    def _mock_encode(self, text: str) -> dict[str, float]:
         """Mock encoding (用于演示)"""
         # 简化：生成模拟的稀疏向量
         # 实际应该：
@@ -115,7 +112,7 @@ class SPLADEService:
         # 4. Max pooling over tokens
         # 5. 保留top-k
 
-        tokens = text.lower().split()[:self.top_k_tokens]
+        tokens = text.lower().split()[: self.top_k_tokens]
         sparse_vector = {}
 
         for i, token in enumerate(tokens):
@@ -129,9 +126,9 @@ class SPLADEService:
         self,
         query: str,
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[dict] = None,
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None = None,
+        filters: dict | None = None,
+    ) -> list[RetrievalDocument]:
         """
         SPLADE检索
 
@@ -159,14 +156,10 @@ class SPLADEService:
 
             # 2. Search with sparse vector
             # 实际应该查询Elasticsearch sparse_vector字段
-            results = await self._search_elasticsearch(
-                query_sparse, top_k, tenant_id, filters
-            )
+            results = await self._search_elasticsearch(query_sparse, top_k, tenant_id, filters)
 
             latency_ms = (time.time() - start_time) * 1000
-            logger.info(
-                f"SPLADE search completed: {len(results)} docs in {latency_ms:.1f}ms"
-            )
+            logger.info(f"SPLADE search completed: {len(results)} docs in {latency_ms:.1f}ms")
 
             return results
 
@@ -176,11 +169,11 @@ class SPLADEService:
 
     async def _search_elasticsearch(
         self,
-        query_sparse: Dict[str, float],
+        query_sparse: dict[str, float],
         top_k: int,
-        tenant_id: Optional[str],
-        filters: Optional[dict],
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None,
+        _filters: dict | None,
+    ) -> list[RetrievalDocument]:
         """
         在Elasticsearch中搜索稀疏向量
 
@@ -216,7 +209,7 @@ class SPLADEService:
 
         return results
 
-    async def batch_encode(self, texts: List[str]) -> List[Dict[str, float]]:
+    async def batch_encode(self, texts: list[str]) -> list[dict[str, float]]:
         """
         批量编码文本
 
@@ -230,7 +223,7 @@ class SPLADEService:
         return await asyncio.gather(*tasks)
 
     def compute_sparse_similarity(
-        self, sparse1: Dict[str, float], sparse2: Dict[str, float]
+        self, sparse1: dict[str, float], sparse2: dict[str, float]
     ) -> float:
         """
         计算两个稀疏向量的相似度（内积）

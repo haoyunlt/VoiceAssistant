@@ -51,31 +51,32 @@ func main() {
 		"trace.id", tracing.TraceID(),
 		"span.id", tracing.SpanID(),
 	)
+	helper := log.NewHelper(logger)
 
 	c := config.New(config.WithSource(file.NewSource(flagconf)))
 	defer c.Close()
 
 	if err := c.Load(); err != nil {
-		panic(err)
+		helper.Fatalf("Failed to load config from %s: %v", flagconf, err)
 	}
 
 	// Load config
 	var cfg Config
 	if err := c.Scan(&cfg); err != nil {
-		panic(err)
+		helper.Fatalf("Failed to scan config: %v", err)
 	}
 
 	// Initialize wire-injected app
 	app, cleanup, err := wireApp(&cfg, logger)
 	if err != nil {
-		panic(err)
+		helper.Fatalf("Failed to initialize application: %v", err)
 	}
 	defer cleanup()
 
-	log.NewHelper(logger).Infow("msg", "service starting", "name", Name, "version", Version)
+	helper.Infow("msg", "service starting", "name", Name, "version", Version)
 
 	// Run application
 	if err := app.Run(); err != nil {
-		panic(err)
+		helper.Fatalf("Failed to run application: %v", err)
 	}
 }

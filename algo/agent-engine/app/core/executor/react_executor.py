@@ -285,7 +285,7 @@ class ReActExecutor:
         self,
         tool_name: str,
         tool_input: str,
-        available_tools: list[dict],  # type: ignore [type-arg] # noqa: F821
+        _available_tools: list[dict],  # type: ignore [type-arg] # noqa: F821
     ) -> str:  # type: ignore [return-value]
         """执行工具调用"""
         try:

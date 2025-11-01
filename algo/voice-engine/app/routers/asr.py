@@ -45,13 +45,17 @@ async def recognize_speech(request: ASRRequest):
     - **task**: transcribe（转录）或 translate（翻译）
     """
     try:
-        logger.info(f"ASR recognize request: language={request.language}, enable_vad={request.enable_vad}")
+        logger.info(
+            f"ASR recognize request: language={request.language}, enable_vad={request.enable_vad}"
+        )
         response = await asr_service.recognize(request)
-        logger.info(f"ASR completed: text length={len(response.text)}, language={response.language}")
+        logger.info(
+            f"ASR completed: text length={len(response.text)}, language={response.language}"
+        )
         return response
     except Exception as e:
         logger.error(f"ASR recognition failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"ASR recognition failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ASR recognition failed: {str(e)}") from e
 
 
 @router.post("/recognize/upload", response_model=ASRResponse)
@@ -88,7 +92,7 @@ async def recognize_upload(
 
     except Exception as e:
         logger.error(f"ASR recognition failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"ASR recognition failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ASR recognition failed: {str(e)}") from e
 
 
 @router.post("/stream")
@@ -109,15 +113,15 @@ async def stream_recognize(request: StreamASRRequest):
         # 这里返回一个简化的实现，实际应使用 WebSocket 或 SSE
 
         async def generate():
-            yield f"data: {{\"session_id\": \"{request.session_id}\", \"status\": \"started\"}}\n\n"
+            yield f'data: {{"session_id": "{request.session_id}", "status": "started"}}\n\n'
             # 实际流式识别逻辑
-            yield f"data: {{\"session_id\": \"{request.session_id}\", \"status\": \"completed\"}}\n\n"
+            yield f'data: {{"session_id": "{request.session_id}", "status": "completed"}}\n\n'
 
         return StreamingResponse(generate(), media_type="text/event-stream")
 
     except Exception as e:
         logger.error(f"Stream ASR failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Stream ASR failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Stream ASR failed: {str(e)}") from e
 
 
 @router.websocket("/ws/stream")
@@ -147,7 +151,9 @@ async def websocket_asr_stream(websocket: WebSocket):
         language = config_msg.get("language", "zh")
         vad_enabled = config_msg.get("vad_enabled", True)
 
-        logger.info(f"Streaming ASR config: model_size={model_size}, language={language}, vad_enabled={vad_enabled}")
+        logger.info(
+            f"Streaming ASR config: model_size={model_size}, language={language}, vad_enabled={vad_enabled}"
+        )
 
         # 2. 初始化流式 ASR 服务 (每个连接独立实例)
         service = StreamingASRService(
@@ -155,7 +161,7 @@ async def websocket_asr_stream(websocket: WebSocket):
             language=language,
             vad_enabled=vad_enabled,
             chunk_duration_ms=300,
-            vad_mode=3
+            vad_mode=3,
         )
 
         # 3. 音频生成器
@@ -198,24 +204,20 @@ async def websocket_asr_stream(websocket: WebSocket):
 
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in config: {e}")
-        await websocket.send_json({
-            "type": "error",
-            "error": f"Invalid configuration JSON: {str(e)}"
-        })
+        await websocket.send_json(
+            {"type": "error", "error": f"Invalid configuration JSON: {str(e)}"}
+        )
 
     except Exception as e:
         logger.error(f"Streaming ASR error: {e}", exc_info=True)
         with contextlib.suppress(builtins.BaseException):
-            await websocket.send_json({
-                "type": "error",
-                "error": str(e)
-            })
+            await websocket.send_json({"type": "error", "error": str(e)})
 
     finally:
         try:
             await websocket.close()
             logger.info("WebSocket connection closed")
-        except:
+        except Exception:
             pass
 
 
@@ -224,6 +226,7 @@ async def websocket_asr_stream(websocket: WebSocket):
 
 class MultiVendorASRRequest(BaseModel):
     """多厂商 ASR 请求"""
+
     audio_base64: str
     language: str = "zh"
     model_size: str = "base"
@@ -270,26 +273,24 @@ async def recognize_multi_vendor(request: MultiVendorASRRequest):
             adapter.preferred_asr = request.vendor_preference
 
             result = await adapter.recognize(
-                audio_data=audio_data,
-                language=request.language,
-                model_size=request.model_size
+                audio_data=audio_data, language=request.language, model_size=request.model_size
             )
 
             # 恢复原始配置
             adapter.preferred_asr = original_preference
         else:
             result = await adapter.recognize(
-                audio_data=audio_data,
-                language=request.language,
-                model_size=request.model_size
+                audio_data=audio_data, language=request.language, model_size=request.model_size
             )
 
-        logger.info(f"Multi-vendor ASR completed: vendor={result.get('vendor')}, text_length={len(result.get('text', ''))}")
+        logger.info(
+            f"Multi-vendor ASR completed: vendor={result.get('vendor')}, text_length={len(result.get('text', ''))}"
+        )
         return result
 
     except Exception as e:
         logger.error(f"Multi-vendor ASR failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Multi-vendor ASR failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Multi-vendor ASR failed: {str(e)}") from e
 
 
 @router.get("/vendors/status", summary="获取所有 ASR 厂商状态")
@@ -310,9 +311,9 @@ async def get_vendors_status():
             "services": {
                 "azure": status["services"].get("azure", {}),
                 "faster_whisper": status["services"].get("faster_whisper", {}),
-            }
+            },
         }
 
     except Exception as e:
         logger.error(f"Failed to get vendors status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

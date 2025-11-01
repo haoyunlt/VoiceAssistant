@@ -7,6 +7,7 @@ from app.core.logging import logger
 
 class RewrittenQuery(BaseModel):
     """改写后的查询"""
+
     original: str
     rewritten: str
     confidence: float = 1.0
@@ -23,11 +24,7 @@ class QueryRewriterService:
         """
         self.llm_client = llm_client
 
-    async def rewrite_query(
-        self,
-        query: str,
-        context: list[str] | None = None
-    ) -> RewrittenQuery:
+    async def rewrite_query(self, query: str, context: list[str] | None = None) -> RewrittenQuery:
         """改写查询
 
         Args:
@@ -46,15 +43,12 @@ class QueryRewriterService:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a query rewriter that improves search queries for better retrieval results."
+                        "content": "You are a query rewriter that improves search queries for better retrieval results.",
                     },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                    {"role": "user", "content": prompt},
                 ],
                 model="gpt-3.5-turbo",
-                temperature=0.3
+                temperature=0.3,
             )
 
             rewritten = response["choices"][0]["message"]["content"].strip()
@@ -62,25 +56,13 @@ class QueryRewriterService:
             # 清理改写结果
             rewritten = self._clean_rewritten_query(rewritten)
 
-            return RewrittenQuery(
-                original=query,
-                rewritten=rewritten,
-                confidence=1.0
-            )
+            return RewrittenQuery(original=query, rewritten=rewritten, confidence=1.0)
         except Exception as e:
             logger.error(f"Query rewriting error: {e}")
             # 失败时返回原查询
-            return RewrittenQuery(
-                original=query,
-                rewritten=query,
-                confidence=0.0
-            )
+            return RewrittenQuery(original=query, rewritten=query, confidence=0.0)
 
-    def _build_rewrite_prompt(
-        self,
-        query: str,
-        context: list[str] | None = None
-    ) -> str:
+    def _build_rewrite_prompt(self, query: str, context: list[str] | None = None) -> str:
         """构建改写提示词
 
         Args:
@@ -124,20 +106,24 @@ class QueryRewriterService:
             清理后的查询
         """
         # 去除首尾引号
-        query = query.strip().strip('"\'""''')
+        query = query.strip().strip('"\'""')  # noqa: B005
 
         # 去除"改写后的查询："等前缀
-        prefixes = ["改写后的查询：", "改写后的查询:", "改写：", "改写:", "Rewritten query:", "Rewritten:"]
+        prefixes = [
+            "改写后的查询：",
+            "改写后的查询:",
+            "改写：",
+            "改写:",
+            "Rewritten query:",
+            "Rewritten:",
+        ]
         for prefix in prefixes:
             if query.startswith(prefix):
-                query = query[len(prefix):].strip()
+                query = query[len(prefix) :].strip()
 
         return query
 
-    async def expand_with_synonyms(
-        self,
-        query: str
-    ) -> list[str]:
+    async def expand_with_synonyms(self, query: str) -> list[str]:
         """使用同义词扩展查询
 
         Args:
@@ -160,25 +146,20 @@ class QueryRewriterService:
 同义查询："""
 
             response = await self.llm_client.chat(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 model="gpt-3.5-turbo",
                 temperature=0.7,
-                max_tokens=200
+                max_tokens=200,
             )
 
             expanded_text = response["choices"][0]["message"]["content"].strip()
 
             # 解析每行
             expanded_queries = [query]  # 包含原查询
-            for line in expanded_text.split('\n'):
+            for line in expanded_text.split("\n"):
                 line = line.strip()
                 # 去除可能的编号
-                line = line.lstrip('0123456789.-) ')
+                line = line.lstrip("0123456789.-) ")
                 if line and line != query:
                     expanded_queries.append(line)
 
@@ -187,10 +168,7 @@ class QueryRewriterService:
             logger.error(f"Query expansion error: {e}")
             return [query]
 
-    async def decompose_query(
-        self,
-        query: str
-    ) -> list[str]:
+    async def decompose_query(self, query: str) -> list[str]:
         """分解复杂查询为多个子查询
 
         Args:
@@ -213,25 +191,20 @@ class QueryRewriterService:
 子查询："""
 
             response = await self.llm_client.chat(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
+                messages=[{"role": "user", "content": prompt}],
                 model="gpt-3.5-turbo",
                 temperature=0.3,
-                max_tokens=200
+                max_tokens=200,
             )
 
             decomposed_text = response["choices"][0]["message"]["content"].strip()
 
             # 解析每行
             subqueries = []
-            for line in decomposed_text.split('\n'):
+            for line in decomposed_text.split("\n"):
                 line = line.strip()
                 # 去除可能的编号
-                line = line.lstrip('0123456789.-) ')
+                line = line.lstrip("0123456789.-) ")
                 if line:
                     subqueries.append(line)
 

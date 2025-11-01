@@ -48,22 +48,16 @@ async def recognize_stream(websocket: WebSocket):
 
     # 获取应用状态中的模型
     app = websocket.app
-    whisper_model = getattr(app.state, 'whisper_model', None)
-    vad_model = getattr(app.state, 'vad_model', None)
+    whisper_model = getattr(app.state, "whisper_model", None)
+    vad_model = getattr(app.state, "vad_model", None)
 
     if not whisper_model or not vad_model:
-        await websocket.send_json({
-            "type": "error",
-            "message": "ASR 或 VAD 模型未加载"
-        })
+        await websocket.send_json({"type": "error", "message": "ASR 或 VAD 模型未加载"})
         await websocket.close()
         return
 
     # 初始化流式识别器
-    streaming_asr = StreamingASRService(
-        whisper_model=whisper_model,
-        vad_model=vad_model
-    )
+    streaming_asr = StreamingASRService(whisper_model=whisper_model, vad_model=vad_model)
 
     # 音频缓冲区和结果缓存
     audio_buffer = bytearray()
@@ -84,10 +78,7 @@ async def recognize_stream(websocket: WebSocket):
             try:
                 data = json.loads(message.get("text", "{}"))
             except json.JSONDecodeError:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": "无效的 JSON 格式"
-                })
+                await websocket.send_json({"type": "error", "message": "无效的 JSON 格式"})
                 continue
 
             message_type = data.get("type")
@@ -111,14 +102,16 @@ async def recognize_stream(websocket: WebSocket):
 
                             if result.get("text"):
                                 # 发送部分结果
-                                await websocket.send_json({
-                                    "type": "partial",
-                                    "text": result["text"],
-                                    "confidence": result["confidence"],
-                                    "is_final": False,
-                                    "start_time": result.get("start_time", 0),
-                                    "end_time": result.get("end_time", 0)
-                                })
+                                await websocket.send_json(
+                                    {
+                                        "type": "partial",
+                                        "text": result["text"],
+                                        "confidence": result["confidence"],
+                                        "is_final": False,
+                                        "start_time": result.get("start_time", 0),
+                                        "end_time": result.get("end_time", 0),
+                                    }
+                                )
 
                                 # 缓存部分结果
                                 partial_results.append(result)
@@ -128,10 +121,9 @@ async def recognize_stream(websocket: WebSocket):
 
                 except Exception as e:
                     logger.error(f"Audio processing error: {e}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": f"音频处理失败: {str(e)}"
-                    })
+                    await websocket.send_json(
+                        {"type": "error", "message": f"音频处理失败: {str(e)}"}
+                    )
 
             elif message_type == "end":
                 # 处理剩余缓冲区
@@ -150,13 +142,18 @@ async def recognize_stream(websocket: WebSocket):
                 final_text = streaming_asr.merge_partial_results(partial_results)
 
                 # 发送最终结果
-                await websocket.send_json({
-                    "type": "final",
-                    "text": final_text,
-                    "confidence": sum(r["confidence"] for r in partial_results) / len(partial_results) if partial_results else 0.0,
-                    "is_final": True,
-                    "segments_count": len(partial_results)
-                })
+                await websocket.send_json(
+                    {
+                        "type": "final",
+                        "text": final_text,
+                        "confidence": sum(r["confidence"] for r in partial_results)
+                        / len(partial_results)
+                        if partial_results
+                        else 0.0,
+                        "is_final": True,
+                        "segments_count": len(partial_results),
+                    }
+                )
 
                 logger.info(f"Session ended. Final text: {final_text}")
                 break
@@ -166,10 +163,9 @@ async def recognize_stream(websocket: WebSocket):
                 await websocket.send_json({"type": "pong"})
 
             else:
-                await websocket.send_json({
-                    "type": "error",
-                    "message": f"未知消息类型: {message_type}"
-                })
+                await websocket.send_json(
+                    {"type": "error", "message": f"未知消息类型: {message_type}"}
+                )
 
     except WebSocketDisconnect:
         logger.info("Client disconnected (WebSocketDisconnect)")
@@ -177,10 +173,7 @@ async def recognize_stream(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Streaming ASR error: {e}", exc_info=True)
         with contextlib.suppress(builtins.BaseException):
-            await websocket.send_json({
-                "type": "error",
-                "message": f"服务器错误: {str(e)}"
-            })
+            await websocket.send_json({"type": "error", "message": f"服务器错误: {str(e)}"})
 
     finally:
         with contextlib.suppress(builtins.BaseException):
@@ -193,11 +186,13 @@ async def stream_info():
     """
     获取流式识别配置信息
     """
-    return JSONResponse({
-        "sample_rate": 16000,
-        "format": "pcm_s16le",
-        "channels": 1,
-        "min_chunk_duration_ms": 2000,
-        "vad_enabled": True,
-        "supported_languages": ["zh", "en", "auto"]
-    })
+    return JSONResponse(
+        {
+            "sample_rate": 16000,
+            "format": "pcm_s16le",
+            "channels": 1,
+            "min_chunk_duration_ms": 2000,
+            "vad_enabled": True,
+            "supported_languages": ["zh", "en", "auto"],
+        }
+    )

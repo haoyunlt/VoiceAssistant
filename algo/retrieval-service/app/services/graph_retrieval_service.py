@@ -21,7 +21,7 @@ class GraphRetrievalService:
         query: str,
         top_k: int = 20,
         depth: int = 2,
-        tenant_id: str | None = None,
+        _tenant_id: str | None = None,
     ) -> list[RetrievalDocument]:
         """
         图谱检索

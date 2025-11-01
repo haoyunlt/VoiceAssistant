@@ -54,7 +54,7 @@ class RAGEvaluator:
         logger.info(f"Loaded {len(dataset)} test cases")
         return dataset
 
-    async def evaluate_query(self, query: str, test_case: dict[str, Any]) -> dict[str, Any]:
+    async def evaluate_query(self, query: str, _test_case: dict[str, Any]) -> dict[str, Any]:
         """评测单个查询"""
         start_time = time.time()
 

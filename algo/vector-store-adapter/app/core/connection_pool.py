@@ -20,7 +20,7 @@ class ConnectionPool:
         port: int,
         min_size: int = 5,
         max_size: int = 20,
-        max_idle_time: int = 300
+        max_idle_time: int = 300,
     ):
         self.backend = backend
         self.host = host
@@ -143,11 +143,7 @@ class ConnectionPool:
         from pymilvus import connections
 
         alias = f"conn_{self.created_count}"
-        connections.connect(
-            alias=alias,
-            host=self.host,
-            port=self.port
-        )
+        connections.connect(alias=alias, host=self.host, port=self.port)
 
         return {"backend": "milvus", "alias": alias, "created_at": datetime.utcnow()}
 
@@ -183,6 +179,7 @@ class ConnectionPool:
             # Ping连接
             if self.backend == "milvus":
                 from pymilvus import utility
+
                 utility.list_collections(using=conn.get("alias"))
             elif self.backend == "qdrant":
                 client = conn.get("client")
@@ -202,6 +199,7 @@ class ConnectionPool:
         try:
             if self.backend == "milvus":
                 from pymilvus import connections
+
                 connections.disconnect(alias=conn.get("alias"))
             elif self.backend == "qdrant":
                 client = conn.get("client")
@@ -224,5 +222,7 @@ class ConnectionPool:
             "created_count": self.created_count,
             "borrowed_count": self.borrowed_count,
             "returned_count": self.returned_count,
-            "utilization": (self.size - self.pool.qsize()) / self.max_size if self.max_size > 0 else 0
+            "utilization": (self.size - self.pool.qsize()) / self.max_size
+            if self.max_size > 0
+            else 0,
         }

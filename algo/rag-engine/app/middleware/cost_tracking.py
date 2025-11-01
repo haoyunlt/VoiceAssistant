@@ -12,7 +12,6 @@ import logging
 import time
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Dict, List
 
 from prometheus_client import Counter, Histogram
 
@@ -60,9 +59,9 @@ class CostSummary:
 
     total_cost_usd: float
     total_tokens: int
-    by_phase: Dict[str, float]  # phase -> cost
-    by_model: Dict[str, float]  # model -> cost
-    details: List[TokenUsage]
+    by_phase: dict[str, float]  # phase -> cost
+    by_model: dict[str, float]  # model -> cost
+    details: list[TokenUsage]
 
 
 class CostTracker:
@@ -78,7 +77,7 @@ class CostTracker:
         """
         self.tenant_id = tenant_id
         self.user_id = user_id
-        self.usages: List[TokenUsage] = []
+        self.usages: list[TokenUsage] = []
 
         # 模型定价（每 1K tokens，USD）
         self.pricing = {
@@ -161,9 +160,9 @@ class CostTracker:
 
         # Prometheus 指标
         total_tokens = input_tokens + output_tokens
-        cost_tracking_tokens_total.labels(
-            tenant_id=self.tenant_id, phase=phase, model=model
-        ).inc(total_tokens)
+        cost_tracking_tokens_total.labels(tenant_id=self.tenant_id, phase=phase, model=model).inc(
+            total_tokens
+        )
 
         cost_tracking_cost_usd.labels(tenant_id=self.tenant_id, phase=phase, model=model).inc(
             total_cost
@@ -270,4 +269,3 @@ def get_budget_manager() -> BudgetManager:
 def get_current_cost_tracker() -> CostTracker | None:
     """获取当前请求的成本追踪器"""
     return _request_cost_context.get()
-

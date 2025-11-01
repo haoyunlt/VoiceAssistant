@@ -4,7 +4,12 @@ Tool Registry - 工具注册表
 
 import logging
 
-from app.core.tools.builtin_tools import *
+from app.core.tools.builtin_tools import (
+    CalculatorTool,
+    FileReaderTool,
+    SearchTool,
+    WebScraperTool,
+)
 
 logger = logging.getLogger(__name__)
 

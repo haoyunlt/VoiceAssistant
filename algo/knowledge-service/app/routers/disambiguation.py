@@ -8,9 +8,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
-router = APIRouter(
-    prefix="/api/v1/knowledge/disambiguation", tags=["Entity Disambiguation"]
-)
+router = APIRouter(prefix="/api/v1/knowledge/disambiguation", tags=["Entity Disambiguation"])
 
 # 全局服务实例（延迟初始化）
 disambiguation_service = None
@@ -107,15 +105,14 @@ async def find_similar_entities(request: FindSimilarRequest):
         return {
             "entity_id": request.entity_id,
             "similar_entities": [
-                {"entity_id": eid, "similarity": score}
-                for eid, score in similar_entities
+                {"entity_id": eid, "similarity": score} for eid, score in similar_entities
             ],
             "count": len(similar_entities),
         }
 
     except Exception as e:
         logger.error(f"Failed to find similar entities: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/merge")
@@ -167,7 +164,7 @@ async def merge_entities(request: MergeEntitiesRequest):
         raise
     except Exception as e:
         logger.error(f"Failed to merge entities: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/auto-merge")
@@ -214,7 +211,7 @@ async def auto_merge_duplicates(request: AutoMergeRequest):
         raise
     except Exception as e:
         logger.error(f"Failed to auto merge duplicates: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/disambiguate")
@@ -264,7 +261,7 @@ async def disambiguate_entity(request: DisambiguateRequest):
 
     except Exception as e:
         logger.error(f"Failed to disambiguate entity: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/config")

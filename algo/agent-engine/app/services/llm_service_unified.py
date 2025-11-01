@@ -11,7 +11,7 @@ common_path = Path(__file__).parent.parent.parent.parent / "common"
 if str(common_path) not in sys.path:
     sys.path.insert(0, str(common_path))
 
-from llm_client import UnifiedLLMClient
+from llm_client import UnifiedLLMClient  # noqa: E402
 
 logger = logging.getLogger(__name__)
 

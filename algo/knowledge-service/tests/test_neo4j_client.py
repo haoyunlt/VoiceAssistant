@@ -108,10 +108,7 @@ async def test_create_relationship_success(mock_driver):
     client.driver = driver
 
     success = await client.create_relationship(
-        from_id="node-1",
-        to_id="node-2",
-        rel_type="KNOWS",
-        properties={"since": 2020}
+        from_id="node-1", to_id="node-2", rel_type="KNOWS", properties={"since": 2020}
     )
 
     assert success is True
@@ -146,4 +143,3 @@ async def test_health_check_failure():
 
     assert health["healthy"] is False
     assert "error" in health
-

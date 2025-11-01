@@ -145,7 +145,11 @@ class AdvancedRAGService:
                 # 4. 使用基础 RAG
                 logger.info("Using base RAG service")
                 return await self.base_rag_service.query(
-                    query=query, tenant_id=tenant_id, top_k=top_k, mode=mode, temperature=temperature
+                    query=query,
+                    tenant_id=tenant_id,
+                    top_k=top_k,
+                    mode=mode,
+                    temperature=temperature,
                 )
 
             except Exception as e:
@@ -159,7 +163,7 @@ class AdvancedRAGService:
         top_k: int,
         mode: str,
         temperature: float,
-        query_analysis: dict[str, Any],
+        _query_analysis: dict[str, Any],
         metrics: RAGMetrics,
     ) -> dict[str, Any]:
         """使用图谱增强的 RAG 查询"""
@@ -199,7 +203,7 @@ class AdvancedRAGService:
         # 4. 重排（如果启用）
         if self.base_rag_service.enable_rerank and self.base_rag_service.reranker:
             rerank_start = time.time()
-            all_documents = self.base_rag_service.reranker.rerank(query, all_documents[:top_k * 2])
+            all_documents = self.base_rag_service.reranker.rerank(query, all_documents[: top_k * 2])
             rerank_latency_ms = (time.time() - rerank_start) * 1000
             avg_score = sum(doc.get("rerank_score", 0) for doc in all_documents) / max(
                 len(all_documents), 1
@@ -237,7 +241,7 @@ class AdvancedRAGService:
         mode: str,
         temperature: float,
         query_analysis: dict[str, Any],
-        metrics: RAGMetrics,
+        _metrics: RAGMetrics,
     ) -> dict[str, Any]:
         """使用查询分解的 RAG 查询"""
         # 1. 分解查询
@@ -277,9 +281,7 @@ class AdvancedRAGService:
 
         # 4. 合并答案
         merge_start = time.time()
-        merged_answer = await self.query_decomposer.merge_answers(
-            sub_queries, sub_answers, query
-        )
+        merged_answer = await self.query_decomposer.merge_answers(sub_queries, sub_answers, query)
         merge_latency_ms = (time.time() - merge_start) * 1000
 
         logger.info(f"Merged answers in {merge_latency_ms:.2f}ms")
@@ -385,4 +387,3 @@ def get_advanced_rag_service(
         )
 
     return _advanced_rag_service
-

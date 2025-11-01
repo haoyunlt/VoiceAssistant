@@ -152,6 +152,7 @@ class TestToolRegistration:
 
     def test_custom_tool_registration(self, tool_service):
         """测试自定义工具注册"""
+
         def custom_tool(param1: str) -> str:
             return f"Custom: {param1}"
 
@@ -161,7 +162,7 @@ class TestToolRegistration:
             function=custom_tool,
             parameters={"param1": {"type": "string"}},
             required_params=["param1"],
-            category="custom"
+            category="custom",
         )
 
         tools = tool_service.list_tools()
@@ -180,10 +181,7 @@ class TestToolExecution:
 
     async def test_execute_calculator(self, tool_service):
         """测试执行计算器工具"""
-        result = await tool_service.execute_tool(
-            "calculator",
-            {"expression": "2 + 2"}
-        )
+        result = await tool_service.execute_tool("calculator", {"expression": "2 + 2"})
         assert result == "4"
 
     async def test_execute_missing_parameters(self, tool_service):
@@ -194,10 +192,7 @@ class TestToolExecution:
     async def test_execute_nonexistent_tool(self, tool_service):
         """测试执行不存在的工具"""
         with pytest.raises(ValueError, match="not found"):
-            await tool_service.execute_tool(
-                "nonexistent_tool",
-                {"param": "value"}
-            )
+            await tool_service.execute_tool("nonexistent_tool", {"param": "value"})
 
 
 if __name__ == "__main__":

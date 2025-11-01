@@ -34,7 +34,7 @@ async def detect_voice_activity(request: VADRequest):
         return response
     except Exception as e:
         logger.error(f"VAD detection failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"VAD detection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"VAD detection failed: {str(e)}") from e
 
 
 @router.post("/detect/upload", response_model=VADResponse)
@@ -59,4 +59,4 @@ async def detect_upload(file: UploadFile = File(...), threshold: float = None):
 
     except Exception as e:
         logger.error(f"VAD detection failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"VAD detection failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"VAD detection failed: {str(e)}") from e

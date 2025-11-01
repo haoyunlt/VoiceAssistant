@@ -1,8 +1,8 @@
-"""限流中间件。"""
+"""限流中间件 - 基于 Redis 的生产级实现。"""
 
-import asyncio
+import logging
+import os
 import time
-from collections import defaultdict
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from typing import Any
@@ -10,51 +10,135 @@ from typing import Any
 from fastapi import Request, Response, status  # type: ignore[import]
 from fastapi.responses import JSONResponse  # type: ignore[import]
 
+logger = logging.getLogger(__name__)
 
-class RateLimiter:
+
+class RedisRateLimiter:
     """
-    简单的内存限流器（生产环境应使用 Redis）
+    基于 Redis 的限流器（滑动窗口算法）
+
+    使用 Redis Sorted Set 实现滑动窗口限流，支持分布式部署
     """
 
-    def __init__(self) -> None:
-        self.requests: defaultdict[str, list[float]] = defaultdict(list)
-        self.lock = asyncio.Lock()
+    def __init__(self, redis_client=None) -> None:
+        """
+        初始化限流器
+
+        Args:
+            redis_client: Redis 客户端实例（redis.asyncio.Redis）
+        """
+        self.redis = redis_client
+        self._warned_no_redis = False
 
     async def is_allowed(
         self, key: str, max_requests: int = 100, window_seconds: int = 60
     ) -> tuple[bool, int | None]:
         """
-        检查是否允许请求
+        检查是否允许请求（滑动窗口算法）
 
         Args:
-            key: 限流键（如 user_id 或 IP）
+            key: 限流键（如 tenant:xxx 或 user:xxx）
             max_requests: 窗口内最大请求数
             window_seconds: 时间窗口（秒）
 
         Returns:
             (是否允许, 重试等待时间)
         """
-        async with self.lock:
+        if not self.redis:
+            # 如果 Redis 不可用，记录警告并允许请求通过
+            if not self._warned_no_redis:
+                logger.warning("Redis not available, rate limiting disabled")
+                self._warned_no_redis = True
+            return True, None
+
+        try:
             now = time.time()
-            cutoff = now - window_seconds
+            redis_key = f"ratelimit:{key}"
 
-            # 清理过期记录
-            self.requests[key] = [req_time for req_time in self.requests[key] if req_time > cutoff]
+            # 使用 Lua 脚本保证原子性
+            lua_script = """
+            local key = KEYS[1]
+            local now = tonumber(ARGV[1])
+            local window = tonumber(ARGV[2])
+            local max_requests = tonumber(ARGV[3])
+            local cutoff = now - window
 
-            # 检查是否超限
-            if len(self.requests[key]) >= max_requests:
-                # 计算最早请求过期的时间
-                oldest = self.requests[key][0]
-                retry_after = int(oldest + window_seconds - now) + 1
-                return False, retry_after
+            -- 清理过期记录
+            redis.call('ZREMRANGEBYSCORE', key, 0, cutoff)
 
-            # 记录本次请求
-            self.requests[key].append(now)
+            -- 获取当前窗口内的请求数
+            local count = redis.call('ZCARD', key)
+
+            if count >= max_requests then
+                -- 超限，计算最早请求的时间
+                local oldest = redis.call('ZRANGE', key, 0, 0, 'WITHSCORES')
+                if #oldest > 0 then
+                    local retry_after = math.ceil(tonumber(oldest[2]) + window - now)
+                    return {0, retry_after}
+                end
+                return {0, window}
+            end
+
+            -- 添加当前请求
+            redis.call('ZADD', key, now, now)
+            redis.call('EXPIRE', key, window + 1)
+
+            return {1, 0}
+            """
+
+            result = await self.redis.eval(
+                lua_script,
+                1,  # num_keys
+                redis_key,
+                now,
+                window_seconds,
+                max_requests,
+            )
+
+            allowed = bool(result[0])
+            retry_after = int(result[1]) if not allowed else None
+
+            return allowed, retry_after
+
+        except Exception as e:
+            logger.error(f"Rate limiter error (allowing request): {e}", exc_info=True)
+            # 发生错误时允许请求通过，避免误杀
             return True, None
 
 
-# 全局限流器实例
-rate_limiter = RateLimiter()
+# 全局限流器实例（延迟初始化）
+_rate_limiter = None
+
+
+def get_rate_limiter():
+    """获取或创建全局限流器实例"""
+    global _rate_limiter
+    if _rate_limiter is None:
+        # 尝试获取 Redis 客户端
+        redis_client = None
+        try:
+            import redis.asyncio as aioredis
+
+            redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
+            redis_client = aioredis.from_url(
+                redis_url,
+                encoding="utf-8",
+                decode_responses=True,
+                socket_timeout=2.0,
+                socket_connect_timeout=2.0,
+            )
+            logger.info(f"Redis rate limiter initialized: {redis_url}")
+        except ImportError:
+            logger.warning("redis package not installed, rate limiting disabled")
+        except Exception as e:
+            logger.error(f"Failed to initialize Redis for rate limiting: {e}")
+
+        _rate_limiter = RedisRateLimiter(redis_client)
+
+    return _rate_limiter
+
+
+rate_limiter = get_rate_limiter()
 
 
 class RateLimitMiddleware:

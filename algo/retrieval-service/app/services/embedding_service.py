@@ -20,7 +20,7 @@ class EmbeddingService:
 
             # 使用GPU（如果可用）
             if torch.cuda.is_available():
-                self.model = self.model.to('cuda')
+                self.model = self.model.to("cuda")
 
             logger.info(f"Embedding model {model_name} loaded successfully")
         except Exception as e:
@@ -48,9 +48,7 @@ class EmbeddingService:
 
             # 编码
             embedding = self.model.encode(
-                query_with_instruction,
-                normalize_embeddings=True,
-                convert_to_numpy=True
+                query_with_instruction, normalize_embeddings=True, convert_to_numpy=True
             )
 
             return embedding.tolist()
@@ -59,10 +57,7 @@ class EmbeddingService:
             raise
 
     async def embed_documents(
-        self,
-        texts: list[str],
-        batch_size: int = 32,
-        show_progress: bool = False
+        self, texts: list[str], batch_size: int = 32, show_progress: bool = False
     ) -> list[list[float]]:
         """批量文档向量化
 
@@ -87,7 +82,7 @@ class EmbeddingService:
                 normalize_embeddings=True,
                 batch_size=batch_size,
                 show_progress_bar=show_progress,
-                convert_to_numpy=True
+                convert_to_numpy=True,
             )
 
             return embeddings.tolist()
@@ -95,11 +90,7 @@ class EmbeddingService:
             logger.error(f"Document embedding error: {e}")
             raise
 
-    async def embed_single(
-        self,
-        text: str,
-        is_query: bool = False
-    ) -> list[float]:
+    async def embed_single(self, text: str, is_query: bool = False) -> list[float]:
         """单个文本向量化
 
         Args:
@@ -120,9 +111,7 @@ class EmbeddingService:
 
             # 编码
             embedding = self.model.encode(
-                text_with_instruction,
-                normalize_embeddings=True,
-                convert_to_numpy=True
+                text_with_instruction, normalize_embeddings=True, convert_to_numpy=True
             )
 
             return embedding.tolist()
@@ -139,9 +128,7 @@ class EmbeddingService:
         return self.model.get_sentence_embedding_dimension()
 
     async def compute_similarity(
-        self,
-        query_embedding: list[float],
-        doc_embeddings: list[list[float]]
+        self, query_embedding: list[float], doc_embeddings: list[list[float]]
     ) -> list[float]:
         """计算相似度
 

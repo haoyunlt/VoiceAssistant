@@ -22,7 +22,7 @@ class BaseParser(ABC):
         """
         pass
 
-    def extract_metadata(self, file_data: bytes) -> dict:
+    def extract_metadata(self, _file_data: bytes) -> dict:
         """
         提取文档元数据（可选实现）
 

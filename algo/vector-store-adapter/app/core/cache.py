@@ -2,10 +2,8 @@
 
 import json
 import logging
-from typing import Any
 
 import xxhash
-
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +51,7 @@ class VectorSearchCache:
             Hex hash string
         """
         # Convert to bytes and hash
-        vector_bytes = str(vector).encode('utf-8')
+        vector_bytes = str(vector).encode("utf-8")
         return xxhash.xxh64(vector_bytes).hexdigest()
 
     def _hash_filters(self, filters: dict | str | None) -> str:
@@ -68,7 +66,7 @@ class VectorSearchCache:
         """
         if filters is None:
             return "none"
-        filter_bytes = str(filters).encode('utf-8')
+        filter_bytes = str(filters).encode("utf-8")
         return xxhash.xxh64(filter_bytes).hexdigest()
 
     def get_cache_key(
@@ -180,7 +178,7 @@ class VectorSearchCache:
             return 0
 
     async def invalidate_document(
-        self, collection: str, document_id: str, backend: str = "milvus"
+        self, collection: str, _document_id: str, backend: str = "milvus"
     ) -> int:
         """
         Invalidate cache entries that may contain a document

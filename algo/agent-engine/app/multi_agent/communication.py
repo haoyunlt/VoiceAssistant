@@ -165,9 +165,7 @@ class MessageBus:
 
         await self.publish(topic, message)
 
-    def get_message_history(
-        self, topic: str | None = None, limit: int = 100
-    ) -> list[AgentMessage]:
+    def get_message_history(self, topic: str | None = None, limit: int = 100) -> list[AgentMessage]:
         """
         获取消息历史
 

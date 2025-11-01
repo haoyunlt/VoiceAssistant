@@ -44,9 +44,9 @@ class DocumentParser:
     def parse_markdown(file_content: bytes) -> str:
         """Parse Markdown document"""
         try:
-            md_text = file_content.decode('utf-8')
+            md_text = file_content.decode("utf-8")
             html = markdown.markdown(md_text)
-            soup = BeautifulSoup(html, 'html.parser')
+            soup = BeautifulSoup(html, "html.parser")
             return soup.get_text().strip()
         except Exception as e:
             logger.error(f"Error parsing Markdown: {e}")
@@ -56,7 +56,7 @@ class DocumentParser:
     def parse_txt(file_content: bytes) -> str:
         """Parse plain text"""
         try:
-            return file_content.decode('utf-8').strip()
+            return file_content.decode("utf-8").strip()
         except Exception as e:
             logger.error(f"Error parsing TXT: {e}")
             raise
@@ -64,13 +64,13 @@ class DocumentParser:
     @classmethod
     def parse(cls, file_content: bytes, content_type: str) -> str:
         """Parse document based on content type"""
-        if 'pdf' in content_type.lower():
+        if "pdf" in content_type.lower():
             return cls.parse_pdf(file_content)
-        elif 'word' in content_type.lower() or 'docx' in content_type.lower():
+        elif "word" in content_type.lower() or "docx" in content_type.lower():
             return cls.parse_docx(file_content)
-        elif 'markdown' in content_type.lower() or 'md' in content_type.lower():
+        elif "markdown" in content_type.lower() or "md" in content_type.lower():
             return cls.parse_markdown(file_content)
-        elif 'text' in content_type.lower() or 'txt' in content_type.lower():
+        elif "text" in content_type.lower() or "txt" in content_type.lower():
             return cls.parse_txt(file_content)
         else:
             raise ValueError(f"Unsupported content type: {content_type}")
@@ -89,18 +89,20 @@ class DocumentChunker:
         i = 0
         chunk_id = 0
         while i < len(words):
-            chunk_words = words[i:i + chunk_size]
-            chunk_text = ' '.join(chunk_words)
+            chunk_words = words[i : i + chunk_size]
+            chunk_text = " ".join(chunk_words)
 
-            chunks.append({
-                'chunk_id': chunk_id,
-                'content': chunk_text,
-                'start_index': i,
-                'end_index': min(i + chunk_size, len(words)),
-                'token_count': len(chunk_words)
-            })
+            chunks.append(
+                {
+                    "chunk_id": chunk_id,
+                    "content": chunk_text,
+                    "start_index": i,
+                    "end_index": min(i + chunk_size, len(words)),
+                    "token_count": len(chunk_words),
+                }
+            )
 
-            i += (chunk_size - overlap)
+            i += chunk_size - overlap
             chunk_id += 1
 
         return chunks
@@ -110,7 +112,8 @@ class DocumentChunker:
         """Chunk text by sentences"""
         # Simple sentence splitting
         import re
-        sentences = re.split(r'[.!?]+', text)
+
+        sentences = re.split(r"[.!?]+", text)
 
         chunks = []
         current_chunk = []
@@ -125,11 +128,13 @@ class DocumentChunker:
             sent_size = len(sent.split())
 
             if current_size + sent_size > max_chunk_size and current_chunk:
-                chunks.append({
-                    'chunk_id': chunk_id,
-                    'content': ' '.join(current_chunk),
-                    'token_count': current_size
-                })
+                chunks.append(
+                    {
+                        "chunk_id": chunk_id,
+                        "content": " ".join(current_chunk),
+                        "token_count": current_size,
+                    }
+                )
                 current_chunk = []
                 current_size = 0
                 chunk_id += 1
@@ -139,11 +144,12 @@ class DocumentChunker:
 
         # Add remaining chunk
         if current_chunk:
-            chunks.append({
-                'chunk_id': chunk_id,
-                'content': ' '.join(current_chunk),
-                'token_count': current_size
-            })
+            chunks.append(
+                {
+                    "chunk_id": chunk_id,
+                    "content": " ".join(current_chunk),
+                    "token_count": current_size,
+                }
+            )
 
         return chunks
-

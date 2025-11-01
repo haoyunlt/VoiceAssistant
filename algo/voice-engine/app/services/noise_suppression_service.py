@@ -1,4 +1,5 @@
 """噪音抑制服务"""
+
 import io
 
 import librosa
@@ -11,6 +12,7 @@ from app.core.logging import logger
 
 class NoiseSuppressionResult(BaseModel):
     """降噪结果"""
+
     audio_data: bytes
     sample_rate: int
     original_duration_ms: float
@@ -36,7 +38,7 @@ class NoiseSuppressionService:
         stationary: bool = True,
         prop_decrease: float = None,
         time_mask_smooth_ms: int = None,
-        freq_mask_smooth_hz: int = None
+        freq_mask_smooth_hz: int = None,
     ) -> NoiseSuppressionResult:
         """降噪处理
 
@@ -53,11 +55,7 @@ class NoiseSuppressionService:
         """
         try:
             # 1. 加载音频
-            audio, sr = librosa.load(
-                io.BytesIO(audio_data),
-                sr=sample_rate,
-                mono=True
-            )
+            audio, sr = librosa.load(io.BytesIO(audio_data), sr=sample_rate, mono=True)
 
             original_duration_ms = len(audio) / sr * 1000
 
@@ -78,7 +76,7 @@ class NoiseSuppressionService:
                     stationary=True,
                     prop_decrease=prop_decrease,
                     time_mask_smooth_ms=time_mask_smooth_ms,
-                    freq_mask_smooth_hz=freq_mask_smooth_hz
+                    freq_mask_smooth_hz=freq_mask_smooth_hz,
                 )
             else:
                 # 非平稳噪音（如突发声音）
@@ -87,12 +85,12 @@ class NoiseSuppressionService:
                     sr=sr,
                     stationary=False,
                     prop_decrease=prop_decrease,
-                    use_torch=True  # 使用PyTorch加速
+                    use_torch=True,  # 使用PyTorch加速
                 )
 
             # 4. 转换回bytes
             output_buffer = io.BytesIO()
-            sf.write(output_buffer, reduced_audio, sr, format='WAV')
+            sf.write(output_buffer, reduced_audio, sr, format="WAV")
             output_buffer.seek(0)
             reduced_audio_data = output_buffer.read()
 
@@ -100,7 +98,7 @@ class NoiseSuppressionService:
                 audio_data=reduced_audio_data,
                 sample_rate=sr,
                 original_duration_ms=original_duration_ms,
-                noise_reduced=True
+                noise_reduced=True,
             )
         except Exception as e:
             logger.error(f"Noise suppression error: {e}")
@@ -108,14 +106,12 @@ class NoiseSuppressionService:
             return NoiseSuppressionResult(
                 audio_data=audio_data,
                 sample_rate=sample_rate,
-                original_duration_ms=len(audio) / sample_rate * 1000 if 'audio' in locals() else 0,
-                noise_reduced=False
+                original_duration_ms=len(audio) / sample_rate * 1000 if "audio" in locals() else 0,
+                noise_reduced=False,
             )
 
     async def adaptive_reduce_noise(
-        self,
-        audio_data: bytes,
-        sample_rate: int = 16000
+        self, audio_data: bytes, sample_rate: int = 16000
     ) -> NoiseSuppressionResult:
         """自适应降噪（自动检测噪音类型）
 
@@ -128,20 +124,14 @@ class NoiseSuppressionService:
         """
         try:
             # 1. 加载音频
-            audio, sr = librosa.load(
-                io.BytesIO(audio_data),
-                sr=sample_rate,
-                mono=True
-            )
+            audio, sr = librosa.load(io.BytesIO(audio_data), sr=sample_rate, mono=True)
 
             # 2. 分析音频特征，判断噪音类型
             stationary = await self._detect_noise_type(audio, sr)
 
             # 3. 根据检测结果降噪
             return await self.reduce_noise(
-                audio_data,
-                sample_rate=sample_rate,
-                stationary=stationary
+                audio_data, sample_rate=sample_rate, stationary=stationary
             )
         except Exception as e:
             logger.error(f"Adaptive noise suppression error: {e}")
@@ -149,7 +139,7 @@ class NoiseSuppressionService:
                 audio_data=audio_data,
                 sample_rate=sample_rate,
                 original_duration_ms=0,
-                noise_reduced=False
+                noise_reduced=False,
             )
 
     async def _detect_noise_type(self, audio: any, sr: int) -> bool:
@@ -165,14 +155,12 @@ class NoiseSuppressionService:
         try:
             # 计算短时能量
             frame_length = int(0.025 * sr)  # 25ms
-            hop_length = int(0.010 * sr)    # 10ms
+            hop_length = int(0.010 * sr)  # 10ms
 
             # 计算能量
-            energy = librosa.feature.rms(
-                y=audio,
-                frame_length=frame_length,
-                hop_length=hop_length
-            )[0]
+            energy = librosa.feature.rms(y=audio, frame_length=frame_length, hop_length=hop_length)[
+                0
+            ]
 
             # 计算能量方差
             energy_variance = energy.var()
@@ -187,10 +175,7 @@ class NoiseSuppressionService:
             return True
 
     async def reduce_noise_with_profile(
-        self,
-        audio_data: bytes,
-        noise_profile_data: bytes,
-        sample_rate: int = 16000
+        self, audio_data: bytes, noise_profile_data: bytes, sample_rate: int = 16000
     ) -> NoiseSuppressionResult:
         """使用噪音配置文件降噪
 
@@ -204,38 +189,28 @@ class NoiseSuppressionService:
         """
         try:
             # 1. 加载音频
-            audio, sr = librosa.load(
-                io.BytesIO(audio_data),
-                sr=sample_rate,
-                mono=True
-            )
+            audio, sr = librosa.load(io.BytesIO(audio_data), sr=sample_rate, mono=True)
 
             # 2. 加载噪音配置文件
             noise_profile, _ = librosa.load(
-                io.BytesIO(noise_profile_data),
-                sr=sample_rate,
-                mono=True
+                io.BytesIO(noise_profile_data), sr=sample_rate, mono=True
             )
 
             # 3. 使用噪音配置文件降噪
             reduced_audio = nr.reduce_noise(
-                y=audio,
-                sr=sr,
-                y_noise=noise_profile,
-                stationary=True,
-                prop_decrease=1.0
+                y=audio, sr=sr, y_noise=noise_profile, stationary=True, prop_decrease=1.0
             )
 
             # 4. 转换回bytes
             output_buffer = io.BytesIO()
-            sf.write(output_buffer, reduced_audio, sr, format='WAV')
+            sf.write(output_buffer, reduced_audio, sr, format="WAV")
             output_buffer.seek(0)
 
             return NoiseSuppressionResult(
                 audio_data=output_buffer.read(),
                 sample_rate=sr,
                 original_duration_ms=len(audio) / sr * 1000,
-                noise_reduced=True
+                noise_reduced=True,
             )
         except Exception as e:
             logger.error(f"Profile-based noise suppression error: {e}")
@@ -243,5 +218,5 @@ class NoiseSuppressionService:
                 audio_data=audio_data,
                 sample_rate=sample_rate,
                 original_duration_ms=0,
-                noise_reduced=False
+                noise_reduced=False,
             )

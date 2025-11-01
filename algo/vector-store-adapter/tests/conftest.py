@@ -1,7 +1,7 @@
 """Pytest fixtures for vector-store-adapter tests"""
 
 import asyncio
-from typing import AsyncGenerator, Generator
+from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, Mock
 
 import pytest
@@ -19,6 +19,7 @@ def event_loop() -> Generator:
 # ========================================
 # Test Data Fixtures
 # ========================================
+
 
 @pytest.fixture
 def sample_vector_data():
@@ -57,6 +58,7 @@ def sample_query_vector():
 # ========================================
 # Mock Backend Fixtures
 # ========================================
+
 
 @pytest.fixture
 def mock_milvus_connection():
@@ -123,6 +125,7 @@ async def mock_redis_client():
 # Backend Config Fixtures
 # ========================================
 
+
 @pytest.fixture
 def milvus_config():
     """Milvus backend configuration"""
@@ -152,6 +155,7 @@ def pgvector_config():
 # FastAPI Test Client
 # ========================================
 
+
 @pytest.fixture
 def test_client(monkeypatch):
     """FastAPI test client with mocked dependencies"""
@@ -170,6 +174,7 @@ def test_client(monkeypatch):
 # ========================================
 # Integration Test Fixtures (require real services)
 # ========================================
+
 
 @pytest.fixture(scope="session")
 async def real_milvus_connection():

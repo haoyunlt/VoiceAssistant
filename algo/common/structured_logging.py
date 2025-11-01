@@ -58,6 +58,7 @@ class StructuredFormatter(logging.Formatter):
         # 添加 trace_id（从 OpenTelemetry）
         try:
             from .telemetry import get_current_span
+
             span = get_current_span()
             if span.is_recording():
                 span_context = span.get_span_context()
@@ -146,9 +147,7 @@ def setup_logging(
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
-    logging.info(
-        f"Logging configured: service={service_name}, level={log_level}, json={use_json}"
-    )
+    logging.info(f"Logging configured: service={service_name}, level={log_level}, json={use_json}")
 
 
 def set_request_id(request_id: str) -> None:

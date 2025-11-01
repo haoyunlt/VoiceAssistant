@@ -1,4 +1,5 @@
 """自适应检索服务"""
+
 import re
 
 from pydantic import BaseModel
@@ -8,6 +9,7 @@ from app.core.logging import logger
 
 class QueryComplexity(BaseModel):
     """查询复杂度"""
+
     level: str  # simple, medium, complex
     score: int
     factors: dict
@@ -15,6 +17,7 @@ class QueryComplexity(BaseModel):
 
 class RetrievedDocument(BaseModel):
     """检索到的文档"""
+
     chunk_id: str
     content: str
     score: float = 0.0
@@ -37,11 +40,7 @@ class AdaptiveRetrievalService:
         self.query_expansion_service = query_expansion_service
 
     async def adaptive_search(
-        self,
-        query: str,
-        tenant_id: str,
-        knowledge_base_id: str,
-        max_results: int = 10
+        self, query: str, tenant_id: str, knowledge_base_id: str, max_results: int = 10
     ) -> list[RetrievedDocument]:
         """自适应检索
 
@@ -64,21 +63,15 @@ class AdaptiveRetrievalService:
         # 2. 根据复杂度选择策略
         if complexity.level == "simple":
             # 简单查询：仅向量检索，top 5
-            documents = await self._simple_search(
-                query, tenant_id, knowledge_base_id, top_k=5
-            )
+            documents = await self._simple_search(query, tenant_id, knowledge_base_id, top_k=5)
 
         elif complexity.level == "medium":
             # 中等查询：混合检索，top 10
-            documents = await self._medium_search(
-                query, tenant_id, knowledge_base_id, top_k=10
-            )
+            documents = await self._medium_search(query, tenant_id, knowledge_base_id, top_k=10)
 
         else:  # complex
             # 复杂查询：混合检索 + 查询扩展 + 重排序，top 20
-            documents = await self._complex_search(
-                query, tenant_id, knowledge_base_id, top_k=20
-            )
+            documents = await self._complex_search(query, tenant_id, knowledge_base_id, top_k=20)
 
         # 3. 返回指定数量的结果
         return documents[:max_results]
@@ -104,34 +97,75 @@ class AdaptiveRetrievalService:
             score += 1
 
         # 2. 数字因素
-        has_numbers = bool(re.search(r'\d', query))
+        has_numbers = bool(re.search(r"\d", query))
         factors["has_numbers"] = has_numbers
         if has_numbers:
             score += 1
 
         # 3. 比较关键词
-        comparison_keywords = ["比较", "对比", "区别", "差异", "不同", "相同", "compare", "difference", "vs"]
+        comparison_keywords = [
+            "比较",
+            "对比",
+            "区别",
+            "差异",
+            "不同",
+            "相同",
+            "compare",
+            "difference",
+            "vs",
+        ]
         has_comparison = any(keyword in query.lower() for keyword in comparison_keywords)
         factors["has_comparison"] = has_comparison
         if has_comparison:
             score += 2
 
         # 4. 聚合关键词
-        aggregation_keywords = ["总结", "汇总", "统计", "分析", "概述", "summarize", "analyze", "overview"]
+        aggregation_keywords = [
+            "总结",
+            "汇总",
+            "统计",
+            "分析",
+            "概述",
+            "summarize",
+            "analyze",
+            "overview",
+        ]
         has_aggregation = any(keyword in query.lower() for keyword in aggregation_keywords)
         factors["has_aggregation"] = has_aggregation
         if has_aggregation:
             score += 3
 
         # 5. 时间关键词
-        temporal_keywords = ["最近", "最新", "历史", "过去", "未来", "recent", "latest", "history", "past", "future"]
+        temporal_keywords = [
+            "最近",
+            "最新",
+            "历史",
+            "过去",
+            "未来",
+            "recent",
+            "latest",
+            "history",
+            "past",
+            "future",
+        ]
         has_temporal = any(keyword in query.lower() for keyword in temporal_keywords)
         factors["has_temporal"] = has_temporal
         if has_temporal:
             score += 1
 
         # 6. 因果关键词
-        causal_keywords = ["为什么", "原因", "导致", "影响", "结果", "why", "cause", "reason", "result", "impact"]
+        causal_keywords = [
+            "为什么",
+            "原因",
+            "导致",
+            "影响",
+            "结果",
+            "why",
+            "cause",
+            "reason",
+            "result",
+            "impact",
+        ]
         has_causal = any(keyword in query.lower() for keyword in causal_keywords)
         factors["has_causal"] = has_causal
         if has_causal:
@@ -154,11 +188,7 @@ class AdaptiveRetrievalService:
         return QueryComplexity(level=level, score=score, factors=factors)
 
     async def _simple_search(
-        self,
-        query: str,
-        tenant_id: str,
-        knowledge_base_id: str,
-        top_k: int = 5
+        self, query: str, tenant_id: str, knowledge_base_id: str, top_k: int = 5
     ) -> list[RetrievedDocument]:
         """简单检索：仅向量检索
 
@@ -172,19 +202,12 @@ class AdaptiveRetrievalService:
             检索结果
         """
         documents = await self.retrieval_client.vector_search(
-            query=query,
-            tenant_id=tenant_id,
-            knowledge_base_id=knowledge_base_id,
-            top_k=top_k
+            query=query, tenant_id=tenant_id, knowledge_base_id=knowledge_base_id, top_k=top_k
         )
         return documents
 
     async def _medium_search(
-        self,
-        query: str,
-        tenant_id: str,
-        knowledge_base_id: str,
-        top_k: int = 10
+        self, query: str, tenant_id: str, knowledge_base_id: str, top_k: int = 10
     ) -> list[RetrievedDocument]:
         """中等检索：混合检索
 
@@ -202,16 +225,12 @@ class AdaptiveRetrievalService:
             tenant_id=tenant_id,
             knowledge_base_id=knowledge_base_id,
             top_k=top_k,
-            alpha=0.6  # 向量权重
+            alpha=0.6,  # 向量权重
         )
         return documents
 
     async def _complex_search(
-        self,
-        query: str,
-        tenant_id: str,
-        knowledge_base_id: str,
-        top_k: int = 20
+        self, query: str, tenant_id: str, knowledge_base_id: str, top_k: int = 20
     ) -> list[RetrievedDocument]:
         """复杂检索：混合检索 + 查询扩展 + 重排序
 
@@ -241,7 +260,7 @@ class AdaptiveRetrievalService:
                 tenant_id=tenant_id,
                 knowledge_base_id=knowledge_base_id,
                 top_k=10,
-                alpha=0.5
+                alpha=0.5,
             )
             all_docs.extend(docs)
 
@@ -250,9 +269,7 @@ class AdaptiveRetrievalService:
 
         # 4. 重排序
         reranked_docs = await self.rerank_service.rerank(
-            query=query,
-            documents=unique_docs,
-            top_k=top_k
+            query=query, documents=unique_docs, top_k=top_k
         )
 
         return reranked_docs
@@ -276,10 +293,7 @@ class AdaptiveRetrievalService:
 
         return unique_docs
 
-    async def get_strategy_explanation(
-        self,
-        query: str
-    ) -> dict:
+    async def get_strategy_explanation(self, query: str) -> dict:
         """获取检索策略说明
 
         Args:
@@ -295,25 +309,22 @@ class AdaptiveRetrievalService:
                 "name": "简单检索",
                 "methods": ["向量检索"],
                 "top_k": 5,
-                "description": "适用于简单直接的问题，使用向量相似度检索"
+                "description": "适用于简单直接的问题，使用向量相似度检索",
             },
             "medium": {
                 "name": "混合检索",
                 "methods": ["向量检索", "BM25检索", "RRF融合"],
                 "top_k": 10,
-                "description": "适用于中等复杂度的问题，结合向量和关键词检索"
+                "description": "适用于中等复杂度的问题，结合向量和关键词检索",
             },
             "complex": {
                 "name": "增强检索",
                 "methods": ["查询扩展", "混合检索", "Cross-Encoder重排序"],
                 "top_k": 20,
-                "description": "适用于复杂问题，使用多种检索策略和重排序"
-            }
+                "description": "适用于复杂问题，使用多种检索策略和重排序",
+            },
         }
 
         strategy = strategies[complexity.level]
 
-        return {
-            "complexity": complexity.dict(),
-            "strategy": strategy
-        }
+        return {"complexity": complexity.dict(), "strategy": strategy}

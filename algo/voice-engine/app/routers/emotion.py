@@ -103,7 +103,7 @@ async def recognize_emotion(
 
     except Exception as e:
         logger.error(f"情感识别失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/emotions")

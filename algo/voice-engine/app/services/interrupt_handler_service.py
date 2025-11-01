@@ -106,13 +106,9 @@ class InterruptHandlerService:
             # VAD检测语音活动
             import numpy as np
 
-            audio_array = np.frombuffer(audio_chunk, dtype=np.int16).astype(
-                np.float32
-            ) / 32768.0
+            audio_array = np.frombuffer(audio_chunk, dtype=np.int16).astype(np.float32) / 32768.0
 
-            speech_prob = await self.vad_service.detect_speech(
-                audio_array, sample_rate
-            )
+            speech_prob = await self.vad_service.detect_speech(audio_array, sample_rate)
 
             current_time = time.time()
 
@@ -127,7 +123,7 @@ class InterruptHandlerService:
                 session["continuous_speech_duration"] = duration
 
                 # 判断是否达到打断阈值
-                if duration >= self.interrupt_duration:
+                if duration >= self.interrupt_duration:  # noqa: SIM102
                     if not session["interrupt_detected"]:
                         session["interrupt_detected"] = True
                         session["interrupt_time"] = current_time
@@ -156,9 +152,7 @@ class InterruptHandlerService:
             logger.error(f"Failed to detect interrupt: {e}", exc_info=True)
             return False
 
-    async def start_playback(
-        self, session_id: str, tts_audio: bytes
-    ) -> bool:
+    async def start_playback(self, session_id: str, tts_audio: bytes) -> bool:
         """
         开始TTS播放
 
@@ -340,9 +334,7 @@ class InterruptHandlerService:
         return {
             "total_sessions": len(self.sessions),
             "active_sessions": sum(
-                1
-                for s in self.sessions.values()
-                if s["playback_state"] == PlaybackState.PLAYING
+                1 for s in self.sessions.values() if s["playback_state"] == PlaybackState.PLAYING
             ),
             "interrupted_sessions": sum(
                 1

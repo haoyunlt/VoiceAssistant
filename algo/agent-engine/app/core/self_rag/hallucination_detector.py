@@ -173,9 +173,7 @@ is_grounded: 答案整体是否基于检索结果（幻觉比例 < 30%）
             # 降级到规则检测
             return self._detect_with_rules(answer, retrieved_docs)
 
-    def _detect_with_rules(
-        self, answer: str, retrieved_docs: list[str]
-    ) -> HallucinationReport:
+    def _detect_with_rules(self, answer: str, retrieved_docs: list[str]) -> HallucinationReport:
         """使用规则检测幻觉（快速、无成本）"""
         # 将答案拆分为句子
         sentences = [s.strip() for s in answer.split(".") if s.strip()]
@@ -247,9 +245,7 @@ is_grounded: 答案整体是否基于检索结果（幻觉比例 < 30%）
             formatted.append(f"文档{i}:\n{doc_preview}")
         return "\n\n".join(formatted)
 
-    async def add_citations(
-        self, answer: str, report: HallucinationReport
-    ) -> str:
+    async def add_citations(self, answer: str, report: HallucinationReport) -> str:
         """
         为答案添加引用标注
 
@@ -272,9 +268,7 @@ is_grounded: 答案整体是否基于检索结果（幻觉比例 < 30%）
 
             if claim in annotated_answer:
                 # 添加上标引用
-                annotated_answer = annotated_answer.replace(
-                    claim, f"{claim} [{source}]"
-                )
+                annotated_answer = annotated_answer.replace(claim, f"{claim} [{source}]")
 
         return annotated_answer
 
@@ -301,16 +295,13 @@ is_grounded: 答案整体是否基于检索结果（幻觉比例 < 30%）
         # 如果有严重幻觉，生成修正建议
         correction_suggestion = None
         if report.level in [HallucinationLevel.MEDIUM, HallucinationLevel.HIGH]:
-            correction_suggestion = await self._suggest_correction(
-                answer, retrieved_docs, report
-            )
+            correction_suggestion = await self._suggest_correction(answer, retrieved_docs, report)
 
         return {
             "original_answer": answer,
             "report": report,
             "correction_suggestion": correction_suggestion,
-            "should_review": report.level
-            in [HallucinationLevel.MEDIUM, HallucinationLevel.HIGH],
+            "should_review": report.level in [HallucinationLevel.MEDIUM, HallucinationLevel.HIGH],
         }
 
     async def _suggest_correction(
@@ -325,7 +316,7 @@ is_grounded: 答案整体是否基于检索结果（幻觉比例 < 30%）
 {answer}
 
 幻觉内容:
-{', '.join(report.hallucinated_claims)}
+{", ".join(report.hallucinated_claims)}
 
 参考文档:
 {docs_text}
@@ -346,4 +337,3 @@ is_grounded: 答案整体是否基于检索结果（幻觉比例 < 30%）
         except Exception as e:
             logger.error(f"Error in correction suggestion: {e}")
             return answer
-

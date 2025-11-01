@@ -219,7 +219,13 @@ class ValidationError(KnowledgeServiceError):
 class ResourceNotFoundError(KnowledgeServiceError):
     """资源未找到"""
 
-    def __init__(self, message: str, resource_type: str | None = None, resource_id: str | None = None, **kwargs):
+    def __init__(
+        self,
+        message: str,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        **kwargs,
+    ):
         super().__init__(message, code="RESOURCE_NOT_FOUND", **kwargs)
         self.resource_type = resource_type
         self.resource_id = resource_id

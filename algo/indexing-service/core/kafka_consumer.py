@@ -16,12 +16,14 @@ class DocumentEventConsumer:
 
     def __init__(self, bootstrap_servers: str, group_id: str, topic: str):
         self.topic = topic
-        self.consumer = Consumer({
-            'bootstrap.servers': bootstrap_servers,
-            'group.id': group_id,
-            'auto.offset.reset': 'earliest',
-            'enable.auto.commit': True,
-        })
+        self.consumer = Consumer(
+            {
+                "bootstrap.servers": bootstrap_servers,
+                "group.id": group_id,
+                "auto.offset.reset": "earliest",
+                "enable.auto.commit": True,
+            }
+        )
         self.consumer.subscribe([topic])
         logger.info(f"Subscribed to topic: {topic}")
 
@@ -41,7 +43,7 @@ class DocumentEventConsumer:
 
                 try:
                     # Parse message
-                    event = json.loads(msg.value().decode('utf-8'))
+                    event = json.loads(msg.value().decode("utf-8"))
                     logger.info(f"Received event: {event.get('event_type')}")
 
                     # Process event
@@ -58,4 +60,3 @@ class DocumentEventConsumer:
     def close(self):
         """Close consumer"""
         self.consumer.close()
-

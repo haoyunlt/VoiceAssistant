@@ -42,9 +42,7 @@ class TokenCounter:
             self.tiktoken_available = True
             logger.info("tiktoken initialized successfully")
         except ImportError:
-            logger.warning(
-                "tiktoken not available, using approximate token counting"
-            )
+            logger.warning("tiktoken not available, using approximate token counting")
             self.tiktoken = None
             self.tiktoken_available = False
 
@@ -76,9 +74,7 @@ class TokenCounter:
                     self.encodings[model] = self.tiktoken.encoding_for_model(model)
                 except KeyError:
                     # 模型不存在，使用cl100k_base（GPT-4默认）
-                    logger.warning(
-                        f"Model {model} not found, using cl100k_base encoding"
-                    )
+                    logger.warning(f"Model {model} not found, using cl100k_base encoding")
                     self.encodings[model] = self.tiktoken.get_encoding("cl100k_base")
 
             return len(self.encodings[model].encode(text))
@@ -111,7 +107,8 @@ class TokenCounter:
             成本（美元）
         """
         pricing = self.PRICING.get(
-            model, {"prompt": 0.00015, "completion": 0.0006}  # 默认使用gpt-4o-mini
+            model,
+            {"prompt": 0.00015, "completion": 0.0006},  # 默认使用gpt-4o-mini
         )
 
         prompt_cost = (prompt_tokens / 1000) * pricing["prompt"]

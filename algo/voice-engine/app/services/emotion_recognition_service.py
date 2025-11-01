@@ -66,9 +66,7 @@ class EmotionRecognitionService:
             logger.warning(f"无法加载scikit-learn: {e}")
             self.model = None
 
-    def extract_features(
-        self, audio_data: np.ndarray, sample_rate: int = None
-    ) -> np.ndarray:
+    def extract_features(self, audio_data: np.ndarray, sample_rate: int = None) -> np.ndarray:
         """
         提取音频特征
 
@@ -141,9 +139,7 @@ class EmotionRecognitionService:
 
         return np.array(features)
 
-    def recognize(
-        self, audio_data: bytes, sample_rate: int | None = None
-    ) -> dict:
+    def recognize(self, audio_data: bytes, sample_rate: int | None = None) -> dict:
         """
         识别音频中的情感
 
@@ -183,15 +179,10 @@ class EmotionRecognitionService:
                 emotion = self.EMOTIONS[emotion_idx]
                 confidence = probabilities[emotion_idx]
 
-                probs_dict = {
-                    self.EMOTIONS[i]: float(prob)
-                    for i, prob in enumerate(probabilities)
-                }
+                probs_dict = {self.EMOTIONS[i]: float(prob) for i, prob in enumerate(probabilities)}
             else:
                 # 使用基于规则的简单分类（启发式）
-                emotion, confidence, probs_dict = self._rule_based_classification(
-                    features
-                )
+                emotion, confidence, probs_dict = self._rule_based_classification(features)
 
             # 分析特征统计
             feature_stats = self._analyze_features(features)
@@ -356,7 +347,7 @@ class EmotionRecognitionService:
 
 
 # 全局单例（线程安全版本）
-import threading
+import threading  # noqa: E402
 
 _emotion_service: EmotionRecognitionService | None = None
 _emotion_service_lock = threading.Lock()

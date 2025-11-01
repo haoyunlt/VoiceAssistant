@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class PDFParser(BaseParser):
     """PDF 文档解析器"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析 PDF 文档"""
         try:
             # 优先使用 pdfplumber（更准确）

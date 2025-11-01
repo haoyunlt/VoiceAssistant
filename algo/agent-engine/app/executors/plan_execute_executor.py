@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 try:
     from opentelemetry import trace
     from opentelemetry.trace import Status, StatusCode
+
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
@@ -32,17 +33,25 @@ if OTEL_AVAILABLE:
 else:
     # 创建一个空的 tracer stub
     class NoOpSpan:
-        def set_attribute(self, *args: Any, **kwargs: Any) -> None: pass
-        def set_status(self, *args: Any, **kwargs: Any) -> None: pass
-        def record_exception(self, *args: Any, **kwargs: Any) -> None: pass
+        def set_attribute(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def set_status(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def record_exception(self, *args: Any, **kwargs: Any) -> None:
+            pass
 
     class NoOpTracer:
-        def start_as_current_span(self, name: str, **kwargs: Any) -> Any:
+        def start_as_current_span(self, _name: str, **_kwargs: Any) -> Any:
             from contextlib import contextmanager
+
             @contextmanager
             def noop() -> Generator[NoOpSpan, Any, Any]:
                 yield NoOpSpan()
+
             return noop()
+
     tracer = NoOpTracer()
 
 
@@ -76,8 +85,8 @@ class PlanExecuteExecutor:
             "plan_execute.execute",
             attributes={
                 "task": task[:100] if len(task) > 100 else task,  # 截断避免太长
-                "has_context": context is not None
-            }
+                "has_context": context is not None,
+            },
         ) as span:
             start_time = datetime.utcnow()
             logger.info(f"Plan-Execute started: {task}")
@@ -91,7 +100,7 @@ class PlanExecuteExecutor:
                     # Python 3.10 及以下，使用 wait_for
                     return await asyncio.wait_for(
                         self._execute_with_tracing(task, context, span, start_time),
-                        timeout=self.timeout
+                        timeout=self.timeout,
                     )
 
             except TimeoutError:
@@ -107,7 +116,7 @@ class PlanExecuteExecutor:
                     step_results=[],
                     success=False,
                     duration=duration,
-                    error="timeout"
+                    error="timeout",
                 )
 
             except Exception as e:
@@ -123,7 +132,7 @@ class PlanExecuteExecutor:
                     step_results=[],
                     success=False,
                     duration=duration,
-                    error=str(e)
+                    error=str(e),
                 )
 
     async def _execute_with_tracing(
@@ -148,9 +157,11 @@ class PlanExecuteExecutor:
                 f"plan_execute.step_{step.id}",
                 attributes={
                     "step_id": step.id,
-                    "step_description": step.description[:100] if len(step.description) > 100 else step.description,
-                    "step_tool": step.tool or "llm"
-                }
+                    "step_description": step.description[:100]
+                    if len(step.description) > 100
+                    else step.description,
+                    "step_tool": step.tool or "llm",
+                },
             ) as step_span:
                 # 检查依赖是否完成
                 if not self._check_dependencies(step, step_results):
@@ -165,7 +176,9 @@ class PlanExecuteExecutor:
                     step_span.set_attribute("step_status", result.status)
                     step_span.set_attribute("step_duration", result.duration)
 
-                logger.info(f"Completed step {step.id}: {step.description} (status: {result.status})")
+                logger.info(
+                    f"Completed step {step.id}: {step.description} (status: {result.status})"
+                )
 
                 # 检查是否超过最大步骤数
                 if len(step_results) >= self.max_steps:
@@ -191,10 +204,7 @@ class PlanExecuteExecutor:
             step_results=step_results,
             success=True,
             duration=duration,
-            metadata={
-                "total_steps": len(step_results),
-                "plan_steps": len(plan.steps)
-            }
+            metadata={"total_steps": len(step_results), "plan_steps": len(plan.steps)},
         )
 
     async def _generate_plan(self, task: str, context: dict = None) -> Plan:
@@ -250,12 +260,15 @@ class PlanExecuteExecutor:
                     json={
                         "model": "gpt-4-turbo-preview",
                         "messages": [
-                            {"role": "system", "content": "你是一个任务规划专家，擅长将复杂任务分解为可执行的步骤。"},
-                            {"role": "user", "content": prompt}
+                            {
+                                "role": "system",
+                                "content": "你是一个任务规划专家，擅长将复杂任务分解为可执行的步骤。",
+                            },
+                            {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.3,
-                        "max_tokens": 2000
-                    }
+                        "max_tokens": 2000,
+                    },
                 )
                 response.raise_for_status()
 
@@ -278,40 +291,28 @@ class PlanExecuteExecutor:
                 # 转换为 Plan 对象
                 steps = []
                 for step_data in plan_data["steps"]:
-                    steps.append(Step(
-                        id=step_data["id"],
-                        description=step_data["description"],
-                        tool=step_data.get("tool"),
-                        params=step_data.get("params", {}),
-                        dependencies=step_data.get("dependencies", [])
-                    ))
+                    steps.append(
+                        Step(
+                            id=step_data["id"],
+                            description=step_data["description"],
+                            tool=step_data.get("tool"),
+                            params=step_data.get("params", {}),
+                            dependencies=step_data.get("dependencies", []),
+                        )
+                    )
 
-                return Plan(
-                    steps=steps,
-                    reasoning=plan_data.get("reasoning", "")
-                )
+                return Plan(steps=steps, reasoning=plan_data.get("reasoning", ""))
 
         except Exception as e:
             logger.error(f"Failed to generate plan: {e}")
             # 返回简单的单步计划作为降级
             return Plan(
-                steps=[
-                    Step(
-                        id=1,
-                        description=task,
-                        tool=None,
-                        params={},
-                        dependencies=[]
-                    )
-                ],
-                reasoning="Failed to generate detailed plan, using simple fallback"
+                steps=[Step(id=1, description=task, tool=None, params={}, dependencies=[])],
+                reasoning="Failed to generate detailed plan, using simple fallback",
             )
 
     async def _execute_step(
-        self,
-        step: Step,
-        previous_results: list[StepResult],
-        context: dict = None
+        self, step: Step, previous_results: list[StepResult], context: dict = None
     ) -> StepResult:
         """
         执行单个步骤（带追踪）
@@ -333,7 +334,7 @@ class PlanExecuteExecutor:
 
                 output = await self.tool_service.execute_tool(
                     tool_name=step.tool,
-                    params=params  # type: ignore
+                    params=params,  # type: ignore
                 )
             else:
                 # 没有指定工具，使用 LLM 直接处理
@@ -346,7 +347,7 @@ class PlanExecuteExecutor:
                 description=step.description,
                 output=output,
                 status="completed",
-                duration=duration
+                duration=duration,
             )
 
         except Exception as e:
@@ -359,14 +360,11 @@ class PlanExecuteExecutor:
                 output=f"执行失败: {str(e)}",
                 status="failed",
                 duration=duration,
-                error=str(e)
+                error=str(e),
             )
 
     async def _llm_process_step(
-        self,
-        step: Step,
-        dependency_outputs: dict,
-        context: dict = None
+        self, step: Step, dependency_outputs: dict, context: dict = None
     ) -> str:
         """
         使用 LLM 处理步骤（当没有合适工具时）
@@ -387,12 +385,10 @@ class PlanExecuteExecutor:
                     f"{self.llm_client_url}/api/v1/chat/completions",
                     json={
                         "model": "gpt-3.5-turbo",
-                        "messages": [
-                            {"role": "user", "content": prompt}
-                        ],
+                        "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.7,
-                        "max_tokens": 1000
-                    }
+                        "max_tokens": 1000,
+                    },
                 )
                 response.raise_for_status()
 
@@ -406,17 +402,16 @@ class PlanExecuteExecutor:
     async def _summarize_results(
         self,
         task: str,
-        plan: Plan,
+        _plan: Plan,
         step_results: list[StepResult],
     ) -> str:  # type: ignore
         """
         汇总所有步骤结果，生成最终答案
         """
         # 构建汇总 prompt
-        results_str = "\n".join([
-            f"步骤 {r.step_id}: {r.description}\n结果: {r.output}\n"
-            for r in step_results
-        ])
+        results_str = "\n".join(
+            [f"步骤 {r.step_id}: {r.description}\n结果: {r.output}\n" for r in step_results]
+        )
 
         prompt = f"""基于以下执行结果，请生成对原始任务的完整回答。
 
@@ -436,11 +431,11 @@ class PlanExecuteExecutor:
                         "model": "gpt-4-turbo-preview",
                         "messages": [
                             {"role": "system", "content": "你是一个善于总结和整合信息的助手。"},
-                            {"role": "user", "content": prompt}
+                            {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.5,
-                        "max_tokens": 1500
-                    }
+                        "max_tokens": 1500,
+                    },
                 )
                 response.raise_for_status()
 
@@ -450,11 +445,13 @@ class PlanExecuteExecutor:
         except Exception as e:
             logger.error(f"Failed to summarize results: {e}")
             # 降级：简单拼接结果
-            return "\n\n".join([
-                f"**{r.description}**\n{r.output}"
-                for r in step_results
-                if r.status == "completed"
-            ])
+            return "\n\n".join(
+                [
+                    f"**{r.description}**\n{r.output}"
+                    for r in step_results
+                    if r.status == "completed"
+                ]
+            )
 
     def _check_dependencies(
         self,

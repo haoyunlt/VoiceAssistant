@@ -137,9 +137,7 @@ async def full_duplex_stream(websocket: WebSocket):
 
                 audio_base64 = base64.b64encode(tts_audio).decode("utf-8")
 
-                await websocket.send_json(
-                    {"type": "audio", "data": audio_base64, "format": "pcm"}
-                )
+                await websocket.send_json({"type": "audio", "data": audio_base64, "format": "pcm"})
 
                 # 发送播放状态
                 await websocket.send_json(
@@ -194,21 +192,15 @@ async def full_duplex_stream(websocket: WebSocket):
 
                 if action == "pause":
                     await service.pause_playback(session_id)
-                    await websocket.send_json(
-                        {"type": "playback_state", "state": "paused"}
-                    )
+                    await websocket.send_json({"type": "playback_state", "state": "paused"})
 
                 elif action == "resume":
                     await service.resume_playback(session_id)
-                    await websocket.send_json(
-                        {"type": "playback_state", "state": "playing"}
-                    )
+                    await websocket.send_json({"type": "playback_state", "state": "playing"})
 
                 elif action == "stop":
                     await service.stop_playback(session_id)
-                    await websocket.send_json(
-                        {"type": "playback_state", "state": "idle"}
-                    )
+                    await websocket.send_json({"type": "playback_state", "state": "idle"})
 
             elif msg_type == "tts_request":
                 # TTS请求（客户端请求合成语音）

@@ -50,8 +50,7 @@ async def readiness_check():
     - Vision服务是否配置
     """
     return await _health_service.check_readiness(
-        ocr_service=_ocr_service,
-        vision_service=_vision_service
+        ocr_service=_ocr_service, vision_service=_vision_service
     )
 
 
@@ -68,9 +67,7 @@ async def detailed_health_check():
     - 依赖库检查
     """
     return await _health_service.check_all(
-        ocr_service=_ocr_service,
-        vision_service=_vision_service,
-        use_cache=True
+        ocr_service=_ocr_service, vision_service=_vision_service, use_cache=True
     )
 
 
@@ -81,10 +78,7 @@ async def benchmark():
 
     测试各模型的推理性能
     """
-    return await _health_service.benchmark(
-        ocr_service=_ocr_service,
-        vision_service=_vision_service
-    )
+    return await _health_service.benchmark(ocr_service=_ocr_service, vision_service=_vision_service)
 
 
 @router.get("/ready")
@@ -99,5 +93,5 @@ async def legacy_readiness_check():
         "service": settings.APP_NAME,
         "ocr_provider": settings.OCR_PROVIDER,
         "vision_provider": settings.VISION_PROVIDER,
-        "message": "This endpoint is deprecated. Please use /health/ready"
+        "message": "This endpoint is deprecated. Please use /health/ready",
     }

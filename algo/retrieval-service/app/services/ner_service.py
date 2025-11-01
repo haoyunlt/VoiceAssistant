@@ -99,7 +99,7 @@ class NERService:
                     self.model = spacy.load(model_name)
 
         except ImportError:
-            raise ImportError("spacy not installed. Run: pip install spacy")
+            raise ImportError("spacy not installed. Run: pip install spacy") from None
 
     async def _init_hanlp(self):
         """初始化 HanLP 模型"""
@@ -110,7 +110,7 @@ class NERService:
             self.model = hanlp.load(hanlp.pretrained.mtl.CLOSE_TOK_POS_NER_SRL_DEP_SDP_CON_ELECTRA_SMALL_ZH)
 
         except ImportError:
-            raise ImportError("hanlp not installed. Run: pip install hanlp")
+            raise ImportError("hanlp not installed. Run: pip install hanlp") from None
 
     async def _init_llm(self):
         """初始化 LLM-based NER"""
@@ -200,7 +200,7 @@ class NERService:
 
         return entities
 
-    async def _extract_with_llm(self, text: str, filter_labels: list[str] | None) -> list[Entity]:
+    async def _extract_with_llm(self, _text: str, _filter_labels: list[str] | None) -> list[Entity]:
         """使用 LLM 提取实体"""
         # TODO: 实现 LLM API 调用
         # 可以使用 OpenAI Function Calling 或 prompt engineering

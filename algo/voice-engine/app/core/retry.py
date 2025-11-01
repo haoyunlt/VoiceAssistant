@@ -55,9 +55,7 @@ async def retry_with_backoff(
             last_exception = e
 
             if attempt == max_retries:
-                logger.error(
-                    f"Function {func.__name__} failed after {max_retries} retries: {e}"
-                )
+                logger.error(f"Function {func.__name__} failed after {max_retries} retries: {e}")
                 raise
 
             # 计算延迟

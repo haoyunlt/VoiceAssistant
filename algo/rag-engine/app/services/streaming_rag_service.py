@@ -14,7 +14,7 @@
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class StreamingRAGService:
 
     async def concurrent_retrieve(
         self, query: str, tenant_id: str, top_k: int = 20
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         并发检索：同时执行向量检索和缓存查询
 
@@ -100,8 +100,8 @@ class StreamingRAGService:
         }
 
     async def streaming_rerank(
-        self, query: str, documents: List[Dict], target_count: int = 5, chunk_size: int = 5
-    ) -> List[Dict]:
+        self, query: str, documents: list[dict], target_count: int = 5, chunk_size: int = 5
+    ) -> list[dict]:
         """
         流式重排：分批重排，达到目标数量后提前终止
 
@@ -167,7 +167,7 @@ class StreamingRAGService:
 
         return reranked_docs[:target_count]
 
-    async def _rerank_chunk(self, query: str, chunk: List[Dict]) -> List[Dict]:
+    async def _rerank_chunk(self, query: str, chunk: list[dict]) -> list[dict]:
         """重排单个批次"""
         if not chunk:
             return []
@@ -180,7 +180,7 @@ class StreamingRAGService:
             scores = await self.reranker.rerank(query, texts)
 
             # 添加重排分数
-            for doc, score in zip(chunk, scores):
+            for doc, score in zip(chunk, scores, strict=False):
                 doc["rerank_score"] = score
 
             return chunk
@@ -214,7 +214,7 @@ class StreamingRAGService:
         except Exception as e:
             logger.warning(f"Predictive cache warmup failed: {e}")
 
-    def _predict_next_queries(self, query: str) -> List[str]:
+    def _predict_next_queries(self, query: str) -> list[str]:
         """预测下一个查询（规则版）"""
         query_lower = query.lower()
 
@@ -233,9 +233,7 @@ class StreamingRAGService:
 
         return predictions
 
-    async def optimized_query(
-        self, query: str, tenant_id: str, top_k: int = 5
-    ) -> Dict[str, Any]:
+    async def optimized_query(self, query: str, tenant_id: str, top_k: int = 5) -> dict[str, Any]:
         """
         优化的查询流程
 
@@ -271,4 +269,3 @@ class StreamingRAGService:
             "documents": reranked_docs,
             "latency_ms": retrieve_result.get("latency_ms", 0),
         }
-

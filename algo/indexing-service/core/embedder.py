@@ -27,7 +27,7 @@ class Embedder:
                 batch_size=batch_size,
                 show_progress_bar=True,
                 convert_to_numpy=True,
-                normalize_embeddings=True  # Normalize for cosine similarity
+                normalize_embeddings=True,  # Normalize for cosine similarity
             )
             return embeddings
         except Exception as e:
@@ -42,4 +42,3 @@ class Embedder:
     def embedding_dim(self) -> int:
         """Get embedding dimension"""
         return self.dimension
-

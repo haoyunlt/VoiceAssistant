@@ -28,23 +28,17 @@ class Settings(BaseSettings):
 
     # OpenAI配置
     OPENAI_API_KEY: str = Field(default="", env="OPENAI_API_KEY")
-    OPENAI_API_BASE: str = Field(
-        default="https://api.openai.com/v1", env="OPENAI_API_BASE"
-    )
+    OPENAI_API_BASE: str = Field(default="https://api.openai.com/v1", env="OPENAI_API_BASE")
     OPENAI_ORG_ID: str = Field(default="", env="OPENAI_ORG_ID")
 
     # Azure OpenAI配置
     AZURE_OPENAI_API_KEY: str = Field(default="", env="AZURE_OPENAI_API_KEY")
     AZURE_OPENAI_ENDPOINT: str = Field(default="", env="AZURE_OPENAI_ENDPOINT")
-    AZURE_OPENAI_API_VERSION: str = Field(
-        default="2024-02-01", env="AZURE_OPENAI_API_VERSION"
-    )
+    AZURE_OPENAI_API_VERSION: str = Field(default="2024-02-01", env="AZURE_OPENAI_API_VERSION")
 
     # Anthropic配置
     ANTHROPIC_API_KEY: str = Field(default="", env="ANTHROPIC_API_KEY")
-    ANTHROPIC_API_BASE: str = Field(
-        default="https://api.anthropic.com", env="ANTHROPIC_API_BASE"
-    )
+    ANTHROPIC_API_BASE: str = Field(default="https://api.anthropic.com", env="ANTHROPIC_API_BASE")
 
     # 智谱AI配置
     ZHIPU_API_KEY: str = Field(default="", env="ZHIPU_API_KEY")
@@ -54,16 +48,12 @@ class Settings(BaseSettings):
 
     # 通义千问配置
     QWEN_API_KEY: str = Field(default="", env="QWEN_API_KEY")
-    QWEN_API_BASE: str = Field(
-        default="https://dashscope.aliyuncs.com/api/v1", env="QWEN_API_BASE"
-    )
+    QWEN_API_BASE: str = Field(default="https://dashscope.aliyuncs.com/api/v1", env="QWEN_API_BASE")
 
     # 百度文心配置
     BAIDU_API_KEY: str = Field(default="", env="BAIDU_API_KEY")
     BAIDU_SECRET_KEY: str = Field(default="", env="BAIDU_SECRET_KEY")
-    BAIDU_API_BASE: str = Field(
-        default="https://aip.baidubce.com", env="BAIDU_API_BASE"
-    )
+    BAIDU_API_BASE: str = Field(default="https://aip.baidubce.com", env="BAIDU_API_BASE")
 
     # 模型映射配置
     MODEL_MAPPINGS: dict[str, str] = Field(

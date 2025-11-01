@@ -17,11 +17,12 @@ logger = logging.getLogger(__name__)
 
 class ConversationState(Enum):
     """对话状态"""
-    IDLE = "idle"                    # 空闲
-    LISTENING = "listening"          # 监听中
-    PROCESSING = "processing"        # 处理中
-    SPEAKING = "speaking"            # 说话中
-    INTERRUPTED = "interrupted"      # 被打断
+
+    IDLE = "idle"  # 空闲
+    LISTENING = "listening"  # 监听中
+    PROCESSING = "processing"  # 处理中
+    SPEAKING = "speaking"  # 说话中
+    INTERRUPTED = "interrupted"  # 被打断
 
 
 class FullDuplexEngine:
@@ -33,7 +34,7 @@ class FullDuplexEngine:
         tts_engine: TTSEngine,
         vad: VoiceActivityDetection,
         interrupt_threshold: float = 0.7,
-        silence_timeout: float = 1.5
+        silence_timeout: float = 1.5,
     ):
         """
         初始化全双工引擎
@@ -87,9 +88,7 @@ class FullDuplexEngine:
         await self.tts_session.stop()
 
     async def process_audio_chunk(
-        self,
-        audio_chunk: bytes,
-        sample_rate: int = 16000
+        self, audio_chunk: bytes, sample_rate: int = 16000
     ) -> dict[str, Any]:
         """
         处理音频块（实时输入）
@@ -105,7 +104,7 @@ class FullDuplexEngine:
             "state": self.state.value,
             "has_speech": False,
             "transcription": None,
-            "interrupted": False
+            "interrupted": False,
         }
 
         # 1. VAD 检测
@@ -130,7 +129,7 @@ class FullDuplexEngine:
                         await self._process_speech()
                         result["transcription"] = self.last_transcription
 
-        elif self.state == ConversationState.SPEAKING:
+        elif self.state == ConversationState.SPEAKING:  # noqa: SIM102
             # 检测打断
             if has_speech:
                 speech_strength = self._calculate_speech_strength(audio_chunk)
@@ -256,11 +255,7 @@ class FullDuplexEngine:
             if self.on_state_change:
                 self.on_state_change(old_state, new_state)
 
-    def set_callback(
-        self,
-        callback_name: str,
-        callback: Callable
-    ):
+    def set_callback(self, callback_name: str, callback: Callable):
         """
         设置回调函数
 
@@ -294,10 +289,7 @@ class ConversationMetrics:
         self.response_times = []
 
     def record_turn(
-        self,
-        user_speech_duration: float,
-        processing_time: float,
-        assistant_speech_duration: float
+        self, user_speech_duration: float, processing_time: float, assistant_speech_duration: float
     ):
         """记录一轮对话"""
         self.total_turns += 1
@@ -325,6 +317,10 @@ class ConversationMetrics:
             "average_response_time": self.average_response_time,
             "user_speech_time": self.user_speech_time,
             "assistant_speech_time": self.assistant_speech_time,
-            "user_speech_ratio": self.user_speech_time / self.total_duration if self.total_duration > 0 else 0,
-            "assistant_speech_ratio": self.assistant_speech_time / self.total_duration if self.total_duration > 0 else 0
+            "user_speech_ratio": self.user_speech_time / self.total_duration
+            if self.total_duration > 0
+            else 0,
+            "assistant_speech_ratio": self.assistant_speech_time / self.total_duration
+            if self.total_duration > 0
+            else 0,
         }

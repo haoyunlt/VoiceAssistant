@@ -127,23 +127,15 @@ class Metrics:
     def record_request(self, method: str, endpoint: str, status: int, duration: float):
         """记录请求"""
         self.request_total.labels(method=method, endpoint=endpoint, status=status).inc()
-        self.request_duration_seconds.labels(method=method, endpoint=endpoint).observe(
-            duration
-        )
+        self.request_duration_seconds.labels(method=method, endpoint=endpoint).observe(duration)
 
     def record_retrieval(
         self, retrieval_type: str, duration: float, result_count: int, status: str = "success"
     ):
         """记录检索操作"""
-        self.retrieval_operations_total.labels(
-            retrieval_type=retrieval_type, status=status
-        ).inc()
-        self.retrieval_duration_seconds.labels(retrieval_type=retrieval_type).observe(
-            duration
-        )
-        self.retrieval_results_count.labels(retrieval_type=retrieval_type).observe(
-            result_count
-        )
+        self.retrieval_operations_total.labels(retrieval_type=retrieval_type, status=status).inc()
+        self.retrieval_duration_seconds.labels(retrieval_type=retrieval_type).observe(duration)
+        self.retrieval_results_count.labels(retrieval_type=retrieval_type).observe(result_count)
 
     def record_cache_operation(self, operation: str, status: str):
         """记录缓存操作"""

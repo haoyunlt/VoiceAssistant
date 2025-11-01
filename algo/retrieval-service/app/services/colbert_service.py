@@ -14,7 +14,6 @@ ColBERT Late-Interaction Retrieval Service
 
 import asyncio
 import time
-from typing import List, Optional
 
 import numpy as np
 
@@ -78,8 +77,7 @@ class ColBERTService:
 
         except ImportError as e:
             logger.warning(
-                f"ColBERT dependencies not installed: {e}. "
-                "Install with: pip install colbert-ai"
+                f"ColBERT dependencies not installed: {e}. Install with: pip install colbert-ai"
             )
             self.model = None
         except Exception as e:
@@ -115,9 +113,9 @@ class ColBERTService:
         self,
         query: str,
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[dict] = None,
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None = None,
+        filters: dict | None = None,
+    ) -> list[RetrievalDocument]:
         """
         ColBERT检索
 
@@ -151,9 +149,7 @@ class ColBERTService:
             )
 
             latency_ms = (time.time() - start_time) * 1000
-            logger.info(
-                f"ColBERT search completed: {len(results)} docs in {latency_ms:.1f}ms"
-            )
+            logger.info(f"ColBERT search completed: {len(results)} docs in {latency_ms:.1f}ms")
 
             return results
 
@@ -163,11 +159,11 @@ class ColBERTService:
 
     async def _search_with_late_interaction(
         self,
-        query_embeddings: np.ndarray,
+        _query_embeddings: np.ndarray,
         top_k: int,
-        tenant_id: Optional[str],
-        filters: Optional[dict],
-    ) -> List[RetrievalDocument]:
+        tenant_id: str | None,
+        _filters: dict | None,
+    ) -> list[RetrievalDocument]:
         """
         使用late-interaction执行搜索
 
@@ -210,9 +206,7 @@ class ColBERTService:
         embedding_dim = 128
         return np.random.randn(num_tokens, embedding_dim).astype(np.float32)
 
-    async def maxsim_score(
-        self, query_embeddings: np.ndarray, doc_embeddings: np.ndarray
-    ) -> float:
+    async def maxsim_score(self, query_embeddings: np.ndarray, doc_embeddings: np.ndarray) -> float:
         """
         计算MaxSim分数
 
@@ -236,7 +230,7 @@ class ColBERTService:
 
         return float(maxsim_score)
 
-    async def batch_encode_queries(self, queries: List[str]) -> List[np.ndarray]:
+    async def batch_encode_queries(self, queries: list[str]) -> list[np.ndarray]:
         """
         批量编码查询
 

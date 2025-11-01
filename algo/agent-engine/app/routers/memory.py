@@ -140,15 +140,13 @@ async def store_memory(request: StoreMemoryRequest):
         # 获取实际的重要性评分
         importance = request.importance
         if importance is None:
-            importance = await memory_manager.long_term._evaluate_importance(
-                request.content
-            )
+            importance = await memory_manager.long_term._evaluate_importance(request.content)
 
         return StoreMemoryResponse(memory_id=memory_id, importance=importance)
 
     except Exception as e:
         logger.error(f"Failed to store memory: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to store memory: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to store memory: {str(e)}") from e
 
 
 @router.post("/recall", response_model=RecallMemoryResponse)
@@ -185,7 +183,7 @@ async def recall_memory(request: RecallMemoryRequest):
 
     except Exception as e:
         logger.error(f"Failed to recall memory: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to recall memory: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to recall memory: {str(e)}") from e
 
 
 @router.post("/add")
@@ -222,7 +220,7 @@ async def add_memory(request: AddMemoryRequest):
 
     except Exception as e:
         logger.error(f"Failed to add memory: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to add memory: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add memory: {str(e)}") from e
 
 
 @router.delete("/{memory_id}")
@@ -238,13 +236,11 @@ async def delete_memory(memory_id: str):
 
     except Exception as e:
         logger.error(f"Failed to delete memory: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to delete memory: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete memory: {str(e)}") from e
 
 
 @router.get("/list/{user_id}", response_model=ListMemoriesResponse)
-async def list_user_memories(
-    user_id: str, limit: int = 20, offset: int = 0
-):
+async def list_user_memories(user_id: str, limit: int = 20, offset: int = 0):
     """列出用户的所有长期记忆"""
     if not memory_manager:
         raise HTTPException(status_code=500, detail="Memory manager not initialized")
@@ -262,7 +258,7 @@ async def list_user_memories(
 
     except Exception as e:
         logger.error(f"Failed to list memories: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to list memories: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to list memories: {str(e)}") from e
 
 
 @router.get("/stats", response_model=MemoryStatsResponse)
@@ -278,5 +274,4 @@ async def get_memory_stats():
 
     except Exception as e:
         logger.error(f"Failed to get stats: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
-
+        raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}") from e

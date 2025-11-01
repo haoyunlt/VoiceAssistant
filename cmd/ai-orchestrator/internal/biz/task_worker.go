@@ -81,8 +81,8 @@ func (w *TaskWorker) runWorker(ctx context.Context, workerID int) {
 				continue
 			}
 
-			// 执行任务
-			taskCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute) // 每个任务独立超时
+			// 执行任务（使用父上下文派生，避免孤立的 context）
+			taskCtx, cancel := context.WithTimeout(ctx, 5*time.Minute) // 每个任务独立超时
 			_, err = w.taskUC.ExecuteTask(taskCtx, task.ID)
 			cancel()
 

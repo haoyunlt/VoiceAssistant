@@ -38,9 +38,17 @@ from app.models import (
     StatsResponse,
 )
 from app.models.batch import (
+    BatchSearchQuery,
     BatchSearchRequest,
     BatchSearchResponse,
     BatchSearchResult,
+)
+from app.models.collection import (
+    CollectionInfo,
+    CollectionListResponse,
+    CollectionSchemaField,
+    CollectionSchemaResponse,
+    CollectionStatsResponse,
 )
 from app.models.hybrid import (
     HybridSearchRequest,
@@ -50,27 +58,20 @@ from app.models.update import (
     UpdateVectorRequest,
     UpdateVectorResponse,
 )
-from app.models.collection import (
-    CollectionListResponse,
-    CollectionInfo,
-    CollectionSchemaResponse,
-    CollectionSchemaField,
-    CollectionStatsResponse,
-)
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from prometheus_client import Counter, Histogram, Gauge, make_asgi_app
+from prometheus_client import Counter, Gauge, Histogram, make_asgi_app
 from starlette.responses import Response
 
 # OpenTelemetry imports
 if settings.otel_enabled:
     from opentelemetry import trace
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-    from opentelemetry.sdk.resources import Resource, SERVICE_NAME
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 # 配置日志
 logging.basicConfig(
@@ -138,9 +139,11 @@ def init_otel():
 
     try:
         # Create resource
-        resource = Resource(attributes={
-            SERVICE_NAME: settings.otel_service_name,
-        })
+        resource = Resource(
+            attributes={
+                SERVICE_NAME: settings.otel_service_name,
+            }
+        )
 
         # Create tracer provider
         provider = TracerProvider(resource=resource)
@@ -166,7 +169,7 @@ def init_otel():
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> Generator[None, None, None]:
+async def lifespan(_app: FastAPI) -> Generator[None, None, None]:
     """应用生命周期管理"""
     global vector_store_manager, redis_client, search_cache
 
@@ -348,7 +351,9 @@ async def insert_vectors(collection_name: str, request: InsertVectorsRequest) ->
         return await _insert_vectors_impl(collection_name, request, start_time)
 
 
-async def _insert_vectors_impl(collection_name: str, request: InsertVectorsRequest, start_time: float) -> InsertResponse:
+async def _insert_vectors_impl(
+    collection_name: str, request: InsertVectorsRequest, start_time: float
+) -> InsertResponse:
     """Implementation of insert vectors"""
     try:
         # 转换数据
@@ -445,7 +450,9 @@ async def search_vectors(collection_name: str, request: SearchVectorsRequest) ->
         return await _search_vectors_impl(collection_name, request, start_time)
 
 
-async def _search_vectors_impl(collection_name: str, request: SearchVectorsRequest, start_time: float) -> SearchResponse:
+async def _search_vectors_impl(
+    collection_name: str, request: SearchVectorsRequest, start_time: float
+) -> SearchResponse:
     """Implementation of search vectors"""
     global search_cache
 
@@ -854,9 +861,12 @@ async def _hybrid_search_vectors_impl(
         if search_cache:
             # Create hybrid cache key (include both vector and text)
             import xxhash
-            text_hash = xxhash.xxh64(request.query_text.encode('utf-8')).hexdigest()
-            cache_key = f"{search_cache.key_prefix}:hybrid:{request.backend}:{collection_name}:{request.top_k}:{text_hash}:" + \
-                        search_cache._hash_vector(request.query_vector)
+
+            text_hash = xxhash.xxh64(request.query_text.encode("utf-8")).hexdigest()
+            cache_key = (
+                f"{search_cache.key_prefix}:hybrid:{request.backend}:{collection_name}:{request.top_k}:{text_hash}:"
+                + search_cache._hash_vector(request.query_vector)
+            )
 
             cached_results = await search_cache.get(cache_key)
             if cached_results is not None:
@@ -882,7 +892,9 @@ async def _hybrid_search_vectors_impl(
                 # 2. BM25 search (simulate with vector results for now)
                 # In production, you'd maintain a separate BM25 index
                 # For now, we'll use a simple text matching on the vector results
-                bm25_results = _simulate_bm25_search(vector_results, request.query_text, request.top_k * 2)
+                bm25_results = _simulate_bm25_search(
+                    vector_results, request.query_text, request.top_k * 2
+                )
 
                 # 3. Fusion
                 if request.fusion_method == "rrf":
@@ -900,7 +912,7 @@ async def _hybrid_search_vectors_impl(
                     )
 
                 # Limit to top_k
-                results = results[:request.top_k]
+                results = results[: request.top_k]
 
                 # Store in cache
                 await search_cache.set(cache_key, results)
@@ -916,7 +928,9 @@ async def _hybrid_search_vectors_impl(
                 search_params=optimized_params,
             )
 
-            bm25_results = _simulate_bm25_search(vector_results, request.query_text, request.top_k * 2)
+            bm25_results = _simulate_bm25_search(
+                vector_results, request.query_text, request.top_k * 2
+            )
 
             if request.fusion_method == "rrf":
                 results = hybrid_search_engine.reciprocal_rank_fusion(
@@ -932,7 +946,7 @@ async def _hybrid_search_vectors_impl(
                     vector_weight=request.vector_weight,
                 )
 
-            results = results[:request.top_k]
+            results = results[: request.top_k]
 
         duration = time.time() - start_time
 
@@ -1027,8 +1041,7 @@ async def update_vector(
     # Validate: at least one field to update
     if not any([request.vector, request.content, request.metadata]):
         raise HTTPException(
-            status_code=400,
-            detail="At least one of vector, content, or metadata must be provided"
+            status_code=400, detail="At least one of vector, content, or metadata must be provided"
         )
 
     start_time = time.time()
@@ -1168,6 +1181,7 @@ async def list_collections(backend: str = "milvus") -> CollectionListResponse:
         # List collections (implementation depends on backend)
         if backend == "milvus":
             from pymilvus import utility
+
             collection_names = utility.list_collections()
         else:  # pgvector
             # For pgvector, we'd query information_schema
@@ -1220,36 +1234,12 @@ async def get_collection_schema(
     try:
         # Define standard schema (same for all collections in our system)
         fields = [
-            CollectionSchemaField(
-                name="chunk_id",
-                type="string",
-                description="分块唯一标识"
-            ),
-            CollectionSchemaField(
-                name="document_id",
-                type="string",
-                description="文档ID"
-            ),
-            CollectionSchemaField(
-                name="content",
-                type="string",
-                description="文本内容"
-            ),
-            CollectionSchemaField(
-                name="embedding",
-                type="float_vector",
-                description="向量嵌入"
-            ),
-            CollectionSchemaField(
-                name="tenant_id",
-                type="string",
-                description="租户ID"
-            ),
-            CollectionSchemaField(
-                name="timestamp",
-                type="int64",
-                description="时间戳"
-            ),
+            CollectionSchemaField(name="chunk_id", type="string", description="分块唯一标识"),
+            CollectionSchemaField(name="document_id", type="string", description="文档ID"),
+            CollectionSchemaField(name="content", type="string", description="文本内容"),
+            CollectionSchemaField(name="embedding", type="float_vector", description="向量嵌入"),
+            CollectionSchemaField(name="tenant_id", type="string", description="租户ID"),
+            CollectionSchemaField(name="timestamp", type="int64", description="时间戳"),
         ]
 
         return CollectionSchemaResponse(
@@ -1294,6 +1284,7 @@ async def get_collection_stats(
         # Add backend-specific stats
         if backend == "milvus":
             from pymilvus import utility
+
             if utility.has_collection(collection_name):
                 # Could add Milvus-specific stats here
                 stats["exists"] = True

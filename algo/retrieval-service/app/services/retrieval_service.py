@@ -112,7 +112,9 @@ class RetrievalService:
             if not request.query:
                 logger.warning("No query or embedding provided")
                 return VectorResponse(
-                    documents=[], query=request.query or "", latency_ms=(time.time() - start_time) * 1000
+                    documents=[],
+                    query=request.query or "",
+                    latency_ms=(time.time() - start_time) * 1000,
                 )
 
             # 使用embedding服务获取向量
@@ -247,7 +249,9 @@ class RetrievalService:
 
         # 3. 重排序（可选）
         reranked = False
-        enable_rerank = request.enable_rerank if request.enable_rerank is not None else settings.ENABLE_RERANK
+        enable_rerank = (
+            request.enable_rerank if request.enable_rerank is not None else settings.ENABLE_RERANK
+        )
 
         if enable_rerank and fused_docs:
             rerank_top_k = request.rerank_top_k or settings.RERANK_TOP_K

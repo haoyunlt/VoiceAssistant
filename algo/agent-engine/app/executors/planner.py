@@ -96,7 +96,10 @@ class Planner:
             )
 
     def _build_planning_prompt(
-        self, task: str, available_tools: list[dict[str, Any]], context: dict[str, Any] | None = None
+        self,
+        task: str,
+        available_tools: list[dict[str, Any]],
+        context: dict[str, Any] | None = None,
     ) -> str:
         """
         构建规划提示词
@@ -158,7 +161,7 @@ class Planner:
 """
         return prompt
 
-    async def _call_llm(self, prompt: str) -> str:  # type: ignore
+    async def _call_llm(self, _prompt: str) -> str:  # type: ignore
         """
         调用 LLM API
 
@@ -252,7 +255,7 @@ class Planner:
                 reasoning="解析失败，使用降级计划",
             )
 
-    def _heuristic_plan(self, task: str, available_tools: list[dict[str, Any]]) -> Plan:  # type: ignore
+    def _heuristic_plan(self, task: str, _available_tools: list[dict[str, Any]]) -> Plan:  # type: ignore
         """
         启发式规划（不使用 LLM）
 
@@ -361,7 +364,7 @@ class Planner:
         original_plan: Plan,
         failed_step: Step,
         error_message: str,
-        execution_results: dict[str, Any],
+        _execution_results: dict[str, Any],
     ) -> Plan:  # type: ignore
         """
         重新规划（当某个步骤失败时）

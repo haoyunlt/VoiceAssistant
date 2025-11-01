@@ -6,8 +6,9 @@
 """
 
 import asyncio
-import httpx
 from datetime import datetime
+
+import httpx
 
 BASE_URL = "http://localhost:8006"
 
@@ -36,14 +37,12 @@ async def test_enhanced_index_build():
             "enable_temporal": False,
         }
 
-        response = await client.post(
-            f"{BASE_URL}/api/v1/enhanced/build-index", json=request_data
-        )
+        response = await client.post(f"{BASE_URL}/api/v1/enhanced/build-index", json=request_data)
 
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             result = response.json()
-            print(f"✅ 索引构建成功")
+            print("✅ 索引构建成功")
             print(f"   - 实体数: {result['entities_count']}")
             print(f"   - 关系数: {result['relations_count']}")
             print(f"   - 社区数: {result['communities_count']}")
@@ -65,7 +64,7 @@ async def test_cache_stats():
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             stats = response.json()
-            print(f"✅ 缓存统计获取成功")
+            print("✅ 缓存统计获取成功")
             print(f"   - 命中次数: {stats['hit_count']}")
             print(f"   - 未命中次数: {stats['miss_count']}")
             print(f"   - 命中率: {stats['hit_rate']:.2%}")
@@ -83,7 +82,7 @@ async def test_model_info():
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             info = response.json()
-            print(f"✅ 模型信息获取成功")
+            print("✅ 模型信息获取成功")
             print(f"   - 当前模型: {info['model']}")
             print(f"   - Prompt 价格: ${info['prompt_price_per_1k']}/1K tokens")
             print(f"   - Completion 价格: ${info['completion_price_per_1k']}/1K tokens")
@@ -109,7 +108,7 @@ async def test_entity_linking(document_ids):
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             result = response.json()
-            print(f"✅ 实体链接成功")
+            print("✅ 实体链接成功")
             print(f"   - 处理文档数: {result['documents_processed']}")
             print(f"   - 合并实体数: {result['total_merged']}")
         else:
@@ -135,7 +134,7 @@ async def test_temporal_query():
         if response.status_code == 200:
             result = response.json()
             if result["found"]:
-                print(f"✅ 时序查询成功")
+                print("✅ 时序查询成功")
                 print(f"   - 实体: {result['entity']['text']}")
                 print(f"   - 时间点: {result['timestamp']}")
                 print(f"   - 关系数: {result['relations_count']}")
@@ -155,7 +154,7 @@ async def test_service_stats():
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             stats = response.json()
-            print(f"✅ 服务统计获取成功")
+            print("✅ 服务统计获取成功")
             print(f"   - 缓存命中率: {stats['cache'].get('hit_rate', 0):.2%}")
             print(f"   - 降级组件数: {len(stats['fallback'].get('degraded_components', {}))}")
             print(f"   - 当前模型: {stats['llm_model']['model']}")
@@ -174,7 +173,7 @@ async def test_model_downgrade():
         if response.status_code == 200:
             result = response.json()
             if result["success"]:
-                print(f"✅ 模型降级成功")
+                print("✅ 模型降级成功")
                 print(f"   - 新模型: {result['new_model']}")
             else:
                 print(f"⚠️  {result['message']}")
@@ -192,7 +191,7 @@ async def test_prometheus_metrics():
         print(f"Status: {response.status_code}")
         if response.status_code == 200:
             metrics = response.text
-            print(f"✅ 指标导出成功")
+            print("✅ 指标导出成功")
 
             # 检查关键指标
             key_metrics = [

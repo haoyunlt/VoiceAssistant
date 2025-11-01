@@ -4,10 +4,9 @@ Version Management Service
 版本管理服务，负责知识库的版本控制和回滚
 """
 
-import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
@@ -24,8 +23,8 @@ class VersionSnapshot:
         relation_count: int = 0,
         vector_index_hash: str = "",
         graph_snapshot_id: str = "",
-        metadata: Optional[Dict[str, str]] = None,
-        created_at: Optional[datetime] = None
+        metadata: dict[str, str] | None = None,
+        created_at: datetime | None = None,
     ):
         self.document_count = document_count
         self.chunk_count = chunk_count
@@ -36,7 +35,7 @@ class VersionSnapshot:
         self.metadata = metadata or {}
         self.created_at = created_at or datetime.utcnow()
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "document_count": self.document_count,
@@ -46,7 +45,7 @@ class VersionSnapshot:
             "vector_index_hash": self.vector_index_hash,
             "graph_snapshot_id": self.graph_snapshot_id,
             "metadata": self.metadata,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -62,7 +61,7 @@ class KnowledgeBaseVersion:
         description: str,
         created_by: str,
         tenant_id: str,
-        created_at: Optional[datetime] = None
+        created_at: datetime | None = None,
     ):
         self.id = id
         self.knowledge_base_id = knowledge_base_id
@@ -81,7 +80,7 @@ class KnowledgeBaseVersion:
         created_by: str,
         tenant_id: str,
         description: str,
-        snapshot: VersionSnapshot
+        snapshot: VersionSnapshot,
     ) -> "KnowledgeBaseVersion":
         """创建新版本"""
         version_id = f"ver_{uuid4()}"
@@ -92,10 +91,10 @@ class KnowledgeBaseVersion:
             snapshot=snapshot,
             description=description,
             created_by=created_by,
-            tenant_id=tenant_id
+            tenant_id=tenant_id,
         )
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return {
             "id": self.id,
@@ -105,7 +104,7 @@ class KnowledgeBaseVersion:
             "description": self.description,
             "created_by": self.created_by,
             "tenant_id": self.tenant_id,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
 
@@ -124,14 +123,10 @@ class VersionManager:
         """
         self.neo4j = neo4j_client
         # self.indexing_client = indexing_client
-        self._versions_cache: Dict[str, List[KnowledgeBaseVersion]] = {}
+        self._versions_cache: dict[str, list[KnowledgeBaseVersion]] = {}
 
     async def create_version(
-        self,
-        knowledge_base_id: str,
-        created_by: str,
-        tenant_id: str,
-        description: str = ""
+        self, knowledge_base_id: str, created_by: str, tenant_id: str, description: str = ""
     ) -> KnowledgeBaseVersion:
         """创建版本快照
 
@@ -159,7 +154,7 @@ class VersionManager:
             created_by=created_by,
             tenant_id=tenant_id,
             description=description,
-            snapshot=snapshot
+            snapshot=snapshot,
         )
 
         # 保存版本（实际应保存到数据库）
@@ -179,11 +174,8 @@ class VersionManager:
         return version
 
     async def get_versions(
-        self,
-        knowledge_base_id: str,
-        offset: int = 0,
-        limit: int = 10
-    ) -> List[KnowledgeBaseVersion]:
+        self, knowledge_base_id: str, offset: int = 0, limit: int = 10
+    ) -> list[KnowledgeBaseVersion]:
         """获取知识库的版本列表
 
         Args:
@@ -196,9 +188,9 @@ class VersionManager:
         """
         # 从缓存获取（实际应从数据库获取）
         versions = self._versions_cache.get(knowledge_base_id, [])
-        return sorted(versions, key=lambda v: v.version, reverse=True)[offset:offset+limit]
+        return sorted(versions, key=lambda v: v.version, reverse=True)[offset : offset + limit]
 
-    async def get_version(self, version_id: str) -> Optional[KnowledgeBaseVersion]:
+    async def get_version(self, version_id: str) -> KnowledgeBaseVersion | None:
         """获取指定版本
 
         Args:
@@ -213,11 +205,7 @@ class VersionManager:
                     return version
         return None
 
-    async def rollback_to_version(
-        self,
-        version_id: str,
-        initiated_by: str
-    ) -> bool:
+    async def rollback_to_version(self, version_id: str, initiated_by: str) -> bool:
         """回滚到指定版本
 
         Args:
@@ -241,7 +229,7 @@ class VersionManager:
             knowledge_base_id=target_version.knowledge_base_id,
             created_by=initiated_by,
             tenant_id=target_version.tenant_id,
-            description=f"Auto-savepoint before rollback to version {target_version.version}"
+            description=f"Auto-savepoint before rollback to version {target_version.version}",
         )
 
         # 2. 恢复向量索引（调用 indexing-service）
@@ -271,7 +259,7 @@ class VersionManager:
         Returns:
             是否成功
         """
-        for kb_id, versions in self._versions_cache.items():
+        for _kb_id, versions in self._versions_cache.items():
             for i, version in enumerate(versions):
                 if version.id == version_id:
                     del versions[i]
@@ -309,14 +297,12 @@ class VersionManager:
 
         return VersionSnapshot(
             document_count=0,  # TODO: 从文档管理服务获取
-            chunk_count=0,     # TODO: 从文档管理服务获取
+            chunk_count=0,  # TODO: 从文档管理服务获取
             entity_count=entity_count,
             relation_count=relation_count,
             vector_index_hash="",  # TODO: 从索引服务获取
             graph_snapshot_id=graph_snapshot_id,
-            metadata={
-                "captured_by": "version_manager"
-            }
+            metadata={"captured_by": "version_manager"},
         )
 
     async def _export_graph_snapshot(self, knowledge_base_id: str) -> str:
@@ -337,7 +323,7 @@ class VersionManager:
         RETURN e, r, e2
         """
 
-        result = await self.neo4j.execute_query(query, {"kb_id": knowledge_base_id})
+        await self.neo4j.execute_query(query, {"kb_id": knowledge_base_id})
 
         # TODO: 将结果序列化并存储
         logger.info(f"Exported graph snapshot: {snapshot_id}")
@@ -355,10 +341,10 @@ class VersionManager:
 
 
 # 全局单例
-_version_manager: Optional[VersionManager] = None
+_version_manager: VersionManager | None = None
 
 
-def get_version_manager(neo4j_client: Optional[Any] = None) -> VersionManager:
+def get_version_manager(neo4j_client: Any | None = None) -> VersionManager:
     """获取版本管理器单例
 
     Args:

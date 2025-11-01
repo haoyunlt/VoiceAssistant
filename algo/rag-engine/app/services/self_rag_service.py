@@ -1,4 +1,5 @@
 """Self-RAG服务 - 自我反思的RAG系统"""
+
 import json
 import logging
 from typing import Any
@@ -18,11 +19,7 @@ class SelfRAGService:
     """
 
     def __init__(
-        self,
-        llm_client,
-        retrieval_client,
-        quality_threshold: float = 0.7,
-        max_iterations: int = 3
+        self, llm_client, retrieval_client, quality_threshold: float = 0.7, max_iterations: int = 3
     ):
         """
         初始化Self-RAG服务
@@ -39,10 +36,7 @@ class SelfRAGService:
         self.max_iterations = max_iterations
 
     async def query(
-        self,
-        query: str,
-        tenant_id: str,
-        knowledge_base_id: str | None = None
+        self, query: str, tenant_id: str, knowledge_base_id: str | None = None
     ) -> dict[str, Any]:
         """
         执行Self-RAG查询
@@ -73,21 +67,18 @@ class SelfRAGService:
                 "retrieval_quality": None,
                 "retrieved_docs": [],
                 "generated_answer": None,
-                "answer_quality": None
+                "answer_quality": None,
             }
 
             if need_retrieval:
                 # Step 2: 执行检索
                 retrieved_docs = await self._retrieve_documents(
-                    query=query,
-                    tenant_id=tenant_id,
-                    knowledge_base_id=knowledge_base_id
+                    query=query, tenant_id=tenant_id, knowledge_base_id=knowledge_base_id
                 )
 
                 # Step 3: 评估检索质量
                 retrieval_quality = await self._evaluate_retrieval(
-                    query=query,
-                    documents=retrieved_docs
+                    query=query, documents=retrieved_docs
                 )
 
                 iteration_data["retrieved_docs"] = retrieved_docs
@@ -99,21 +90,19 @@ class SelfRAGService:
                 if retrieval_quality["score"] < self.quality_threshold:
                     logger.info("Retrieval quality low, reformulating query...")
                     reformulated_query = await self._reformulate_query(
-                        original_query=query,
-                        poor_results=retrieved_docs
+                        original_query=query, poor_results=retrieved_docs
                     )
 
                     # 使用重新formulate的查询再次检索
                     retrieved_docs = await self._retrieve_documents(
                         query=reformulated_query,
                         tenant_id=tenant_id,
-                        knowledge_base_id=knowledge_base_id
+                        knowledge_base_id=knowledge_base_id,
                     )
 
                     # 重新评估
                     retrieval_quality = await self._evaluate_retrieval(
-                        query=query,
-                        documents=retrieved_docs
+                        query=query, documents=retrieved_docs
                     )
 
                     iteration_data["reformulated_query"] = reformulated_query
@@ -121,10 +110,7 @@ class SelfRAGService:
                     iteration_data["retrieval_quality"] = retrieval_quality
 
                 # Step 4: 生成答案
-                answer = await self._generate_answer(
-                    query=query,
-                    documents=retrieved_docs
-                )
+                answer = await self._generate_answer(query=query, documents=retrieved_docs)
 
                 iteration_data["generated_answer"] = answer
             else:
@@ -134,9 +120,7 @@ class SelfRAGService:
 
             # Step 5: 评估答案质量
             answer_quality = await self._evaluate_answer(
-                query=query,
-                answer=answer,
-                documents=iteration_data.get("retrieved_docs", [])
+                query=query, answer=answer, documents=iteration_data.get("retrieved_docs", [])
             )
 
             iteration_data["answer_quality"] = answer_quality
@@ -164,15 +148,11 @@ class SelfRAGService:
             "metadata": {
                 "query": query,
                 "tenant_id": tenant_id,
-                "knowledge_base_id": knowledge_base_id
-            }
+                "knowledge_base_id": knowledge_base_id,
+            },
         }
 
-    async def _should_retrieve(
-        self,
-        query: str,
-        previous_iterations: list[dict]
-    ) -> bool:
+    async def _should_retrieve(self, query: str, _previous_iterations: list[dict]) -> bool:
         """
         判断是否需要检索
 
@@ -200,11 +180,7 @@ Respond with JSON:
 }}
 """
 
-        response = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.3,
-            max_tokens=150
-        )
+        response = await self.llm_client.generate(prompt=prompt, temperature=0.3, max_tokens=150)
 
         try:
             result = json.loads(response)
@@ -214,19 +190,12 @@ Respond with JSON:
             return True
 
     async def _retrieve_documents(
-        self,
-        query: str,
-        tenant_id: str,
-        knowledge_base_id: str | None,
-        top_k: int = 5
+        self, query: str, tenant_id: str, knowledge_base_id: str | None, top_k: int = 5
     ) -> list[dict[str, Any]]:
         """检索文档"""
         try:
             results = await self.retrieval_client.hybrid_search(
-                query=query,
-                tenant_id=tenant_id,
-                knowledge_base_id=knowledge_base_id,
-                top_k=top_k
+                query=query, tenant_id=tenant_id, knowledge_base_id=knowledge_base_id, top_k=top_k
             )
             return results
         except Exception as e:
@@ -234,9 +203,7 @@ Respond with JSON:
             return []
 
     async def _evaluate_retrieval(
-        self,
-        query: str,
-        documents: list[dict[str, Any]]
+        self, query: str, documents: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """
         评估检索质量
@@ -253,14 +220,13 @@ Respond with JSON:
                 "score": 0.0,
                 "relevant_count": 0,
                 "total_count": 0,
-                "issues": ["No documents retrieved"]
+                "issues": ["No documents retrieved"],
             }
 
         # 构建评估prompt
-        docs_text = "\n\n".join([
-            f"[Doc {i+1}]: {doc.get('content', '')[:200]}..."
-            for i, doc in enumerate(documents)
-        ])
+        docs_text = "\n\n".join(
+            [f"[Doc {i + 1}]: {doc.get('content', '')[:200]}..." for i, doc in enumerate(documents)]
+        )
 
         prompt = f"""Evaluate the relevance of these retrieved documents to the query.
 
@@ -280,11 +246,7 @@ Respond in JSON:
 }}
 """
 
-        response = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.3,
-            max_tokens=300
-        )
+        response = await self.llm_client.generate(prompt=prompt, temperature=0.3, max_tokens=300)
 
         try:
             evaluation = json.loads(response)
@@ -295,7 +257,7 @@ Respond in JSON:
                 "relevant_count": evaluation.get("relevant_count", 0),
                 "total_count": len(documents),
                 "document_scores": evaluation.get("document_scores", []),
-                "issues": evaluation.get("issues", [])
+                "issues": evaluation.get("issues", []),
             }
         except json.JSONDecodeError:
             # 默认中等评分
@@ -303,13 +265,11 @@ Respond in JSON:
                 "score": 0.5,
                 "relevant_count": len(documents) // 2,
                 "total_count": len(documents),
-                "issues": []
+                "issues": [],
             }
 
     async def _reformulate_query(
-        self,
-        original_query: str,
-        poor_results: list[dict[str, Any]]
+        self, original_query: str, poor_results: list[dict[str, Any]]
     ) -> str:
         """重新formulate查询以获得更好的结果"""
         prompt = f"""The original query did not retrieve relevant documents. Reformulate the query to improve retrieval.
@@ -327,23 +287,16 @@ Generate a reformulated query that:
 Reformulated Query:"""
 
         reformulated = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.7,
-            max_tokens=100
+            prompt=prompt, temperature=0.7, max_tokens=100
         )
 
         return reformulated.strip()
 
-    async def _generate_answer(
-        self,
-        query: str,
-        documents: list[dict[str, Any]]
-    ) -> str:
+    async def _generate_answer(self, query: str, documents: list[dict[str, Any]]) -> str:
         """基于检索到的文档生成答案"""
-        context = "\n\n".join([
-            f"[文档{i+1}]: {doc.get('content', '')}"
-            for i, doc in enumerate(documents[:5])
-        ])
+        context = "\n\n".join(
+            [f"[文档{i + 1}]: {doc.get('content', '')}" for i, doc in enumerate(documents[:5])]
+        )
 
         prompt = f"""Based on the following documents, answer the query.
 
@@ -354,11 +307,7 @@ Documents:
 
 Please provide a comprehensive answer based on the documents:"""
 
-        answer = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.7,
-            max_tokens=500
-        )
+        answer = await self.llm_client.generate(prompt=prompt, temperature=0.7, max_tokens=500)
 
         return answer.strip()
 
@@ -370,19 +319,12 @@ Query: {query}
 
 Answer:"""
 
-        answer = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.7,
-            max_tokens=500
-        )
+        answer = await self.llm_client.generate(prompt=prompt, temperature=0.7, max_tokens=500)
 
         return answer.strip()
 
     async def _evaluate_answer(
-        self,
-        query: str,
-        answer: str,
-        documents: list[dict[str, Any]]
+        self, query: str, answer: str, _documents: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """
         评估答案质量
@@ -419,11 +361,7 @@ Respond in JSON:
 }}
 """
 
-        response = await self.llm_client.generate(
-            prompt=prompt,
-            temperature=0.3,
-            max_tokens=400
-        )
+        response = await self.llm_client.generate(prompt=prompt, temperature=0.3, max_tokens=400)
 
         try:
             evaluation = json.loads(response)
@@ -436,7 +374,7 @@ Respond in JSON:
                 "completeness": evaluation.get("completeness", 5) / 10.0,
                 "clarity": evaluation.get("clarity", 5) / 10.0,
                 "strengths": evaluation.get("strengths", []),
-                "weaknesses": evaluation.get("weaknesses", [])
+                "weaknesses": evaluation.get("weaknesses", []),
             }
         except json.JSONDecodeError:
             # 默认中等评分
@@ -447,5 +385,5 @@ Respond in JSON:
                 "completeness": 0.5,
                 "clarity": 0.5,
                 "strengths": [],
-                "weaknesses": []
+                "weaknesses": [],
             }

@@ -127,9 +127,7 @@ class CheckpointManager:
         # 存储到后端
         await self._store_checkpoint(checkpoint)
 
-        logger.info(
-            f"[{task_id}] Checkpoint saved at step {step_number} (id={checkpoint_id})"
-        )
+        logger.info(f"[{task_id}] Checkpoint saved at step {step_number} (id={checkpoint_id})")
 
         return checkpoint_id
 
@@ -167,9 +165,7 @@ class CheckpointManager:
             await self._update_checkpoint_status(checkpoint)
             return None
 
-        logger.info(
-            f"[{task_id}] Restored checkpoint from step {checkpoint.step_number}"
-        )
+        logger.info(f"[{task_id}] Restored checkpoint from step {checkpoint.step_number}")
 
         return checkpoint.state
 
@@ -254,9 +250,7 @@ class CheckpointManager:
     async def _load_latest_checkpoint(self, task_id: str) -> Checkpoint | None:
         """加载最新的检查点"""
         checkpoints = await self.list_checkpoints(task_id)
-        active_checkpoints = [
-            c for c in checkpoints if c.status == CheckpointStatus.ACTIVE
-        ]
+        active_checkpoints = [c for c in checkpoints if c.status == CheckpointStatus.ACTIVE]
 
         if not active_checkpoints:
             return None
@@ -346,9 +340,7 @@ class CheckpointManager:
             status=CheckpointStatus(data["status"]),
             created_at=datetime.fromisoformat(data["created_at"]),
             expires_at=(
-                datetime.fromisoformat(data["expires_at"])
-                if data.get("expires_at")
-                else None
+                datetime.fromisoformat(data["expires_at"]) if data.get("expires_at") else None
             ),
         )
 
@@ -428,8 +420,8 @@ class ResumableTask:
         self,
         task_id: str,
         task_description: str,
-        initial_state: dict | None,
-        start_step: int,
+        _initial_state: dict | None,
+        _start_step: int,
         **kwargs,
     ) -> dict[str, Any]:
         """执行任务（自动保存检查点）"""
@@ -445,9 +437,6 @@ class ResumableTask:
         #         state = self._capture_state()
         #         await self.checkpoint_manager.save_checkpoint(task_id, agent_id, step, state)
 
-        result = await self.agent_engine.execute(
-            task=task_description, task_id=task_id, **kwargs
-        )
+        result = await self.agent_engine.execute(task=task_description, task_id=task_id, **kwargs)
 
         return result
-

@@ -1,4 +1,5 @@
 """查询理解服务"""
+
 import logging
 
 import httpx
@@ -15,9 +16,7 @@ class QueryService:
     def __init__(self):
         self.model_adapter_url = settings.MODEL_ADAPTER_URL
 
-    async def expand_query(
-        self, query: str, num_expansions: int = 3
-    ) -> QueryExpansionResult:
+    async def expand_query(self, query: str, num_expansions: int = 3) -> QueryExpansionResult:
         """
         查询扩展
 
@@ -59,9 +58,10 @@ Alternative queries:"""
 
                 # 简单解析（实际应该更robust）
                 import json
+
                 try:
                     expanded_queries = json.loads(content)
-                except:
+                except Exception:
                     # 如果JSON解析失败，按行分割
                     expanded_queries = [
                         line.strip()

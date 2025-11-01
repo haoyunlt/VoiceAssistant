@@ -125,7 +125,7 @@ class VoiceEngine:
 
         except TimeoutError:
             logger.error(f"ASR timeout after {settings.ASR_TIMEOUT_SECONDS}s")
-            raise Exception(f"ASR timeout after {settings.ASR_TIMEOUT_SECONDS}s")
+            raise Exception(f"ASR timeout after {settings.ASR_TIMEOUT_SECONDS}s") from None
         except Exception as e:
             logger.error(f"ASR failed: {e}", exc_info=True)
             raise
@@ -177,7 +177,7 @@ class VoiceEngine:
 
         except TimeoutError:
             logger.error(f"TTS timeout after {settings.TTS_TIMEOUT_SECONDS}s")
-            raise Exception(f"TTS timeout after {settings.TTS_TIMEOUT_SECONDS}s")
+            raise Exception(f"TTS timeout after {settings.TTS_TIMEOUT_SECONDS}s") from None
         except Exception as e:
             logger.error(f"TTS failed: {e}", exc_info=True)
             raise
@@ -223,7 +223,7 @@ class VoiceEngine:
 
         except TimeoutError:
             logger.error(f"VAD timeout after {settings.VAD_TIMEOUT_SECONDS}s")
-            raise Exception(f"VAD timeout after {settings.VAD_TIMEOUT_SECONDS}s")
+            raise Exception(f"VAD timeout after {settings.VAD_TIMEOUT_SECONDS}s") from None
         except Exception as e:
             logger.error(f"VAD failed: {e}", exc_info=True)
             raise
@@ -253,7 +253,7 @@ class VoiceEngine:
             ),
         }
 
-    async def denoise_audio(self, audio_data: bytes, strength: float = 0.5, **kwargs) -> bytes:
+    async def denoise_audio(self, audio_data: bytes, strength: float = 0.5, **_kwargs) -> bytes:
         """
         音频降噪处理
 
@@ -309,13 +309,13 @@ class VoiceEngine:
 
         except ImportError as e:
             logger.error(f"Missing required package for audio processing: {e}")
-            raise Exception("Audio processing dependencies not installed (numpy, scipy, pydub)")
+            raise Exception("Audio processing dependencies not installed (numpy, scipy, pydub)") from e
         except Exception as e:
             logger.error(f"Audio denoising failed: {e}", exc_info=True)
             raise
 
     async def enhance_audio(
-        self, audio_data: bytes, normalize: bool = True, denoise_strength: float = 0.3, **kwargs
+        self, audio_data: bytes, normalize: bool = True, denoise_strength: float = 0.3, **_kwargs
     ) -> bytes:
         """
         音频增强处理（降噪 + 音量标准化）

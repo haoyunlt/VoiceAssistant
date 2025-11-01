@@ -1,9 +1,11 @@
 """
-全局异常处理器
+全局异常处理器 - 集成统一错误码规范
 """
 
 import logging
+import sys
 from datetime import datetime
+from pathlib import Path
 
 from fastapi import (  # type: ignore[import]
     FastAPI,  # type: ignore[import]
@@ -12,7 +14,20 @@ from fastapi import (  # type: ignore[import]
 )
 from fastapi.exceptions import RequestValidationError  # type: ignore[import]
 from fastapi.responses import JSONResponse  # type: ignore[import]
+from prometheus_client import Counter
 
+# 添加 common 目录到路径
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "common"))
+
+# 导入统一错误码
+from error_codes import (
+    BaseAppException,
+    get_error_category,
+    get_http_status,
+    is_retryable,
+)
+
+# 导入原有异常（向后兼容）
 from app.core.exceptions import (
     AgentEngineException,
     AuthenticationError,
@@ -30,40 +45,69 @@ from app.core.exceptions import (
 
 logger = logging.getLogger(__name__)
 
+# Prometheus 指标：错误计数器
+error_counter = Counter(
+    "agent_engine_errors_total",
+    "Total number of errors by category and code",
+    ["category", "code", "endpoint"],
+)
+
 
 def create_error_response(
-    error_code: str,
+    error_code: int | str,
     message: str,
-    status_code: int,
-    detail: str | None = None,
-    request_id: str | None = None,  # type: ignore
+    status_code: int | None = None,
+    details: dict | None = None,
+    request_id: str | None = None,
+    retryable: bool | None = None,
 ) -> JSONResponse:
     """
-    创建统一的错误响应
+    创建统一的错误响应（新版 - 支持统一错误码）
 
     Args:
-        error_code: 错误代码
+        error_code: 错误代码（整数码或字符串）
         message: 错误消息
-        status_code: HTTP 状态码
-        detail: 详细信息
+        status_code: HTTP 状态码（None 时自动推断）
+        details: 详细信息字典
         request_id: 请求 ID
+        retryable: 是否可重试
 
     Returns:
         JSONResponse
     """
+    # 自动推断 HTTP 状态码
+    if status_code is None and isinstance(error_code, int):
+        status_code = get_http_status(error_code)
+    elif status_code is None:
+        status_code = 500
+
+    # 自动判断是否可重试
+    if retryable is None and isinstance(error_code, int):
+        retryable = is_retryable(error_code)
+
+    # 构建响应内容
     content = {
-        "error": error_code,
+        "code": error_code,
         "message": message,
         "timestamp": datetime.utcnow().isoformat(),
+        "retryable": retryable,
     }
 
-    if detail:
-        content["detail"] = detail
+    if details:
+        content["details"] = details
 
     if request_id:
         content["request_id"] = request_id
 
-    return JSONResponse(status_code=status_code, content=content)
+    # 添加错误分类（用于监控）
+    if isinstance(error_code, int):
+        content["category"] = get_error_category(error_code)
+
+    return JSONResponse(
+        status_code=status_code,
+        content=content,
+        headers={"X-Error-Code": str(error_code)} if error_code else {},
+    )
 
 
 async def agent_engine_exception_handler(
@@ -228,21 +272,63 @@ async def llm_timeout_handler(request: Request, exc: LLMTimeoutError) -> JSONRes
     )
 
 
+async def unified_exception_handler(request: Request, exc: BaseAppException) -> JSONResponse:
+    """
+    统一错误码异常处理器（新版）
+
+    处理所有使用统一错误码的异常
+    """
+    request_id = request.headers.get("X-Request-ID")
+    endpoint = request.url.path
+
+    # 记录错误日志
+    logger.error(
+        f"[{exc.code}] {exc.message}",
+        extra={
+            "error_code": exc.code,
+            "category": get_error_category(exc.code),
+            "request_id": request_id,
+            "endpoint": endpoint,
+            "details": exc.details,
+        },
+        exc_info=exc.cause is not None,
+    )
+
+    # 更新 Prometheus 指标
+    error_counter.labels(
+        category=get_error_category(exc.code), code=exc.code, endpoint=endpoint
+    ).inc()
+
+    return create_error_response(
+        error_code=exc.code,
+        message=exc.message,
+        details=exc.details,
+        request_id=request_id,
+    )
+
+
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """处理未捕获的异常"""
     request_id = request.headers.get("X-Request-ID")
+    endpoint = request.url.path
 
     logger.error(
         f"Unhandled exception: {str(exc)}",
         exc_info=True,
-        extra={"request_id": request_id, "path": request.url.path, "method": request.method},
+        extra={"request_id": request_id, "path": endpoint, "method": request.method},
     )
 
+    # 更新 Prometheus 指标
+    error_counter.labels(
+        category="SYSTEM",
+        code=50001,  # UNKNOWN_ERROR
+        endpoint=endpoint,
+    ).inc()
+
     return create_error_response(
-        error_code="INTERNAL_SERVER_ERROR",
+        error_code=50001,  # UNKNOWN_ERROR
         message="An unexpected error occurred",
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail=str(exc) if logger.level == logging.DEBUG else None,  # type: ignore
+        details={"error": str(exc)} if logger.level == logging.DEBUG else None,
         request_id=request_id,
     )
 
@@ -254,10 +340,13 @@ def register_exception_handlers(app: FastAPI) -> None:  # type: ignore[import]
     Args:
         app: FastAPI 应用实例
     """
+    # 统一错误码异常（最高优先级）
+    app.add_exception_handler(BaseAppException, unified_exception_handler)
+
     # Pydantic 验证错误
     app.add_exception_handler(RequestValidationError, pydantic_validation_error_handler)
 
-    # 自定义异常
+    # 自定义异常（向后兼容）
     app.add_exception_handler(ServiceNotInitializedException, service_not_initialized_handler)
     app.add_exception_handler(CustomValidationError, validation_error_handler)
     app.add_exception_handler(AuthenticationError, authentication_error_handler)
@@ -274,4 +363,4 @@ def register_exception_handlers(app: FastAPI) -> None:  # type: ignore[import]
     # 捕获所有未处理的异常
     app.add_exception_handler(Exception, general_exception_handler)
 
-    logger.info("Exception handlers registered")
+    logger.info("Exception handlers registered (with unified error codes)")

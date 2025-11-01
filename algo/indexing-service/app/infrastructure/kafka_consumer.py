@@ -156,6 +156,7 @@ class DocumentEventConsumer:
 # 事件 Schema
 # ========================================
 
+
 class DocumentEvent:
     """文档事件基类"""
 
@@ -178,8 +179,16 @@ class DocumentEvent:
 class DocumentUploadedEvent(DocumentEvent):
     """文档上传事件"""
 
-    def __init__(self, document_id: str, tenant_id: str, user_id: str,
-                 filename: str, file_path: str, file_size: int, content_type: str):
+    def __init__(
+        self,
+        document_id: str,
+        tenant_id: str,
+        user_id: str,
+        filename: str,
+        file_path: str,
+        file_size: int,
+        content_type: str,
+    ):
         super().__init__(
             event_id=f"doc-upload-{document_id}",
             event_type="document.uploaded",

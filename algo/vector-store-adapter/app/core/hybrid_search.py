@@ -1,10 +1,8 @@
 """Hybrid search implementation combining vector and BM25"""
 
 import logging
-from typing import Any
 
 from rank_bm25 import BM25Okapi
-
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +111,7 @@ class HybridSearchEngine:
         Returns:
             Merged and re-ranked results
         """
+
         # Normalize scores to [0, 1]
         def normalize_scores(results):
             if not results:
@@ -123,8 +122,7 @@ class HybridSearchEngine:
             if max_score == min_score:
                 return {r["chunk_id"]: 0.5 for r in results}
             return {
-                r["chunk_id"]: (r["score"] - min_score) / (max_score - min_score)
-                for r in results
+                r["chunk_id"]: (r["score"] - min_score) / (max_score - min_score) for r in results
             }
 
         vector_norm_scores = normalize_scores(vector_results)

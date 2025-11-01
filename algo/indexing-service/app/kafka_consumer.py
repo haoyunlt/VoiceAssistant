@@ -21,8 +21,7 @@ from app.infrastructure.minio_client import MinioClient
 from app.infrastructure.neo4j_client import Neo4jClient
 
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -35,7 +34,7 @@ class DocumentIndexingConsumer:
         kafka_brokers: str = "localhost:9092",
         group_id: str = "indexing-service",
         topics: list = None,
-        max_workers: int = 4
+        max_workers: int = 4,
     ):
         """
         初始化消费者
@@ -68,17 +67,14 @@ class DocumentIndexingConsumer:
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
 
         # 统计信息
-        self.stats = {
-            "total_messages": 0,
-            "successful": 0,
-            "failed": 0,
-            "skipped": 0
-        }
+        self.stats = {"total_messages": 0, "successful": 0, "failed": 0, "skipped": 0}
 
     def start(self):
         """启动消费者"""
         try:
-            logger.info(f"Starting Kafka consumer: brokers={self.kafka_brokers}, group={self.group_id}, topics={self.topics}")
+            logger.info(
+                f"Starting Kafka consumer: brokers={self.kafka_brokers}, group={self.group_id}, topics={self.topics}"
+            )
 
             # 创建 Kafka Consumer
             self.consumer = KafkaConsumer(
@@ -86,11 +82,11 @@ class DocumentIndexingConsumer:
                 bootstrap_servers=self.kafka_brokers,
                 group_id=self.group_id,
                 enable_auto_commit=False,  # 手动提交偏移量
-                auto_offset_reset='earliest',
+                auto_offset_reset="earliest",
                 value_deserializer=lambda m: m,  # 保持原始字节，手动解析
                 max_poll_records=10,  # 每次拉取最多 10 条消息
                 session_timeout_ms=30000,
-                heartbeat_interval_ms=10000
+                heartbeat_interval_ms=10000,
             )
 
             logger.info("Kafka consumer started successfully")
@@ -153,9 +149,11 @@ class DocumentIndexingConsumer:
         """
         try:
             # 尝试解析为 JSON（简化版，实际应该解析 Protobuf）
-            event = json.loads(message.value.decode('utf-8'))
+            event = json.loads(message.value.decode("utf-8"))
 
-            logger.debug(f"Parsed event: type={event.get('event_type')}, id={event.get('event_id')}")
+            logger.debug(
+                f"Parsed event: type={event.get('event_type')}, id={event.get('event_id')}"
+            )
 
             return event
 
@@ -219,9 +217,7 @@ class DocumentIndexingConsumer:
             # 2. 解析文档
             logger.debug(f"Parsing document: {filename}")
             parsed_doc = self.document_processor.process_document(
-                file_content=file_content,
-                filename=filename,
-                content_type=content_type
+                file_content=file_content, filename=filename, content_type=content_type
             )
 
             if not parsed_doc:
@@ -231,9 +227,7 @@ class DocumentIndexingConsumer:
             # 3. 文本分块
             logger.debug(f"Chunking document: {len(parsed_doc.get('text', ''))} characters")
             chunks = self.document_processor.chunk_text(
-                text=parsed_doc.get("text", ""),
-                chunk_size=512,
-                overlap=50
+                text=parsed_doc.get("text", ""), chunk_size=512, overlap=50
             )
 
             logger.info(f"Created {len(chunks)} chunks for document {document_id}")
@@ -243,24 +237,25 @@ class DocumentIndexingConsumer:
             embeddings = []
             for chunk in chunks:
                 embedding = self.embedder.embed_text(chunk["content"])
-                embeddings.append({
-                    "chunk_id": chunk["chunk_id"],
-                    "content": chunk["content"],
-                    "embedding": embedding,
-                    "metadata": {
-                        "document_id": document_id,
-                        "tenant_id": tenant_id,
-                        "chunk_index": chunk["chunk_index"],
-                        "start_offset": chunk["start_offset"],
-                        "end_offset": chunk["end_offset"]
+                embeddings.append(
+                    {
+                        "chunk_id": chunk["chunk_id"],
+                        "content": chunk["content"],
+                        "embedding": embedding,
+                        "metadata": {
+                            "document_id": document_id,
+                            "tenant_id": tenant_id,
+                            "chunk_index": chunk["chunk_index"],
+                            "start_offset": chunk["start_offset"],
+                            "end_offset": chunk["end_offset"],
+                        },
                     }
-                })
+                )
 
             # 5. 存储到 Milvus
             logger.debug(f"Storing {len(embeddings)} embeddings to Milvus")
             vector_ids = self.milvus_client.insert_vectors(
-                collection_name=f"documents_{tenant_id}",
-                embeddings=embeddings
+                collection_name=f"documents_{tenant_id}", embeddings=embeddings
             )
 
             logger.info(f"Stored {len(vector_ids)} vectors for document {document_id}")
@@ -271,7 +266,7 @@ class DocumentIndexingConsumer:
                 graph_stats = self.graph_builder.build_graph(
                     document_id=document_id,
                     entities=parsed_doc.get("entities", []),
-                    relations=parsed_doc.get("relations", [])
+                    relations=parsed_doc.get("relations", []),
                 )
                 logger.info(f"Built graph: {graph_stats}")
 
@@ -303,8 +298,7 @@ class DocumentIndexingConsumer:
 
             # 1. 从 Milvus 删除向量
             deleted_count = self.milvus_client.delete_by_document_id(
-                collection_name=f"documents_{tenant_id}",
-                document_id=document_id
+                collection_name=f"documents_{tenant_id}", document_id=document_id
             )
 
             logger.info(f"Deleted {deleted_count} vectors for document {document_id}")
@@ -358,10 +352,7 @@ def main():
 
     # 创建并启动消费者
     consumer = DocumentIndexingConsumer(
-        kafka_brokers=kafka_brokers,
-        group_id=group_id,
-        topics=topics,
-        max_workers=max_workers
+        kafka_brokers=kafka_brokers, group_id=group_id, topics=topics, max_workers=max_workers
     )
 
     try:

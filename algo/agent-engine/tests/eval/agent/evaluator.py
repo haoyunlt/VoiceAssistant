@@ -182,7 +182,7 @@ class AgentEvaluator:
         return results
 
     async def _evaluate_single(
-        self, test_case: TestCase, mode: str, save_traces: bool
+        self, test_case: TestCase, mode: str, _save_traces: bool
     ) -> EvaluationResult:
         """评测单个用例"""
         start_time = time.time()

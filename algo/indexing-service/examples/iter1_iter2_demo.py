@@ -30,8 +30,11 @@ async def demo_batch_processing():
 
     # 批量处理文档
     document_ids = [
-        "doc_001", "doc_002", "doc_003",
-        "doc_004", "doc_005",
+        "doc_001",
+        "doc_002",
+        "doc_003",
+        "doc_004",
+        "doc_005",
     ]
 
     result = await batch_processor.process_batch(
@@ -40,7 +43,7 @@ async def demo_batch_processing():
     )
 
     logger.info(f"Batch processing result: {result}")
-    logger.info(f"Success rate: {result['success']/result['total']*100:.1f}%")
+    logger.info(f"Success rate: {result['success'] / result['total'] * 100:.1f}%")
     logger.info(f"Throughput: {result['throughput']:.2f} docs/s")
 
 
@@ -48,8 +51,8 @@ async def demo_streaming_processing():
     """演示流式大文件处理"""
     logger.info("\n=== Demo: Streaming Large File Processing ===")
 
-    from app.core.streaming_processor import StreamingDocumentProcessor
     from app.core.document_processor import DocumentProcessor
+    from app.core.streaming_processor import StreamingDocumentProcessor
 
     # 初始化处理器
     document_processor = DocumentProcessor()
@@ -129,8 +132,8 @@ async def demo_semantic_chunking():
     """演示语义分块"""
     logger.info("\n=== Demo: Semantic Chunking ===")
 
-    from app.core.semantic_chunker import SemanticChunker
     from app.core.embedder import BGE_M3_Embedder
+    from app.core.semantic_chunker import SemanticChunker
 
     # 初始化
     embedder = BGE_M3_Embedder()
@@ -213,8 +216,8 @@ async def demo_context_enhancement():
     """演示上下文增强"""
     logger.info("\n=== Demo: Context Enhancement ===")
 
-    from app.core.context_enhancer import ContextEnhancer
     from app.core.chunker import DocumentChunker
+    from app.core.context_enhancer import ContextEnhancer
 
     # 创建基础分块
     chunker = DocumentChunker(chunk_size=200, chunk_overlap=20)
@@ -269,11 +272,12 @@ async def demo_chunk_quality_evaluation():
 
     from app.core.chunk_quality_evaluator import ChunkQualityEvaluator, ComparativeEvaluator
     from app.core.chunker import DocumentChunker
-    from app.core.semantic_chunker import SemanticChunker
     from app.core.embedder import BGE_M3_Embedder
+    from app.core.semantic_chunker import SemanticChunker
 
     # 准备文本
-    text = """
+    text = (
+        """
     人工智能技术正在快速发展。机器学习、深度学习和自然语言处理是其核心领域。
 
     在医疗领域，AI可以帮助诊断疾病。在金融领域，AI可以进行风险评估。
@@ -281,7 +285,9 @@ async def demo_chunk_quality_evaluation():
     然而，我们也需要关注AI的伦理问题。隐私保护、算法偏见等都是重要议题。
 
     未来，AI将继续改变我们的生活和工作方式。我们需要做好准备迎接这些变化。
-    """ * 3  # 重复3次，增加长度
+    """
+        * 3
+    )  # 重复3次，增加长度
 
     # 使用不同策略分块
     strategies_results = {}
@@ -308,19 +314,20 @@ async def demo_chunk_quality_evaluation():
         logger.info(f"    Chunks: {evaluation['statistics']['total_chunks']}")
         logger.info(f"    Avg size: {evaluation['statistics']['avg_chunk_size']:.0f} chars")
 
-        if evaluation['issues']:
+        if evaluation["issues"]:
             logger.info(f"    Issues: {evaluation['issues']}")
 
     # 对比评估
     comparative_evaluator = ComparativeEvaluator(evaluator)
     comparison = await comparative_evaluator.compare_strategies(strategies_results, text)
 
-    logger.info(f"\n  Best strategy: {comparison['best_strategy']} "
-                f"(score={comparison['best_score']:.2f})")
+    logger.info(
+        f"\n  Best strategy: {comparison['best_strategy']} (score={comparison['best_score']:.2f})"
+    )
 
     # 生成报告
     report = comparative_evaluator.generate_report(comparison)
-    logger.info(f"\n{'='*80}")
+    logger.info(f"\n{'=' * 80}")
     logger.info(report)
 
 

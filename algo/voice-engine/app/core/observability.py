@@ -120,28 +120,22 @@ def track_asr_metrics(model: str = "base", language: str = "zh"):
                 result = await func(*args, **kwargs)
 
                 # 记录成功指标
-                asr_requests_total.labels(
-                    model=model, language=language, status="success"
-                ).inc()
+                asr_requests_total.labels(model=model, language=language, status="success").inc()
 
                 duration = time.time() - start_time
-                asr_duration_seconds.labels(model=model, language=language).observe(
-                    duration
-                )
+                asr_duration_seconds.labels(model=model, language=language).observe(duration)
 
                 # 如果结果包含音频时长
                 if isinstance(result, dict) and "duration_seconds" in result:
-                    asr_audio_duration_seconds.labels(
-                        model=model, language=language
-                    ).observe(result["duration_seconds"])
+                    asr_audio_duration_seconds.labels(model=model, language=language).observe(
+                        result["duration_seconds"]
+                    )
 
                 return result
 
             except Exception as e:
                 # 记录失败指标
-                asr_requests_total.labels(
-                    model=model, language=language, status="error"
-                ).inc()
+                asr_requests_total.labels(model=model, language=language, status="error").inc()
 
                 errors_total.labels(service="asr", error_type=type(e).__name__).inc()
 
@@ -169,14 +163,10 @@ def track_tts_metrics(voice: str = "default", provider: str = "edge"):
                 result = await func(*args, **kwargs)
 
                 # 记录成功指标
-                tts_requests_total.labels(
-                    voice=voice, provider=provider, status="success"
-                ).inc()
+                tts_requests_total.labels(voice=voice, provider=provider, status="success").inc()
 
                 duration = time.time() - start_time
-                tts_duration_seconds.labels(voice=voice, provider=provider).observe(
-                    duration
-                )
+                tts_duration_seconds.labels(voice=voice, provider=provider).observe(duration)
 
                 # 记录缓存命中
                 if isinstance(result, dict) and result.get("cached"):
@@ -188,9 +178,7 @@ def track_tts_metrics(voice: str = "default", provider: str = "edge"):
 
             except Exception as e:
                 # 记录失败指标
-                tts_requests_total.labels(
-                    voice=voice, provider=provider, status="error"
-                ).inc()
+                tts_requests_total.labels(voice=voice, provider=provider, status="error").inc()
 
                 errors_total.labels(service="tts", error_type=type(e).__name__).inc()
 

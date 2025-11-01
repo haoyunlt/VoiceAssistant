@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 class RewriteStrategy(Enum):
     """Query rewrite strategies"""
+
     MULTI_QUERY = "multi_query"
     HYDE = "hyde"
     DECOMPOSE = "decompose"
@@ -32,7 +33,7 @@ class AdvancedQueryRewriter:
         self,
         query: str,
         strategy: RewriteStrategy = RewriteStrategy.MULTI_QUERY,
-        context: dict | None = None
+        context: dict | None = None,
     ) -> list[str]:
         """Rewrite query using specified strategy"""
         # Check cache
@@ -75,24 +76,26 @@ Original Question: {query}
 
 Generate {num_variants} variants (one per line, numbered):"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a query reformulation expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a query reformulation expert."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         variants_text = response.get("content", "")
 
         # Parse variants
         variants = [query]  # Always include original
-        for line in variants_text.split('\n'):
+        for line in variants_text.split("\n"):
             line = line.strip()
             if line:
                 # Remove numbering
-                cleaned = line.lstrip('0123456789.-) ')
+                cleaned = line.lstrip("0123456789.-) ")
                 if cleaned and cleaned != query:
                     variants.append(cleaned)
 
-        return variants[:num_variants + 1]
+        return variants[: num_variants + 1]
 
     async def _hyde(self, query: str) -> list[str]:
         """HyDE: Generate hypothetical document embedding"""
@@ -102,10 +105,12 @@ Question: {query}
 
 Write a comprehensive passage (2-3 paragraphs) that contains the answer:"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are writing a hypothetical answer passage."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are writing a hypothetical answer passage."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         hypothetical_doc = response.get("content", "").strip()
 
@@ -120,19 +125,21 @@ Main Question: {query}
 
 List sub-questions (one per line):"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a question decomposition expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a question decomposition expert."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         sub_questions_text = response.get("content", "")
 
         # Parse sub-questions
         sub_questions = [query]  # Include original
-        for line in sub_questions_text.split('\n'):
+        for line in sub_questions_text.split("\n"):
             line = line.strip()
             if line:
-                cleaned = line.lstrip('0123456789.-) ')
+                cleaned = line.lstrip("0123456789.-) ")
                 if cleaned and cleaned != query:
                     sub_questions.append(cleaned)
 
@@ -146,10 +153,12 @@ Specific Question: {query}
 
 Generate ONE broader question:"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a context expansion expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {"role": "system", "content": "You are a context expansion expert."},
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         broader_question = response.get("content", "").strip()
 
@@ -160,9 +169,7 @@ Generate ONE broader question:"""
         """RAG Fusion: Combine multiple strategies"""
         # Run multiple strategies in parallel
         results = await asyncio.gather(
-            self._multi_query(query, 2),
-            self._step_back(query),
-            return_exceptions=True
+            self._multi_query(query, 2), self._step_back(query), return_exceptions=True
         )
 
         # Combine all queries
@@ -183,11 +190,7 @@ Generate ONE broader question:"""
 
         return unique_queries
 
-    async def _contextual(
-        self,
-        query: str,
-        context: dict[str, Any]
-    ) -> list[str]:
+    async def _contextual(self, query: str, context: dict[str, Any]) -> list[str]:
         """Contextual rewriting using conversation history"""
         conversation_history = context.get("conversation_history", [])
         user_profile = context.get("user_profile", {})
@@ -196,10 +199,9 @@ Generate ONE broader question:"""
         history_text = ""
         if conversation_history:
             recent_history = conversation_history[-3:]  # Last 3 turns
-            history_text = "\n".join([
-                f"{turn['role']}: {turn['content']}"
-                for turn in recent_history
-            ])
+            history_text = "\n".join(
+                [f"{turn['role']}: {turn['content']}" for turn in recent_history]
+            )
 
         profile_text = ""
         if user_profile:
@@ -216,28 +218,31 @@ Current Query: {query}
 
 Generate 2-3 context-aware reformulations:"""
 
-        response = await self.llm_client.chat([
-            {"role": "system", "content": "You are a context-aware query reformulation expert."},
-            {"role": "user", "content": prompt}
-        ])
+        response = await self.llm_client.chat(
+            [
+                {
+                    "role": "system",
+                    "content": "You are a context-aware query reformulation expert.",
+                },
+                {"role": "user", "content": prompt},
+            ]
+        )
 
         reformulations_text = response.get("content", "")
 
         # Parse reformulations
         reformulations = [query]
-        for line in reformulations_text.split('\n'):
+        for line in reformulations_text.split("\n"):
             line = line.strip()
             if line:
-                cleaned = line.lstrip('0123456789.-) ')
+                cleaned = line.lstrip("0123456789.-) ")
                 if cleaned and cleaned != query:
                     reformulations.append(cleaned)
 
         return reformulations
 
     async def auto_select_strategy(
-        self,
-        query: str,
-        context: dict | None = None
+        self, query: str, context: dict | None = None
     ) -> RewriteStrategy:
         """Automatically select best rewriting strategy"""
         # Analyze query characteristics
@@ -255,9 +260,7 @@ Generate 2-3 context-aware reformulations:"""
             return RewriteStrategy.MULTI_QUERY
 
     async def rewrite_with_auto_strategy(
-        self,
-        query: str,
-        context: dict | None = None
+        self, query: str, context: dict | None = None
     ) -> list[str]:
         """Rewrite query with automatically selected strategy"""
         strategy = await self.auto_select_strategy(query, context)
@@ -273,7 +276,7 @@ Generate 2-3 context-aware reformulations:"""
         """Get rewriting statistics"""
         return {
             "cache_size": len(self.rewrite_cache),
-            "strategies_available": [s.value for s in RewriteStrategy]
+            "strategies_available": [s.value for s in RewriteStrategy],
         }
 
 
@@ -283,11 +286,7 @@ class QueryExpander:
     def __init__(self, embedding_client=None):
         self.embedding_client = embedding_client
 
-    async def expand_query(
-        self,
-        query: str,
-        max_expansions: int = 5
-    ) -> list[str]:
+    async def expand_query(self, query: str, max_expansions: int = 5) -> list[str]:
         """Expand query with synonyms and related terms"""
         # Simple keyword-based expansion
         # In production, use WordNet, word embeddings, or LLM
@@ -309,13 +308,10 @@ class QueryExpander:
                     if expanded != query_lower:
                         expansions.append(expanded)
 
-        return expansions[:max_expansions + 1]
+        return expansions[: max_expansions + 1]
 
     async def expand_with_embeddings(
-        self,
-        query: str,
-        corpus: list[str],
-        top_k: int = 5
+        self, query: str, corpus: list[str], top_k: int = 5
     ) -> list[str]:
         """Expand query using embedding similarity"""
         if not self.embedding_client:
@@ -330,6 +326,7 @@ class QueryExpander:
 
             # Calculate similarities
             import numpy as np
+
             similarities = []
             for i, corpus_emb in enumerate(corpus_embeddings):
                 sim = np.dot(query_embedding, corpus_emb) / (
@@ -349,4 +346,3 @@ class QueryExpander:
         except Exception as e:
             logger.error(f"Embedding-based expansion failed: {e}")
             return [query]
-

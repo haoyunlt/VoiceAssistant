@@ -1,10 +1,9 @@
 """改进的缓存服务 - 语义缓存 + 指标."""
 
-import asyncio
 import hashlib
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from prometheus_client import Counter, Gauge, Histogram
 from redis.asyncio import Redis
@@ -66,11 +65,9 @@ class SemanticCache:
         self.key_prefix = key_prefix
         self.default_ttl = default_ttl
         self.enabled = enabled
-        self._redis: Optional[Redis] = None
+        self._redis: Redis | None = None
 
-        logger.info(
-            f"SemanticCache initialized: enabled={enabled}, ttl={default_ttl}s"
-        )
+        logger.info(f"SemanticCache initialized: enabled={enabled}, ttl={default_ttl}s")
 
     async def connect(self):
         """连接到Redis."""
@@ -102,7 +99,7 @@ class SemanticCache:
         model: str,
         messages: list[dict[str, Any]],
         temperature: float = 0.7,
-        **kwargs,
+        **_kwargs,
     ) -> str:
         """
         生成缓存键.
@@ -142,8 +139,8 @@ class SemanticCache:
         model: str,
         messages: list[dict[str, Any]],
         temperature: float = 0.7,
-        **kwargs,
-    ) -> Optional[dict[str, Any]]:
+        **_kwargs,
+    ) -> dict[str, Any] | None:
         """
         从缓存获取响应.
 
@@ -185,8 +182,8 @@ class SemanticCache:
         messages: list[dict[str, Any]],
         response: dict[str, Any],
         temperature: float = 0.7,
-        ttl: Optional[int] = None,
-        **kwargs,
+        ttl: int | None = None,
+        **_kwargs,
     ):
         """
         设置缓存.
@@ -284,7 +281,7 @@ class SemanticCache:
 
 
 # 全局缓存实例
-_cache_instance: Optional[SemanticCache] = None
+_cache_instance: SemanticCache | None = None
 
 
 def get_cache() -> SemanticCache:

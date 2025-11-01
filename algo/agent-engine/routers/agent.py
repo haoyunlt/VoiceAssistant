@@ -8,6 +8,7 @@ router = APIRouter()
 
 class AgentRequest(BaseModel):
     """Agent execution request."""
+
     task: str
     context: dict | None = None
     max_iterations: int = 10
@@ -15,6 +16,7 @@ class AgentRequest(BaseModel):
 
 class AgentResponse(BaseModel):
     """Agent execution response."""
+
     success: bool
     result: str
     steps: list[dict]
@@ -22,7 +24,7 @@ class AgentResponse(BaseModel):
 
 
 @router.post("/execute", response_model=AgentResponse)
-async def execute_agent(request: AgentRequest) -> AgentResponse:
+async def execute_agent(_request: AgentRequest) -> AgentResponse:
     """Execute an agent task.
 
     Args:
@@ -52,4 +54,3 @@ async def get_agent_status(task_id: str):
     """
     # TODO: Implement status retrieval
     return {"task_id": task_id, "status": "pending"}
-

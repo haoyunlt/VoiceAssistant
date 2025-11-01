@@ -35,9 +35,7 @@ class CleanupService:
             return
 
         self.is_running = True
-        self.cleanup_task = asyncio.create_task(
-            self._cleanup_loop(interval_hours)
-        )
+        self.cleanup_task = asyncio.create_task(self._cleanup_loop(interval_hours))
         logger.info(f"Cleanup task started with interval: {interval_hours} hours")
 
     async def stop_cleanup_task(self):
@@ -80,17 +78,13 @@ class CleanupService:
             results["orphan_entities_removed"] = await self._cleanup_orphan_entities()
 
             # 2. 清理孤立关系（源或目标实体不存在）
-            results["orphan_relations_removed"] = (
-                await self._cleanup_orphan_relations()
-            )
+            results["orphan_relations_removed"] = await self._cleanup_orphan_relations()
 
             # 3. 清理过期缓存
             results["expired_cache_cleared"] = await self._cleanup_expired_cache()
 
             # 4. 清理旧的社区检测结果
-            results["old_communities_removed"] = (
-                await self._cleanup_old_communities()
-            )
+            results["old_communities_removed"] = await self._cleanup_old_communities()
 
             elapsed = (datetime.utcnow() - start_time).total_seconds()
             logger.info(
@@ -213,9 +207,7 @@ class CleanupService:
             community_pattern = "knowledge:community:*"
             community_keys = await self._scan_keys(community_pattern)
 
-            threshold_timestamp = (
-                datetime.utcnow() - timedelta(days=days_threshold)
-            ).timestamp()
+            threshold_timestamp = (datetime.utcnow() - timedelta(days=days_threshold)).timestamp()
 
             for key in community_keys:
                 # 获取社区数据
@@ -268,9 +260,7 @@ class CleanupService:
             cursor = 0
 
             while True:
-                cursor, batch = await self.redis.scan(
-                    cursor, match=pattern, count=count
-                )
+                cursor, batch = await self.redis.scan(cursor, match=pattern, count=count)
                 keys.extend(batch)
 
                 if cursor == 0:

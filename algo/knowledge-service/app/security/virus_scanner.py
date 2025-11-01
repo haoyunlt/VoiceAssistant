@@ -7,7 +7,6 @@ Virus Scanner Client
 import io
 import logging
 import socket
-from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class VirusScanner:
         self.port = port
         self.timeout = timeout
 
-    async def scan(self, data: bytes) -> Tuple[bool, Optional[str]]:
+    async def scan(self, data: bytes) -> tuple[bool, str | None]:
         """扫描数据
 
         Args:
@@ -52,14 +51,14 @@ class VirusScanner:
                 chunk = stream.read(chunk_size)
                 if not chunk:
                     break
-                size = len(chunk).to_bytes(4, byteorder='big')
+                size = len(chunk).to_bytes(4, byteorder="big")
                 sock.sendall(size + chunk)
 
             # 发送结束标记
             sock.sendall(b"\0\0\0\0")
 
             # 接收结果
-            result = sock.recv(1024).decode('utf-8')
+            result = sock.recv(1024).decode("utf-8")
             sock.close()
 
             # 解析结果
@@ -75,7 +74,7 @@ class VirusScanner:
                 # 默认允许通过，避免误拦截
                 return True, None
 
-        except socket.timeout:
+        except TimeoutError:
             logger.error("Virus scan timeout")
             # 超时默认允许通过
             return True, None
@@ -95,7 +94,7 @@ class VirusScanner:
             sock.settimeout(5)
             sock.connect((self.host, self.port))
             sock.sendall(b"zPING\0")
-            result = sock.recv(1024).decode('utf-8')
+            result = sock.recv(1024).decode("utf-8")
             sock.close()
             return "PONG" in result
         except Exception as e:
@@ -104,14 +103,12 @@ class VirusScanner:
 
 
 # 全局单例
-_virus_scanner: Optional[VirusScanner] = None
+_virus_scanner: VirusScanner | None = None
 
 
 def get_virus_scanner(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    timeout: int = 30
-) -> Optional[VirusScanner]:
+    host: str | None = None, port: int | None = None, timeout: int = 30
+) -> VirusScanner | None:
     """获取病毒扫描器单例
 
     Args:

@@ -131,7 +131,9 @@ async def create_batch_chat_completions(
             detail="Batch size exceeds limit (max 10)",
         )
 
-    logger.info(f"Processing batch: {len(request.requests)} requests, concurrency={request.max_concurrency}")
+    logger.info(
+        f"Processing batch: {len(request.requests)} requests, concurrency={request.max_concurrency}"
+    )
 
     # 创建semaphore控制并发
     semaphore = asyncio.Semaphore(request.max_concurrency)
@@ -141,10 +143,7 @@ async def create_batch_chat_completions(
             return await process_single_request(adapter_manager, req_data, idx)
 
     # 并发处理所有请求
-    tasks = [
-        process_with_semaphore(req_data, i)
-        for i, req_data in enumerate(request.requests)
-    ]
+    tasks = [process_with_semaphore(req_data, i) for i, req_data in enumerate(request.requests)]
 
     results = await asyncio.gather(*tasks, return_exceptions=False)
 
@@ -154,10 +153,7 @@ async def create_batch_chat_completions(
 
     duration = time.time() - start_time
 
-    logger.info(
-        f"Batch completed: {success_count} success, {failed_count} failed, "
-        f"{duration:.2f}s"
-    )
+    logger.info(f"Batch completed: {success_count} success, {failed_count} failed, {duration:.2f}s")
 
     return BatchChatResponse(
         results=results,

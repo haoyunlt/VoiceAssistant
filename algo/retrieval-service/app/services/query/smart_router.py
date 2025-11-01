@@ -14,7 +14,6 @@ Smart Query Enhancement Router - 智能查询增强路由
 """
 
 import asyncio
-from typing import Dict, List, Optional
 
 from app.observability.logging import logger
 from app.services.query.correction_service import QueryCorrectionService
@@ -30,9 +29,9 @@ class SmartQueryRouter:
 
     def __init__(
         self,
-        llm_endpoint: Optional[str] = None,
+        llm_endpoint: str | None = None,
         enable_llm_for_complex: bool = True,
-        cost_budget: Optional[float] = None,
+        cost_budget: float | None = None,
     ):
         """
         初始化智能路由器
@@ -50,12 +49,11 @@ class SmartQueryRouter:
         self.intent_classifier = IntentClassifier()
         self.correction_service = QueryCorrectionService()
         self.rewriting_service = QueryRewritingService(
-            llm_endpoint=llm_endpoint, enable_llm=False  # 默认关闭LLM
+            llm_endpoint=llm_endpoint,
+            enable_llm=False,  # 默认关闭LLM
         )
         self.expansion_service = QueryExpansionService(methods=["synonym"])
-        self.multi_query_service = MultiQueryService(
-            llm_endpoint=llm_endpoint, enable_llm=False
-        )
+        self.multi_query_service = MultiQueryService(llm_endpoint=llm_endpoint, enable_llm=False)
         self.hyde_service = HyDEService(llm_endpoint=llm_endpoint)
 
         logger.info(
@@ -63,7 +61,7 @@ class SmartQueryRouter:
             f"llm_enabled={enable_llm_for_complex}, cost_budget={cost_budget}"
         )
 
-    async def enhance_query(self, query: str) -> Dict[str, any]:
+    async def enhance_query(self, query: str) -> dict[str, any]:
         """
         智能增强查询
 
@@ -119,15 +117,13 @@ class SmartQueryRouter:
         # 默认中等
         return QueryComplexity.MEDIUM
 
-    async def _simple_strategy(self, query: str) -> Dict:
+    async def _simple_strategy(self, query: str) -> dict:
         """简单查询策略: 仅纠错 + Synonym扩展"""
         # 1. 纠错
         corrected = await self.correction_service.correct(query)
 
         # 2. Synonym扩展
-        expanded = await self.expansion_service.expand(
-            corrected.corrected_query, enable_llm=False
-        )
+        expanded = await self.expansion_service.expand(corrected.corrected_query, enable_llm=False)
 
         return {
             "queries": expanded.expanded[:3],
@@ -136,7 +132,7 @@ class SmartQueryRouter:
             "estimated_cost": 0.0,
         }
 
-    async def _medium_strategy(self, query: str) -> Dict:
+    async def _medium_strategy(self, query: str) -> dict:
         """中等查询策略: 纠错 + 重写 + Multi-Query(template)"""
         # 1. 纠错
         corrected = await self.correction_service.correct(query)
@@ -145,14 +141,10 @@ class SmartQueryRouter:
         rewritten = await self.rewriting_service.rewrite(corrected.corrected_query)
 
         # 3. Multi-Query (template模式)
-        multi = await self.multi_query_service.generate(
-            corrected.corrected_query, enable_llm=False
-        )
+        multi = await self.multi_query_service.generate(corrected.corrected_query, enable_llm=False)
 
         # 合并queries
-        all_queries = (
-            [corrected.corrected_query] + rewritten.rewritten_queries + multi.queries
-        )
+        all_queries = [corrected.corrected_query] + rewritten.rewritten_queries + multi.queries
         unique_queries = list(dict.fromkeys(all_queries))[:5]
 
         return {
@@ -162,7 +154,7 @@ class SmartQueryRouter:
             "estimated_cost": 0.0,
         }
 
-    async def _complex_strategy(self, query: str) -> Dict:
+    async def _complex_strategy(self, query: str) -> dict:
         """复杂查询策略: 完整增强 + 可选LLM"""
         # 1. 纠错
         corrected = await self.correction_service.correct(query)
@@ -177,9 +169,7 @@ class SmartQueryRouter:
         )
 
         # 合并queries
-        all_queries = (
-            [corrected.corrected_query] + rewritten.rewritten_queries + multi.queries
-        )
+        all_queries = [corrected.corrected_query] + rewritten.rewritten_queries + multi.queries
         unique_queries = list(dict.fromkeys(all_queries))[:7]
 
         return {
@@ -193,7 +183,7 @@ class SmartQueryRouter:
             "estimated_cost": 0.0002 if use_llm else 0.0,
         }
 
-    async def _knowledge_intensive_strategy(self, query: str) -> Dict:
+    async def _knowledge_intensive_strategy(self, query: str) -> dict:
         """知识密集型策略: HyDE + Multi-Query"""
         use_llm = self.enable_llm_for_complex and self.llm_endpoint
 
@@ -217,7 +207,7 @@ class SmartQueryRouter:
             "estimated_cost": 0.0005 if use_llm else 0.0,
         }
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """获取统计"""
         return {
             "llm_endpoint": self.llm_endpoint,

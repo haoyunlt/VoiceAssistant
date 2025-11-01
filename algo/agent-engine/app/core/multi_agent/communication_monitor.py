@@ -12,7 +12,6 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 
 from prometheus_client import Counter, Histogram
 

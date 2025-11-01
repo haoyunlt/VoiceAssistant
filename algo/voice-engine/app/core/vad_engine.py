@@ -124,11 +124,13 @@ class VADEngine:
                     start_time = i / self.sample_rate
                     end_time = (i + window_size) / self.sample_rate
 
-                    speech_timestamps.append({
-                        "start": start_time,
-                        "end": end_time,
-                        "confidence": speech_prob,
-                    })
+                    speech_timestamps.append(
+                        {
+                            "start": start_time,
+                            "end": end_time,
+                            "confidence": speech_prob,
+                        }
+                    )
 
             # 合并连续的语音片段
             merged = self._merge_segments(speech_timestamps)
@@ -160,7 +162,7 @@ class VADEngine:
 
         return merged
 
-    def _mock_detect(self, audio_data: bytes) -> list[dict]:
+    def _mock_detect(self, _audio_data: bytes) -> list[dict]:
         """Mock 检测（用于测试）"""
         return [
             {

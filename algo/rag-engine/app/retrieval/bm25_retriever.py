@@ -8,6 +8,7 @@ from typing import Any
 
 try:
     from rank_bm25 import BM25Okapi
+
     BM25_AVAILABLE = True
 except ImportError:
     BM25_AVAILABLE = False
@@ -83,9 +84,7 @@ class BM25Retriever:
         except Exception as e:
             logger.error(f"BM25 indexing failed: {e}", exc_info=True)
 
-    def retrieve(
-        self, query: str, top_k: int = 10, min_score: float = 0.0
-    ) -> list[dict[str, Any]]:
+    def retrieve(self, query: str, top_k: int = 10, min_score: float = 0.0) -> list[dict[str, Any]]:
         """
         检索相关文档
 
@@ -141,7 +140,7 @@ class BM25Retriever:
         import re
 
         # 移除标点符号
-        text = re.sub(r'[^\w\s]', ' ', text.lower())
+        text = re.sub(r"[^\w\s]", " ", text.lower())
 
         # 分割成词
         tokens = text.split()
@@ -149,7 +148,7 @@ class BM25Retriever:
         # 对于中文，按字符分割
         chinese_tokens = []
         for token in tokens:
-            if any('\u4e00' <= c <= '\u9fff' for c in token):
+            if any("\u4e00" <= c <= "\u9fff" for c in token):
                 # 包含中文字符，按字符分割
                 chinese_tokens.extend(list(token))
             else:

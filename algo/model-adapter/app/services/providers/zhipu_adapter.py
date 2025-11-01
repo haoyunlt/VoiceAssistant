@@ -28,26 +28,21 @@ class ZhipuAdapter:
             "chatglm_turbo",
             "chatglm_pro",
             "chatglm_std",
-            "chatglm_lite"
+            "chatglm_lite",
         ]
 
-    async def chat(
-        self,
-        request: ChatRequest,
-        **kwargs
-    ) -> ChatResponse:
+    async def chat(self, request: ChatRequest, **_kwargs) -> ChatResponse:
         """Chat completion"""
         try:
             # Build request
             zhipu_request = {
                 "model": request.model,
                 "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in request.messages
+                    {"role": msg.role, "content": msg.content} for msg in request.messages
                 ],
                 "temperature": request.temperature or 0.7,
                 "max_tokens": request.max_tokens or 2048,
-                "stream": False
+                "stream": False,
             }
 
             # Add optional parameters
@@ -57,13 +52,11 @@ class ZhipuAdapter:
             # Send request
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
 
             response = await self.client.post(
-                f"{self.base_url}/chat/completions",
-                json=zhipu_request,
-                headers=headers
+                f"{self.base_url}/chat/completions", json=zhipu_request, headers=headers
             )
 
             response.raise_for_status()
@@ -79,23 +72,18 @@ class ZhipuAdapter:
             logger.error(f"Zhipu chat completion failed: {e}")
             raise
 
-    async def chat_stream(
-        self,
-        request: ChatRequest,
-        **kwargs
-    ) -> AsyncIterator[str]:
+    async def chat_stream(self, request: ChatRequest, **_kwargs) -> AsyncIterator[str]:
         """Streaming chat completion"""
         try:
             # Build request
             zhipu_request = {
                 "model": request.model,
                 "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in request.messages
+                    {"role": msg.role, "content": msg.content} for msg in request.messages
                 ],
                 "temperature": request.temperature or 0.7,
                 "max_tokens": request.max_tokens or 2048,
-                "stream": True
+                "stream": True,
             }
 
             if request.top_p:
@@ -104,14 +92,11 @@ class ZhipuAdapter:
             headers = {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "Accept": "text/event-stream"
+                "Accept": "text/event-stream",
             }
 
             async with self.client.stream(
-                "POST",
-                f"{self.base_url}/chat/completions",
-                json=zhipu_request,
-                headers=headers
+                "POST", f"{self.base_url}/chat/completions", json=zhipu_request, headers=headers
             ) as response:
                 response.raise_for_status()
 
@@ -142,20 +127,21 @@ class ZhipuAdapter:
         choices = []
         for choice in result.get("choices", []):
             message = choice.get("message", {})
-            choices.append(Choice(
-                index=choice.get("index", 0),
-                message=Message(
-                    role=message.get("role", "assistant"),
-                    content=message.get("content", "")
-                ),
-                finish_reason=choice.get("finish_reason", "stop")
-            ))
+            choices.append(
+                Choice(
+                    index=choice.get("index", 0),
+                    message=Message(
+                        role=message.get("role", "assistant"), content=message.get("content", "")
+                    ),
+                    finish_reason=choice.get("finish_reason", "stop"),
+                )
+            )
 
         usage_data = result.get("usage", {})
         usage = Usage(
             prompt_tokens=usage_data.get("prompt_tokens", 0),
             completion_tokens=usage_data.get("completion_tokens", 0),
-            total_tokens=usage_data.get("total_tokens", 0)
+            total_tokens=usage_data.get("total_tokens", 0),
         )
 
         return ChatResponse(
@@ -164,7 +150,7 @@ class ZhipuAdapter:
             created=result.get("created", int(datetime.utcnow().timestamp())),
             model=result.get("model", ""),
             choices=choices,
-            usage=usage
+            usage=usage,
         )
 
     def _extract_stream_content(self, chunk: dict) -> str | None:

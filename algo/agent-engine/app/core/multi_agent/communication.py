@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class MessageBus:
     """Central message bus for agent communication"""
 
-    def __init__(self, max_queue_size: int = 1000):
+    def __init__(self, _max_queue_size: int = 1000):
         self.queue: asyncio.Queue[Message] | None = None
         self.subscribers: dict[str, list[Callable]] = {}
         self.message_history: list[Message] = []

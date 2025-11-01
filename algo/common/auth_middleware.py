@@ -209,9 +209,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    logger.warning(
-                        f"Token verification failed: status={response.status_code}"
-                    )
+                    logger.warning(f"Token verification failed: status={response.status_code}")
                     return None
 
         except Exception as e:

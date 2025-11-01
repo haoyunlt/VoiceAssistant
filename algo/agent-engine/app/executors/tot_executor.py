@@ -102,7 +102,7 @@ class TreeOfThoughtsExecutor:
     async def execute(
         self,
         task: str,
-        initial_context: dict | None = None,
+        _initial_context: dict | None = None,
     ) -> ToTResult:
         """
         执行 ToT

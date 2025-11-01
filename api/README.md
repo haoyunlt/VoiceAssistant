@@ -16,11 +16,25 @@ api/
 └── openapi.yaml        # REST API 规范
 ```
 
+## ⚠️ 重要说明：协议使用
+
+**VoiceHelper 使用混合协议架构**：
+
+- **Go 后端服务间**: gRPC（遵循 proto 定义）
+- **Go 调用 Python 算法服务**: HTTP/JSON（proto 文件仅作为接口文档）
+- **Python 算法服务间**: HTTP/JSON (FastAPI)
+
+详细说明请参阅：[API 协议指南](./API-PROTOCOL-GUIDE.md)
+
+---
+
 ## 🔌 gRPC API
 
 ### Protocol Buffers
 
-所有 gRPC 服务使用 Protocol Buffers 3 定义。
+**Go 后端服务**使用 Protocol Buffers 3 定义 gRPC 接口。
+
+**Python 算法服务**的 proto 文件仅作为**接口文档**，实际使用 HTTP/JSON 协议。
 
 #### 代码生成
 

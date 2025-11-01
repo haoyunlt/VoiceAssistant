@@ -1,4 +1,5 @@
 """文档解析服务"""
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -39,13 +40,13 @@ class ParserService:
             logger.error(f"Failed to parse document: {e}", exc_info=True)
             raise
 
-    async def _parse_pdf(self, content: bytes) -> str:
+    async def _parse_pdf(self, _content: bytes) -> str:
         """解析PDF文件"""
         # 实际应该使用 PyPDF2, pdfplumber 或 pymupdf
         logger.info("Parsing PDF document")
         return "Mock PDF content"
 
-    async def _parse_docx(self, content: bytes) -> str:
+    async def _parse_docx(self, _content: bytes) -> str:
         """解析DOCX文件"""
         # 实际应该使用 python-docx
         logger.info("Parsing DOCX document")
@@ -58,5 +59,6 @@ class ParserService:
         html_text = content.decode("utf-8", errors="ignore")
         # 简单实现：移除HTML标签
         import re
+
         text = re.sub(r"<[^>]+>", "", html_text)
         return text

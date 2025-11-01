@@ -1,8 +1,8 @@
 """Unit tests for Milvus backend"""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
+import pytest
 from app.backends.milvus_backend import MilvusBackend
 
 
@@ -75,9 +75,10 @@ class TestMilvusBackend:
         """Test vector insertion"""
         collection_name = "test_collection"
 
-        with patch("app.backends.milvus_backend.Collection") as mock_collection_cls, \
-             patch("app.backends.milvus_backend.utility") as mock_utility:
-
+        with (
+            patch("app.backends.milvus_backend.Collection") as mock_collection_cls,
+            patch("app.backends.milvus_backend.utility") as mock_utility,
+        ):
             mock_collection = MagicMock()
             mock_collection.insert = Mock(return_value=MagicMock(primary_keys=[1, 2, 3]))
             mock_collection.flush = Mock()
@@ -102,17 +103,20 @@ class TestMilvusBackend:
         """Test vector search"""
         collection_name = "test_collection"
 
-        with patch("app.backends.milvus_backend.Collection") as mock_collection_cls, \
-             patch("app.backends.milvus_backend.utility") as mock_utility:
-
+        with (
+            patch("app.backends.milvus_backend.Collection") as mock_collection_cls,
+            patch("app.backends.milvus_backend.utility") as mock_utility,
+        ):
             # Mock search results
             mock_hit = MagicMock()
-            mock_hit.entity.get = Mock(side_effect=lambda k: {
-                "chunk_id": "chunk_1",
-                "document_id": "doc_1",
-                "content": "test content",
-                "tenant_id": "tenant_1",
-            }.get(k))
+            mock_hit.entity.get = Mock(
+                side_effect=lambda k: {
+                    "chunk_id": "chunk_1",
+                    "document_id": "doc_1",
+                    "content": "test content",
+                    "tenant_id": "tenant_1",
+                }.get(k)
+            )
             mock_hit.score = 0.95
             mock_hit.distance = 0.05
 
@@ -139,9 +143,10 @@ class TestMilvusBackend:
         collection_name = "test_collection"
         tenant_id = "tenant_test"
 
-        with patch("app.backends.milvus_backend.Collection") as mock_collection_cls, \
-             patch("app.backends.milvus_backend.utility") as mock_utility:
-
+        with (
+            patch("app.backends.milvus_backend.Collection") as mock_collection_cls,
+            patch("app.backends.milvus_backend.utility") as mock_utility,
+        ):
             mock_collection = MagicMock()
             mock_collection.search = Mock(return_value=[[]])
             mock_collection_cls.return_value = mock_collection
@@ -165,9 +170,10 @@ class TestMilvusBackend:
         collection_name = "test_collection"
         document_id = "doc_123"
 
-        with patch("app.backends.milvus_backend.Collection") as mock_collection_cls, \
-             patch("app.backends.milvus_backend.utility") as mock_utility:
-
+        with (
+            patch("app.backends.milvus_backend.Collection") as mock_collection_cls,
+            patch("app.backends.milvus_backend.utility") as mock_utility,
+        ):
             mock_collection = MagicMock()
             mock_collection.delete = Mock()
             mock_collection_cls.return_value = mock_collection
@@ -185,9 +191,10 @@ class TestMilvusBackend:
         """Test get collection count"""
         collection_name = "test_collection"
 
-        with patch("app.backends.milvus_backend.Collection") as mock_collection_cls, \
-             patch("app.backends.milvus_backend.utility") as mock_utility:
-
+        with (
+            patch("app.backends.milvus_backend.Collection") as mock_collection_cls,
+            patch("app.backends.milvus_backend.utility") as mock_utility,
+        ):
             mock_collection = MagicMock()
             mock_collection.num_entities = 12345
             mock_collection_cls.return_value = mock_collection
@@ -211,9 +218,10 @@ class TestMilvusBackend:
         collection_name = "new_collection"
         dimension = 1024
 
-        with patch("app.backends.milvus_backend.Collection") as mock_collection_cls, \
-             patch("app.backends.milvus_backend.utility") as mock_utility:
-
+        with (
+            patch("app.backends.milvus_backend.Collection") as mock_collection_cls,
+            patch("app.backends.milvus_backend.utility") as mock_utility,
+        ):
             mock_collection = MagicMock()
             mock_collection.create_index = Mock()
             mock_collection.load = Mock()

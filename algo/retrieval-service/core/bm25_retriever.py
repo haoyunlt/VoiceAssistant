@@ -22,12 +22,12 @@ class BM25Retriever:
         logger.info(f"Indexing {len(documents)} documents for BM25...")
 
         # Extract text and metadata
-        self.corpus = [doc['content'] for doc in documents]
+        self.corpus = [doc["content"] for doc in documents]
         self.corpus_metadata = [
             {
-                'chunk_id': doc.get('chunk_id'),
-                'document_id': doc.get('document_id'),
-                'content': doc['content']
+                "chunk_id": doc.get("chunk_id"),
+                "document_id": doc.get("document_id"),
+                "content": doc["content"],
             }
             for doc in documents
         ]
@@ -59,8 +59,8 @@ class BM25Retriever:
         for idx in top_indices:
             if scores[idx] > 0:  # Only include results with positive scores
                 result = self.corpus_metadata[idx].copy()
-                result['score'] = float(scores[idx])
-                result['method'] = 'bm25'
+                result["score"] = float(scores[idx])
+                result["method"] = "bm25"
                 results.append(result)
 
         logger.info(f"BM25 search returned {len(results)} results")
@@ -69,4 +69,3 @@ class BM25Retriever:
     def get_corpus_size(self) -> int:
         """Get corpus size"""
         return len(self.corpus)
-

@@ -34,16 +34,10 @@ async def get_community_service():
 class DetectCommunitiesRequest(BaseModel):
     """社区检测请求"""
 
-    algorithm: Literal["leiden", "louvain"] = Field(
-        "leiden", description="算法类型"
-    )
+    algorithm: Literal["leiden", "louvain"] = Field("leiden", description="算法类型")
     max_iterations: int = Field(10, ge=1, le=100, description="最大迭代次数")
-    resolution: float | None = Field(
-        1.0, ge=0.1, le=5.0, description="分辨率参数（仅Leiden）"
-    )
-    tolerance: float | None = Field(
-        0.0001, description="收敛容差（仅Louvain）"
-    )
+    resolution: float | None = Field(1.0, ge=0.1, le=5.0, description="分辨率参数（仅Leiden）")
+    tolerance: float | None = Field(0.0001, description="收敛容差（仅Louvain）")
 
 
 class GraphProjectionRequest(BaseModel):
@@ -95,7 +89,7 @@ async def detect_communities(request: DetectCommunitiesRequest):
 
     except Exception as e:
         logger.error(f"Community detection failed: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/summary/{community_id}")
@@ -121,7 +115,7 @@ async def get_community_summary(community_id: int):
 
     except Exception as e:
         logger.error(f"Failed to get community summary: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/projection/create")
@@ -157,7 +151,7 @@ async def create_graph_projection(request: GraphProjectionRequest):
 
     except Exception as e:
         logger.error(f"Failed to create graph projection: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/projection/{projection_name}")
@@ -179,4 +173,4 @@ async def drop_graph_projection(projection_name: str):
 
     except Exception as e:
         logger.error(f"Failed to drop graph projection: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

@@ -63,7 +63,8 @@ class HybridRetriever:
         try:
             # 1. 获取 BM25 结果
             bm25_results = self.bm25_retriever.retrieve(
-                query=query, top_k=top_k * 2  # 检索更多结果用于融合
+                query=query,
+                top_k=top_k * 2,  # 检索更多结果用于融合
             )
 
             logger.info(
@@ -72,9 +73,7 @@ class HybridRetriever:
 
             # 2. 融合结果
             if fusion_method == "rrf":
-                fused_results = self._reciprocal_rank_fusion(
-                    bm25_results, vector_results
-                )
+                fused_results = self._reciprocal_rank_fusion(bm25_results, vector_results)
             else:  # weighted_sum
                 fused_results = self._weighted_sum_fusion(bm25_results, vector_results)
 
@@ -131,9 +130,7 @@ class HybridRetriever:
             fused_results.append(doc)
 
         # 按 RRF 分数排序
-        fused_results = sorted(
-            fused_results, key=lambda x: x["rrf_score"], reverse=True
-        )
+        fused_results = sorted(fused_results, key=lambda x: x["rrf_score"], reverse=True)
 
         return fused_results
 
@@ -154,6 +151,7 @@ class HybridRetriever:
         Returns:
             融合后的结果
         """
+
         # 归一化分数
         def normalize_scores(results, score_key):
             scores = [doc.get(score_key, 0) for doc in results]
@@ -202,9 +200,7 @@ class HybridRetriever:
             fused_results.append(doc)
 
         # 按加权分数排序
-        fused_results = sorted(
-            fused_results, key=lambda x: x["weighted_score"], reverse=True
-        )
+        fused_results = sorted(fused_results, key=lambda x: x["weighted_score"], reverse=True)
 
         return fused_results
 

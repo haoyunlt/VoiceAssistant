@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class WordParser(BaseParser):
     """Word 文档解析器 (DOCX/DOC)"""
 
-    async def parse(self, file_data: bytes, **kwargs) -> str:
+    async def parse(self, file_data: bytes, **_kwargs) -> str:
         """解析 Word 文档"""
         try:
             doc = docx.Document(io.BytesIO(file_data))

@@ -11,7 +11,6 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Dict
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +42,9 @@ class RateLimiter:
         }
 
         # 令牌桶状态（内存实现，生产环境应使用 Redis）
-        self.buckets: Dict[str, Dict] = {}
+        self.buckets: dict[str, dict] = {}
 
-    def check_rate_limit(self, key: str, tier: str = "standard") -> tuple[bool, Dict]:
+    def check_rate_limit(self, key: str, tier: str = "standard") -> tuple[bool, dict]:
         """
         检查是否超出限流
 
@@ -118,4 +117,3 @@ def get_rate_limiter() -> RateLimiter:
     if _rate_limiter is None:
         _rate_limiter = RateLimiter()
     return _rate_limiter
-

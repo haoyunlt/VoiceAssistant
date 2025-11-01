@@ -69,7 +69,8 @@ class AgentEngineV2:
 
         # 注册默认执行器
         factory.register(
-            "react", ReActExecutor(self.llm_client, self.tool_registry)  # type: ignore
+            "react",
+            ReActExecutor(self.llm_client, self.tool_registry),  # type: ignore
         )  # type: ignore
         factory.register(
             "plan_execute",
@@ -145,11 +146,7 @@ class AgentEngineV2:
             )
 
             # 更新记忆
-            if (
-                self.config.memory_enabled
-                and conversation_id
-                and self.memory_manager
-            ):
+            if self.config.memory_enabled and conversation_id and self.memory_manager:
                 await self.memory_manager.add_to_memory(
                     conversation_id,
                     task=task,
@@ -184,7 +181,7 @@ class AgentEngineV2:
         max_steps: int | None = None,
         tools: list[str] | None = None,
         conversation_id: str | None = None,
-        tenant_id: str | None = None,
+        _tenant_id: str | None = None,
     ) -> AsyncIterator[str]:
         """
         执行 Agent 任务（流式）
@@ -290,9 +287,7 @@ class AgentEngineV2:
 
         return [t for t in all_tools if t["name"] in tool_names]
 
-    def _update_stats(
-        self, result: dict, execution_time: float, success: bool
-    ) -> None:
+    def _update_stats(self, result: dict, execution_time: float, success: bool) -> None:
         """更新统计信息"""
         if success:
             self.stats["successful_tasks"] += 1

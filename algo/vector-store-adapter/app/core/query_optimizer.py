@@ -3,7 +3,6 @@
 import logging
 from typing import Any
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -50,7 +49,7 @@ class QueryOptimizer:
     @staticmethod
     def _optimize_milvus_params(
         top_k: int,
-        collection_size: int | None = None,
+        _collection_size: int | None = None,
     ) -> dict[str, Any]:
         """
         Optimize Milvus HNSW parameters
@@ -75,7 +74,7 @@ class QueryOptimizer:
             "metric_type": "IP",  # Inner Product (for cosine similarity)
             "params": {
                 "ef": ef,
-            }
+            },
         }
 
         logger.debug(f"Optimized Milvus params for top_k={top_k}: {params}")
@@ -97,7 +96,7 @@ class QueryOptimizer:
         if collection_size:
             # Rule of thumb: lists = sqrt(rows)
             # probes = lists / 10 for good recall
-            lists = max(10, int(collection_size ** 0.5))
+            lists = max(10, int(collection_size**0.5))
             probes = max(1, lists // 10)
         else:
             probes = 10  # Default
@@ -106,7 +105,9 @@ class QueryOptimizer:
             "probes": probes,  # For IVFFlat
         }
 
-        logger.debug(f"Optimized pgvector params for top_k={top_k}, size={collection_size}: {params}")
+        logger.debug(
+            f"Optimized pgvector params for top_k={top_k}, size={collection_size}: {params}"
+        )
         return params
 
     @staticmethod
@@ -135,7 +136,7 @@ class QueryOptimizer:
 
     @staticmethod
     def _recommend_milvus_index(
-        dimension: int,
+        _dimension: int,
         collection_size: int,
     ) -> dict[str, Any]:
         """
@@ -166,12 +167,12 @@ class QueryOptimizer:
             "params": {
                 "M": m,
                 "efConstruction": ef_construction,
-            }
+            },
         }
 
     @staticmethod
     def _recommend_pgvector_index(
-        dimension: int,
+        _dimension: int,
         collection_size: int,
     ) -> dict[str, Any]:
         """

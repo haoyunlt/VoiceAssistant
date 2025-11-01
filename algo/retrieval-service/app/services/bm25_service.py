@@ -28,7 +28,10 @@ class BM25Service:
                 "hosts": [f"http://{settings.ELASTICSEARCH_HOST}:{settings.ELASTICSEARCH_PORT}"],
             }
             if settings.ELASTICSEARCH_USER and settings.ELASTICSEARCH_PASSWORD:
-                es_config["basic_auth"] = (settings.ELASTICSEARCH_USER, settings.ELASTICSEARCH_PASSWORD)
+                es_config["basic_auth"] = (
+                    settings.ELASTICSEARCH_USER,
+                    settings.ELASTICSEARCH_PASSWORD,
+                )
 
             self.client = AsyncElasticsearch(**es_config)
             logger.info(
@@ -87,7 +90,9 @@ class BM25Service:
                 documents.append(doc)
 
             latency = (time.time() - start_time) * 1000
-            logger.info(f"BM25 search completed: {len(documents)} documents, latency={latency:.2f}ms")
+            logger.info(
+                f"BM25 search completed: {len(documents)} documents, latency={latency:.2f}ms"
+            )
 
             return documents
 

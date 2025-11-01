@@ -47,7 +47,7 @@ class RAGService:
         top_k: int = 10,
         stream: bool = False,
         include_citations: bool = True,
-        **kwargs,
+        **_kwargs,
     ) -> dict[str, Any]:
         """
         完整的RAG生成流程.
@@ -72,9 +72,7 @@ class RAGService:
         try:
             # 1. 查询改写
             rewrite_start = time.time()
-            queries = await self.query_rewriter.rewrite_query(
-                query, method=rewrite_method
-            )
+            queries = await self.query_rewriter.rewrite_query(query, method=rewrite_method)
             rewrite_time = time.time() - rewrite_start
 
             logger.info(f"Query rewriting: {len(queries)} queries, {rewrite_time:.3f}s")
@@ -156,7 +154,7 @@ class RAGService:
 
         except Exception as e:
             logger.error(f"RAG generation failed: {e}", exc_info=True)
-            raise RuntimeError(f"RAG generation failed: {e}")
+            raise RuntimeError(f"RAG generation failed: {e}") from e
 
     async def generate_stream(
         self,
@@ -164,7 +162,7 @@ class RAGService:
         tenant_id: str | None = None,
         rewrite_method: str = "none",  # 流式模式通常不做复杂改写
         top_k: int = 10,
-        **kwargs,
+        **_kwargs,
     ) -> AsyncIterator[dict[str, Any]]:
         """
         流式RAG生成.
@@ -185,9 +183,7 @@ class RAGService:
         """
         try:
             # 1. 查询改写
-            queries = await self.query_rewriter.rewrite_query(
-                query, method=rewrite_method
-            )
+            queries = await self.query_rewriter.rewrite_query(query, method=rewrite_method)
 
             # 2. 检索
             all_chunks = []
@@ -228,9 +224,7 @@ class RAGService:
             logger.error(f"Streaming RAG failed: {e}", exc_info=True)
             yield {"type": "error", "message": str(e)}
 
-    def _deduplicate_chunks(
-        self, chunks: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    def _deduplicate_chunks(self, chunks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         去重分块.
 

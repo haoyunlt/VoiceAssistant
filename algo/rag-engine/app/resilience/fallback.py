@@ -11,7 +11,7 @@
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +29,8 @@ class FallbackStrategy:
         self.cache_service = cache_service
 
     async def handle_llm_failure(
-        self, query: str, documents: List[Dict], error: Exception
-    ) -> Dict[str, Any]:
+        self, query: str, documents: list[dict], error: Exception
+    ) -> dict[str, Any]:
         """
         处理 LLM 失败
 
@@ -83,7 +83,7 @@ class FallbackStrategy:
             "error": str(error),
         }
 
-    def _generate_template_answer(self, query: str, documents: List[Dict]) -> str:
+    def _generate_template_answer(self, query: str, documents: list[dict]) -> str:
         """生成模板答案"""
         if not documents:
             return "抱歉，未找到相关信息。"
@@ -99,7 +99,7 @@ class FallbackStrategy:
 
         return "\n\n".join(parts)
 
-    async def handle_retrieval_failure(self, query: str, error: Exception) -> Dict[str, Any]:
+    async def handle_retrieval_failure(self, query: str, error: Exception) -> dict[str, Any]:
         """
         处理检索失败
 
@@ -136,7 +136,7 @@ class FallbackStrategy:
             "error": str(error),
         }
 
-    async def handle_cache_failure(self, query: str, documents: List[Dict]) -> Dict[str, Any]:
+    async def handle_cache_failure(self, _query: str, documents: list[dict]) -> dict[str, Any]:
         """
         处理缓存失败（降级到直接检索）
 
@@ -153,7 +153,7 @@ class FallbackStrategy:
             "fallback": "skip_cache",
         }
 
-    async def handle_rerank_failure(self, documents: List[Dict]) -> List[Dict]:
+    async def handle_rerank_failure(self, documents: list[dict]) -> list[dict]:
         """
         处理重排失败（降级到原始排序）
 
@@ -177,4 +177,3 @@ def get_fallback_strategy(cache_service=None) -> FallbackStrategy:
     if _fallback_strategy is None:
         _fallback_strategy = FallbackStrategy(cache_service)
     return _fallback_strategy
-

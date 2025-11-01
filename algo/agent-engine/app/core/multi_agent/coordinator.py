@@ -244,7 +244,7 @@ class Agent:
 
         return response.get("content", "Review completed")  # type: ignore [return-value]
 
-    async def _coordinate(self, understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
+    async def _coordinate(self, _understanding: dict) -> str:  # type: ignore [return-value] # noqa: F821
         """Coordinator role: Coordinate agent activities"""
         return "Coordination in progress"
 
@@ -374,7 +374,7 @@ class MultiAgentCoordinator:
 
         try:
             return json.loads(response.get("content", "{}"))
-        except:
+        except Exception:
             # Fallback: assign same task to all agents
             return dict.fromkeys(agent_ids, task)
 

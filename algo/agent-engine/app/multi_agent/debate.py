@@ -152,9 +152,7 @@ class DebateCoordinator:
             logger.info(f"Round {round_num}: Arguments and rebuttals")
 
             # 正方论证
-            proponent_arg = await self._get_argument(
-                topic, proponent, transcript, "proponent"
-            )
+            proponent_arg = await self._get_argument(topic, proponent, transcript, "proponent")
             transcript.append(
                 DebateMessage(
                     round_number=round_num,
@@ -167,9 +165,7 @@ class DebateCoordinator:
             )
 
             # 反方反驳
-            opponent_rebuttal = await self._get_rebuttal(
-                topic, opponent, transcript, "opponent"
-            )
+            opponent_rebuttal = await self._get_rebuttal(topic, opponent, transcript, "opponent")
             transcript.append(
                 DebateMessage(
                     round_number=round_num,
@@ -182,9 +178,7 @@ class DebateCoordinator:
             )
 
             # 反方论证
-            opponent_arg = await self._get_argument(
-                topic, opponent, transcript, "opponent"
-            )
+            opponent_arg = await self._get_argument(topic, opponent, transcript, "opponent")
             transcript.append(
                 DebateMessage(
                     round_number=round_num,
@@ -197,9 +191,7 @@ class DebateCoordinator:
             )
 
             # 正方反驳
-            proponent_rebuttal = await self._get_rebuttal(
-                topic, proponent, transcript, "proponent"
-            )
+            proponent_rebuttal = await self._get_rebuttal(topic, proponent, transcript, "proponent")
             transcript.append(
                 DebateMessage(
                     round_number=round_num,
@@ -255,9 +247,7 @@ class DebateCoordinator:
             reasoning=verdict["reasoning"],
         )
 
-    async def _get_opening_statement(
-        self, topic: str, agent: dict, stance: str
-    ) -> str:
+    async def _get_opening_statement(self, topic: str, _agent: dict, stance: str) -> str:
         """获取开场陈述"""
         prompt = f"""你是辩论赛的{stance}方。请针对以下辩题发表开场陈述。
 
@@ -281,7 +271,7 @@ class DebateCoordinator:
         return response.strip()
 
     async def _get_argument(
-        self, topic: str, agent: dict, transcript: list[DebateMessage], stance: str
+        self, topic: str, _agent: dict, transcript: list[DebateMessage], stance: str
     ) -> str:
         """获取论证"""
         history = self._format_transcript(transcript)
@@ -309,7 +299,7 @@ class DebateCoordinator:
         return response.strip()
 
     async def _get_rebuttal(
-        self, topic: str, agent: dict, transcript: list[DebateMessage], stance: str
+        self, topic: str, _agent: dict, transcript: list[DebateMessage], stance: str
     ) -> str:
         """获取反驳"""
         # 获取对方最近的论点
@@ -338,7 +328,7 @@ class DebateCoordinator:
         return response.strip()
 
     async def _get_closing_statement(
-        self, topic: str, agent: dict, transcript: list[DebateMessage]
+        self, topic: str, _agent: dict, transcript: list[DebateMessage]
     ) -> str:
         """获取总结陈述"""
         history = self._format_transcript(transcript)
@@ -365,9 +355,7 @@ class DebateCoordinator:
 
         return response.strip()
 
-    async def _judge_debate(
-        self, topic: str, transcript: list[DebateMessage], judge: dict
-    ) -> dict:
+    async def _judge_debate(self, topic: str, transcript: list[DebateMessage], _judge: dict) -> dict:
         """使用评审员评判"""
         history = self._format_transcript(transcript)
 
@@ -401,9 +389,7 @@ class DebateCoordinator:
 
         return response  # 假设返回 JSON
 
-    async def _auto_judge(
-        self, topic: str, transcript: list[DebateMessage]
-    ) -> dict:
+    async def _auto_judge(self, _topic: str, transcript: list[DebateMessage]) -> dict:
         """自动评审（无评审员时）"""
         # 简化实现：统计论据数量和质量
         proponent_args = [m for m in transcript if m.role == DebateRole.PROPONENT]
@@ -433,4 +419,3 @@ class DebateCoordinator:
             role_name = "正方" if msg.role == DebateRole.PROPONENT else "反方"
             lines.append(f"[第{msg.round_number}轮] {role_name}: {msg.content}")
         return "\n\n".join(lines)
-

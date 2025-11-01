@@ -79,7 +79,9 @@ JSON:"""
             entities = result.get("entities", [])
             relations = result.get("relations", [])
 
-            logger.info(f"Extracted {len(entities)} entities and {len(relations)} relations with LLM")
+            logger.info(
+                f"Extracted {len(entities)} entities and {len(relations)} relations with LLM"
+            )
             return entities, relations
 
         except Exception as e:
@@ -121,7 +123,9 @@ JSON:"""
             for source, target in matches:
                 relations.append({"source": source, "relation": relation_type, "target": target})
 
-        logger.debug(f"Extracted {len(entities)} entities and {len(relations)} relations with rules")
+        logger.debug(
+            f"Extracted {len(entities)} entities and {len(relations)} relations with rules"
+        )
         return entities, relations
 
     def extract_key_concepts(self, text: str, top_k: int = 10) -> list[str]:
@@ -155,4 +159,3 @@ JSON:"""
         key_concepts = [word for word, freq in sorted_words[:top_k]]
 
         return key_concepts
-

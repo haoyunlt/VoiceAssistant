@@ -4,17 +4,16 @@ Entity Linking Service - 实体链接服务
 跨文档实体对齐与合并，解决实体重复问题
 """
 
+import asyncio
 import logging
 from typing import Any
-import asyncio
 
 import numpy as np
 
 from app.common.exceptions import EntityLinkingError, EntityMergeError
 from app.core.metrics import (
-    entity_linking_total,
     entities_merged_total,
-    entity_linking_precision,
+    entity_linking_total,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,9 +94,7 @@ class EntityLinkingService:
         except Exception as e:
             logger.error(f"Entity linking failed for document {document_id}: {e}")
             entity_linking_total.labels(status="failure").inc()
-            raise EntityLinkingError(
-                f"Failed to link entities: {e}", document_id=document_id
-            )
+            raise EntityLinkingError(f"Failed to link entities: {e}", document_id=document_id) from e
 
     async def link_entities_across_documents(
         self, document_ids: list[str], method: str = "hybrid"
@@ -117,10 +114,7 @@ class EntityLinkingService:
 
             # 并行处理每个文档
             results = await asyncio.gather(
-                *[
-                    self.link_entities_in_document(doc_id, method)
-                    for doc_id in document_ids
-                ],
+                *[self.link_entities_in_document(doc_id, method) for doc_id in document_ids],
                 return_exceptions=True,
             )
 
@@ -144,7 +138,7 @@ class EntityLinkingService:
 
         except Exception as e:
             logger.error(f"Cross-document entity linking failed: {e}")
-            raise EntityLinkingError(f"Failed to link entities across documents: {e}")
+            raise EntityLinkingError(f"Failed to link entities across documents: {e}") from e
 
     async def _get_document_entities(self, document_id: str) -> list[dict[str, Any]]:
         """获取文档所有实体"""
@@ -291,7 +285,7 @@ class EntityLinkingService:
         return result
 
     async def _merge_entity_pairs(
-        self, pairs: list[tuple[str, str, float]], document_id: str
+        self, pairs: list[tuple[str, str, float]], _document_id: str
     ) -> int:
         """合并实体对"""
         merged_count = 0
@@ -365,16 +359,14 @@ class EntityLinkingService:
                 f"Failed to merge entities: {e}",
                 source_id=source_id,
                 target_id=target_id,
-            )
+            ) from e
 
 
 # 全局实例
 _entity_linking_service: EntityLinkingService | None = None
 
 
-def get_entity_linking_service(
-    neo4j_client, embedding_service
-) -> EntityLinkingService:
+def get_entity_linking_service(neo4j_client, embedding_service) -> EntityLinkingService:
     """
     获取实体链接服务实例（单例）
 

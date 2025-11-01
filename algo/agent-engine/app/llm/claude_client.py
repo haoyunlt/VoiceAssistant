@@ -10,6 +10,7 @@ from typing import Any
 
 try:
     from anthropic import AsyncAnthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
@@ -42,10 +43,7 @@ class ClaudeClient(LLMClient):
             **kwargs: 其他参数
         """
         if not ANTHROPIC_AVAILABLE:
-            raise ImportError(
-                "Anthropic SDK not installed. "
-                "Install it with: pip install anthropic"
-            )
+            raise ImportError("Anthropic SDK not installed. Install it with: pip install anthropic")
 
         super().__init__(model, api_key, base_url, **kwargs)
 
@@ -92,9 +90,7 @@ class ClaudeClient(LLMClient):
                     system_prompt += "\n\n" + msg.content
             else:
                 # 其他消息保持原样
-                claude_messages.append(
-                    {"role": msg.role, "content": msg.content}
-                )
+                claude_messages.append({"role": msg.role, "content": msg.content})
 
         return system_prompt, claude_messages
 
@@ -124,9 +120,7 @@ class ClaudeClient(LLMClient):
 
         try:
             # 转换消息格式
-            system_prompt, claude_messages = self._convert_messages_to_claude_format(
-                messages
-            )
+            system_prompt, claude_messages = self._convert_messages_to_claude_format(messages)
 
             # 构建请求参数
             request_params = {
@@ -177,8 +171,7 @@ class ClaudeClient(LLMClient):
                 usage={
                     "prompt_tokens": response.usage.input_tokens,
                     "completion_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.input_tokens
-                    + response.usage.output_tokens,
+                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
                 }
                 if response.usage
                 else None,
@@ -215,9 +208,7 @@ class ClaudeClient(LLMClient):
 
         try:
             # 转换消息格式
-            system_prompt, claude_messages = self._convert_messages_to_claude_format(
-                messages
-            )
+            system_prompt, claude_messages = self._convert_messages_to_claude_format(messages)
 
             # 构建请求参数
             request_params = {

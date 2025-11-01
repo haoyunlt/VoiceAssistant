@@ -97,7 +97,7 @@ class RealtimeVoiceService:
             )
             await websocket.close(
                 code=1008,
-                reason=f"Server at maximum capacity ({self.max_concurrent_sessions} sessions)"
+                reason=f"Server at maximum capacity ({self.max_concurrent_sessions} sessions)",
             )
             return
 
@@ -116,14 +116,10 @@ class RealtimeVoiceService:
         self.total_sessions_created += 1
 
         # 启动心跳任务
-        heartbeat_task = asyncio.create_task(
-            self._send_heartbeats(websocket, session_id)
-        )
+        heartbeat_task = asyncio.create_task(self._send_heartbeats(websocket, session_id))
 
         # 启动超时检测任务
-        timeout_task = asyncio.create_task(
-            self._check_timeout(websocket, session_id)
-        )
+        timeout_task = asyncio.create_task(self._check_timeout(websocket, session_id))
 
         try:
             logger.info(f"[Session {session_id}] Stream handling started")
@@ -165,9 +161,7 @@ class RealtimeVoiceService:
                         f"Triggering ASR."
                     )
 
-                    await self._trigger_asr(
-                        websocket, session_id, bytes(session["audio_buffer"])
-                    )
+                    await self._trigger_asr(websocket, session_id, bytes(session["audio_buffer"]))
                     session["audio_buffer"].clear()
                     session["buffer_duration"] = 0.0
                     session["is_speaking"] = False
@@ -177,9 +171,10 @@ class RealtimeVoiceService:
                 session["total_frames"] += 1
 
                 # 转换音频数据为float32
-                audio_array = np.frombuffer(
-                    bytes(session["audio_buffer"]), dtype=np.int16
-                ).astype(np.float32) / 32768.0
+                audio_array = (
+                    np.frombuffer(bytes(session["audio_buffer"]), dtype=np.int16).astype(np.float32)
+                    / 32768.0
+                )
 
                 # VAD检测
                 try:
@@ -193,8 +188,7 @@ class RealtimeVoiceService:
                     # 检测到语音
                     if not session["is_speaking"]:
                         logger.debug(
-                            f"[Session {session_id}] Speech started "
-                            f"(prob={speech_prob:.2f})"
+                            f"[Session {session_id}] Speech started (prob={speech_prob:.2f})"
                         )
                     session["is_speaking"] = True
                     session["last_speech_time"] = time.time()
@@ -232,9 +226,7 @@ class RealtimeVoiceService:
         except Exception as e:
             logger.error(f"[Session {session_id}] Stream error: {e}", exc_info=True)
             with contextlib.suppress(builtins.BaseException):
-                await websocket.send_json(
-                    {"type": "error", "message": f"Stream error: {str(e)}"}
-                )
+                await websocket.send_json({"type": "error", "message": f"Stream error: {str(e)}"})
 
         finally:
             # 取消后台任务
@@ -270,9 +262,7 @@ class RealtimeVoiceService:
 
         return 0.0
 
-    async def _trigger_asr(
-        self, websocket: WebSocket, session_id: str, audio_bytes: bytes
-    ):
+    async def _trigger_asr(self, websocket: WebSocket, session_id: str, audio_bytes: bytes):
         """
         触发ASR识别
 
@@ -312,7 +302,7 @@ class RealtimeVoiceService:
                 logger.info(
                     f"[Session {session_id}] ASR result: '{text}' "
                     f"(confidence={result.get('confidence', 0):.2f}, "
-                    f"asr_time={asr_time*1000:.0f}ms)"
+                    f"asr_time={asr_time * 1000:.0f}ms)"
                 )
             else:
                 logger.debug(f"[Session {session_id}] ASR returned empty text")
@@ -320,9 +310,7 @@ class RealtimeVoiceService:
         except Exception as e:
             logger.error(f"[Session {session_id}] ASR failed: {e}", exc_info=True)
             with contextlib.suppress(builtins.BaseException):
-                await websocket.send_json(
-                    {"type": "error", "message": f"ASR failed: {str(e)}"}
-                )
+                await websocket.send_json({"type": "error", "message": f"ASR failed: {str(e)}"})
 
     async def _send_heartbeats(self, websocket: WebSocket, session_id: str):
         """
@@ -390,7 +378,7 @@ class RealtimeVoiceService:
                             }
                         )
                         await websocket.close(code=1000, reason="Session timeout")
-                    except:
+                    except Exception:
                         pass
 
                     break
@@ -438,8 +426,8 @@ class RealtimeVoiceService:
             "total_sessions_rejected": self.total_sessions_rejected,
             "total_buffer_overflows": self.total_buffer_overflows,
             "rejection_rate": (
-                self.total_sessions_rejected /
-                max(self.total_sessions_created + self.total_sessions_rejected, 1)
+                self.total_sessions_rejected
+                / max(self.total_sessions_created + self.total_sessions_rejected, 1)
             ),
             "max_buffer_size_mb": self.max_buffer_size_bytes / 1024 / 1024,
             "max_audio_duration_s": self.max_audio_duration_seconds,

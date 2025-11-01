@@ -12,7 +12,9 @@ class OCRTextBlock(BaseModel):
 
     text: str = Field(..., description="识别的文本")
     confidence: float = Field(..., description="置信度 (0-1)")
-    bbox: list[list[int]] = Field(..., description="边界框坐标 [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]")
+    bbox: list[list[int]] = Field(
+        ..., description="边界框坐标 [[x1,y1], [x2,y2], [x3,y3], [x4,y4]]"
+    )
     language: str | None = Field(None, description="语言")
 
 

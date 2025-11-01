@@ -14,7 +14,6 @@ Batch Retrieval Service - 批量检索服务
 
 import asyncio
 import time
-from typing import List, Optional
 
 from app.core.dynamic_batcher import DynamicBatcher
 from app.models.retrieval import HybridRequest, HybridResponse, RetrievalDocument
@@ -84,9 +83,7 @@ class BatchRetrievalService:
         )
         logger.info("Batch retrieval service stopped")
 
-    async def batch_hybrid_search(
-        self, requests: List[HybridRequest]
-    ) -> List[HybridResponse]:
+    async def batch_hybrid_search(self, requests: list[HybridRequest]) -> list[HybridResponse]:
         """
         批量混合检索
 
@@ -100,14 +97,10 @@ class BatchRetrievalService:
 
         try:
             # 1. 批量embedding
-            embeddings = await self._get_embeddings_batch(
-                [req.query for req in requests]
-            )
+            embeddings = await self._get_embeddings_batch([req.query for req in requests])
 
             # 2. 批量向量检索
-            vector_results_batch = await self._search_vectors_batch(
-                embeddings, requests
-            )
+            vector_results_batch = await self._search_vectors_batch(embeddings, requests)
 
             # 3. 批量BM25检索（可以并行）
             bm25_results_batch = await self._search_bm25_batch(requests)
@@ -116,9 +109,7 @@ class BatchRetrievalService:
             responses = []
             for i, req in enumerate(requests):
                 # 融合vector和bm25
-                fused_docs = self._fuse_results(
-                    vector_results_batch[i], bm25_results_batch[i]
-                )
+                fused_docs = self._fuse_results(vector_results_batch[i], bm25_results_batch[i])
 
                 # 构建响应
                 response = HybridResponse(
@@ -157,13 +148,13 @@ class BatchRetrievalService:
                 for req in requests
             ]
 
-    async def _get_embeddings_batch(self, queries: List[str]) -> List[List[float]]:
+    async def _get_embeddings_batch(self, queries: list[str]) -> list[list[float]]:
         """批量获取embeddings"""
         # 使用embedding batcher
         tasks = [self.embedding_batcher.process(q) for q in queries]
         return await asyncio.gather(*tasks)
 
-    async def _batch_embed(self, queries: List[str]) -> List[List[float]]:
+    async def _batch_embed(self, queries: list[str]) -> list[list[float]]:
         """批量embedding实现"""
         # 这里应该调用实际的embedding服务
         # 简化实现：返回mock embeddings
@@ -174,8 +165,8 @@ class BatchRetrievalService:
         return [np.random.randn(384).tolist() for _ in queries]
 
     async def _search_vectors_batch(
-        self, embeddings: List[List[float]], requests: List[HybridRequest]
-    ) -> List[List[RetrievalDocument]]:
+        self, _embeddings: list[list[float]], requests: list[HybridRequest]
+    ) -> list[list[RetrievalDocument]]:
         """批量向量检索"""
         # 这里应该调用Milvus的批量搜索API
         # 简化实现：返回mock结果
@@ -198,8 +189,8 @@ class BatchRetrievalService:
         return results
 
     async def _search_bm25_batch(
-        self, requests: List[HybridRequest]
-    ) -> List[List[RetrievalDocument]]:
+        self, requests: list[HybridRequest]
+    ) -> list[list[RetrievalDocument]]:
         """批量BM25检索"""
         # 这里应该调用ES的multi-search API
         # 简化实现：返回mock结果
@@ -223,10 +214,10 @@ class BatchRetrievalService:
 
     def _fuse_results(
         self,
-        vector_docs: List[RetrievalDocument],
-        bm25_docs: List[RetrievalDocument],
-        k: int = 60,
-    ) -> List[RetrievalDocument]:
+        vector_docs: list[RetrievalDocument],
+        bm25_docs: list[RetrievalDocument],
+        _k: int = 60,
+    ) -> list[RetrievalDocument]:
         """RRF融合"""
         # 简化实现：直接合并并按分数排序
         all_docs = vector_docs + bm25_docs
@@ -244,14 +235,14 @@ class BatchRetrievalService:
         return unique_docs[:20]
 
     async def _rerank_batch(
-        self, responses: List[HybridResponse], requests: List[HybridRequest]
-    ) -> List[HybridResponse]:
+        self, responses: list[HybridResponse], requests: list[HybridRequest]
+    ) -> list[HybridResponse]:
         """批量rerank"""
         # 收集需要rerank的
         to_rerank = []
         rerank_indices = []
 
-        for i, (resp, req) in enumerate(zip(responses, requests)):
+        for i, (resp, req) in enumerate(zip(responses, requests, strict=False)):
             if req.enable_rerank and resp.documents:
                 to_rerank.append((req.query, resp.documents))
                 rerank_indices.append(i)
@@ -263,15 +254,13 @@ class BatchRetrievalService:
         reranked_docs_list = await self._batch_rerank(to_rerank)
 
         # 更新响应
-        for idx, reranked_docs in zip(rerank_indices, reranked_docs_list):
+        for idx, reranked_docs in zip(rerank_indices, reranked_docs_list, strict=False):
             responses[idx].documents = reranked_docs
             responses[idx].reranked = True
 
         return responses
 
-    async def _batch_rerank(
-        self, query_docs_pairs: List[tuple]
-    ) -> List[List[RetrievalDocument]]:
+    async def _batch_rerank(self, query_docs_pairs: list[tuple]) -> list[list[RetrievalDocument]]:
         """批量rerank实现"""
         # 这里应该调用cross-encoder的批量推理
         # 简化实现：返回原结果
@@ -304,10 +293,10 @@ if __name__ == "__main__":
         ]
 
         start_time = time.time()
-        responses = await service.batch_hybrid_search(requests)
+        await service.batch_hybrid_search(requests)
         elapsed = time.time() - start_time
 
-        print(f"\nBatch retrieval completed:")
+        print("\nBatch retrieval completed:")
         print(f"  Requests: {len(requests)}")
         print(f"  Time: {elapsed:.2f}s")
         print(f"  QPS: {len(requests) / elapsed:.1f}")

@@ -76,9 +76,7 @@ class ExternalServiceException(MultimodalEngineException):
     ):
         details = details or {}
         details["service"] = service
-        super().__init__(
-            message, error_code="EXTERNAL_SERVICE_ERROR", details=details
-        )
+        super().__init__(message, error_code="EXTERNAL_SERVICE_ERROR", details=details)
 
 
 class RateLimitException(MultimodalEngineException):

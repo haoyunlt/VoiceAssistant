@@ -41,7 +41,7 @@ class HallucinationDetector:
         logger.info(f"Hallucination detector initialized (NLI: {self.use_nli})")
 
     async def detect(
-        self, answer: str, context: str, query: str, threshold: float = 0.7
+        self, answer: str, context: str, query: str, _threshold: float = 0.7
     ) -> dict[str, any]:
         """
         检测幻觉
@@ -70,7 +70,7 @@ class HallucinationDetector:
         has_hallucination = llm_result.get("has_hallucination", False)
         confidence = llm_result.get("confidence", 0.5)
 
-        if nli_result:
+        if nli_result:  # noqa: SIM102
             # 结合 NLI 结果
             if nli_result["has_hallucination"]:
                 has_hallucination = True
@@ -191,7 +191,7 @@ JSON:"""
 
         # 规则 1: 答案中提到"我不知道"/"无法回答"等，但实际提供了答案
         uncertainty_phrases = ["不知道", "无法回答", "不确定", "没有信息"]
-        if any(phrase in answer for phrase in uncertainty_phrases):
+        if any(phrase in answer for phrase in uncertainty_phrases):  # noqa: SIM102
             # 检查是否还提供了具体答案
             if len(answer.split()) > 20:  # 答案较长
                 has_hallucination = True

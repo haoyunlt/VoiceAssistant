@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/sony/gobreaker"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // BaseClient 算法服务基础客户端
@@ -183,6 +184,17 @@ func (c *BaseClient) doHTTPCall(ctx context.Context, method, url string, reqBody
 	}
 	httpReq.Header.Set("Accept", "application/json")
 
+	// 注入 trace context
+	if span := trace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+		traceID := span.SpanContext().TraceID().String()
+		spanID := span.SpanContext().SpanID().String()
+		httpReq.Header.Set("X-Trace-ID", traceID)
+		httpReq.Header.Set("X-Span-ID", spanID)
+		// 注入 W3C Trace Context (traceparent)
+		httpReq.Header.Set("traceparent",
+			fmt.Sprintf("00-%s-%s-%02x", traceID, spanID, span.SpanContext().TraceFlags()))
+	}
+
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
@@ -262,4 +274,3 @@ func (c *BaseClient) ReadinessCheck(ctx context.Context) (bool, map[string]inter
 	checks, _ := result["checks"].(map[string]interface{})
 	return ready, checks, nil
 }
-

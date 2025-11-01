@@ -98,7 +98,7 @@ def with_retry(
                     exc_info=e.last_attempt.exception(),
                 )
                 # 重新抛出原始异常
-                raise e.last_attempt.exception()
+                raise e.last_attempt.exception() from e
 
         return wrapper
 
@@ -161,9 +161,9 @@ def with_timeout(seconds: float):
         async def wrapper(*args, **kwargs):
             try:
                 return await asyncio.wait_for(func(*args, **kwargs), timeout=seconds)
-            except asyncio.TimeoutError:
+            except TimeoutError as e:
                 logger.error(f"Timeout after {seconds}s: {func.__name__}")
-                raise RuntimeError(f"Request timeout after {seconds}s")
+                raise RuntimeError(f"Request timeout after {seconds}s") from e
 
         return wrapper
 
@@ -270,7 +270,7 @@ class StreamErrorHandler:
                 },
             }
 
-        except asyncio.TimeoutError as e:
+        except TimeoutError:
             logger.error(f"Stream timeout for {provider}/{model}")
             yield {
                 "type": "error",
@@ -322,7 +322,7 @@ class StreamErrorHandler:
 
 
 # 指标收集 (Prometheus)
-from prometheus_client import Counter, Gauge, Histogram
+from prometheus_client import Counter, Gauge  # noqa: E402
 
 # 重试指标
 retry_total = Counter(

@@ -55,7 +55,7 @@ http_services:
 
   # Agent引擎
   agent-engine:
-    url: "http://localhost:8003"
+    url: "http://localhost:8010"
     timeout: 60s
     description: "智能Agent执行引擎"
 
@@ -112,12 +112,12 @@ docker_services:
   http:
     retrieval-service: "http://retrieval-service:8012"
     # rag-engine: "http://rag-engine:8006"  # 已合并到knowledge-service
-    agent-engine: "http://agent-engine:8003"
+    agent-engine: "http://agent-engine:8010"
     voice-engine: "http://voice-engine:8004"
     model-adapter: "http://model-adapter:8005"
     indexing-service: "http://indexing-service:8011"
     vector-store-adapter: "http://vector-store-adapter:8009"
-    knowledge-service: "http://knowledge-service:8006"  # Python版本（合并后）
+    knowledge-service: "http://knowledge-service:8006" # Python版本（合并后）
     multimodal-engine: "http://multimodal-engine:8008"
 
 # ==================== 服务端口快速参考 ====================
@@ -132,12 +132,12 @@ port_reference:
   "50057": "notification-service"
 
   # Python Services (HTTP)
-  "8003": "agent-engine"
   "8004": "voice-engine"
   "8005": "model-adapter"
-  "8006": "knowledge-service"  # Python版本（合并后，统一知识服务）
+  "8006": "knowledge-service" # Python版本（合并后，统一知识服务）
   "8008": "multimodal-engine"
   "8009": "vector-store-adapter"
+  "8010": "agent-engine"
   "8011": "indexing-service"
   "8012": "retrieval-service"
 

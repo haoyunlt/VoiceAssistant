@@ -44,11 +44,13 @@ class Neo4jClient:
             """
             session.run(query, chunk_id=chunk_id, document_id=document_id, properties=properties)
 
-    def create_entity_node(self, entity_name: str, entity_type: str, properties: dict[str, Any] = None):
+    def create_entity_node(
+        self, entity_name: str, entity_type: str, properties: dict[str, Any] = None
+    ):
         """Create entity node"""
         with self.driver.session() as session:
             props = properties or {}
-            props['type'] = entity_type
+            props["type"] = entity_type
 
             query = """
             MERGE (e:Entity {name: $entity_name})
@@ -57,7 +59,9 @@ class Neo4jClient:
             """
             session.run(query, entity_name=entity_name, properties=props)
 
-    def create_relationship(self, from_id: str, to_id: str, rel_type: str, properties: dict[str, Any] = None):
+    def create_relationship(
+        self, from_id: str, to_id: str, rel_type: str, properties: dict[str, Any] = None
+    ):
         """Create relationship between nodes"""
         with self.driver.session() as session:
             props = properties or {}
@@ -97,12 +101,14 @@ class Neo4jClient:
 
             chunks = []
             for record in result:
-                chunks.append({
-                    'chunk_id': record['chunk_id'],
-                    'content': record['content'],
-                    'document_id': record['document_id'],
-                    'method': 'graph'
-                })
+                chunks.append(
+                    {
+                        "chunk_id": record["chunk_id"],
+                        "content": record["content"],
+                        "document_id": record["document_id"],
+                        "method": "graph",
+                    }
+                )
 
             return chunks
 
@@ -111,37 +117,34 @@ class Neo4jClient:
         logger.info(f"Building graph for document: {document_id}")
 
         # Create document node
-        self.create_document_node(document_id, {
-            'tenant_id': tenant_id,
-            'chunk_count': len(chunks)
-        })
+        self.create_document_node(document_id, {"tenant_id": tenant_id, "chunk_count": len(chunks)})
 
         # Process each chunk
         for chunk in chunks:
-            chunk_id = chunk['chunk_id']
-            content = chunk['content']
+            chunk_id = chunk["chunk_id"]
+            content = chunk["content"]
 
             # Create chunk node
-            self.create_chunk_node(chunk_id, document_id, {
-                'content': content[:500],  # Store preview
-                'token_count': chunk.get('token_count', 0)
-            })
+            self.create_chunk_node(
+                chunk_id,
+                document_id,
+                {
+                    "content": content[:500],  # Store preview
+                    "token_count": chunk.get("token_count", 0),
+                },
+            )
 
             # Extract entities (simplified - in production use NER)
             entities = self._extract_entities(content)
 
             # Create entity nodes and relationships
             for entity in entities:
-                self.create_entity_node(entity['name'], entity['type'])
-                self.link_chunk_to_entity(chunk_id, entity['name'])
+                self.create_entity_node(entity["name"], entity["type"])
+                self.link_chunk_to_entity(chunk_id, entity["name"])
 
         # Create chunk sequence relationships
         for i in range(len(chunks) - 1):
-            self.create_relationship(
-                chunks[i]['chunk_id'],
-                chunks[i + 1]['chunk_id'],
-                'NEXT'
-            )
+            self.create_relationship(chunks[i]["chunk_id"], chunks[i + 1]["chunk_id"], "NEXT")
 
         logger.info(f"Graph built for document {document_id}: {len(chunks)} chunks")
 
@@ -155,17 +158,14 @@ class Neo4jClient:
         for word in words:
             # Simple heuristic: capitalized words
             if word and word[0].isupper() and len(word) > 3:
-                entities.append({
-                    'name': word.strip('.,!?;:'),
-                    'type': 'UNKNOWN'
-                })
+                entities.append({"name": word.strip(".,!?;:"), "type": "UNKNOWN"})
 
         # Remove duplicates
         seen = set()
         unique_entities = []
         for entity in entities:
-            if entity['name'] not in seen:
-                seen.add(entity['name'])
+            if entity["name"] not in seen:
+                seen.add(entity["name"])
                 unique_entities.append(entity)
 
         return unique_entities[:10]  # Limit to top 10
@@ -180,5 +180,3 @@ class Neo4jClient:
             """
             session.run(query, document_id=document_id)
             logger.info(f"Deleted graph for document: {document_id}")
-
-

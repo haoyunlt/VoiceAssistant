@@ -103,9 +103,7 @@ Entities:
             # 降级到规则提取
             return []
 
-    def _build_entity_extraction_prompt(
-        self, text: str, domain: str, language: str
-    ) -> str:
+    def _build_entity_extraction_prompt(self, text: str, domain: str, language: str) -> str:
         """构建实体提取提示词"""
         domain_instructions = {
             "general": "Extract common entities like persons, organizations, locations, dates, and products.",
@@ -407,8 +405,7 @@ def get_llm_entity_extractor(
 
     if _llm_entity_extractor is None:
         _llm_entity_extractor = LLMEntityExtractor(
-            model_adapter_url=model_adapter_url
-            or "http://model-adapter:8005",
+            model_adapter_url=model_adapter_url or "http://model-adapter:8005",
             model_name=model_name or "gpt-4o-mini",
         )
 

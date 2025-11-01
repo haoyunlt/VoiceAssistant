@@ -33,7 +33,9 @@ class OCRService:
     def _load_paddleocr(self):
         """加载 PaddleOCR 模型"""
         try:
-            logger.info(f"Loading PaddleOCR: languages={settings.OCR_LANGUAGES}, use_gpu={settings.OCR_USE_GPU}")
+            logger.info(
+                f"Loading PaddleOCR: languages={settings.OCR_LANGUAGES}, use_gpu={settings.OCR_USE_GPU}"
+            )
 
             # 初始化 PaddleOCR
             self.ocr_engine = PaddleOCR(
@@ -55,7 +57,7 @@ class OCRService:
             import easyocr
 
             # 获取语言列表
-            languages = settings.OCR_LANGUAGES or ['ch_sim', 'en']
+            languages = settings.OCR_LANGUAGES or ["ch_sim", "en"]
 
             logger.info(f"Loading EasyOCR: languages={languages}, use_gpu={settings.OCR_USE_GPU}")
 
@@ -64,7 +66,7 @@ class OCRService:
                 languages,
                 gpu=settings.OCR_USE_GPU,
                 verbose=False,
-                download_enabled=True  # 自动下载模型
+                download_enabled=True,  # 自动下载模型
             )
 
             logger.info(f"EasyOCR loaded successfully with languages: {languages}")
@@ -108,7 +110,7 @@ class OCRService:
         self,
         image_data: bytes,
         languages: list[str] | None = None,
-        detect_orientation: bool = True,
+        _detect_orientation: bool = True,
         confidence_threshold: float | None = None,
     ) -> OCRResponse:
         """
@@ -204,7 +206,7 @@ class OCRService:
             raise
 
     async def _recognize_with_easyocr(
-        self, image_data: bytes, languages: list[str] | None, confidence_threshold: float | None
+        self, image_data: bytes, _languages: list[str] | None, confidence_threshold: float | None
     ) -> dict:
         """
         使用 EasyOCR 识别
@@ -240,7 +242,7 @@ class OCRService:
                 image_np,
                 detail=1,  # 返回详细信息（边界框和置信度）
                 paragraph=False,  # 不合并段落
-                batch_size=10
+                batch_size=10,
             )
 
             # 解析结果
@@ -272,11 +274,11 @@ class OCRService:
 
             # 检测主要语言（简化实现）
             # 检测中文字符
-            has_chinese = any('\u4e00' <= c <= '\u9fff' for c in full_text)
+            has_chinese = any("\u4e00" <= c <= "\u9fff" for c in full_text)
             # 检测日文字符
-            has_japanese = any('\u3040' <= c <= '\u30ff' for c in full_text)
+            has_japanese = any("\u3040" <= c <= "\u30ff" for c in full_text)
             # 检测韩文字符
-            has_korean = any('\uac00' <= c <= '\ud7af' for c in full_text)
+            has_korean = any("\uac00" <= c <= "\ud7af" for c in full_text)
 
             if has_chinese:
                 language = "zh"

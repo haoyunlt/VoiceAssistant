@@ -8,6 +8,7 @@ from app.adapters.base_adapter import BaseAdapter
 
 logger = logging.getLogger(__name__)
 
+
 class AzureAdapter(BaseAdapter):
     """
     Azure OpenAI API 适配器。
@@ -36,8 +37,8 @@ class AzureAdapter(BaseAdapter):
         messages: list[dict[str, str]],
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        tenant_id: str | None = None,
-        user_id: str | None = None,
+        _tenant_id: str | None = None,
+        _user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         调用 Azure OpenAI Chat Completion API。
@@ -53,7 +54,9 @@ class AzureAdapter(BaseAdapter):
         }
 
         # Azure 的 URL 格式不同
-        url = f"/openai/deployments/{deployment_name}/chat/completions?api-version={self.api_version}"
+        url = (
+            f"/openai/deployments/{deployment_name}/chat/completions?api-version={self.api_version}"
+        )
 
         payload = {
             "messages": messages,
@@ -82,7 +85,9 @@ class AzureAdapter(BaseAdapter):
             # 计算成本 (使用模型名称获取价格)
             model_name = data.get("model", deployment_name)
             pricing = self.pricing.get(model_name, {"input": 0.01, "output": 0.03})
-            cost_usd = (input_tokens / 1000.0 * pricing["input"]) + (output_tokens / 1000.0 * pricing["output"])
+            cost_usd = (input_tokens / 1000.0 * pricing["input"]) + (
+                output_tokens / 1000.0 * pricing["output"]
+            )
 
             self.stats["successful_requests"] += 1
             self.stats["total_tokens_used"] += total_tokens
@@ -101,18 +106,18 @@ class AzureAdapter(BaseAdapter):
         except httpx.HTTPStatusError as e:
             self.stats["failed_requests"] += 1
             logger.error(f"Azure OpenAI API call failed: {e}", exc_info=True)
-            raise RuntimeError(f"Azure OpenAI API call failed: {e}")
+            raise RuntimeError(f"Azure OpenAI API call failed: {e}") from e
         except Exception as e:
             self.stats["failed_requests"] += 1
             logger.error(f"Azure OpenAI API call failed: {e}", exc_info=True)
-            raise RuntimeError(f"Azure OpenAI API call failed: {e}")
+            raise RuntimeError(f"Azure OpenAI API call failed: {e}") from e
 
     async def embeddings(
         self,
         model: str,
         input: str | list[str],
-        tenant_id: str | None = None,
-        user_id: str | None = None,
+        _tenant_id: str | None = None,
+        _user_id: str | None = None,
     ) -> dict[str, Any]:
         """
         调用 Azure OpenAI Embeddings API。
@@ -165,11 +170,11 @@ class AzureAdapter(BaseAdapter):
         except httpx.HTTPStatusError as e:
             self.stats["failed_requests"] += 1
             logger.error(f"Azure OpenAI Embeddings API call failed: {e}", exc_info=True)
-            raise RuntimeError(f"Azure OpenAI Embeddings API call failed: {e}")
+            raise RuntimeError(f"Azure OpenAI Embeddings API call failed: {e}") from e
         except Exception as e:
             self.stats["failed_requests"] += 1
             logger.error(f"Azure OpenAI Embeddings API call failed: {e}", exc_info=True)
-            raise RuntimeError(f"Azure OpenAI Embeddings API call failed: {e}")
+            raise RuntimeError(f"Azure OpenAI Embeddings API call failed: {e}") from e
 
     async def close(self):
         """关闭 HTTP 客户端连接"""

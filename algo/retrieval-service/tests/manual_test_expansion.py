@@ -22,19 +22,19 @@ class MockSettings:
 
 class MockLogger:
     @staticmethod
-    def info(msg, **kwargs):
+    def info(msg, **_kwargs):
         print(f"[INFO] {msg}")
 
     @staticmethod
-    def debug(msg, **kwargs):
+    def debug(msg, **_kwargs):
         print(f"[DEBUG] {msg}")
 
     @staticmethod
-    def warning(msg, **kwargs):
+    def warning(msg, **_kwargs):
         print(f"[WARNING] {msg}")
 
     @staticmethod
-    def error(msg, **kwargs):
+    def error(msg, **_kwargs):
         print(f"[ERROR] {msg}")
 
 
@@ -43,7 +43,7 @@ sys.modules["app.core.config"] = type("module", (), {"settings": MockSettings()}
 sys.modules["app.observability.logging"] = type("module", (), {"logger": MockLogger()})()
 
 # 导入服务
-from app.services.query.expansion_service import QueryExpansionService
+from app.services.query.expansion_service import QueryExpansionService  # noqa: E402
 
 
 async def test_basic_expansion():

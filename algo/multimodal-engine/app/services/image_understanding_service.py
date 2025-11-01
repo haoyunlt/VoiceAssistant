@@ -19,9 +19,7 @@ class ImageUnderstandingService:
         self.vision_model = vision_model
 
     async def understand_image(
-        self,
-        image_data: bytes,
-        tasks: list[str] | None = None
+        self, image_data: bytes, tasks: list[str] | None = None
     ) -> dict[str, Any]:
         """全面理解图像"""
         if tasks is None:
@@ -58,12 +56,10 @@ class ImageUnderstandingService:
             else:
                 # Fallback to pytesseract
                 import pytesseract
-                text = pytesseract.image_to_string(image, lang='chi_sim+eng')
 
-            return {
-                "text": text.strip(),
-                "length": len(text.strip())
-            }
+                text = pytesseract.image_to_string(image, lang="chi_sim+eng")
+
+            return {"text": text.strip(), "length": len(text.strip())}
         except Exception as e:
             logger.error(f"OCR failed: {e}")
             return {"text": "", "error": str(e)}
@@ -76,10 +72,7 @@ class ImageUnderstandingService:
             else:
                 caption = "Image caption generation not available"
 
-            return {
-                "caption": caption,
-                "confidence": 0.85
-            }
+            return {"caption": caption, "confidence": 0.85}
         except Exception as e:
             logger.error(f"Caption generation failed: {e}")
             return {"caption": "", "error": str(e)}
@@ -110,11 +103,7 @@ class ImageUnderstandingService:
             logger.error(f"Scene classification failed: {e}")
             return {"category": "unknown", "error": str(e)}
 
-    async def answer_visual_question(
-        self,
-        image_data: bytes,
-        question: str
-    ) -> str:
+    async def answer_visual_question(self, image_data: bytes, question: str) -> str:
         """视觉问答"""
         try:
             image = Image.open(io.BytesIO(image_data))

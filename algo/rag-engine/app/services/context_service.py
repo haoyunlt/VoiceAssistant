@@ -1,4 +1,5 @@
 """上下文组装服务"""
+
 import logging
 
 from app.models.rag import RetrievedDocument
@@ -30,7 +31,7 @@ class ContextService:
 
         for i, doc in enumerate(documents):
             # 格式化文档
-            doc_text = f"[文档 {i+1}]\n{doc.content}\n"
+            doc_text = f"[文档 {i + 1}]\n{doc.content}\n"
             doc_length = len(doc_text)
 
             # 检查是否超过最大长度
@@ -38,7 +39,7 @@ class ContextService:
                 # 尝试截断当前文档
                 remaining = max_length - current_length
                 if remaining > 100:  # 至少保留100字符
-                    doc_text = f"[文档 {i+1}]\n{doc.content[:remaining-20]}...\n"
+                    doc_text = f"[文档 {i + 1}]\n{doc.content[: remaining - 20]}...\n"
                     context_parts.append(doc_text)
                 break
 

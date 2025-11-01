@@ -4,13 +4,12 @@ Document Management Service
 文档管理服务，负责文档的上传、处理、存储和检索
 """
 
-import asyncio
 import logging
 import mimetypes
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from app.models.document import Chunk, Document, DocumentStatus, DocumentType
+from app.models.document import Chunk, Document, DocumentType
 from app.storage.minio_client import MinIOClient
 
 logger = logging.getLogger(__name__)
@@ -41,8 +40,8 @@ class DocumentManager:
         file_data: bytes,
         tenant_id: str,
         uploaded_by: str,
-        name: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        name: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> Document:
         """上传文档
 
@@ -70,7 +69,7 @@ class DocumentManager:
             file_size=len(file_data),
             file_path=f"{tenant_id}/{knowledge_base_id}/{datetime.utcnow().strftime('%Y%m%d')}/{file_name}",
             tenant_id=tenant_id,
-            uploaded_by=uploaded_by
+            uploaded_by=uploaded_by,
         )
 
         if metadata:
@@ -123,7 +122,9 @@ class DocumentManager:
         await self.minio.delete_file(file_path)
         logger.info(f"Deleted document: {document_id}")
 
-    async def get_download_url(self, file_path: str, expires: timedelta = timedelta(hours=1)) -> str:
+    async def get_download_url(
+        self, file_path: str, expires: timedelta = timedelta(hours=1)
+    ) -> str:
         """获取下载 URL
 
         Args:
@@ -144,21 +145,21 @@ class DocumentManager:
         Returns:
             文档类型
         """
-        ext = file_name.lower().split('.')[-1]
+        ext = file_name.lower().split(".")[-1]
         type_map = {
-            'pdf': DocumentType.PDF,
-            'doc': DocumentType.WORD,
-            'docx': DocumentType.WORD,
-            'md': DocumentType.MARKDOWN,
-            'markdown': DocumentType.MARKDOWN,
-            'html': DocumentType.HTML,
-            'htm': DocumentType.HTML,
-            'json': DocumentType.JSON,
-            'txt': DocumentType.TEXT,
+            "pdf": DocumentType.PDF,
+            "doc": DocumentType.WORD,
+            "docx": DocumentType.WORD,
+            "md": DocumentType.MARKDOWN,
+            "markdown": DocumentType.MARKDOWN,
+            "html": DocumentType.HTML,
+            "htm": DocumentType.HTML,
+            "json": DocumentType.JSON,
+            "txt": DocumentType.TEXT,
         }
         return type_map.get(ext, DocumentType.TEXT)
 
-    async def process_document(self, document: Document, content: str) -> List[Chunk]:
+    async def process_document(self, document: Document, content: str) -> list[Chunk]:
         """处理文档（分块）
 
         Args:
@@ -183,12 +184,8 @@ class DocumentManager:
             raise
 
     async def _chunk_document(
-        self,
-        document: Document,
-        content: str,
-        chunk_size: int = 500,
-        chunk_overlap: int = 50
-    ) -> List[Chunk]:
+        self, document: Document, content: str, chunk_size: int = 500, chunk_overlap: int = 50
+    ) -> list[Chunk]:
         """文档分块
 
         Args:
@@ -213,11 +210,7 @@ class DocumentManager:
                 knowledge_base_id=document.knowledge_base_id,
                 content=chunk_content,
                 sequence=sequence,
-                metadata={
-                    "start": start,
-                    "end": end,
-                    "file_name": document.file_name
-                }
+                metadata={"start": start, "end": end, "file_name": document.file_name},
             )
             chunks.append(chunk)
 
@@ -237,7 +230,7 @@ class DocumentManager:
             文档内容
         """
         if document.file_type == DocumentType.TEXT:
-            return file_data.decode('utf-8')
+            return file_data.decode("utf-8")
         elif document.file_type == DocumentType.PDF:
             return await self._extract_pdf(file_data)
         elif document.file_type == DocumentType.WORD:
@@ -245,9 +238,9 @@ class DocumentManager:
         elif document.file_type == DocumentType.HTML:
             return await self._extract_html(file_data)
         elif document.file_type == DocumentType.JSON:
-            return file_data.decode('utf-8')
+            return file_data.decode("utf-8")
         else:
-            return file_data.decode('utf-8', errors='ignore')
+            return file_data.decode("utf-8", errors="ignore")
 
     async def _extract_pdf(self, file_data: bytes) -> str:
         """提取 PDF 内容
@@ -256,6 +249,7 @@ class DocumentManager:
         """
         try:
             import io
+
             from PyPDF2 import PdfReader
 
             pdf_file = io.BytesIO(file_data)
@@ -275,6 +269,7 @@ class DocumentManager:
         """
         try:
             import io
+
             from docx import Document as DocxDocument
 
             docx_file = io.BytesIO(file_data)
@@ -293,8 +288,8 @@ class DocumentManager:
         try:
             from bs4 import BeautifulSoup
 
-            html = file_data.decode('utf-8')
-            soup = BeautifulSoup(html, 'html.parser')
+            html = file_data.decode("utf-8")
+            soup = BeautifulSoup(html, "html.parser")
             text = soup.get_text()
             return text
         except Exception as e:
@@ -303,10 +298,10 @@ class DocumentManager:
 
 
 # 全局单例
-_document_manager: Optional[DocumentManager] = None
+_document_manager: DocumentManager | None = None
 
 
-def get_document_manager(minio_client: Optional[MinIOClient] = None) -> DocumentManager:
+def get_document_manager(minio_client: MinIOClient | None = None) -> DocumentManager:
     """获取文档管理器单例
 
     Args:

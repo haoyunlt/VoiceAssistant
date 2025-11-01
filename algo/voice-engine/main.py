@@ -29,11 +29,16 @@ if str(_common_path) not in sys.path:
     sys.path.insert(0, str(_common_path))
 
 # 导入统一基础设施模块
-from cors_config import get_cors_config
-from cost_tracking import cost_tracking_middleware
-from exception_handlers import register_exception_handlers
-from structured_logging import logging_middleware, setup_logging
-from telemetry import TracingConfig, init_tracing
+from config_audit import ConfigAuditLogger  # noqa: E402
+from cors_config import get_cors_config  # noqa: E402
+from cost_tracking import cost_tracking_middleware  # noqa: E402
+from error_monitoring import get_error_monitor  # noqa: E402
+from exception_handlers import register_exception_handlers  # noqa: E402
+from structured_logging import logging_middleware, setup_logging  # noqa: E402
+from telemetry import TracingConfig, init_tracing  # noqa: E402
+
+# 导入统一配置管理和错误监控
+from unified_config import create_config  # noqa: E402
 
 # 配置统一日志
 setup_logging(service_name="voice-engine")
@@ -49,22 +54,45 @@ def get_voice_engine():  # type: ignore
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):  # type: ignore
-    """应用生命周期管理"""
+async def lifespan(_app: FastAPI):  # type: ignore
+    """应用生命周期管理（集成统一配置和错误监控）"""
     logger.info("Starting Voice Engine...")
 
     try:
-        # 初始化 OpenTelemetry 追踪
+        # 1. 加载统一配置
+        config = create_config(
+            service_name="voice-engine",
+            config_path="./configs/voice-engine.yaml",
+            required_keys=["server.host", "server.port"]
+        )
+        _app.state.config = config
+        logger.info("Unified config loaded")
+
+        # 2. 启动配置审计日志
+        audit_logger = ConfigAuditLogger("voice-engine", enable_audit=True)
+        _app.state.audit_logger = audit_logger
+        audit_logger.log_config_load(
+            source="unified",
+            success=True,
+            config_keys=list(config._config_data.keys())
+        )
+
+        # 3. 启动错误监控
+        error_monitor = get_error_monitor("voice-engine")
+        _app.state.error_monitor = error_monitor
+        logger.info("Error monitoring initialized")
+
+        # 4. 初始化 OpenTelemetry 追踪
         tracing_config = TracingConfig(
             service_name="voice-engine",
-            service_version=os.getenv("SERVICE_VERSION", "1.0.0"),
-            environment=os.getenv("ENV", "development"),
+            service_version=config.get_string("service.version", "1.0.0"),
+            environment=config.get_string("service.environment", "development"),
         )
         tracer = init_tracing(tracing_config)
         if tracer:
             logger.info("OpenTelemetry tracing initialized")
 
-        # 初始化 Voice 引擎
+        # 5. 初始化 Voice 引擎
         from app.core.voice_engine import VoiceEngine
 
         voice_engine = VoiceEngine()
@@ -73,7 +101,7 @@ async def lifespan(app: FastAPI):  # type: ignore
         # 存储为依赖注入实例
         get_voice_engine._instance = voice_engine
 
-        logger.info("Voice Engine started successfully")
+        logger.info("Voice Engine started successfully with unified config and error monitoring")
 
         yield
 
@@ -101,9 +129,9 @@ cors_config = get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
 
 # 导入配置和中间件
-from app.core.config import get_settings
-from app.middleware.idempotency import IdempotencyMiddleware
-from app.middleware.rate_limiter import RateLimiterMiddleware
+from app.core.config import get_settings  # noqa: E402
+from app.middleware.idempotency import IdempotencyMiddleware  # noqa: E402
+from app.middleware.rate_limiter import RateLimiterMiddleware  # noqa: E402
 
 settings = get_settings()
 
@@ -164,7 +192,7 @@ if os.path.exists(static_dir):
     logger.info(f"Static files mounted: {static_dir}")
 
 # 注册路由
-from app.routers import (
+from app.routers import (  # noqa: E402
     diarization,
     emotion,
     full_duplex,
@@ -234,7 +262,7 @@ async def speech_to_text(
     try:
         voice_engine = get_voice_engine()
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="Service not initialized")
+        raise HTTPException(status_code=503, detail="Service not initialized") from None
 
     try:
         # 读取音频数据
@@ -251,7 +279,7 @@ async def speech_to_text(
 
     except Exception as e:
         logger.error(f"Error in ASR: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/tts")
@@ -271,7 +299,7 @@ async def text_to_speech(request: dict) -> StreamingResponse:
     try:
         voice_engine = get_voice_engine()
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="Service not initialized")
+        raise HTTPException(status_code=503, detail="Service not initialized") from None
 
     text = request.get("text")
     if not text:
@@ -293,7 +321,7 @@ async def text_to_speech(request: dict) -> StreamingResponse:
 
     except Exception as e:
         logger.error(f"Error in TTS: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/vad")
@@ -314,7 +342,7 @@ async def voice_activity_detection(
     try:
         voice_engine = get_voice_engine()
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="Service not initialized")
+        raise HTTPException(status_code=503, detail="Service not initialized") from None
 
     try:
         # 读取音频数据
@@ -333,7 +361,7 @@ async def voice_activity_detection(
 
     except Exception as e:
         logger.error(f"Error in VAD: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.post("/process")
@@ -356,7 +384,7 @@ async def process_audio(
     try:
         voice_engine = get_voice_engine()
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="Service not initialized")
+        raise HTTPException(status_code=503, detail="Service not initialized") from None
 
     if params is None:
         params = {}
@@ -387,7 +415,7 @@ async def process_audio(
 
     except Exception as e:
         logger.error(f"Error processing audio: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @app.get("/voices")
@@ -396,7 +424,7 @@ async def list_voices() -> dict:
     try:
         voice_engine = get_voice_engine()
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="Service not initialized")
+        raise HTTPException(status_code=503, detail="Service not initialized") from None
 
     voices = voice_engine.list_available_voices()
 
@@ -412,7 +440,7 @@ async def get_stats() -> dict:
     try:
         voice_engine = get_voice_engine()
     except RuntimeError:
-        raise HTTPException(status_code=503, detail="Service not initialized")
+        raise HTTPException(status_code=503, detail="Service not initialized") from None
 
     return await voice_engine.get_stats()
 

@@ -13,7 +13,6 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass
-from typing import List, Optional
 
 import numpy as np
 from redis.asyncio import Redis
@@ -26,8 +25,8 @@ class CachedResult:
     """缓存结果"""
 
     query: str
-    query_embedding: List[float]
-    documents: List[dict]
+    query_embedding: list[float]
+    documents: list[dict]
     score: float
     timestamp: float
     ttl: int  # seconds
@@ -66,7 +65,7 @@ class SemanticCache:
         self.ttl = ttl
         self.max_cache_size = max_cache_size
 
-        self.redis: Optional[Redis] = None
+        self.redis: Redis | None = None
         self._bloom_filter = set()  # 简化的Bloom Filter
 
         logger.info(
@@ -86,9 +85,7 @@ class SemanticCache:
             )
             logger.info("Semantic cache connected to Redis")
 
-    async def get(
-        self, query: str, query_embedding: np.ndarray
-    ) -> Optional[CachedResult]:
+    async def get(self, query: str, query_embedding: np.ndarray) -> CachedResult | None:
         """
         获取缓存结果
 
@@ -127,7 +124,7 @@ class SemanticCache:
         self,
         query: str,
         query_embedding: np.ndarray,
-        documents: List[dict],
+        documents: list[dict],
     ):
         """
         设置缓存
@@ -155,14 +152,10 @@ class SemanticCache:
                 "ttl": self.ttl,
             }
 
-            await self.redis.setex(
-                cache_key, self.ttl, json.dumps(cache_data).encode("utf-8")
-            )
+            await self.redis.setex(cache_key, self.ttl, json.dumps(cache_data).encode("utf-8"))
 
             # 3. 添加到LRU列表
-            await self.redis.zadd(
-                "semantic_cache:lru", {cache_key: time.time()}, nx=True
-            )
+            await self.redis.zadd("semantic_cache:lru", {cache_key: time.time()}, nx=True)
 
             # 4. 检查缓存大小，驱逐最旧的
             await self._evict_if_needed()
@@ -172,9 +165,7 @@ class SemanticCache:
         except Exception as e:
             logger.error(f"Semantic cache set error: {e}", exc_info=True)
 
-    async def _find_similar_cached(
-        self, query_embedding: np.ndarray
-    ) -> Optional[CachedResult]:
+    async def _find_similar_cached(self, query_embedding: np.ndarray) -> CachedResult | None:
         """
         查找相似的缓存查询
 

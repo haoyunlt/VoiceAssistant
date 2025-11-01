@@ -7,7 +7,6 @@ MinIO 对象存储客户端，用于文档文件的存储和检索
 import io
 import logging
 from datetime import timedelta
-from typing import Optional
 
 from minio import Minio
 from minio.error import S3Error
@@ -18,14 +17,7 @@ logger = logging.getLogger(__name__)
 class FileInfo:
     """文件信息"""
 
-    def __init__(
-        self,
-        name: str,
-        size: int,
-        content_type: str,
-        last_modified: str,
-        etag: str
-    ):
+    def __init__(self, name: str, size: int, content_type: str, last_modified: str, etag: str):
         self.name = name
         self.size = size
         self.content_type = content_type
@@ -42,7 +34,7 @@ class MinIOClient:
         access_key: str,
         secret_key: str,
         bucket_name: str,
-        secure: bool = False
+        secure: bool = False,
     ):
         """初始化 MinIO 客户端
 
@@ -53,12 +45,7 @@ class MinIOClient:
             bucket_name: 存储桶名称
             secure: 是否使用 HTTPS
         """
-        self.client = Minio(
-            endpoint,
-            access_key=access_key,
-            secret_key=secret_key,
-            secure=secure
-        )
+        self.client = Minio(endpoint, access_key=access_key, secret_key=secret_key, secure=secure)
         self.bucket_name = bucket_name
         self._ensure_bucket()
 
@@ -75,10 +62,7 @@ class MinIOClient:
             raise
 
     async def upload_file(
-        self,
-        object_name: str,
-        data: bytes,
-        content_type: str = "application/octet-stream"
+        self, object_name: str, data: bytes, content_type: str = "application/octet-stream"
     ) -> None:
         """上传文件
 
@@ -94,7 +78,7 @@ class MinIOClient:
                 object_name,
                 data_stream,
                 length=len(data),
-                content_type=content_type
+                content_type=content_type,
             )
             logger.info(f"Uploaded file: {object_name}")
         except S3Error as e:
@@ -135,9 +119,7 @@ class MinIOClient:
             raise
 
     async def get_presigned_url(
-        self,
-        object_name: str,
-        expires: timedelta = timedelta(hours=1)
+        self, object_name: str, expires: timedelta = timedelta(hours=1)
     ) -> str:
         """获取预签名 URL
 
@@ -149,18 +131,14 @@ class MinIOClient:
             预签名 URL
         """
         try:
-            url = self.client.presigned_get_object(
-                self.bucket_name,
-                object_name,
-                expires=expires
-            )
+            url = self.client.presigned_get_object(self.bucket_name, object_name, expires=expires)
             logger.info(f"Generated presigned URL for: {object_name}")
             return url
         except S3Error as e:
             logger.error(f"Failed to generate presigned URL for {object_name}: {e}")
             raise
 
-    async def get_file_info(self, object_name: str) -> Optional[FileInfo]:
+    async def get_file_info(self, object_name: str) -> FileInfo | None:
         """获取文件信息
 
         Args:
@@ -176,7 +154,7 @@ class MinIOClient:
                 size=stat.size,
                 content_type=stat.content_type,
                 last_modified=stat.last_modified.isoformat(),
-                etag=stat.etag
+                etag=stat.etag,
             )
         except S3Error as e:
             logger.error(f"Failed to get file info for {object_name}: {e}")
@@ -192,20 +170,18 @@ class MinIOClient:
             文件信息列表
         """
         try:
-            objects = self.client.list_objects(
-                self.bucket_name,
-                prefix=prefix,
-                recursive=True
-            )
+            objects = self.client.list_objects(self.bucket_name, prefix=prefix, recursive=True)
             files = []
             for obj in objects:
-                files.append(FileInfo(
-                    name=obj.object_name,
-                    size=obj.size,
-                    content_type=obj.content_type or "application/octet-stream",
-                    last_modified=obj.last_modified.isoformat(),
-                    etag=obj.etag
-                ))
+                files.append(
+                    FileInfo(
+                        name=obj.object_name,
+                        size=obj.size,
+                        content_type=obj.content_type or "application/octet-stream",
+                        last_modified=obj.last_modified.isoformat(),
+                        etag=obj.etag,
+                    )
+                )
             return files
         except S3Error as e:
             logger.error(f"Failed to list files with prefix {prefix}: {e}")
@@ -213,15 +189,15 @@ class MinIOClient:
 
 
 # 全局单例
-_minio_client: Optional[MinIOClient] = None
+_minio_client: MinIOClient | None = None
 
 
 def get_minio_client(
-    endpoint: Optional[str] = None,
-    access_key: Optional[str] = None,
-    secret_key: Optional[str] = None,
-    bucket_name: Optional[str] = None,
-    secure: bool = False
+    endpoint: str | None = None,
+    access_key: str | None = None,
+    secret_key: str | None = None,
+    bucket_name: str | None = None,
+    secure: bool = False,
 ) -> MinIOClient:
     """获取 MinIO 客户端单例
 

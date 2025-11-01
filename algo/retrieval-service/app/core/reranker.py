@@ -30,9 +30,7 @@ class CrossEncoderReranker:
 
         logger.info("Reranker model loaded successfully")
 
-    async def rerank(
-        self, query: str, documents: list[dict], top_k: int = 10
-    ) -> list[dict]:
+    async def rerank(self, query: str, documents: list[dict], top_k: int = 10) -> list[dict]:
         """
         重排序文档
 
@@ -98,18 +96,13 @@ class LLMReranker:
 
             from llm_client import LLMClient
 
-            self.llm_client = LLMClient(
-                base_url=self.llm_endpoint,
-                model=self.model
-            )
+            self.llm_client = LLMClient(base_url=self.llm_endpoint, model=self.model)
             logger.info("LLM client initialized for reranking")
         except Exception as e:
             logger.error(f"Failed to initialize LLM client: {e}", exc_info=True)
             self.llm_client = None
 
-    async def rerank(
-        self, query: str, documents: list[dict], top_k: int = 10
-    ) -> list[dict]:
+    async def rerank(self, query: str, documents: list[dict], top_k: int = 10) -> list[dict]:
         """
         使用 LLM 重排序文档
 
@@ -125,7 +118,6 @@ class LLMReranker:
 
         try:
             import asyncio
-            import json
 
             async def score_document(doc: dict) -> tuple[dict, float]:
                 """为单个文档评分"""
@@ -141,9 +133,7 @@ class LLMReranker:
 
                 try:
                     response = await self.llm_client.generate(
-                        prompt=prompt,
-                        temperature=0.1,
-                        max_tokens=10
+                        prompt=prompt, temperature=0.1, max_tokens=10
                     )
 
                     # 解析分数

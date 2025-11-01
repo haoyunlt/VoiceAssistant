@@ -260,12 +260,8 @@ def record_entity_extraction(
     entity_extraction_duration.labels(domain=domain).observe(duration)
 
     if success:
-        entities_extracted_total.labels(domain=domain, entity_type="all").inc(
-            entity_count
-        )
-        relations_extracted_total.labels(domain=domain, relation_type="all").inc(
-            relation_count
-        )
+        entities_extracted_total.labels(domain=domain, entity_type="all").inc(entity_count)
+        relations_extracted_total.labels(domain=domain, relation_type="all").inc(relation_count)
 
 
 def record_llm_call(
@@ -282,12 +278,12 @@ def record_llm_call(
     llm_requests_total.labels(model=model, operation=operation, status=status).inc()
 
     if success:
-        llm_tokens_consumed.labels(
-            model=model, operation=operation, token_type="prompt"
-        ).inc(prompt_tokens)
-        llm_tokens_consumed.labels(
-            model=model, operation=operation, token_type="completion"
-        ).inc(completion_tokens)
+        llm_tokens_consumed.labels(model=model, operation=operation, token_type="prompt").inc(
+            prompt_tokens
+        )
+        llm_tokens_consumed.labels(model=model, operation=operation, token_type="completion").inc(
+            completion_tokens
+        )
         llm_cost_usd.labels(model=model, operation=operation).inc(cost)
         llm_request_duration.labels(model=model, operation=operation).observe(duration)
 

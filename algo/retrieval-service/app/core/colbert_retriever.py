@@ -5,7 +5,6 @@ ColBERT Retriever - 底层检索器实现
 """
 
 import asyncio
-from typing import List, Optional
 
 import httpx
 import numpy as np
@@ -43,9 +42,9 @@ class ColBERTRetriever:
         self,
         query_embeddings: np.ndarray,
         top_k: int = 10,
-        tenant_id: Optional[str] = None,
-        filters: Optional[dict] = None,
-    ) -> List[dict]:
+        tenant_id: str | None = None,
+        filters: dict | None = None,
+    ) -> list[dict]:
         """
         执行ColBERT检索
 
@@ -85,7 +84,7 @@ class ColBERTRetriever:
 
     async def index_documents(
         self,
-        documents: List[dict],
+        documents: list[dict],
         batch_size: int = 100,
     ) -> bool:
         """

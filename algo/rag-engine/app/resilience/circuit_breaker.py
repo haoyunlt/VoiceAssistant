@@ -14,9 +14,9 @@
 
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except Exception as e:
+        except Exception:
             self._on_failure()
             raise
 
@@ -136,7 +136,7 @@ class CircuitBreaker:
                 )
                 self.state = CircuitState.OPEN
 
-    def get_state(self) -> Dict:
+    def get_state(self) -> dict:
         """获取熔断器状态"""
         return {
             "name": self.name,
@@ -154,7 +154,7 @@ class CircuitBreakerOpenError(Exception):
 
 
 # 全局熔断器实例
-_circuit_breakers: Dict[str, CircuitBreaker] = {}
+_circuit_breakers: dict[str, CircuitBreaker] = {}
 
 
 def get_circuit_breaker(name: str, config: CircuitBreakerConfig | None = None) -> CircuitBreaker:
@@ -162,4 +162,3 @@ def get_circuit_breaker(name: str, config: CircuitBreakerConfig | None = None) -
     if name not in _circuit_breakers:
         _circuit_breakers[name] = CircuitBreaker(name, config)
     return _circuit_breakers[name]
-
